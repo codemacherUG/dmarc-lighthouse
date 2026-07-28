@@ -22,7 +22,7 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'DMARC Viewer',
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
