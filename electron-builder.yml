@@ -43,6 +43,8 @@ portable:
 mac:
   icon: icon.icns
   category: public.app-category.utilities
+  # Keep zip/dmg names as dmarcviewer-… (not productName "DMARC Viewer" → DMARC.Viewer-…)
+  artifactName: ${name}-${version}-mac-${arch}.${ext}
   target:
     - target: dmg
       arch:

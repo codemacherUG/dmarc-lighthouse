@@ -82,6 +82,33 @@ jobs:
           \) -exec cp -v {} dist-release/ \;
           ls -lah dist-release
 
+          pkg_ver=$(node -p "require('./package.json').version")
+          echo "Validating artifact names for version $pkg_ver…"
+          bad=0
+          for f in dist-release/*; do
+            base=$(basename "$f")
+            case "$base" in
+              latest.yml|latest-linux.yml|latest-mac.yml) continue ;;
+            esac
+            case "$base" in
+              *' '*|DMARC*|*Viewer*)
+                echo "Invalid name (productName leak / spaces): $base" >&2
+                bad=1
+                ;;
+            esac
+            case "$base" in
+              dmarcviewer-"$pkg_ver"-*) ;;
+              *)
+                echo "Unexpected artifact name (want dmarcviewer-$pkg_ver-…): $base" >&2
+                bad=1
+                ;;
+            esac
+          done
+          if [ "$bad" -ne 0 ]; then
+            echo "Release aborted: fix electron-builder artifactName templates." >&2
+            exit 1
+          fi
+
       - name: Resolve tag
         id: tag
         shell: bash
