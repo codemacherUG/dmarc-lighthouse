@@ -1,9 +1,11 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AnalyzeProgress,
   AnalyzeResult,
+  DnsCheckResult,
   ImapConnectionInput,
+  IpInfo,
   SavedSettingsPublic,
   TestConnectionResult
 } from '../shared/types'
@@ -17,6 +19,18 @@ const api = {
   fetchAndAnalyze: (input: ImapConnectionInput): Promise<AnalyzeResult> =>
     ipcRenderer.invoke('imap:fetchAndAnalyze', input),
   fetchSaved: (): Promise<AnalyzeResult> => ipcRenderer.invoke('imap:fetchSaved'),
+  loadCache: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('cache:load'),
+  clearCache: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke('cache:clear'),
+  resolveIps: (ips: string[]): Promise<IpInfo[]> => ipcRenderer.invoke('ip:resolve', ips),
+  checkDns: (domain: string): Promise<DnsCheckResult> => ipcRenderer.invoke('dns:check', domain),
+  openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
+  parsePaths: (paths: string[]): Promise<AnalyzeResult> =>
+    ipcRenderer.invoke('files:parsePaths', paths),
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  exportSave: (
+    result: AnalyzeResult,
+    format: 'json' | 'csv'
+  ): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke('export:save', result, format),
   onProgress: (callback: (progress: AnalyzeProgress) => void): (() => void) => {
     const listener = (_event: IpcRendererEvent, progress: AnalyzeProgress): void => {
       callback(progress)
@@ -24,6 +38,15 @@ const api = {
     ipcRenderer.on('imap:progress', listener)
     return () => {
       ipcRenderer.removeListener('imap:progress', listener)
+    }
+  },
+  onResult: (callback: (result: AnalyzeResult) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, result: AnalyzeResult): void => {
+      callback(result)
+    }
+    ipcRenderer.on('imap:result', listener)
+    return () => {
+      ipcRenderer.removeListener('imap:result', listener)
     }
   }
 }

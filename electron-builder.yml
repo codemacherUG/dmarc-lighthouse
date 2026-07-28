@@ -14,6 +14,14 @@ files:
   - '!.github/*'
 asarUnpack:
   - 'resources/**'
+extraResources:
+  - from: build/icons
+    to: icons
+    filter:
+      - '*.png'
+  - from: build/icon.svg
+    to: icons/icon.svg
+afterPack: build/hooks/afterPack.cjs
 icon: icon.png
 win:
   executableName: dmarcviewer
@@ -52,6 +60,9 @@ mac:
 dmg:
   artifactName: ${name}-${version}-mac-${arch}.${ext}
 linux:
+  # PNG sizes for panel/_NET_WM_ICON + AppImage portals.
+  # SVG alone is not used by Electron window icons; without a window bitmap Cinnamon
+  # often shows a generic gear when AppImage↔desktop association fails.
   icon: icons
   executableName: dmarcviewer
   syncDesktopName: true

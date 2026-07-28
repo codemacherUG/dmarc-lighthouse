@@ -10,6 +10,10 @@
     <link href="./assets/main.css" type="text/css" rel="stylesheet" />
   </head>
   <body>
+    <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
+      <div class="drop-overlay-inner">DMARC-Dateien hier ablegen<br /><span>XML, GZ, ZIP, EML</span></div>
+    </div>
+
     <div id="app">
       <header class="app-header">
         <div>
@@ -20,6 +24,8 @@
         </div>
         <div class="header-actions">
           <button type="button" id="btn-info" class="btn secondary">Info</button>
+          <button type="button" id="btn-open-files" class="btn secondary">Dateien öffnen</button>
+          <button type="button" id="btn-export" class="btn secondary" disabled>Export</button>
           <button type="button" id="btn-settings" class="btn secondary">Einstellungen</button>
           <button type="button" id="btn-fetch" class="btn primary">Reports abrufen</button>
         </div>
@@ -32,6 +38,34 @@
           <span id="progress-label"></span>
         </div>
       </div>
+
+      <section class="panel filter-panel">
+        <div class="filter-row">
+          <label>
+            Zeitraum
+            <select id="filter-range">
+              <option value="all" selected>Gesamt</option>
+              <option value="7">Letzte 7 Tage</option>
+              <option value="30">Letzte 30 Tage</option>
+              <option value="90">Letzte 90 Tage</option>
+            </select>
+          </label>
+          <label>
+            Domain
+            <select id="filter-domain">
+              <option value="">Alle Domains</option>
+            </select>
+          </label>
+          <label class="dns-check-field">
+            DNS-Check
+            <div class="inline-actions">
+              <input id="dns-domain" type="text" placeholder="example.com" />
+              <button type="button" id="btn-dns" class="btn secondary">Prüfen</button>
+            </div>
+          </label>
+        </div>
+        <div id="dns-result" class="dns-result muted">DMARC-/SPF-DNS einer Domain prüfen.</div>
+      </section>
 
       <section class="panel kpi-panel">
         <div id="summary" class="summary-grid">
@@ -78,7 +112,7 @@
           </div>
         </div>
         <div class="chart-card volume-card">
-          <h2>Nachrichtenvolumen &amp; Compliance über Zeit</h2>
+          <h2>Nachrichtenvolumen &amp; Pass-Rate über Zeit</h2>
           <canvas id="chart-volume"></canvas>
         </div>
       </section>
@@ -108,7 +142,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>IP</th>
+                    <th>IP / Absender</th>
                     <th>Msgs</th>
                     <th>Pass %</th>
                   </tr>
@@ -158,7 +192,10 @@
               </thead>
               <tbody id="reports-body">
                 <tr class="empty">
-                  <td colspan="8">Einstellungen öffnen, Zugangsdaten speichern, dann Reports abrufen.</td>
+                  <td colspan="8">
+                    Einstellungen öffnen, Zugangsdaten speichern, dann Reports abrufen — oder Dateien
+                    per Drag &amp; Drop laden.
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -176,7 +213,7 @@
     <dialog id="settings-dialog">
       <form id="settings-form" method="dialog" class="settings-form">
         <header class="dialog-header">
-          <h2>IMAP-Einstellungen</h2>
+          <h2>Einstellungen</h2>
           <button type="button" id="btn-close-settings" class="btn ghost" aria-label="Schließen">
             ✕
           </button>
@@ -238,16 +275,56 @@
               placeholder="Leer = alle Nachrichten"
             />
           </label>
+
+          <label>
+            Auto-Abruf (Minuten)
+            <input
+              id="autoFetchMinutes"
+              name="autoFetchMinutes"
+              type="number"
+              min="0"
+              max="1440"
+              value="0"
+              title="0 = aus"
+            />
+          </label>
+
+          <label class="checkbox">
+            <input id="notifyOnFail" name="notifyOnFail" type="checkbox" checked />
+            Benachrichtigung bei neuen Failures
+          </label>
+
+          <label class="checkbox span-2">
+            <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
+            Nachrichten nach Abruf als gelesen markieren
+          </label>
         </div>
 
         <p id="password-hint" class="hint"></p>
         <p id="settings-status" class="hint" role="status"></p>
 
         <footer class="dialog-actions">
+          <button type="button" id="btn-clear-cache" class="btn secondary">Cache leeren</button>
           <button type="button" id="btn-test" class="btn secondary">Verbindung testen</button>
           <button type="submit" id="btn-save" class="btn primary">Speichern</button>
         </footer>
       </form>
+    </dialog>
+
+    <dialog id="export-dialog">
+      <div class="settings-form">
+        <header class="dialog-header">
+          <h2>Export</h2>
+          <button type="button" id="btn-close-export" class="btn ghost" aria-label="Schließen">
+            ✕
+          </button>
+        </header>
+        <p class="hint">Aktuell gefilterte Daten exportieren.</p>
+        <footer class="dialog-actions">
+          <button type="button" id="btn-export-csv" class="btn secondary">CSV speichern</button>
+          <button type="button" id="btn-export-json" class="btn primary">JSON speichern</button>
+        </footer>
+      </div>
     </dialog>
 
     <dialog id="info-dialog">
@@ -261,10 +338,10 @@
 
         <div class="about-body">
           <p class="about-title">DMARC Viewer</p>
-          <p class="about-version">Version 1.0.3</p>
+          <p class="about-version">Version 1.0.4</p>
           <p>
             Desktop-Tool zum Abrufen und Analysieren von DMARC-Aggregate-Reports aus einem
-            IMAP-Postfach.
+            IMAP-Postfach oder lokalen Dateien.
           </p>
           <dl class="about-meta">
             <div>

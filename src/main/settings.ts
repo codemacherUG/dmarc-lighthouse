@@ -13,6 +13,9 @@ interface StoredSettings {
   mailbox: string
   subjectFilter: string
   passwordEncrypted?: string
+  autoFetchMinutes?: number
+  notifyOnFail?: boolean
+  markSeenAfterFetch?: boolean
 }
 
 const DEFAULTS: SavedSettingsPublic = {
@@ -23,7 +26,10 @@ const DEFAULTS: SavedSettingsPublic = {
   user: '',
   mailbox: 'INBOX',
   subjectFilter: 'Report Domain',
-  hasPassword: false
+  hasPassword: false,
+  autoFetchMinutes: 0,
+  notifyOnFail: true,
+  markSeenAfterFetch: false
 }
 
 function settingsPath(): string {
@@ -50,6 +56,12 @@ function decryptPassword(encrypted?: string): string {
   }
 }
 
+function normalizeMinutes(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n) || n < 0) return 0
+  return Math.min(24 * 60, Math.round(n))
+}
+
 export function loadPublicSettings(): SavedSettingsPublic {
   const stored = readStored()
   if (!stored) return { ...DEFAULTS }
@@ -61,7 +73,10 @@ export function loadPublicSettings(): SavedSettingsPublic {
     user: stored.user ?? DEFAULTS.user,
     mailbox: stored.mailbox || DEFAULTS.mailbox,
     subjectFilter: stored.subjectFilter ?? DEFAULTS.subjectFilter,
-    hasPassword: Boolean(stored.passwordEncrypted)
+    hasPassword: Boolean(stored.passwordEncrypted),
+    autoFetchMinutes: normalizeMinutes(stored.autoFetchMinutes ?? DEFAULTS.autoFetchMinutes),
+    notifyOnFail: stored.notifyOnFail ?? DEFAULTS.notifyOnFail,
+    markSeenAfterFetch: stored.markSeenAfterFetch ?? DEFAULTS.markSeenAfterFetch
   }
 }
 
@@ -84,7 +99,10 @@ export function saveSettings(input: ImapConnectionInput): SavedSettingsPublic {
     user: input.user.trim(),
     mailbox: input.mailbox.trim() || 'INBOX',
     subjectFilter: input.subjectFilter,
-    passwordEncrypted
+    passwordEncrypted,
+    autoFetchMinutes: normalizeMinutes(input.autoFetchMinutes),
+    notifyOnFail: Boolean(input.notifyOnFail),
+    markSeenAfterFetch: Boolean(input.markSeenAfterFetch)
   }
 
   writeFileSync(settingsPath(), JSON.stringify(stored, null, 2), 'utf8')
@@ -108,6 +126,8 @@ export function resolveConnection(input: ImapConnectionInput): ImapConnectionInp
     throw new Error('Benutzer fehlt.')
   }
 
+  const pub = loadPublicSettings()
+
   return {
     provider: input.provider,
     host,
@@ -116,7 +136,10 @@ export function resolveConnection(input: ImapConnectionInput): ImapConnectionInp
     user: input.user.trim(),
     password,
     mailbox: input.mailbox.trim() || 'INBOX',
-    subjectFilter: input.subjectFilter
+    subjectFilter: input.subjectFilter,
+    autoFetchMinutes: normalizeMinutes(input.autoFetchMinutes ?? pub.autoFetchMinutes),
+    notifyOnFail: input.notifyOnFail ?? pub.notifyOnFail,
+    markSeenAfterFetch: input.markSeenAfterFetch ?? pub.markSeenAfterFetch
   }
 }
 

@@ -1,6 +1,12 @@
 import { ImapFlow } from 'imapflow'
-import type { AnalyzeProgress, ImapConnectionInput, TestConnectionResult } from '../shared/types'
-import { parseMimeSources } from './analyze'
+import type {
+  AnalyzeProgress,
+  AnalyzeResult,
+  ImapConnectionInput,
+  TestConnectionResult
+} from '../shared/types'
+import { analyzeFromReports, parseMimeSources } from './analyze'
+import { accountKeyFor, loadCachedReports, mergeReports, saveCache } from './cache'
 
 export type ProgressCallback = (progress: AnalyzeProgress) => void
 
@@ -25,7 +31,8 @@ export async function testConnection(settings: ImapConnectionInput): Promise<Tes
     await client.connect()
     const lock = await client.getMailboxLock(settings.mailbox)
     try {
-      const exists = client.mailbox && typeof client.mailbox === 'object' ? client.mailbox.exists : 0
+      const exists =
+        client.mailbox && typeof client.mailbox === 'object' ? client.mailbox.exists : 0
       return {
         ok: true,
         message: `Verbindung OK — Ordner „${settings.mailbox}“ enthält ${exists} Nachrichten.`,
@@ -48,11 +55,20 @@ export async function testConnection(settings: ImapConnectionInput): Promise<Tes
   }
 }
 
+export function loadCachedAnalyzeResult(settings: ImapConnectionInput): AnalyzeResult {
+  const key = accountKeyFor(settings.user, settings.host, settings.mailbox)
+  const { reports } = loadCachedReports(key)
+  return analyzeFromReports(reports, { fromCache: true, newReports: 0 })
+}
+
 export async function fetchAndAnalyze(
   settings: ImapConnectionInput,
   onProgress: ProgressCallback
-): Promise<Awaited<ReturnType<typeof parseMimeSources>>> {
+): Promise<AnalyzeResult> {
   const client = createClient(settings)
+  const accountKey = accountKeyFor(settings.user, settings.host, settings.mailbox)
+  const cached = loadCachedReports(accountKey)
+  const lastUid = cached.meta.lastUid
 
   onProgress({
     phase: 'connecting',
@@ -74,68 +90,60 @@ export async function fetchAndAnalyze(
         total: 0,
         parsed: 0,
         skipped: 0,
-        message: 'Suche DMARC-Reports…'
+        message:
+          lastUid > 0 ? `Suche neue DMARC-Reports (nach UID ${lastUid})…` : 'Suche DMARC-Reports…'
       })
 
       const filter = settings.subjectFilter.trim()
-      const searchQuery = filter ? { subject: filter } : { all: true as const }
-      const uids = await client.search(searchQuery, { uid: true })
+      const searchQuery: Record<string, unknown> = filter
+        ? { subject: filter }
+        : { all: true as const }
+      if (lastUid > 0) {
+        searchQuery.uid = `${lastUid + 1}:*`
+      }
 
-      if (!uids || uids.length === 0) {
+      const uids = await client.search(searchQuery, { uid: true })
+      const uidList = Array.isArray(uids) ? uids.filter((u) => u > lastUid) : []
+
+      if (uidList.length === 0) {
         onProgress({
           phase: 'done',
           processed: 0,
           total: 0,
-          parsed: 0,
+          parsed: cached.reports.length,
           skipped: 0,
-          message: 'Keine passenden Nachrichten gefunden.'
+          message:
+            cached.reports.length > 0
+              ? `Keine neuen Nachrichten — ${cached.reports.length} Reports aus Cache.`
+              : 'Keine passenden Nachrichten gefunden.'
         })
-        return {
-          aggregate: {
-            reportCount: 0,
-            total: 0,
-            passing: 0,
-            failing: 0,
-            passRate: 0,
-            dateBegin: null,
-            dateEnd: null,
-            domains: []
-          },
-          dashboard: {
-            dmarc: { pass: 0, fail: 0, other: 0 },
-            spf: { pass: 0, fail: 0, other: 0 },
-            dkim: { pass: 0, fail: 0, other: 0 },
-            dispositions: [],
-            byOrg: [],
-            bySourceIp: [],
-            byHeaderFrom: [],
-            volumeByDay: []
-          },
-          reports: [],
-          skipped: 0,
-          errors: []
-        }
+        return analyzeFromReports(cached.reports, {
+          fromCache: true,
+          newReports: 0
+        })
       }
 
-      const total = uids.length
+      const total = uidList.length
       onProgress({
         phase: 'fetching',
         processed: 0,
         total,
         parsed: 0,
         skipped: 0,
-        message: `${total} Nachrichten werden geladen…`
+        message: `${total} neue Nachrichten werden geladen…`
       })
 
       const sources: Array<{ uid: number; source: Buffer }> = []
       let processed = 0
+      let maxUid = lastUid
 
       for await (const message of client.fetch(
-        uids,
+        uidList,
         { uid: true, source: true },
         { uid: true }
       )) {
         processed += 1
+        if (message.uid > maxUid) maxUid = message.uid
         if (message.source) {
           sources.push({
             uid: message.uid,
@@ -163,7 +171,29 @@ export async function fetchAndAnalyze(
         message: `${sources.length} Nachrichten werden geparst…`
       })
 
-      const result = await parseMimeSources(sources)
+      const fresh = await parseMimeSources(sources)
+      const merged = mergeReports(cached.reports, fresh.reports)
+      const result = analyzeFromReports(merged, {
+        skipped: fresh.skipped,
+        errors: fresh.errors,
+        fromCache: cached.reports.length > 0,
+        newReports: fresh.reports.length
+      })
+
+      saveCache({
+        accountKey,
+        reports: merged,
+        lastUid: maxUid,
+        lastFailingTotal: result.aggregate.failing
+      })
+
+      if (settings.markSeenAfterFetch && uidList.length > 0) {
+        try {
+          await client.messageFlagsAdd(uidList, ['\\Seen'], { uid: true })
+        } catch {
+          // Markieren ist optional — Abruf gilt trotzdem als erfolgreich.
+        }
+      }
 
       onProgress({
         phase: 'done',
@@ -171,7 +201,7 @@ export async function fetchAndAnalyze(
         total,
         parsed: result.reports.length,
         skipped: result.skipped,
-        message: `${result.reports.length} Reports, ${result.skipped} übersprungen.`
+        message: `${fresh.reports.length} neu, ${result.reports.length} Reports gesamt, ${result.skipped} übersprungen.`
       })
 
       return result
@@ -196,4 +226,9 @@ export async function fetchAndAnalyze(
       client.close()
     }
   }
+}
+
+export function previousFailingTotal(settings: ImapConnectionInput): number {
+  const key = accountKeyFor(settings.user, settings.host, settings.mailbox)
+  return loadCachedReports(key).meta.lastFailingTotal
 }

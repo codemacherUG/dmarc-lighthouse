@@ -2,7 +2,9 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   AnalyzeProgress,
   AnalyzeResult,
+  DnsCheckResult,
   ImapConnectionInput,
+  IpInfo,
   SavedSettingsPublic,
   TestConnectionResult
 } from '../shared/types'
@@ -13,7 +15,19 @@ export interface DmarcViewerApi {
   testConnection: (input: ImapConnectionInput) => Promise<TestConnectionResult>
   fetchAndAnalyze: (input: ImapConnectionInput) => Promise<AnalyzeResult>
   fetchSaved: () => Promise<AnalyzeResult>
+  loadCache: () => Promise<AnalyzeResult | null>
+  clearCache: () => Promise<{ ok: boolean; message: string }>
+  resolveIps: (ips: string[]) => Promise<IpInfo[]>
+  checkDns: (domain: string) => Promise<DnsCheckResult>
+  openFiles: () => Promise<AnalyzeResult | null>
+  parsePaths: (paths: string[]) => Promise<AnalyzeResult>
+  getPathForFile: (file: File) => string
+  exportSave: (
+    result: AnalyzeResult,
+    format: 'json' | 'csv'
+  ) => Promise<{ ok: boolean; message: string }>
   onProgress: (callback: (progress: AnalyzeProgress) => void) => () => void
+  onResult: (callback: (result: AnalyzeResult) => void) => () => void
 }
 
 declare global {

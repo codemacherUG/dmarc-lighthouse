@@ -1,7 +1,7 @@
 {
   "name": "dmarcviewer",
-  "version": "1.0.3",
-  "description": "Desktop DMARC report viewer — IMAP fetch and aggregate analysis",
+  "version": "1.0.4",
+  "description": "Desktop DMARC report viewer — IMAP fetch, local files, cache and aggregate analysis",
   "main": "./out/main/index.js",
   "author": "codemacher UG (haftungsbeschränkt)",
   "homepage": "https://codemacher.de/",

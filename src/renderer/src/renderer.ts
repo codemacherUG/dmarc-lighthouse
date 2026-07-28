@@ -7,12 +7,18 @@ import {
   BarController,
   Legend,
   LinearScale,
-  Tooltip
+  LineController,
+  LineElement,
+  PointElement,
+  Tooltip,
+  Filler
 } from 'chart.js'
+import { analyzeFromReports, applyDashboardFilter } from '../../shared/analyze'
 import type {
   AlignmentBreakdown,
   AnalyzeProgress,
   AnalyzeResult,
+  DateRangePreset,
   ImapConnectionInput,
   NamedBucket,
   ProviderPreset,
@@ -28,8 +34,12 @@ Chart.register(
   LinearScale,
   DoughnutController,
   BarController,
+  LineController,
+  LineElement,
+  PointElement,
   Legend,
-  Tooltip
+  Tooltip,
+  Filler
 )
 
 const PASS = '#1f7a45'
@@ -37,6 +47,7 @@ const FAIL = '#b33a2b'
 const OTHER = '#8a93a3'
 const VOLUME_PASS = 'rgba(31, 122, 69, 0.85)'
 const VOLUME_FAIL = 'rgba(179, 58, 43, 0.8)'
+const RATE_LINE = '#1f6f8b'
 
 const statusEl = document.getElementById('status') as HTMLDivElement
 const progressEl = document.getElementById('progress') as HTMLProgressElement
@@ -47,17 +58,30 @@ const detailEl = document.getElementById('detail') as HTMLDivElement
 const tableOrgs = document.getElementById('table-orgs') as HTMLTableSectionElement
 const tableIps = document.getElementById('table-ips') as HTMLTableSectionElement
 const tableFrom = document.getElementById('table-from') as HTMLTableSectionElement
+const dropOverlay = document.getElementById('drop-overlay') as HTMLDivElement
+const filterRangeEl = document.getElementById('filter-range') as HTMLSelectElement
+const filterDomainEl = document.getElementById('filter-domain') as HTMLSelectElement
+const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputElement
+const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 
 const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
 const btnInfo = document.getElementById('btn-info') as HTMLButtonElement
 const btnFetch = document.getElementById('btn-fetch') as HTMLButtonElement
+const btnOpenFiles = document.getElementById('btn-open-files') as HTMLButtonElement
+const btnExport = document.getElementById('btn-export') as HTMLButtonElement
+const btnDns = document.getElementById('btn-dns') as HTMLButtonElement
 const settingsDialog = document.getElementById('settings-dialog') as HTMLDialogElement
 const infoDialog = document.getElementById('info-dialog') as HTMLDialogElement
+const exportDialog = document.getElementById('export-dialog') as HTMLDialogElement
 const settingsForm = document.getElementById('settings-form') as HTMLFormElement
 const btnCloseSettings = document.getElementById('btn-close-settings') as HTMLButtonElement
 const btnCloseInfo = document.getElementById('btn-close-info') as HTMLButtonElement
+const btnCloseExport = document.getElementById('btn-close-export') as HTMLButtonElement
 const btnInfoOk = document.getElementById('btn-info-ok') as HTMLButtonElement
 const btnTest = document.getElementById('btn-test') as HTMLButtonElement
+const btnClearCache = document.getElementById('btn-clear-cache') as HTMLButtonElement
+const btnExportCsv = document.getElementById('btn-export-csv') as HTMLButtonElement
+const btnExportJson = document.getElementById('btn-export-json') as HTMLButtonElement
 const passwordHintEl = document.getElementById('password-hint') as HTMLParagraphElement
 const settingsStatusEl = document.getElementById('settings-status') as HTMLParagraphElement
 
@@ -69,39 +93,68 @@ const userEl = document.getElementById('user') as HTMLInputElement
 const passwordEl = document.getElementById('password') as HTMLInputElement
 const mailboxEl = document.getElementById('mailbox') as HTMLInputElement
 const subjectFilterEl = document.getElementById('subjectFilter') as HTMLInputElement
+const autoFetchMinutesEl = document.getElementById('autoFetchMinutes') as HTMLInputElement
+const notifyOnFailEl = document.getElementById('notifyOnFail') as HTMLInputElement
+const markSeenAfterFetchEl = document.getElementById('markSeenAfterFetch') as HTMLInputElement
 
 let selectedReportId: string | null = null
 let busy = false
 let savedSettings: SavedSettingsPublic | null = null
+let fullResult: AnalyzeResult | null = null
+let viewResult: AnalyzeResult | null = null
+const ipLabelCache = new Map<string, { ptr: string | null; provider: string | null }>()
 
 const chartDmarc = createDoughnut('chart-dmarc')
 const chartSpf = createDoughnut('chart-spf')
 const chartDkim = createDoughnut('chart-dkim')
-const chartVolume = new Chart<'bar'>(document.getElementById('chart-volume') as HTMLCanvasElement, {
-  type: 'bar',
+const chartVolume = new Chart(document.getElementById('chart-volume') as HTMLCanvasElement, {
   data: {
     labels: [] as string[],
     datasets: [
       {
+        type: 'bar',
         label: 'Pass',
         data: [] as number[],
         backgroundColor: VOLUME_PASS,
-        stack: 'v'
+        stack: 'v',
+        yAxisID: 'y'
       },
       {
+        type: 'bar',
         label: 'Fail',
         data: [] as number[],
         backgroundColor: VOLUME_FAIL,
-        stack: 'v'
+        stack: 'v',
+        yAxisID: 'y'
+      },
+      {
+        type: 'line',
+        label: 'Pass-Rate %',
+        data: [] as number[],
+        borderColor: RATE_LINE,
+        backgroundColor: 'rgba(31, 111, 139, 0.12)',
+        tension: 0.25,
+        fill: false,
+        yAxisID: 'y1',
+        pointRadius: 2,
+        borderWidth: 2
       }
     ]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
     scales: {
       x: { stacked: true, grid: { display: false } },
-      y: { stacked: true, beginAtZero: true }
+      y: { stacked: true, beginAtZero: true, position: 'left' },
+      y1: {
+        beginAtZero: true,
+        max: 100,
+        position: 'right',
+        grid: { drawOnChartArea: false },
+        ticks: { callback: (v) => `${v}%` }
+      }
     },
     plugins: {
       legend: { position: 'bottom' }
@@ -143,6 +196,8 @@ function setBusy(next: boolean): void {
   btnFetch.disabled = next
   btnSettings.disabled = next
   btnTest.disabled = next
+  btnOpenFiles.disabled = next
+  btnDns.disabled = next
 }
 
 function readSettingsForm(): ImapConnectionInput {
@@ -154,7 +209,10 @@ function readSettingsForm(): ImapConnectionInput {
     user: userEl.value.trim(),
     password: passwordEl.value,
     mailbox: mailboxEl.value.trim() || 'INBOX',
-    subjectFilter: subjectFilterEl.value
+    subjectFilter: subjectFilterEl.value,
+    autoFetchMinutes: Number(autoFetchMinutesEl.value) || 0,
+    notifyOnFail: notifyOnFailEl.checked,
+    markSeenAfterFetch: markSeenAfterFetchEl.checked
   }
 }
 
@@ -202,9 +260,7 @@ function updateSummary(result: AnalyzeResult | null): void {
     passing: result ? String(result.aggregate.passing) : '—',
     failing: result ? String(result.aggregate.failing) : '—',
     passRate: result ? `${result.aggregate.passRate.toFixed(1)}%` : '—',
-    range: result
-      ? formatRange(result.aggregate.dateBegin, result.aggregate.dateEnd)
-      : '—'
+    range: result ? formatRange(result.aggregate.dateBegin, result.aggregate.dateEnd) : '—'
   }
   for (const [key, value] of Object.entries(map)) {
     const el = document.querySelector<HTMLElement>(`[data-key="${key}"]`)
@@ -217,23 +273,37 @@ function setAlignmentChart(chart: Chart<'doughnut'>, data: AlignmentBreakdown): 
   chart.update()
 }
 
-function renderBucketTable(tbody: HTMLTableSectionElement, rows: NamedBucket[]): void {
+function renderBucketTable(
+  tbody: HTMLTableSectionElement,
+  rows: NamedBucket[],
+  withIpMeta = false
+): void {
   if (!rows.length) {
     tbody.innerHTML = '<tr class="empty"><td colspan="3">Keine Daten</td></tr>'
     return
   }
   tbody.innerHTML = rows
-    .map(
-      (r) => `
+    .map((r) => {
+      let nameHtml = `<span class="mono">${escapeHtml(r.name)}</span>`
+      if (withIpMeta) {
+        const meta = ipLabelCache.get(r.name)
+        const provider = r.provider ?? meta?.provider
+        const ptr = r.label ?? meta?.ptr
+        const bits: string[] = []
+        if (provider) bits.push(`<span class="badge">${escapeHtml(provider)}</span>`)
+        if (ptr) bits.push(`<span class="ptr">${escapeHtml(ptr)}</span>`)
+        if (bits.length) nameHtml += `<div class="ip-meta">${bits.join(' ')}</div>`
+      }
+      return `
       <tr>
-        <td class="mono">${escapeHtml(r.name)}</td>
+        <td>${nameHtml}</td>
         <td>${r.count}</td>
         <td>
           <span class="rate-bar"><span style="width:${Math.min(100, r.passRate)}%"></span></span>
           ${r.passRate.toFixed(1)}%
         </td>
       </tr>`
-    )
+    })
     .join('')
 }
 
@@ -245,6 +315,7 @@ function renderDashboard(result: AnalyzeResult | null): void {
     chartVolume.data.labels = []
     chartVolume.data.datasets[0].data = []
     chartVolume.data.datasets[1].data = []
+    chartVolume.data.datasets[2].data = []
     chartVolume.update()
     renderBucketTable(tableOrgs, [])
     renderBucketTable(tableIps, [])
@@ -260,11 +331,30 @@ function renderDashboard(result: AnalyzeResult | null): void {
   chartVolume.data.labels = d.volumeByDay.map((p) => p.date)
   chartVolume.data.datasets[0].data = d.volumeByDay.map((p) => p.passing)
   chartVolume.data.datasets[1].data = d.volumeByDay.map((p) => p.failing)
+  chartVolume.data.datasets[2].data = d.volumeByDay.map((p) => p.passRate)
   chartVolume.update()
 
   renderBucketTable(tableOrgs, d.byOrg)
-  renderBucketTable(tableIps, d.bySourceIp)
+  renderBucketTable(tableIps, d.bySourceIp, true)
   renderBucketTable(tableFrom, d.byHeaderFrom)
+
+  void enrichIpLabels(d.bySourceIp.map((r) => r.name))
+}
+
+async function enrichIpLabels(ips: string[]): Promise<void> {
+  const missing = ips.filter((ip) => !ipLabelCache.has(ip)).slice(0, 40)
+  if (!missing.length) return
+  try {
+    const infos = await window.api.resolveIps(missing)
+    for (const info of infos) {
+      ipLabelCache.set(info.ip, { ptr: info.ptr, provider: info.provider })
+    }
+    if (viewResult) {
+      renderBucketTable(tableIps, viewResult.dashboard.bySourceIp, true)
+    }
+  } catch {
+    // Reverse-DNS ist optional.
+  }
 }
 
 function renderDetail(report: ReportRow | null): void {
@@ -274,8 +364,14 @@ function renderDetail(report: ReportRow | null): void {
   }
 
   const rows = report.records
-    .map(
-      (r) => `
+    .map((r) => {
+      const reasons =
+        r.reasons?.length > 0
+          ? r.reasons
+              .map((x) => escapeHtml([x.type, x.comment].filter(Boolean).join(': ')))
+              .join('<br />')
+          : '—'
+      return `
       <tr>
         <td class="mono">${escapeHtml(r.sourceIp)}</td>
         <td>${r.count}</td>
@@ -284,8 +380,9 @@ function renderDetail(report: ReportRow | null): void {
         <td class="${r.spfResult === 'pass' ? 'pass' : 'fail'}">${escapeHtml(r.spfResult ?? '—')}</td>
         <td class="${r.passesDmarc ? 'pass' : 'fail'}">${r.passesDmarc ? 'pass' : 'fail'}</td>
         <td>${escapeHtml(r.headerFrom ?? '—')}</td>
+        <td class="reasons">${reasons}</td>
       </tr>`
-    )
+    })
     .join('')
 
   detailEl.innerHTML = `
@@ -306,9 +403,10 @@ function renderDetail(report: ReportRow | null): void {
           <th>SPF</th>
           <th>DMARC</th>
           <th>From</th>
+          <th>Reasons</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="7">Keine Records</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="8">Keine Records</td></tr>'}</tbody>
     </table>
   `
 }
@@ -355,6 +453,55 @@ function renderReports(result: AnalyzeResult | null): void {
   renderDetail(selected)
 }
 
+function fillDomainFilter(result: AnalyzeResult | null): void {
+  const current = filterDomainEl.value
+  const domains = result?.aggregate.domains ?? []
+  filterDomainEl.innerHTML =
+    '<option value="">Alle Domains</option>' +
+    domains.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')
+  if (domains.includes(current)) filterDomainEl.value = current
+  if (domains.length === 1 && !dnsDomainEl.value) {
+    dnsDomainEl.value = domains[0]
+  }
+}
+
+function applyView(): void {
+  if (!fullResult) {
+    viewResult = null
+    updateSummary(null)
+    renderDashboard(null)
+    renderReports(null)
+    btnExport.disabled = true
+    return
+  }
+
+  viewResult = applyDashboardFilter(fullResult, {
+    range: filterRangeEl.value as DateRangePreset,
+    domain: filterDomainEl.value
+  })
+  updateSummary(viewResult)
+  renderDashboard(viewResult)
+  renderReports(viewResult)
+  btnExport.disabled = viewResult.reports.length === 0
+}
+
+function showResult(result: AnalyzeResult, statusMessage?: string): void {
+  fullResult = result
+  fillDomainFilter(result)
+  applyView()
+  if (statusMessage) {
+    setStatus(statusMessage, 'ok')
+  } else {
+    const skippedNote = result.skipped ? `, ${result.skipped} übersprungen` : ''
+    const newNote = result.newReports != null ? `, ${result.newReports} neu` : ''
+    const cacheNote = result.fromCache ? ' (inkl. Cache)' : ''
+    setStatus(
+      `${result.aggregate.reportCount} Reports${newNote}${cacheNote} (${result.aggregate.total} Nachrichten${skippedNote}).`,
+      'ok'
+    )
+  }
+}
+
 function applyProgress(progress: AnalyzeProgress): void {
   const pct =
     progress.total > 0 ? Math.min(100, Math.round((progress.processed / progress.total) * 100)) : 0
@@ -375,6 +522,9 @@ function fillSettingsForm(settings: SavedSettingsPublic): void {
   userEl.value = settings.user
   mailboxEl.value = settings.mailbox
   subjectFilterEl.value = settings.subjectFilter
+  autoFetchMinutesEl.value = String(settings.autoFetchMinutes ?? 0)
+  notifyOnFailEl.checked = settings.notifyOnFail !== false
+  markSeenAfterFetchEl.checked = Boolean(settings.markSeenAfterFetch)
   passwordEl.value = ''
   passwordHintEl.textContent = settings.hasPassword
     ? 'Ein Passwort ist verschlüsselt gespeichert. Feld leer lassen, um es beizubehalten.'
@@ -387,7 +537,7 @@ async function loadSettings(): Promise<void> {
   fillSettingsForm(savedSettings)
   updateAccountLabel(savedSettings)
   if (!savedSettings.hasPassword || !savedSettings.user) {
-    setStatus('Bitte zuerst IMAP-Zugangsdaten in den Einstellungen speichern.')
+    setStatus('Bitte zuerst IMAP-Zugangsdaten speichern — oder Dateien per Drag & Drop laden.')
   }
 }
 
@@ -398,14 +548,18 @@ function openSettings(): void {
 
 btnSettings.addEventListener('click', () => openSettings())
 btnCloseSettings.addEventListener('click', () => settingsDialog.close())
-
 btnInfo.addEventListener('click', () => infoDialog.showModal())
 btnCloseInfo.addEventListener('click', () => infoDialog.close())
 btnInfoOk.addEventListener('click', () => infoDialog.close())
+btnExport.addEventListener('click', () => exportDialog.showModal())
+btnCloseExport.addEventListener('click', () => exportDialog.close())
 
 providerEl.addEventListener('change', () => {
   applyProviderPreset(providerEl.value as ProviderPreset)
 })
+
+filterRangeEl.addEventListener('change', () => applyView())
+filterDomainEl.addEventListener('change', () => applyView())
 
 btnTest.addEventListener('click', async () => {
   if (busy) return
@@ -419,6 +573,24 @@ btnTest.addEventListener('click', async () => {
     const msg = err instanceof Error ? err.message : String(err)
     settingsStatusEl.textContent = msg
     setStatus(msg, 'error')
+  } finally {
+    setBusy(false)
+  }
+})
+
+btnClearCache.addEventListener('click', async () => {
+  if (busy) return
+  setBusy(true)
+  try {
+    const result = await window.api.clearCache()
+    settingsStatusEl.textContent = result.message
+    if (result.ok) {
+      fullResult = null
+      applyView()
+      setStatus('Cache geleert. Nächster Abruf holt alle Nachrichten erneut.', 'ok')
+    }
+  } catch (err) {
+    settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
   } finally {
     setBusy(false)
   }
@@ -460,14 +632,7 @@ btnFetch.addEventListener('click', async () => {
   try {
     const result = await window.api.fetchSaved()
     selectedReportId = null
-    updateSummary(result)
-    renderDashboard(result)
-    renderReports(result)
-    const skippedNote = result.skipped ? `, ${result.skipped} übersprungen` : ''
-    setStatus(
-      `${result.aggregate.reportCount} Reports analysiert (${result.aggregate.total} Nachrichten${skippedNote}).`,
-      'ok'
-    )
+    showResult(result)
   } catch (err) {
     setStatus(err instanceof Error ? err.message : String(err), 'error')
   } finally {
@@ -475,8 +640,137 @@ btnFetch.addEventListener('click', async () => {
   }
 })
 
-window.api.onProgress(applyProgress)
-
-void loadSettings().catch((err) => {
-  setStatus(err instanceof Error ? err.message : String(err), 'error')
+btnOpenFiles.addEventListener('click', async () => {
+  if (busy) return
+  setBusy(true)
+  try {
+    const result = await window.api.openFiles()
+    if (!result) return
+    selectedReportId = null
+    if (fullResult) {
+      const map = new Map(fullResult.reports.map((r) => [r.reportId, r]))
+      for (const r of result.reports) {
+        map.set(r.reportId || `${r.orgName}|${r.domain}|${r.dateEnd}`, r)
+      }
+      showResult(
+        analyzeFromReports([...map.values()], {
+          skipped: fullResult.skipped + result.skipped,
+          errors: [...fullResult.errors, ...result.errors].slice(0, 50),
+          newReports: result.reports.length
+        }),
+        `${result.reports.length} lokale Reports geladen.`
+      )
+    } else {
+      showResult(result, `${result.reports.length} lokale Reports geladen.`)
+    }
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : String(err), 'error')
+  } finally {
+    setBusy(false)
+  }
 })
+
+btnDns.addEventListener('click', async () => {
+  const domain = dnsDomainEl.value.trim() || filterDomainEl.value
+  if (!domain) {
+    dnsResultEl.textContent = 'Bitte eine Domain eingeben.'
+    dnsResultEl.className = 'dns-result error'
+    return
+  }
+  dnsResultEl.textContent = `Prüfe DNS für ${domain}…`
+  dnsResultEl.className = 'dns-result'
+  try {
+    const result = await window.api.checkDns(domain)
+    const dmarcLine = result.dmarc.found
+      ? `DMARC: p=${result.dmarc.policy ?? '?'} · rua=${result.dmarc.rua ?? '—'}`
+      : `DMARC: nicht gefunden${result.dmarc.error ? ` (${result.dmarc.error})` : ''}`
+    const spfLine = result.spf.found
+      ? `SPF: ${result.spf.records[0]}`
+      : `SPF: nicht gefunden${result.spf.error ? ` (${result.spf.error})` : ''}`
+    dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span>`
+    dnsResultEl.className = 'dns-result ok'
+  } catch (err) {
+    dnsResultEl.textContent = err instanceof Error ? err.message : String(err)
+    dnsResultEl.className = 'dns-result error'
+  }
+})
+
+async function doExport(format: 'json' | 'csv'): Promise<void> {
+  if (!viewResult) return
+  try {
+    const res = await window.api.exportSave(viewResult, format)
+    setStatus(res.message, res.ok ? 'ok' : '')
+    if (res.ok) exportDialog.close()
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : String(err), 'error')
+  }
+}
+
+btnExportCsv.addEventListener('click', () => void doExport('csv'))
+btnExportJson.addEventListener('click', () => void doExport('json'))
+
+// Drag & Drop
+let dragDepth = 0
+window.addEventListener('dragenter', (e) => {
+  e.preventDefault()
+  dragDepth += 1
+  dropOverlay.classList.remove('hidden')
+})
+window.addEventListener('dragleave', (e) => {
+  e.preventDefault()
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (dragDepth === 0) dropOverlay.classList.add('hidden')
+})
+window.addEventListener('dragover', (e) => {
+  e.preventDefault()
+})
+window.addEventListener('drop', (e) => {
+  e.preventDefault()
+  dragDepth = 0
+  dropOverlay.classList.add('hidden')
+  const files = [...(e.dataTransfer?.files ?? [])]
+  if (!files.length || busy) return
+  const paths = files
+    .map((f) => {
+      try {
+        return window.api.getPathForFile(f)
+      } catch {
+        return ''
+      }
+    })
+    .filter(Boolean)
+  if (!paths.length) {
+    setStatus('Dateien konnten nicht gelesen werden.', 'error')
+    return
+  }
+  void (async () => {
+    setBusy(true)
+    try {
+      const result = await window.api.parsePaths(paths)
+      selectedReportId = null
+      showResult(result, `${result.reports.length} Dateien geladen.`)
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : String(err), 'error')
+    } finally {
+      setBusy(false)
+    }
+  })()
+})
+
+window.api.onProgress(applyProgress)
+window.api.onResult((result) => {
+  selectedReportId = null
+  showResult(result)
+})
+
+void (async () => {
+  try {
+    await loadSettings()
+    const cached = await window.api.loadCache()
+    if (cached && cached.reports.length > 0) {
+      showResult(cached, `${cached.aggregate.reportCount} Reports aus Cache — Abruf holt nur Neue.`)
+    }
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : String(err), 'error')
+  }
+})()

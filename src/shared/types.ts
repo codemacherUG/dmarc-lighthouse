@@ -1,5 +1,7 @@
 export type ProviderPreset = 'gmail' | 'outlook' | 'custom'
 
+export type DateRangePreset = 'all' | '7' | '30' | '90'
+
 export interface ProviderDefaults {
   host: string
   port: number
@@ -21,6 +23,9 @@ export interface ImapConnectionInput {
   password: string
   mailbox: string
   subjectFilter: string
+  autoFetchMinutes: number
+  notifyOnFail: boolean
+  markSeenAfterFetch: boolean
 }
 
 export interface SavedSettingsPublic {
@@ -32,6 +37,9 @@ export interface SavedSettingsPublic {
   mailbox: string
   subjectFilter: string
   hasPassword: boolean
+  autoFetchMinutes: number
+  notifyOnFail: boolean
+  markSeenAfterFetch: boolean
 }
 
 export interface AnalyzeProgress {
@@ -41,6 +49,11 @@ export interface AnalyzeProgress {
   parsed: number
   skipped: number
   message?: string
+}
+
+export interface SerializedReason {
+  type: string | null
+  comment: string | null
 }
 
 export interface SerializedRecord {
@@ -53,6 +66,7 @@ export interface SerializedRecord {
   dkimDomain: string | null
   spfDomain: string | null
   passesDmarc: boolean
+  reasons: SerializedReason[]
 }
 
 export interface ReportRow {
@@ -81,6 +95,9 @@ export interface NamedBucket {
   passing: number
   failing: number
   passRate: number
+  /** Optional labels for IP rows (PTR / known provider). */
+  label?: string | null
+  provider?: string | null
 }
 
 export interface VolumePoint {
@@ -88,6 +105,7 @@ export interface VolumePoint {
   total: number
   passing: number
   failing: number
+  passRate: number
 }
 
 /** Kibana-ähnliche Dashboard-Aggregationen über alle Records. */
@@ -117,12 +135,44 @@ export interface AnalyzeResult {
   reports: ReportRow[]
   skipped: number
   errors: string[]
+  /** True when result came (partly) from local cache. */
+  fromCache?: boolean
+  /** Newly parsed report count in this fetch. */
+  newReports?: number
 }
 
 export interface TestConnectionResult {
   ok: boolean
   message: string
   mailboxExists?: number
+}
+
+export interface IpInfo {
+  ip: string
+  ptr: string | null
+  provider: string | null
+}
+
+export interface DnsCheckResult {
+  domain: string
+  dmarc: {
+    found: boolean
+    records: string[]
+    policy: string | null
+    rua: string | null
+    error?: string
+  }
+  spf: {
+    found: boolean
+    records: string[]
+    error?: string
+  }
+  checkedAt: string
+}
+
+export interface DashboardFilter {
+  range: DateRangePreset
+  domain: string
 }
 
 export function emptyDashboard(): DashboardData {
@@ -135,5 +185,24 @@ export function emptyDashboard(): DashboardData {
     bySourceIp: [],
     byHeaderFrom: [],
     volumeByDay: []
+  }
+}
+
+export function emptyAnalyzeResult(): AnalyzeResult {
+  return {
+    aggregate: {
+      reportCount: 0,
+      total: 0,
+      passing: 0,
+      failing: 0,
+      passRate: 0,
+      dateBegin: null,
+      dateEnd: null,
+      domains: []
+    },
+    dashboard: emptyDashboard(),
+    reports: [],
+    skipped: 0,
+    errors: []
   }
 }
