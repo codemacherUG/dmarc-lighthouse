@@ -54,6 +54,7 @@ GitHub Release (alle Plattformen via Actions): Tag `v1.0.4` pushen oder Workflow
 - **Export:** CSV oder JSON der aktuell gefilterten Daten.
 - **DNS-Check:** DMARC- (`p`, `rua`) und SPF-Records einer Domain abfragen.
 - **Auto-Abruf:** optionales Intervall + Desktop-Benachrichtigung bei steigenden Failures.
+- **Auto-Update:** prüft beim Start GitHub Releases; Download im Hintergrund, Installation nach Neustart (NSIS / AppImage / macOS ZIP).
 - **Als gelesen markieren:** optional nach Abruf (`\\Seen`).
 
 Zugangsdaten werden lokal gespeichert; das Passwort wird mit `safeStorage` verschlüsselt.
@@ -63,6 +64,7 @@ Zugangsdaten werden lokal gespeichert; das Passwort wird mit `safeStorage` versc
 - Electron + electron-vite + TypeScript
 - IMAP: `imapflow`
 - Parsing: `@koduhai/dmarc-parser` (Aggregate/RUA: XML, gzip, zip, EML)
+- Updates: `electron-updater` über GitHub Releases (`latest.yml` / `latest-linux.yml` / `latest-mac.yml`)
 
 ## Hinweise
 
@@ -70,3 +72,4 @@ Zugangsdaten werden lokal gespeichert; das Passwort wird mit `safeStorage` versc
 - Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
 - Gespeicherte Einstellungen und der Report-Cache liegen unter dem Electron-`userData`-Pfad (nicht im Repo).
 - Cache leeren: Einstellungen → **Cache leeren** (nächster Abruf holt wieder alles).
+- Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.deb` werden nicht automatisch aktualisiert — NSIS-Setup, AppImage und macOS-ZIP schon.

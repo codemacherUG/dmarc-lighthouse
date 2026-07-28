@@ -6,7 +6,8 @@ import type {
   ImapConnectionInput,
   IpInfo,
   SavedSettingsPublic,
-  TestConnectionResult
+  TestConnectionResult,
+  UpdateStatusPayload
 } from '../shared/types'
 
 export interface DmarcViewerApi {
@@ -26,8 +27,12 @@ export interface DmarcViewerApi {
     result: AnalyzeResult,
     format: 'json' | 'csv'
   ) => Promise<{ ok: boolean; message: string }>
+  getAppVersion: () => Promise<string>
+  checkForUpdates: () => Promise<{ ok: boolean; message: string }>
+  installUpdate: () => Promise<{ ok: boolean; message: string }>
   onProgress: (callback: (progress: AnalyzeProgress) => void) => () => void
   onResult: (callback: (result: AnalyzeResult) => void) => () => void
+  onUpdateStatus: (callback: (payload: UpdateStatusPayload) => void) => () => void
 }
 
 declare global {

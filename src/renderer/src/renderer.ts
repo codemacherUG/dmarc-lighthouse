@@ -23,7 +23,8 @@ import type {
   NamedBucket,
   ProviderPreset,
   ReportRow,
-  SavedSettingsPublic
+  SavedSettingsPublic,
+  UpdateStatusPayload
 } from '../../shared/types'
 import { PROVIDER_PRESETS } from '../../shared/types'
 
@@ -78,12 +79,19 @@ const btnCloseSettings = document.getElementById('btn-close-settings') as HTMLBu
 const btnCloseInfo = document.getElementById('btn-close-info') as HTMLButtonElement
 const btnCloseExport = document.getElementById('btn-close-export') as HTMLButtonElement
 const btnInfoOk = document.getElementById('btn-info-ok') as HTMLButtonElement
+const btnCheckUpdate = document.getElementById('btn-check-update') as HTMLButtonElement
 const btnTest = document.getElementById('btn-test') as HTMLButtonElement
 const btnClearCache = document.getElementById('btn-clear-cache') as HTMLButtonElement
 const btnExportCsv = document.getElementById('btn-export-csv') as HTMLButtonElement
 const btnExportJson = document.getElementById('btn-export-json') as HTMLButtonElement
 const passwordHintEl = document.getElementById('password-hint') as HTMLParagraphElement
 const settingsStatusEl = document.getElementById('settings-status') as HTMLParagraphElement
+const aboutVersionEl = document.getElementById('about-version') as HTMLSpanElement
+const updateCheckStatusEl = document.getElementById('update-check-status') as HTMLParagraphElement
+const updateBanner = document.getElementById('update-banner') as HTMLDivElement
+const updateBannerText = document.getElementById('update-banner-text') as HTMLSpanElement
+const btnUpdateInstall = document.getElementById('btn-update-install') as HTMLButtonElement
+const btnUpdateDismiss = document.getElementById('btn-update-dismiss') as HTMLButtonElement
 
 const providerEl = document.getElementById('provider') as HTMLSelectElement
 const hostEl = document.getElementById('host') as HTMLInputElement
@@ -189,6 +197,52 @@ function setStatus(message: string, kind: 'ok' | 'error' | '' = ''): void {
   statusEl.textContent = message
   statusEl.classList.remove('ok', 'error')
   if (kind) statusEl.classList.add(kind)
+}
+
+function showUpdateBanner(text: string, showInstall: boolean): void {
+  updateBannerText.textContent = text
+  updateBanner.classList.remove('hidden', 'error', 'ready')
+  if (showInstall) updateBanner.classList.add('ready')
+  btnUpdateInstall.classList.toggle('hidden', !showInstall)
+}
+
+function hideUpdateBanner(): void {
+  updateBanner.classList.add('hidden')
+  btnUpdateInstall.classList.add('hidden')
+}
+
+function applyUpdateStatus(payload: UpdateStatusPayload): void {
+  switch (payload.status) {
+    case 'checking':
+      updateCheckStatusEl.textContent = 'Prüfe auf Updates…'
+      break
+    case 'available':
+      showUpdateBanner(`Update ${payload.version} verfügbar — Download startet…`, false)
+      updateCheckStatusEl.textContent = `Update ${payload.version} verfügbar.`
+      break
+    case 'downloading': {
+      const pct = Math.max(0, Math.min(100, Math.round(payload.percent)))
+      showUpdateBanner(`Update wird heruntergeladen… ${pct}%`, false)
+      updateCheckStatusEl.textContent = `Download: ${pct}%`
+      break
+    }
+    case 'downloaded':
+      showUpdateBanner(`Update ${payload.version} bereit. Neu starten, um zu installieren.`, true)
+      updateCheckStatusEl.textContent = `Update ${payload.version} heruntergeladen.`
+      break
+    case 'not-available':
+      updateCheckStatusEl.textContent = payload.version
+        ? `Keine neueren Updates (aktuell ${payload.version}).`
+        : 'Keine neueren Updates.'
+      break
+    case 'error':
+      updateBannerText.textContent = `Update-Fehler: ${payload.message}`
+      updateBanner.classList.remove('hidden', 'ready')
+      updateBanner.classList.add('error')
+      btnUpdateInstall.classList.add('hidden')
+      updateCheckStatusEl.textContent = payload.message
+      break
+  }
 }
 
 function setBusy(next: boolean): void {
@@ -548,11 +602,30 @@ function openSettings(): void {
 
 btnSettings.addEventListener('click', () => openSettings())
 btnCloseSettings.addEventListener('click', () => settingsDialog.close())
-btnInfo.addEventListener('click', () => infoDialog.showModal())
+btnInfo.addEventListener('click', () => {
+  updateCheckStatusEl.textContent = ''
+  infoDialog.showModal()
+})
 btnCloseInfo.addEventListener('click', () => infoDialog.close())
 btnInfoOk.addEventListener('click', () => infoDialog.close())
 btnExport.addEventListener('click', () => exportDialog.showModal())
 btnCloseExport.addEventListener('click', () => exportDialog.close())
+
+btnCheckUpdate.addEventListener('click', async () => {
+  updateCheckStatusEl.textContent = 'Prüfe auf Updates…'
+  try {
+    const result = await window.api.checkForUpdates()
+    if (!result.ok) updateCheckStatusEl.textContent = result.message
+  } catch (err) {
+    updateCheckStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  }
+})
+
+btnUpdateInstall.addEventListener('click', () => {
+  void window.api.installUpdate()
+})
+
+btnUpdateDismiss.addEventListener('click', () => hideUpdateBanner())
 
 providerEl.addEventListener('change', () => {
   applyProviderPreset(providerEl.value as ProviderPreset)
@@ -762,9 +835,11 @@ window.api.onResult((result) => {
   selectedReportId = null
   showResult(result)
 })
+window.api.onUpdateStatus(applyUpdateStatus)
 
 void (async () => {
   try {
+    aboutVersionEl.textContent = await window.api.getAppVersion()
     await loadSettings()
     const cached = await window.api.loadCache()
     if (cached && cached.reports.length > 0) {

@@ -2,6 +2,14 @@ export type ProviderPreset = 'gmail' | 'outlook' | 'custom'
 
 export type DateRangePreset = 'all' | '7' | '30' | '90'
 
+export type UpdateStatusPayload =
+  | { status: 'checking' }
+  | { status: 'available'; version: string }
+  | { status: 'not-available'; version: string }
+  | { status: 'downloading'; percent: number; transferred: number; total: number }
+  | { status: 'downloaded'; version: string }
+  | { status: 'error'; message: string }
+
 export interface ProviderDefaults {
   host: string
   port: number

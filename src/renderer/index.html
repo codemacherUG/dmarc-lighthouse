@@ -31,6 +31,18 @@
         </div>
       </header>
 
+      <div id="update-banner" class="update-banner hidden" role="status" aria-live="polite">
+        <span id="update-banner-text"></span>
+        <div class="update-banner-actions">
+          <button type="button" id="btn-update-install" class="btn primary hidden">
+            Neu starten &amp; installieren
+          </button>
+          <button type="button" id="btn-update-dismiss" class="btn ghost" aria-label="Ausblenden">
+            ✕
+          </button>
+        </div>
+      </div>
+
       <div class="toolbar">
         <div id="status" class="status" role="status">Bereit</div>
         <div class="progress-wrap">
@@ -338,7 +350,7 @@
 
         <div class="about-body">
           <p class="about-title">DMARC Viewer</p>
-          <p class="about-version">Version 1.0.4</p>
+          <p class="about-version">Version <span id="about-version">…</span></p>
           <p>
             Desktop-Tool zum Abrufen und Analysieren von DMARC-Aggregate-Reports aus einem
             IMAP-Postfach oder lokalen Dateien.
@@ -365,6 +377,7 @@
               <dd>Halle (Saale)</dd>
             </div>
           </dl>
+          <p id="update-check-status" class="hint" role="status"></p>
           <p class="hint">
             Enthält Open-Source-Komponenten (u.&nbsp;a. Electron, imapflow, Chart.js,
             @koduhai/dmarc-parser).
@@ -372,6 +385,7 @@
         </div>
 
         <footer class="dialog-actions">
+          <button type="button" id="btn-check-update" class="btn secondary">Auf Updates prüfen</button>
           <button type="button" id="btn-info-ok" class="btn primary">Schließen</button>
         </footer>
       </div>

@@ -7,7 +7,8 @@ import type {
   ImapConnectionInput,
   IpInfo,
   SavedSettingsPublic,
-  TestConnectionResult
+  TestConnectionResult,
+  UpdateStatusPayload
 } from '../shared/types'
 
 const api = {
@@ -31,6 +32,11 @@ const api = {
     result: AnalyzeResult,
     format: 'json' | 'csv'
   ): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke('export:save', result, format),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  checkForUpdates: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('update:check'),
+  installUpdate: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('update:install'),
   onProgress: (callback: (progress: AnalyzeProgress) => void): (() => void) => {
     const listener = (_event: IpcRendererEvent, progress: AnalyzeProgress): void => {
       callback(progress)
@@ -47,6 +53,15 @@ const api = {
     ipcRenderer.on('imap:result', listener)
     return () => {
       ipcRenderer.removeListener('imap:result', listener)
+    }
+  },
+  onUpdateStatus: (callback: (payload: UpdateStatusPayload) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, payload: UpdateStatusPayload): void => {
+      callback(payload)
+    }
+    ipcRenderer.on('update:status', listener)
+    return () => {
+      ipcRenderer.removeListener('update:status', listener)
     }
   }
 }

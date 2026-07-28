@@ -5,6 +5,10 @@
   "main": "./out/main/index.js",
   "author": "codemacher UG (haftungsbeschränkt)",
   "homepage": "https://codemacher.de/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codemacherUG/dmarcviewer.git"
+  },
   "desktopName": "dmarcviewer.desktop",
   "scripts": {
     "format": "prettier --write .",
@@ -27,6 +31,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@koduhai/dmarc-parser": "^0.2.1",
     "chart.js": "^4.5.1",
+    "electron-updater": "^6.8.9",
     "imapflow": "^1.0.184"
   },
   "devDependencies": {

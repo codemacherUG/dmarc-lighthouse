@@ -21,6 +21,7 @@ import {
   resolveSavedConnection,
   saveSettings
 } from './settings'
+import { setupAutoUpdater } from './updater'
 
 app.disableHardwareAcceleration()
 app.commandLine.appendSwitch('disable-gpu')
@@ -256,6 +257,7 @@ app.whenReady().then(() => {
   })
 
   registerIpc()
+  setupAutoUpdater(() => mainWindow)
   mainWindow = createWindow()
   scheduleAutoFetch()
 

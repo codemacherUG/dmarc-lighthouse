@@ -57,7 +57,6 @@ jobs:
           path: |
             release/*.*
             !release/builder-*.yml
-            !release/*.blockmap
           if-no-files-found: error
 
   publish:
@@ -76,7 +75,11 @@ jobs:
         run: |
           mkdir -p dist-release
           find artifacts -type f -print
-          find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.yml' \) -exec cp -v {} dist-release/ \;
+          find artifacts -type f \( \
+            -name '*.exe' -o -name '*.dmg' -o -name '*.zip' -o \
+            -name '*.AppImage' -o -name '*.deb' -o \
+            -name '*.yml' -o -name '*.blockmap' \
+          \) -exec cp -v {} dist-release/ \;
           ls -lah dist-release
 
       - name: Resolve tag
