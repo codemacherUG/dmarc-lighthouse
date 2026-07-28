@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DMARC Viewer</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+    <link href="./assets/main.css" type="text/css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <div>
+          <h1>DMARC Viewer</h1>
+          <p class="subtitle">
+            Aggregate-Reports · <span id="account-label">Keine Zugangsdaten</span>
+          </p>
+        </div>
+        <div class="header-actions">
+          <button type="button" id="btn-info" class="btn secondary">Info</button>
+          <button type="button" id="btn-settings" class="btn secondary">Einstellungen</button>
+          <button type="button" id="btn-fetch" class="btn primary">Reports abrufen</button>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div id="status" class="status" role="status">Bereit</div>
+        <div class="progress-wrap">
+          <progress id="progress" max="100" value="0"></progress>
+          <span id="progress-label"></span>
+        </div>
+      </div>
+
+      <section class="panel kpi-panel">
+        <div id="summary" class="summary-grid">
+          <div class="stat">
+            <span class="stat-label">Reports</span>
+            <span class="stat-value" data-key="reportCount">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Nachrichten</span>
+            <span class="stat-value" data-key="total">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Pass</span>
+            <span class="stat-value ok" data-key="passing">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Fail</span>
+            <span class="stat-value bad" data-key="failing">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Pass-Rate</span>
+            <span class="stat-value" data-key="passRate">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Zeitraum</span>
+            <span class="stat-value small" data-key="range">—</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel charts-panel">
+        <div class="charts-row pies">
+          <div class="chart-card">
+            <h2>DMARC Alignment</h2>
+            <canvas id="chart-dmarc"></canvas>
+          </div>
+          <div class="chart-card">
+            <h2>SPF Alignment</h2>
+            <canvas id="chart-spf"></canvas>
+          </div>
+          <div class="chart-card">
+            <h2>DKIM Alignment</h2>
+            <canvas id="chart-dkim"></canvas>
+          </div>
+        </div>
+        <div class="chart-card volume-card">
+          <h2>Nachrichtenvolumen &amp; Compliance über Zeit</h2>
+          <canvas id="chart-volume"></canvas>
+        </div>
+      </section>
+
+      <section class="panel tables-panel">
+        <div class="tables-row">
+          <div class="table-card">
+            <h2>Reporting-Organisationen</h2>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Org</th>
+                    <th>Msgs</th>
+                    <th>Pass %</th>
+                  </tr>
+                </thead>
+                <tbody id="table-orgs">
+                  <tr class="empty"><td colspan="3">Noch keine Daten</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h2>Quellen (IP)</h2>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>IP</th>
+                    <th>Msgs</th>
+                    <th>Pass %</th>
+                  </tr>
+                </thead>
+                <tbody id="table-ips">
+                  <tr class="empty"><td colspan="3">Noch keine Daten</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h2>From-Domains</h2>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Domain</th>
+                    <th>Msgs</th>
+                    <th>Pass %</th>
+                  </tr>
+                </thead>
+                <tbody id="table-from">
+                  <tr class="empty"><td colspan="3">Noch keine Daten</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="results-layout">
+          <div class="table-wrap">
+            <h2>Einzelne Reports</h2>
+            <table id="reports-table">
+              <thead>
+                <tr>
+                  <th>Org</th>
+                  <th>Domain</th>
+                  <th>Zeitraum</th>
+                  <th>Msgs</th>
+                  <th>Pass</th>
+                  <th>Fail</th>
+                  <th>Rate</th>
+                  <th>Policy</th>
+                </tr>
+              </thead>
+              <tbody id="reports-body">
+                <tr class="empty">
+                  <td colspan="8">Einstellungen öffnen, Zugangsdaten speichern, dann Reports abrufen.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <aside class="detail-wrap">
+            <h2>Record-Details</h2>
+            <div id="detail" class="detail">
+              <p class="muted">Report in der Tabelle auswählen.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="settings-dialog">
+      <form id="settings-form" method="dialog" class="settings-form">
+        <header class="dialog-header">
+          <h2>IMAP-Einstellungen</h2>
+          <button type="button" id="btn-close-settings" class="btn ghost" aria-label="Schließen">
+            ✕
+          </button>
+        </header>
+
+        <div class="settings-grid">
+          <label>
+            Anbieter
+            <select id="provider" name="provider">
+              <option value="gmail">Gmail</option>
+              <option value="outlook">Outlook / Microsoft 365</option>
+              <option value="custom" selected>Custom IMAP</option>
+            </select>
+          </label>
+
+          <label>
+            Host
+            <input id="host" name="host" type="text" placeholder="imap.example.com" required />
+          </label>
+
+          <label>
+            Port
+            <input id="port" name="port" type="number" min="1" max="65535" value="993" required />
+          </label>
+
+          <label class="checkbox">
+            <input id="secure" name="secure" type="checkbox" checked />
+            TLS / SSL
+          </label>
+
+          <label>
+            Benutzer
+            <input id="user" name="user" type="email" autocomplete="username" required />
+          </label>
+
+          <label>
+            Passwort / App-Passwort
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Leer lassen, wenn gespeichert"
+            />
+          </label>
+
+          <label>
+            Ordner
+            <input id="mailbox" name="mailbox" type="text" value="INBOX" required />
+          </label>
+
+          <label class="span-2">
+            Betreff-Filter
+            <input
+              id="subjectFilter"
+              name="subjectFilter"
+              type="text"
+              value="Report Domain"
+              placeholder="Leer = alle Nachrichten"
+            />
+          </label>
+        </div>
+
+        <p id="password-hint" class="hint"></p>
+        <p id="settings-status" class="hint" role="status"></p>
+
+        <footer class="dialog-actions">
+          <button type="button" id="btn-test" class="btn secondary">Verbindung testen</button>
+          <button type="submit" id="btn-save" class="btn primary">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="info-dialog">
+      <div class="settings-form about-form">
+        <header class="dialog-header">
+          <h2>Über DMARC Viewer</h2>
+          <button type="button" id="btn-close-info" class="btn ghost" aria-label="Schließen">
+            ✕
+          </button>
+        </header>
+
+        <div class="about-body">
+          <p class="about-title">DMARC Viewer</p>
+          <p class="about-version">Version 1.0.0</p>
+          <p>
+            Desktop-Tool zum Abrufen und Analysieren von DMARC-Aggregate-Reports aus einem
+            IMAP-Postfach.
+          </p>
+          <dl class="about-meta">
+            <div>
+              <dt>Copyright</dt>
+              <dd>© 2026 codemacher UG (haftungsbeschränkt)</dd>
+            </div>
+            <div>
+              <dt>Website</dt>
+              <dd>
+                <a href="https://codemacher.de/" target="_blank" rel="noreferrer">https://codemacher.de/</a>
+              </dd>
+            </div>
+            <div>
+              <dt>E-Mail</dt>
+              <dd>
+                <a href="mailto:mail@codemacher.de">mail@codemacher.de</a>
+              </dd>
+            </div>
+            <div>
+              <dt>Standort</dt>
+              <dd>Halle (Saale)</dd>
+            </div>
+          </dl>
+          <p class="hint">
+            Enthält Open-Source-Komponenten (u.&nbsp;a. Electron, imapflow, Chart.js,
+            @koduhai/dmarc-parser).
+          </p>
+        </div>
+
+        <footer class="dialog-actions">
+          <button type="button" id="btn-info-ok" class="btn primary">Schließen</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <script type="module" src="./src/renderer.ts"></script>
+  </body>
+</html>
