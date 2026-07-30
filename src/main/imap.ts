@@ -404,7 +404,7 @@ async function moveMessages(
         if (!copied) {
           throw new Error(t('imap.moveRejected', { mailbox: destPath }))
         }
-        const deleted = await client.messageDelete(chunk, { uid: true, silent: true })
+        const deleted = await client.messageDelete(chunk, { uid: true })
         if (!deleted) {
           throw new Error(t('imap.moveRejected', { mailbox: destPath }))
         }
@@ -495,16 +495,23 @@ export async function fetchAndAnalyze(
       const totalFetched = sourceFetch.uidList.length + archiveFetch.uidList.length
 
       if (totalFetched === 0) {
+        const notes: string[] = []
+        if (archiveMailbox) {
+          notes.push(
+            ...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress))
+          )
+        }
+        const base =
+          cached.reports.length > 0 || cached.forensicReports.length > 0
+            ? t('imap.noNewCached', { count: cached.reports.length })
+            : t('imap.noneFound')
         onProgress({
           phase: 'done',
           processed: 0,
           total: 0,
           parsed: cached.reports.length,
           skipped: 0,
-          message:
-            cached.reports.length > 0 || cached.forensicReports.length > 0
-              ? t('imap.noNewCached', { count: cached.reports.length })
-              : t('imap.noneFound')
+          message: notes.length ? `${base} ${notes.join(' ')}` : base
         })
         return analyzeFromReports(cached.reports, {
           fromCache: true,
@@ -569,39 +576,26 @@ export async function fetchAndAnalyze(
 
       const notes: string[] = []
 
-      // Mark \\Seen on source UIDs before moving (MOVE invalidates source UIDs).
-      if (settings.markSeenAfterFetch) {
+      // Mark \\Seen on archive UIDs first; source mails are handled by the sweep
+      // (mark + move) so leftover inbox matches are cleaned up too.
+      if (settings.markSeenAfterFetch && archiveMailbox && archiveFetch.uidList.length > 0) {
         try {
-          if (sourceFetch.uidList.length > 0) {
-            await markSeen(client, settings.mailbox, sourceFetch.uidList)
-            notes.push(t('imap.markSeenOk', { count: sourceFetch.uidList.length }))
-          }
-          if (archiveMailbox && archiveFetch.uidList.length > 0) {
-            await markSeen(client, archiveMailbox, archiveFetch.uidList)
-          }
+          await markSeen(client, archiveMailbox, archiveFetch.uidList)
         } catch (err) {
           notes.push(t('imap.markSeenFailed', { detail: formatImapError(err) }))
         }
       }
 
-      if (archiveMailbox && sourceFetch.uidList.length > 0) {
+      if (archiveMailbox) {
+        notes.push(
+          ...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress))
+        )
+      } else if (settings.markSeenAfterFetch && sourceFetch.uidList.length > 0) {
         try {
-          const destPath = await resolveServerMailboxPath(client, archiveMailbox)
-          await moveMessages(
-            client,
-            settings.mailbox,
-            sourceFetch.uidList,
-            destPath,
-            onProgress
-          )
-          notes.push(
-            t('imap.movedNote', {
-              count: sourceFetch.uidList.length,
-              mailbox: destPath
-            })
-          )
+          await markSeen(client, settings.mailbox, sourceFetch.uidList)
+          notes.push(t('imap.markSeenOk', { count: sourceFetch.uidList.length }))
         } catch (err) {
-          notes.push(t('imap.moveFailed', { detail: formatImapError(err) }))
+          notes.push(t('imap.markSeenFailed', { detail: formatImapError(err) }))
         }
       }
 

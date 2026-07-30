@@ -203,7 +203,13 @@ npm run build:win     # NSIS + portable
 npm run build:mac     # DMG/ZIP (nur auf macOS)
 ```
 
-GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.5` pushen oder Workflow **Release** manuell starten.
+README-Screenshots neu erzeugen (Demo-Daten, ohne echte Zugangsdaten):
+
+```bash
+npm run screenshots
+```
+
+GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.7` pushen oder Workflow **Release** manuell starten.
 
 ### Technik
 
@@ -211,6 +217,7 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.5` pushen oder Work
 - IMAP: [`imapflow`](https://github.com/postalsys/imapflow)
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
+- GeoIP: [`maxmind`](https://www.npmjs.com/package/maxmind) (GeoLite2) + optionaler Online-Fallback
 - Updates: [`electron-updater`](https://www.electron.build/auto-update) über GitHub Releases
 - Tests: [Vitest](https://vitest.dev/)
 
@@ -218,11 +225,11 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.5` pushen oder Work
 
 ## Hinweise & Grenzen
 
-- Failure-/RUF-Reports werden nicht ausgewertet.
+- Forensik-/RUF-Zeilen zeigen nur bereinigte Header — Nachrichteninhalte werden weder gespeichert noch angezeigt.
 - Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
 - Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
 - Cache leeren: Einstellungen → IMAP-Konto → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).
-- Optional können abgerufene Nachrichten als gelesen markiert werden (`\Seen`).
+- Optional können abgerufene Nachrichten als gelesen markiert (`\Seen`) und/oder nach dem Import in einen Archiv-Ordner verschoben werden.
 - Mit aktivem System-Tray blendet das Schließen des Fensters die App nur aus — vollständig beenden über **Beenden** im Tray-Menü.
 - Bestehende Einzelkonto-Einstellungen älterer Versionen werden automatisch ins Multi-Konto-Format migriert.
 
