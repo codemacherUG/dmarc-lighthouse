@@ -1,3 +1,7 @@
+import type { AppLocale } from './i18n'
+
+export type { AppLocale }
+
 export type ProviderPreset = 'gmail' | 'outlook' | 'custom'
 
 export type DateRangePreset = 'all' | '7' | '30' | '90' | 'custom'
@@ -38,6 +42,8 @@ export interface ImapConnectionInput {
 /** Account form input from the renderer. `id` is null for a new account. */
 export interface AccountSettingsInput {
   id: string | null
+  /** Custom display name; empty = use suggested domain name. */
+  name: string
   provider: ProviderPreset
   host: string
   port: number
@@ -51,7 +57,12 @@ export interface AccountSettingsInput {
 
 export interface AccountPublic {
   id: string
+  /** Stored custom name (may be empty). */
+  name: string
+  /** Name shown in the UI (custom or suggested domain). */
   label: string
+  /** Suggested default name (usually the email domain). */
+  suggestedName: string
   provider: ProviderPreset
   host: string
   port: number
@@ -74,6 +85,10 @@ export interface GlobalSettings {
   ignoredSources: string
   /** Keep running in the system tray when the window is closed. */
   runInTray: boolean
+  /** Launch the app automatically when the user logs in. */
+  openAtLogin: boolean
+  /** UI language. */
+  language: AppLocale
 }
 
 export interface SettingsPublic {

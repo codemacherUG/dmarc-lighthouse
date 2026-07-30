@@ -11,9 +11,13 @@ import type {
   SettingsPublic
 } from '../shared/types'
 import { PROVIDER_PRESETS } from '../shared/types'
+import { resolveAccountLabel, suggestAccountName } from '../shared/account'
+import { detectSystemLocale, normalizeLocale, setLocale, t } from '../shared/i18n'
+import type { AppLocale } from '../shared/i18n'
 
 interface StoredAccount {
   id: string
+  name?: string
   provider: ProviderPreset
   host: string
   port: number
@@ -32,6 +36,8 @@ interface StoredGlobal {
   notifyNewSource?: boolean
   ignoredSources?: string
   runInTray?: boolean
+  openAtLogin?: boolean
+  language?: AppLocale
 }
 
 interface StoredSettingsV2 {
@@ -62,7 +68,9 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   passRateAlertThreshold: 0,
   notifyNewSource: false,
   ignoredSources: '',
-  runInTray: false
+  runInTray: false,
+  openAtLogin: false,
+  language: 'de'
 }
 
 function settingsPath(): string {
@@ -152,20 +160,20 @@ function normalizeThreshold(value: unknown): number {
   return Math.min(100, Math.round(n * 10) / 10)
 }
 
-export function accountLabel(account: { user: string; host: string; mailbox: string }): string {
-  const base = `${account.user || '?'} @ ${account.host || '?'}`
-  return account.mailbox && account.mailbox !== 'INBOX' ? `${base} / ${account.mailbox}` : base
-}
-
 function toPublicAccount(a: StoredAccount): AccountPublic {
+  const user = a.user ?? ''
+  const host = a.host ?? ''
+  const name = (a.name ?? '').trim()
   return {
     id: a.id,
-    label: accountLabel(a),
+    name,
+    label: resolveAccountLabel({ name, user, host }),
+    suggestedName: suggestAccountName(user, host),
     provider: a.provider ?? 'custom',
-    host: a.host ?? '',
+    host,
     port: a.port ?? 993,
     secure: a.secure ?? true,
-    user: a.user ?? '',
+    user,
     mailbox: a.mailbox || 'INBOX',
     subjectFilter: a.subjectFilter ?? '',
     hasPassword: Boolean(a.passwordEncrypted),
@@ -174,19 +182,22 @@ function toPublicAccount(a: StoredAccount): AccountPublic {
 }
 
 function toPublicGlobal(g: StoredGlobal): GlobalSettings {
+  const language = g.language ? normalizeLocale(g.language) : detectSystemLocale(app.getLocale())
   return {
     autoFetchMinutes: normalizeMinutes(g.autoFetchMinutes ?? GLOBAL_DEFAULTS.autoFetchMinutes),
     notifyOnFail: g.notifyOnFail ?? GLOBAL_DEFAULTS.notifyOnFail,
     passRateAlertThreshold: normalizeThreshold(g.passRateAlertThreshold),
     notifyNewSource: Boolean(g.notifyNewSource),
     ignoredSources: g.ignoredSources ?? '',
-    runInTray: Boolean(g.runInTray)
+    runInTray: Boolean(g.runInTray),
+    openAtLogin: Boolean(g.openAtLogin),
+    language
   }
 }
 
 export function loadSettings(): SettingsPublic {
   const stored = readStored()
-  return {
+  const settings = {
     accounts: stored.accounts.map(toPublicAccount),
     activeAccountId:
       stored.activeAccountId && stored.accounts.some((a) => a.id === stored.activeAccountId)
@@ -194,6 +205,8 @@ export function loadSettings(): SettingsPublic {
         : (stored.accounts[0]?.id ?? null),
     global: toPublicGlobal(stored.global)
   }
+  setLocale(settings.global.language)
+  return settings
 }
 
 export function saveAccount(input: AccountSettingsInput): SettingsPublic {
@@ -203,13 +216,14 @@ export function saveAccount(input: AccountSettingsInput): SettingsPublic {
   let passwordEncrypted = existing?.passwordEncrypted
   if (input.password) {
     if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error('Passwortspeicherung ist auf diesem System nicht verfügbar.')
+      throw new Error(t('main.passwordUnavailable'))
     }
     passwordEncrypted = safeStorage.encryptString(input.password).toString('base64')
   }
 
   const account: StoredAccount = {
     id: existing?.id ?? randomUUID(),
+    name: String(input.name ?? '').trim(),
     provider: input.provider,
     host: input.host.trim(),
     port: input.port,
@@ -260,7 +274,9 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     passRateAlertThreshold: normalizeThreshold(input.passRateAlertThreshold),
     notifyNewSource: Boolean(input.notifyNewSource),
     ignoredSources: input.ignoredSources ?? '',
-    runInTray: Boolean(input.runInTray)
+    runInTray: Boolean(input.runInTray),
+    openAtLogin: Boolean(input.openAtLogin),
+    language: normalizeLocale(input.language)
   }
   writeStored(stored)
   return loadSettings()
@@ -269,9 +285,9 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
 function toConnection(account: StoredAccount, password: string): ImapConnectionInput {
   const preset = PROVIDER_PRESETS[account.provider ?? 'custom']
   const host = (account.host ?? '').trim() || preset.host
-  if (!host) throw new Error('IMAP-Host fehlt.')
-  if (!(account.user ?? '').trim()) throw new Error('Benutzer fehlt.')
-  if (!password) throw new Error('Kein Passwort angegeben und keines gespeichert.')
+  if (!host) throw new Error(t('main.hostMissing'))
+  if (!(account.user ?? '').trim()) throw new Error(t('main.userMissing'))
+  if (!password) throw new Error(t('main.passwordMissing'))
   return {
     provider: account.provider ?? 'custom',
     host,
@@ -290,7 +306,7 @@ export function resolveAccountConnection(accountId?: string | null): ImapConnect
   const stored = readStored()
   const id = accountId ?? stored.activeAccountId ?? stored.accounts[0]?.id
   const account = stored.accounts.find((a) => a.id === id)
-  if (!account) throw new Error('Kein IMAP-Konto konfiguriert.')
+  if (!account) throw new Error(t('main.noAccount'))
   return toConnection(account, decryptPassword(account.passwordEncrypted))
 }
 
@@ -302,6 +318,7 @@ export function resolveInputConnection(input: AccountSettingsInput): ImapConnect
   return toConnection(
     {
       id: existing?.id ?? 'new',
+      name: input.name,
       provider: input.provider,
       host: input.host,
       port: input.port,
@@ -313,6 +330,22 @@ export function resolveInputConnection(input: AccountSettingsInput): ImapConnect
     },
     password
   )
+}
+
+/** Apply / clear OS login-item (autostart) based on global settings. */
+export function applyOpenAtLogin(settings?: GlobalSettings): void {
+  const global = settings ?? loadSettings().global
+  const openAtLogin = Boolean(global.openAtLogin)
+  const openAsHidden = openAtLogin && Boolean(global.runInTray)
+  try {
+    app.setLoginItemSettings({
+      openAtLogin,
+      openAsHidden,
+      args: openAsHidden ? ['--hidden'] : []
+    })
+  } catch {
+    // Some environments (e.g. certain Linux packaging modes) may not support this.
+  }
 }
 
 /** Parse the ignore list into matchers: exact IPs or prefixes ending with `*`. */

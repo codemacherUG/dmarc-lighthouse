@@ -7,6 +7,7 @@ import type {
 } from '../shared/types'
 import { analyzeFromReports, parseMimeSources } from './analyze'
 import { accountKeyFor, loadCachedReports, mergeReports, saveCache } from './cache'
+import { t } from '../shared/i18n'
 
 export type ProgressCallback = (progress: AnalyzeProgress) => void
 
@@ -35,7 +36,7 @@ export async function testConnection(settings: ImapConnectionInput): Promise<Tes
         client.mailbox && typeof client.mailbox === 'object' ? client.mailbox.exists : 0
       return {
         ok: true,
-        message: `Verbindung OK — Ordner „${settings.mailbox}“ enthält ${exists} Nachrichten.`,
+        message: t('imap.connectOk', { mailbox: settings.mailbox, count: exists }),
         mailboxExists: exists
       }
     } finally {
@@ -76,7 +77,7 @@ export async function fetchAndAnalyze(
     total: 0,
     parsed: 0,
     skipped: 0,
-    message: `Verbinde mit ${settings.host}…`
+    message: t('imap.connecting', { host: settings.host })
   })
 
   try {
@@ -90,8 +91,7 @@ export async function fetchAndAnalyze(
         total: 0,
         parsed: 0,
         skipped: 0,
-        message:
-          lastUid > 0 ? `Suche neue DMARC-Reports (nach UID ${lastUid})…` : 'Suche DMARC-Reports…'
+        message: lastUid > 0 ? t('imap.searchingNew', { uid: lastUid }) : t('imap.searching')
       })
 
       const filter = settings.subjectFilter.trim()
@@ -114,8 +114,8 @@ export async function fetchAndAnalyze(
           skipped: 0,
           message:
             cached.reports.length > 0
-              ? `Keine neuen Nachrichten — ${cached.reports.length} Reports aus Cache.`
-              : 'Keine passenden Nachrichten gefunden.'
+              ? t('imap.noNewCached', { count: cached.reports.length })
+              : t('imap.noneFound')
         })
         return analyzeFromReports(cached.reports, {
           fromCache: true,
@@ -130,7 +130,7 @@ export async function fetchAndAnalyze(
         total,
         parsed: 0,
         skipped: 0,
-        message: `${total} neue Nachrichten werden geladen…`
+        message: t('imap.fetching', { count: total })
       })
 
       const sources: Array<{ uid: number; source: Buffer }> = []
@@ -157,7 +157,7 @@ export async function fetchAndAnalyze(
             total,
             parsed: 0,
             skipped: 0,
-            message: `Geladen: ${processed}/${total}`
+            message: t('imap.loaded', { processed, total })
           })
         }
       }
@@ -168,7 +168,7 @@ export async function fetchAndAnalyze(
         total,
         parsed: 0,
         skipped: 0,
-        message: `${sources.length} Nachrichten werden geparst…`
+        message: t('imap.parsing', { count: sources.length })
       })
 
       const fresh = await parseMimeSources(sources)
@@ -219,7 +219,11 @@ export async function fetchAndAnalyze(
         total,
         parsed: result.reports.length,
         skipped: result.skipped,
-        message: `${fresh.reports.length} neu, ${result.reports.length} Reports gesamt, ${result.skipped} übersprungen.`
+        message: t('imap.done', {
+          newCount: fresh.reports.length,
+          total: result.reports.length,
+          skipped: result.skipped
+        })
       })
 
       return result

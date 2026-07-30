@@ -28,11 +28,13 @@ import {
   parseIgnoredSources,
   resolveAccountConnection,
   resolveInputConnection,
+  applyOpenAtLogin,
   saveAccount,
   saveGlobalSettings,
   setActiveAccount
 } from './settings'
 import { setupAutoUpdater } from './updater'
+import { t } from '../shared/i18n'
 
 app.disableHardwareAcceleration()
 app.commandLine.appendSwitch('disable-gpu')
@@ -45,6 +47,17 @@ let tray: Tray | null = null
 let isQuitting = false
 let autoFetchTimer: ReturnType<typeof setInterval> | null = null
 let fetchInFlight = false
+/** True when the app was launched at login as a hidden background instance. */
+let startHidden = false
+
+function shouldStartHidden(): boolean {
+  if (process.argv.includes('--hidden')) return true
+  try {
+    return Boolean(app.getLoginItemSettings().wasOpenedAsHidden)
+  } catch {
+    return false
+  }
+}
 
 function createWindow(): BrowserWindow {
   const appIcon = createAppIcon()
@@ -73,6 +86,11 @@ function createWindow(): BrowserWindow {
   win.on('ready-to-show', () => {
     if (!appIcon.isEmpty()) {
       win.setIcon(appIcon)
+    }
+    // Autostart + tray: stay in the background until the user opens the window.
+    if (startHidden && loadSettings().global.runInTray) {
+      updateTray()
+      return
     }
     win.show()
   })
@@ -114,26 +132,29 @@ function updateTray(): void {
   if (wantTray && !tray) {
     const icon = createAppIcon()
     tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 22, height: 22 }))
-    tray.setToolTip('DMARC Viewer')
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        { label: 'DMARC Viewer anzeigen', click: () => showMainWindow() },
-        { label: 'Jetzt abrufen', click: () => void runAutoFetchAll() },
-        { type: 'separator' },
-        {
-          label: 'Beenden',
-          click: () => {
-            isQuitting = true
-            app.quit()
-          }
-        }
-      ])
-    )
+    tray.setToolTip(t('app.title'))
     tray.on('click', () => showMainWindow())
   } else if (!wantTray && tray) {
     tray.destroy()
     tray = null
+    return
   }
+  if (!tray) return
+  tray.setToolTip(t('app.title'))
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: t('main.trayShow'), click: () => showMainWindow() },
+      { label: t('main.trayFetch'), click: () => void runAutoFetchAll() },
+      { type: 'separator' },
+      {
+        label: t('main.trayQuit'),
+        click: () => {
+          isQuitting = true
+          app.quit()
+        }
+      }
+    ])
+  )
 }
 
 function notify(body: string): void {
@@ -165,7 +186,11 @@ function runAlerts(account: AccountPublic, prevFailing: number, result: AnalyzeR
   if (global.notifyOnFail && result.aggregate.failing > prevFailing) {
     const delta = result.aggregate.failing - prevFailing
     notify(
-      `Neue Failures: +${delta} Nachrichten (gesamt ${result.aggregate.failing} fail)${suffix}.`
+      t('main.alertFail', {
+        delta,
+        total: result.aggregate.failing,
+        suffix
+      })
     )
   }
 
@@ -173,7 +198,11 @@ function runAlerts(account: AccountPublic, prevFailing: number, result: AnalyzeR
     const rate = passRateLastDays(result.reports, 7)
     if (rate != null && rate < global.passRateAlertThreshold) {
       notify(
-        `Pass-Rate der letzten 7 Tage bei ${rate.toFixed(1)}% — unter Schwelle von ${global.passRateAlertThreshold}%${suffix}.`
+        t('main.alertPassRate', {
+          rate: rate.toFixed(1),
+          threshold: global.passRateAlertThreshold,
+          suffix
+        })
       )
     }
   }
@@ -183,15 +212,15 @@ function runAlerts(account: AccountPublic, prevFailing: number, result: AnalyzeR
     const relevant = result.newSourceIps.filter((ip) => !isIgnoredSource(ip, matchers))
     if (relevant.length > 0) {
       const shown = relevant.slice(0, 3).join(', ')
-      const more = relevant.length > 3 ? ` und ${relevant.length - 3} weitere` : ''
-      notify(`Neue Quelle erkannt: ${shown}${more}${suffix}.`)
+      const more = relevant.length > 3 ? t('main.alertMore', { count: relevant.length - 3 }) : ''
+      notify(t('main.alertNewSource', { shown, more, suffix }))
     }
   }
 }
 
 async function runSavedFetch(accountId?: string | null): Promise<AnalyzeResult> {
   if (fetchInFlight) {
-    throw new Error('Abruf läuft bereits.')
+    throw new Error(t('main.fetchInFlight'))
   }
   fetchInFlight = true
   try {
@@ -205,7 +234,7 @@ async function fetchAccount(accountId?: string | null): Promise<AnalyzeResult> {
   const settingsPub = loadSettings()
   const id = accountId ?? settingsPub.activeAccountId
   const account = settingsPub.accounts.find((a) => a.id === id)
-  if (!account) throw new Error('Kein IMAP-Konto konfiguriert.')
+  if (!account) throw new Error(t('main.noAccount'))
 
   const connection = resolveAccountConnection(account.id)
   const prevFailing = previousFailingTotal(connection)
@@ -291,6 +320,7 @@ function registerIpc(): void {
 
   ipcMain.handle('settings:saveGlobal', (_event, input: GlobalSettings) => {
     const saved = saveGlobalSettings(input)
+    applyOpenAtLogin(saved.global)
     scheduleAutoFetch()
     updateTray()
     return saved
@@ -321,9 +351,9 @@ function registerIpc(): void {
     const settingsPub = loadSettings()
     const id = accountId ?? settingsPub.activeAccountId
     const account = settingsPub.accounts.find((a) => a.id === id)
-    if (!account) return { ok: false, message: 'Kein Konto ausgewählt.' }
+    if (!account) return { ok: false, message: t('main.noAccountSelected') }
     clearCache(accountKeyFor(account.user, account.host, account.mailbox))
-    return { ok: true, message: 'Cache geleert.' }
+    return { ok: true, message: t('main.cacheCleared') }
   })
 
   ipcMain.handle('ip:resolve', async (_event, ips: string[]) => resolveIps(ips ?? []))
@@ -334,11 +364,11 @@ function registerIpc(): void {
 
   ipcMain.handle('files:open', async () => {
     const openOptions = {
-      title: 'DMARC-Reports öffnen',
+      title: t('main.openReports'),
       properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'>,
       filters: [
         { name: 'DMARC Reports', extensions: ['xml', 'gz', 'zip', 'eml', 'mime'] },
-        { name: 'Alle Dateien', extensions: ['*'] }
+        { name: 'Alle Dateien / All files', extensions: ['*'] }
       ]
     }
     const result = mainWindow
@@ -364,7 +394,7 @@ function registerIpc(): void {
   ipcMain.handle('export:save', async (_event, result: AnalyzeResult, format: 'json' | 'csv') => {
     const defaultPath = format === 'json' ? 'dmarc-reports.json' : 'dmarc-reports.csv'
     const saveOptions = {
-      title: 'Export speichern',
+      title: t('main.saveExport'),
       defaultPath,
       filters:
         format === 'json'
@@ -374,11 +404,11 @@ function registerIpc(): void {
     const save = mainWindow
       ? await dialog.showSaveDialog(mainWindow, saveOptions)
       : await dialog.showSaveDialog(saveOptions)
-    if (save.canceled || !save.filePath) return { ok: false, message: 'Abgebrochen.' }
+    if (save.canceled || !save.filePath) return { ok: false, message: t('main.cancelled') }
 
     const content = format === 'json' ? exportReportsJson(result) : exportReportsCsv(result)
     writeFileSync(save.filePath, content, 'utf8')
-    return { ok: true, message: `Gespeichert: ${save.filePath}` }
+    return { ok: true, message: t('main.saved', { path: save.filePath }) }
   })
 }
 
@@ -392,6 +422,10 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  const settings = loadSettings()
+  startHidden = shouldStartHidden()
+  applyOpenAtLogin(settings.global)
+
   registerIpc()
   setupAutoUpdater(() => mainWindow)
   mainWindow = createWindow()
@@ -399,6 +433,7 @@ app.whenReady().then(() => {
   updateTray()
 
   app.on('activate', () => {
+    startHidden = false
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow()
     } else {

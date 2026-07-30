@@ -1,5 +1,6 @@
 import { promises as dns } from 'dns'
 import type { DkimSelectorCheck, DnsCheckResult } from '../shared/types'
+import { t } from '../shared/i18n'
 
 function flattenTxt(records: string[][]): string[] {
   return records.map((parts) => parts.join(''))
@@ -36,7 +37,7 @@ export async function checkDomainDns(
 ): Promise<DnsCheckResult> {
   const domain = domainRaw.trim().toLowerCase().replace(/\.$/, '')
   if (!domain || !/^[a-z0-9.-]+$/i.test(domain)) {
-    throw new Error('Ungültige Domain.')
+    throw new Error(t('main.invalidDomain'))
   }
 
   const selectors = [

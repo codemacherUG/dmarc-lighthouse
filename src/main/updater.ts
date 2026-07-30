@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import electronUpdater, { type ProgressInfo, type UpdateInfo } from 'electron-updater'
 import type { UpdateStatusPayload } from '../shared/types'
+import { t } from '../shared/i18n'
 
 // CommonJS interop — see electron-builder#7976
 const { autoUpdater } = electronUpdater
@@ -28,15 +29,15 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('update:check', async () => {
     if (is.dev) {
       send({ status: 'not-available', version: '' })
-      return { ok: false, message: 'Updates sind im Dev-Modus deaktiviert.' }
+      return { ok: false, message: t('updater.devDisabled') }
     }
     try {
       const result = await autoUpdater.checkForUpdates()
       return {
         ok: true,
         message: result?.updateInfo
-          ? `Aktuelle Release-Info: ${result.updateInfo.version}`
-          : 'Update-Prüfung gestartet.'
+          ? t('updater.releaseInfo', { version: result.updateInfo.version })
+          : t('updater.started')
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -46,10 +47,10 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
   })
 
   ipcMain.handle('update:install', () => {
-    if (is.dev) return { ok: false, message: 'Im Dev-Modus nicht verfügbar.' }
+    if (is.dev) return { ok: false, message: t('updater.devInstall') }
     // isSilent=false, isForceRunAfter=true
     autoUpdater.quitAndInstall(false, true)
-    return { ok: true, message: 'Installiere Update…' }
+    return { ok: true, message: t('updater.installing') }
   })
 
   if (is.dev) return

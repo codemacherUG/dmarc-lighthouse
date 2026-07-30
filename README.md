@@ -35,12 +35,13 @@
 
 DMARC aggregate reports (RUA) often land as XML/ZIP/GZ in a dedicated mailbox and are hard to read. **DMARC Viewer** fetches these emails via IMAP (or via file import), parses them locally, and shows at a glance:
 
-- how many messages **passed** or **failed**
+- how many messages **passed** or **failed**, and which **dispositions** (`none` / `quarantine` / `reject`) were applied
 - whether **DMARC, SPF, and DKIM alignment** hold
 - which **sources (IPs)**, **From domains**, and **reporting organizations** stand out
 - how volume and pass rate evolve **over time**
+- optional **alerts** for rising failures, a low pass rate, or newly seen source IPs
 
-Everything runs locally on your machine: credentials stay in the Electron `userData` folder, and the password is encrypted with `safeStorage`. There is no cloud account and no telemetry.
+Everything runs locally on your machine: credentials stay in the Electron `userData` folder, and the password is encrypted with `safeStorage`. There is no cloud account and no telemetry. The UI is available in **German** and **English**.
 
 > **Note:** Only aggregate/RUA reports are analyzed. Failure/forensic reports (RUF) are not processed.
 
@@ -50,19 +51,19 @@ Everything runs locally on your machine: credentials stay in the Electron `userD
 
 ### Dashboard
 
-KPIs, alignment charts, time series, and a built-in DNS check for DMARC and SPF records:
+KPIs, alignment charts (including disposition), time series, filters, and a built-in DNS check for DMARC, SPF, and DKIM selectors:
 
 ![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/dashboard.png)
 
 ### Aggregation & details
 
-Reporting organizations, source IPs (including reverse DNS), From domains, individual reports, and record details:
+Reporting organizations, source IPs (including reverse DNS), From domains, individual reports, and record details — click a table row to drill down:
 
 ![Tables with organizations, IPs, domains, and report details](docs/screenshots/tables.png)
 
 ### Settings
 
-IMAP access (Gmail, Outlook/Microsoft 365, or custom), folders, subject filters, auto-fetch, and notifications:
+Multiple IMAP accounts, auto-fetch, alerts (failures / pass-rate / new sources), ignore list, system tray, and UI language:
 
 ![Settings dialog with IMAP configuration](docs/screenshots/settings.png)
 
@@ -73,7 +74,7 @@ IMAP access (Gmail, Outlook/Microsoft 365, or custom), folders, subject filters,
 | Area | Details |
 | --- | --- |
 | **IMAP fetch** | Gmail, Outlook/Microsoft 365, or any IMAP server; incremental via UIDs |
-| **Multiple accounts** | Any number of IMAP accounts/profiles with separate caches; switch via toolbar |
+| **Multiple accounts** | Any number of IMAP accounts/profiles with separate caches; custom display name (default: email domain); switch via toolbar |
 | **File import** | XML, GZ, ZIP, EML/MIME — dialog or drag & drop |
 | **Local cache** | Parsed reports are kept; subsequent fetches only load new messages |
 | **Dashboard** | Reports, messages, pass/fail, pass rate, date range |
@@ -86,6 +87,8 @@ IMAP access (Gmail, Outlook/Microsoft 365, or custom), folders, subject filters,
 | **Auto-fetch** | Optional interval across all accounts + desktop notification when failures increase |
 | **Alerts** | Pass-rate threshold (7 days) and "new source detected" with an ignore list for known IPs |
 | **System tray** | Optionally keep running in the background; fetching and notifications continue with the window closed |
+| **Autostart** | Optional launch at system login; with tray enabled the app can start hidden in the background |
+| **Language** | Switchable German and English UI (Settings) |
 | **Auto-update** | Checks GitHub Releases (NSIS, AppImage, macOS ZIP) |
 
 ---
@@ -123,28 +126,37 @@ Native Gmail API / Microsoft Graph OAuth are not included — IMAP covers the co
 
 ## Usage
 
-1. Open **Settings**, set provider/host/user/app password, and save.
-2. Optionally **Test connection**.
-3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Open files** / drag & drop.
-4. Narrow with date-range and domain filters, review charts and tables, export if needed.
-5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF).
+1. Open **Settings** → **IMAP account**, set provider/host/user/app password, and save. Add further accounts if needed.
+2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, autostart, and language.
+3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
+4. Narrow with date range (including custom From/To), domain, or by clicking a row in the org / IP / From tables; review charts and tables; export if needed.
+5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, and DKIM selectors from the reports or entered manually).
+
+### Alerts & background mode
+
+- **New failures** — desktop notification when the failing message count rises after a fetch.
+- **Pass-rate alert** — notify when the 7-day pass rate falls below a configured threshold (0 = off).
+- **New source** — notify when a previously unseen source IP appears; list known IPs (or prefixes like `66.249.*`) under ignored sources to suppress noise.
+- **System tray** — optionally keep the app running when the window is closed so auto-fetch and notifications continue. Tray menu: show window, fetch now, quit.
+- **Autostart** — optionally launch at system login; combined with the tray the app can start hidden in the background.
 
 ### Typical flow
 
 ```text
-IMAP mailbox / local files
+IMAP mailbox(es) / local files
         │
         ▼
   Parse (XML / GZ / ZIP / EML)
         │
         ▼
-  Local cache (userData)
+  Local cache per account (userData)
         │
         ▼
   Analysis → KPIs, charts, tables
         │
-        ├── Filters (date range, domain)
-        ├── DNS check
+        ├── Filters (date range, domain, org / IP / From drill-down)
+        ├── DNS check (DMARC / SPF / DKIM)
+        ├── Alerts (failures / pass rate / new sources)
         └── Export (CSV / JSON)
 ```
 
@@ -155,6 +167,12 @@ IMAP mailbox / local files
 ```bash
 npm install
 npm run dev
+```
+
+Run unit tests (filter / aggregation logic):
+
+```bash
+npm test
 ```
 
 Production build locally:
@@ -181,6 +199,7 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.5` or start th
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
 - Updates: [`electron-updater`](https://www.electron.build/auto-update) via GitHub Releases
+- Tests: [Vitest](https://vitest.dev/)
 
 ---
 
@@ -188,9 +207,11 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.5` or start th
 
 - Failure/RUF reports are not analyzed.
 - Messages without a valid DMARC attachment are skipped and counted.
-- Settings and report cache live under the Electron `userData` path (not in the repo).
-- Clear cache: Settings → **Clear cache** (the next fetch will retrieve everything again).
+- Settings and report caches live under the Electron `userData` path (not in the repo); each IMAP account has its own cache.
+- Clear cache: Settings → IMAP account → **Clear this account’s cache** (the next fetch will retrieve everything again for that account).
 - Optionally, fetched messages can be marked as read (`\Seen`).
+- With system tray enabled, closing the window hides the app instead of quitting — use **Quit** from the tray menu to exit fully.
+- Existing single-account settings from older versions are migrated automatically to the multi-account format.
 
 ---
 

@@ -12,24 +12,158 @@
   <body>
     <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
       <div class="drop-overlay-inner">
-        DMARC-Dateien hier ablegen<br /><span>XML, GZ, ZIP, EML</span>
+        <span data-i18n="drop.title">DMARC-Dateien hier ablegen</span><br />
+        <span data-i18n="drop.formats">XML, GZ, ZIP, EML</span>
       </div>
     </div>
 
     <div id="app">
       <header class="app-header">
-        <div>
-          <h1>DMARC Viewer</h1>
-          <p class="subtitle">
-            Aggregate-Reports · <span id="account-label">Keine Zugangsdaten</span>
-          </p>
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="36" height="36" fill="none">
+              <rect width="32" height="32" rx="9" fill="#1f6f8b" />
+              <path
+                d="M8 11.5h16M8 16h16M8 20.5h10"
+                stroke="#fff"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <circle cx="22.5" cy="20.5" r="3" fill="#9fd6e8" />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1 data-i18n="app.title">DMARC Viewer</h1>
+            <p class="subtitle">
+              <span data-i18n="app.subtitle">Aggregate-Reports</span>
+              · <span id="account-label" data-i18n="app.noCredentials">Keine Zugangsdaten</span>
+            </p>
+          </div>
         </div>
+
         <div class="header-actions">
-          <button type="button" id="btn-info" class="btn secondary">Info</button>
-          <button type="button" id="btn-open-files" class="btn secondary">Dateien öffnen</button>
-          <button type="button" id="btn-export" class="btn secondary" disabled>Export</button>
-          <button type="button" id="btn-settings" class="btn secondary">Einstellungen</button>
-          <button type="button" id="btn-fetch" class="btn primary">Reports abrufen</button>
+          <div class="action-group" role="toolbar">
+            <button
+              type="button"
+              id="btn-info"
+              class="btn tool-btn"
+              data-i18n-title="header.infoTitle"
+              data-i18n-aria="header.info"
+              title="Über die App"
+            >
+              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="7.25"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+                <path
+                  d="M10 9v4.5M10 6.5h.01"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <span data-i18n="header.info">Info</span>
+            </button>
+            <button
+              type="button"
+              id="btn-open-files"
+              class="btn tool-btn"
+              data-i18n-title="header.openFilesTitle"
+              data-i18n-aria="header.openFiles"
+              title="Lokale DMARC-Dateien öffnen"
+            >
+              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+                <path
+                  d="M3.5 6.5V15a1.5 1.5 0 0 0 1.5 1.5h10A1.5 1.5 0 0 0 16.5 15V8A1.5 1.5 0 0 0 15 6.5H9.2L7.8 5H5A1.5 1.5 0 0 0 3.5 6.5Z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span data-i18n="header.openFiles">Dateien</span>
+            </button>
+            <button
+              type="button"
+              id="btn-export"
+              class="btn tool-btn"
+              disabled
+              data-i18n-title="header.exportTitle"
+              data-i18n-aria="header.export"
+              title="Gefilterte Daten exportieren"
+            >
+              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+                <path
+                  d="M10 3.5v8M6.5 8.5 10 12l3.5-3.5M4 15.5h12"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span data-i18n="header.export">Export</span>
+            </button>
+            <button
+              type="button"
+              id="btn-settings"
+              class="btn tool-btn"
+              data-i18n-title="header.settingsTitle"
+              data-i18n-aria="header.settings"
+              title="Einstellungen öffnen"
+            >
+              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+                <path
+                  d="M8.2 3.5h3.6l.4 1.6 1.5.9 1.7-.5 1.8 1.8-.5 1.7.9 1.5 1.6.4v3.6l-1.6.4-.9 1.5.5 1.7-1.8 1.8-1.7-.5-1.5.9-.4 1.6H8.2l-.4-1.6-1.5-.9-1.7.5L3 15.4l.5-1.7-.9-1.5L1 11.8V8.2l1.6-.4.9-1.5L3 4.6 4.8 2.8l1.7.5 1.5-.9.4-1.6Z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.35"
+                  stroke-linejoin="round"
+                />
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="2.4"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+              </svg>
+              <span data-i18n="header.settings">Einstellungen</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            id="btn-fetch"
+            class="btn primary fetch-btn"
+            data-i18n-title="header.fetchTitle"
+            title="Reports per IMAP abrufen"
+          >
+            <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <path
+                d="M4 10a6 6 0 0 1 10.4-4M16 10a6 6 0 0 1-10.4 4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+              />
+              <path
+                d="M14 3.5v3.2h3.2M6 16.5v-3.2H2.8"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span data-i18n="header.fetch">Reports abrufen</span>
+          </button>
         </div>
       </header>
 
@@ -37,16 +171,22 @@
         <span id="update-banner-text"></span>
         <div class="update-banner-actions">
           <button type="button" id="btn-update-install" class="btn primary hidden">
-            Neu starten &amp; installieren
+            <span data-i18n="update.install">Neu starten &amp; installieren</span>
           </button>
-          <button type="button" id="btn-update-dismiss" class="btn ghost" aria-label="Ausblenden">
+          <button
+            type="button"
+            id="btn-update-dismiss"
+            class="btn ghost"
+            data-i18n-aria="update.dismiss"
+            aria-label="Ausblenden"
+          >
             ✕
           </button>
         </div>
       </div>
 
       <div class="toolbar">
-        <div id="status" class="status" role="status">Bereit</div>
+        <div id="status" class="status" role="status" data-i18n="app.ready">Bereit</div>
         <div class="progress-wrap">
           <progress id="progress" max="100" value="0"></progress>
           <span id="progress-label"></span>
@@ -56,48 +196,52 @@
       <section class="panel filter-panel">
         <div class="filter-row">
           <label id="account-field" class="hidden">
-            Konto
+            <span data-i18n="filter.account">Konto</span>
             <select id="account-select"></select>
           </label>
           <label>
-            Zeitraum
+            <span data-i18n="filter.range">Zeitraum</span>
             <select id="filter-range">
-              <option value="all" selected>Gesamt</option>
-              <option value="7">Letzte 7 Tage</option>
-              <option value="30">Letzte 30 Tage</option>
-              <option value="90">Letzte 90 Tage</option>
-              <option value="custom">Benutzerdefiniert</option>
+              <option value="all" selected data-i18n="filter.rangeAll">Gesamt</option>
+              <option value="7" data-i18n="filter.range7">Letzte 7 Tage</option>
+              <option value="30" data-i18n="filter.range30">Letzte 30 Tage</option>
+              <option value="90" data-i18n="filter.range90">Letzte 90 Tage</option>
+              <option value="custom" data-i18n="filter.rangeCustom">Benutzerdefiniert</option>
             </select>
           </label>
           <label id="filter-custom-range" class="custom-range hidden">
-            Von / Bis
+            <span data-i18n="filter.fromTo">Von / Bis</span>
             <div class="inline-actions two-inputs">
               <input id="filter-from" type="date" />
               <input id="filter-to" type="date" />
             </div>
           </label>
           <label>
-            Domain
+            <span data-i18n="filter.domain">Domain</span>
             <select id="filter-domain">
-              <option value="">Alle Domains</option>
+              <option value="" data-i18n="filter.allDomains">Alle Domains</option>
             </select>
           </label>
           <label class="dns-check-field">
-            DNS-Check
+            <span data-i18n="filter.dns">DNS-Check</span>
             <div class="inline-actions dns-inputs">
               <input id="dns-domain" type="text" placeholder="example.com" />
               <input
                 id="dns-selectors"
                 type="text"
+                data-i18n-placeholder="filter.selectorsPlaceholder"
+                data-i18n-title="filter.selectorsTitle"
                 placeholder="DKIM-Selektoren (auto)"
                 title="Kommagetrennt; leer = automatisch aus den Reports"
               />
-              <button type="button" id="btn-dns" class="btn secondary">Prüfen</button>
+              <button type="button" id="btn-dns" class="btn secondary" data-i18n="filter.dnsCheck">
+                Prüfen
+              </button>
             </div>
           </label>
         </div>
         <div id="filter-chips" class="filter-chips hidden"></div>
-        <div id="dns-result" class="dns-result muted">
+        <div id="dns-result" class="dns-result muted" data-i18n="filter.dnsHint">
           DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
         </div>
       </section>
@@ -105,27 +249,27 @@
       <section class="panel kpi-panel">
         <div id="summary" class="summary-grid">
           <div class="stat">
-            <span class="stat-label">Reports</span>
+            <span class="stat-label" data-i18n="kpi.reports">Reports</span>
             <span class="stat-value" data-key="reportCount">—</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Nachrichten</span>
+            <span class="stat-label" data-i18n="kpi.messages">Nachrichten</span>
             <span class="stat-value" data-key="total">—</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Pass</span>
+            <span class="stat-label" data-i18n="kpi.pass">Pass</span>
             <span class="stat-value ok" data-key="passing">—</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Fail</span>
+            <span class="stat-label" data-i18n="kpi.fail">Fail</span>
             <span class="stat-value bad" data-key="failing">—</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Pass-Rate</span>
+            <span class="stat-label" data-i18n="kpi.passRate">Pass-Rate</span>
             <span class="stat-value" data-key="passRate">—</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Zeitraum</span>
+            <span class="stat-label" data-i18n="kpi.range">Zeitraum</span>
             <span class="stat-value small" data-key="range">—</span>
           </div>
         </div>
@@ -134,24 +278,24 @@
       <section class="panel charts-panel">
         <div class="charts-row pies">
           <div class="chart-card">
-            <h2>DMARC Alignment</h2>
+            <h2 data-i18n="chart.dmarc">DMARC Alignment</h2>
             <canvas id="chart-dmarc"></canvas>
           </div>
           <div class="chart-card">
-            <h2>SPF Alignment</h2>
+            <h2 data-i18n="chart.spf">SPF Alignment</h2>
             <canvas id="chart-spf"></canvas>
           </div>
           <div class="chart-card">
-            <h2>DKIM Alignment</h2>
+            <h2 data-i18n="chart.dkim">DKIM Alignment</h2>
             <canvas id="chart-dkim"></canvas>
           </div>
           <div class="chart-card">
-            <h2>Disposition (Policy-Anwendung)</h2>
+            <h2 data-i18n="chart.disposition">Disposition (Policy-Anwendung)</h2>
             <canvas id="chart-disposition"></canvas>
           </div>
         </div>
         <div class="chart-card volume-card">
-          <h2>Nachrichtenvolumen &amp; Pass-Rate über Zeit</h2>
+          <h2 data-i18n="chart.volume">Nachrichtenvolumen &amp; Pass-Rate über Zeit</h2>
           <canvas id="chart-volume"></canvas>
         </div>
       </section>
@@ -159,57 +303,57 @@
       <section class="panel tables-panel">
         <div class="tables-row">
           <div class="table-card">
-            <h2>Reporting-Organisationen</h2>
+            <h2 data-i18n="table.orgs">Reporting-Organisationen</h2>
             <div class="table-scroll">
               <table>
                 <thead>
                   <tr>
-                    <th>Org</th>
-                    <th>Msgs</th>
-                    <th>Pass %</th>
+                    <th data-i18n="table.org">Org</th>
+                    <th data-i18n="table.msgs">Msgs</th>
+                    <th data-i18n="table.passPct">Pass %</th>
                   </tr>
                 </thead>
                 <tbody id="table-orgs">
                   <tr class="empty">
-                    <td colspan="3">Noch keine Daten</td>
+                    <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
           <div class="table-card">
-            <h2>Quellen (IP)</h2>
+            <h2 data-i18n="table.ips">Quellen (IP)</h2>
             <div class="table-scroll">
               <table>
                 <thead>
                   <tr>
-                    <th>IP / Absender</th>
-                    <th>Msgs</th>
-                    <th>Pass %</th>
+                    <th data-i18n="table.ipSender">IP / Absender</th>
+                    <th data-i18n="table.msgs">Msgs</th>
+                    <th data-i18n="table.passPct">Pass %</th>
                   </tr>
                 </thead>
                 <tbody id="table-ips">
                   <tr class="empty">
-                    <td colspan="3">Noch keine Daten</td>
+                    <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
           <div class="table-card">
-            <h2>From-Domains</h2>
+            <h2 data-i18n="table.from">From-Domains</h2>
             <div class="table-scroll">
               <table>
                 <thead>
                   <tr>
-                    <th>Domain</th>
-                    <th>Msgs</th>
-                    <th>Pass %</th>
+                    <th data-i18n="table.domain">Domain</th>
+                    <th data-i18n="table.msgs">Msgs</th>
+                    <th data-i18n="table.passPct">Pass %</th>
                   </tr>
                 </thead>
                 <tbody id="table-from">
                   <tr class="empty">
-                    <td colspan="3">Noch keine Daten</td>
+                    <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
                   </tr>
                 </tbody>
               </table>
@@ -221,23 +365,23 @@
       <section class="panel results-panel">
         <div class="results-layout">
           <div class="table-wrap">
-            <h2>Einzelne Reports</h2>
+            <h2 data-i18n="table.reports">Einzelne Reports</h2>
             <table id="reports-table">
               <thead>
                 <tr>
-                  <th>Org</th>
-                  <th>Domain</th>
-                  <th>Zeitraum</th>
-                  <th>Msgs</th>
-                  <th>Pass</th>
-                  <th>Fail</th>
-                  <th>Rate</th>
-                  <th>Policy</th>
+                  <th data-i18n="table.org">Org</th>
+                  <th data-i18n="table.domain">Domain</th>
+                  <th data-i18n="table.period">Zeitraum</th>
+                  <th data-i18n="table.msgs">Msgs</th>
+                  <th data-i18n="kpi.pass">Pass</th>
+                  <th data-i18n="kpi.fail">Fail</th>
+                  <th data-i18n="table.rate">Rate</th>
+                  <th data-i18n="table.policy">Policy</th>
                 </tr>
               </thead>
               <tbody id="reports-body">
                 <tr class="empty">
-                  <td colspan="8">
+                  <td colspan="8" data-i18n="table.emptyReports">
                     Einstellungen öffnen, Zugangsdaten speichern, dann Reports abrufen — oder
                     Dateien per Drag &amp; Drop laden.
                   </td>
@@ -246,9 +390,9 @@
             </table>
           </div>
           <aside class="detail-wrap">
-            <h2>Record-Details</h2>
+            <h2 data-i18n="detail.title">Record-Details</h2>
             <div id="detail" class="detail">
-              <p class="muted">Report in der Tabelle auswählen.</p>
+              <p class="muted" data-i18n="detail.pick">Report in der Tabelle auswählen.</p>
             </div>
           </aside>
         </div>
@@ -258,8 +402,14 @@
     <dialog id="settings-dialog">
       <form id="settings-form" method="dialog" class="settings-form">
         <header class="dialog-header">
-          <h2>Einstellungen</h2>
-          <button type="button" id="btn-close-settings" class="btn ghost" aria-label="Schließen">
+          <h2 data-i18n="settings.title">Einstellungen</h2>
+          <button
+            type="button"
+            id="btn-close-settings"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
             ✕
           </button>
         </header>
@@ -272,6 +422,7 @@
             role="tab"
             aria-selected="true"
             aria-controls="tab-account"
+            data-i18n="settings.tabAccount"
           >
             IMAP-Konto
           </button>
@@ -282,6 +433,7 @@
             role="tab"
             aria-selected="false"
             aria-controls="tab-general"
+            data-i18n="settings.tabGeneral"
           >
             Abruf &amp; Benachrichtigungen
           </button>
@@ -290,50 +442,88 @@
         <div class="dialog-body">
           <section id="tab-account" class="tab-panel" role="tabpanel">
             <div class="account-toolbar">
-              <select id="settings-account-select" title="Konto auswählen"></select>
-              <button type="button" id="btn-new-account" class="btn secondary">Neues Konto</button>
-              <button type="button" id="btn-delete-account" class="btn secondary">Löschen</button>
+              <select
+                id="settings-account-select"
+                data-i18n-title="settings.selectAccount"
+                title="Konto auswählen"
+              ></select>
+              <button
+                type="button"
+                id="btn-new-account"
+                class="btn secondary"
+                data-i18n="settings.newAccount"
+              >
+                Neues Konto
+              </button>
+              <button
+                type="button"
+                id="btn-delete-account"
+                class="btn secondary"
+                data-i18n="settings.deleteAccount"
+              >
+                Löschen
+              </button>
             </div>
 
             <fieldset class="settings-group">
-              <legend>Verbindung</legend>
+              <legend data-i18n="settings.connection">Verbindung</legend>
               <div class="settings-grid">
+                <label class="span-2">
+                  <span data-i18n="settings.accountName">Bezeichnung</span>
+                  <input
+                    id="accountName"
+                    name="accountName"
+                    type="text"
+                    data-i18n-title="settings.accountNameTitle"
+                    title="Leer lassen = Domain aus der E-Mail-Adresse"
+                  />
+                </label>
+                <p class="hint span-2" data-i18n="settings.accountNameHint">
+                  Leer lassen, um die Domain der E-Mail-Adresse als Bezeichnung zu verwenden
+                  (z.&nbsp;B. codemacher.de).
+                </p>
+
                 <label>
-                  Anbieter
+                  <span data-i18n="settings.provider">Anbieter</span>
                   <select id="provider" name="provider">
-                    <option value="gmail">Gmail</option>
-                    <option value="outlook">Outlook / Microsoft 365</option>
-                    <option value="custom" selected>Custom IMAP</option>
+                    <option value="gmail" data-i18n="settings.providerGmail">Gmail</option>
+                    <option value="outlook" data-i18n="settings.providerOutlook">
+                      Outlook / Microsoft 365
+                    </option>
+                    <option value="custom" selected data-i18n="settings.providerCustom">
+                      Custom IMAP
+                    </option>
                   </select>
                 </label>
 
                 <label>
-                  Host
+                  <span data-i18n="settings.host">Host</span>
                   <input id="host" name="host" type="text" placeholder="imap.example.com" />
                 </label>
 
                 <label>
-                  Port
+                  <span data-i18n="settings.port">Port</span>
                   <input id="port" name="port" type="number" min="1" max="65535" value="993" />
                 </label>
 
                 <label class="checkbox">
                   <input id="secure" name="secure" type="checkbox" checked />
-                  TLS / SSL
+                  <span data-i18n="settings.tls">TLS / SSL</span>
                 </label>
 
                 <label>
-                  Benutzer
+                  <span data-i18n="settings.user">Benutzer</span>
                   <input id="user" name="user" type="email" autocomplete="username" />
                 </label>
 
                 <label>
-                  Passwort / App-Passwort
+                  <span data-i18n="settings.password">Passwort / App-Passwort</span>
                   <input
                     id="password"
                     name="password"
                     type="password"
                     autocomplete="current-password"
+                    data-i18n-placeholder="settings.passwordPlaceholder"
                     placeholder="Leer lassen, wenn gespeichert"
                   />
                 </label>
@@ -342,34 +532,44 @@
             </fieldset>
 
             <fieldset class="settings-group">
-              <legend>Abruf aus diesem Postfach</legend>
+              <legend data-i18n="settings.mailboxFetch">Abruf aus diesem Postfach</legend>
               <div class="settings-grid">
                 <label>
-                  Ordner
+                  <span data-i18n="settings.mailbox">Ordner</span>
                   <input id="mailbox" name="mailbox" type="text" value="INBOX" />
                 </label>
 
                 <label>
-                  Betreff-Filter
+                  <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
                   <input
                     id="subjectFilter"
                     name="subjectFilter"
                     type="text"
                     value="Report Domain"
+                    data-i18n-placeholder="settings.subjectPlaceholder"
                     placeholder="Leer = alle Nachrichten"
                   />
                 </label>
 
                 <label class="checkbox span-2">
                   <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
-                  Nachrichten nach Abruf als gelesen markieren
+                  <span data-i18n="settings.markSeen"
+                    >Nachrichten nach Abruf als gelesen markieren</span
+                  >
                 </label>
               </div>
             </fieldset>
 
             <div class="account-actions">
-              <button type="button" id="btn-test" class="btn secondary">Verbindung testen</button>
-              <button type="button" id="btn-clear-cache" class="btn secondary">
+              <button type="button" id="btn-test" class="btn secondary" data-i18n="settings.test">
+                Verbindung testen
+              </button>
+              <button
+                type="button"
+                id="btn-clear-cache"
+                class="btn secondary"
+                data-i18n="settings.clearCache"
+              >
                 Cache dieses Kontos leeren
               </button>
             </div>
@@ -377,10 +577,26 @@
 
           <section id="tab-general" class="tab-panel hidden" role="tabpanel">
             <fieldset class="settings-group">
-              <legend>Automatischer Abruf</legend>
+              <legend data-i18n="settings.language">Sprache</legend>
               <div class="settings-grid">
                 <label>
-                  Auto-Abruf (Minuten)
+                  <span data-i18n="settings.language">Sprache</span>
+                  <select id="language" name="language">
+                    <option value="de">Deutsch</option>
+                    <option value="en">English</option>
+                  </select>
+                </label>
+              </div>
+              <p class="hint" data-i18n="settings.languageHint">
+                Sprache der Benutzeroberfläche. Änderungen werden sofort übernommen.
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.autoFetch">Automatischer Abruf</legend>
+              <div class="settings-grid">
+                <label>
+                  <span data-i18n="settings.autoFetchMinutes">Auto-Abruf (Minuten)</span>
                   <input
                     id="autoFetchMinutes"
                     name="autoFetchMinutes"
@@ -388,36 +604,49 @@
                     min="0"
                     max="1440"
                     value="0"
+                    data-i18n-title="settings.autoFetchTitle"
                     title="0 = aus"
                   />
                 </label>
 
                 <label class="checkbox">
                   <input id="runInTray" name="runInTray" type="checkbox" />
-                  Im Hintergrund weiterlaufen (System-Tray)
+                  <span data-i18n="settings.runInTray"
+                    >Im Hintergrund weiterlaufen (System-Tray)</span
+                  >
+                </label>
+
+                <label class="checkbox span-2">
+                  <input id="openAtLogin" name="openAtLogin" type="checkbox" />
+                  <span data-i18n="settings.openAtLogin">Beim Systemstart automatisch starten</span>
                 </label>
               </div>
-              <p class="hint">
+              <p class="hint" data-i18n="settings.autoFetchHint">
                 0 = aus. Der Auto-Abruf holt alle konfigurierten Konten nacheinander ab. Mit aktivem
                 System-Tray läuft er auch bei geschlossenem Fenster weiter.
+              </p>
+              <p class="hint" data-i18n="settings.openAtLoginHint">
+                Mit System-Tray startet die App nach dem Login im Hintergrund (ohne Fenster).
               </p>
             </fieldset>
 
             <fieldset class="settings-group">
-              <legend>Benachrichtigungen</legend>
+              <legend data-i18n="settings.notifications">Benachrichtigungen</legend>
               <div class="settings-grid">
                 <label class="checkbox">
                   <input id="notifyOnFail" name="notifyOnFail" type="checkbox" checked />
-                  Bei neuen Failures benachrichtigen
+                  <span data-i18n="settings.notifyFail">Bei neuen Failures benachrichtigen</span>
                 </label>
 
                 <label class="checkbox">
                   <input id="notifyNewSource" name="notifyNewSource" type="checkbox" />
-                  Bei neuer Quelle (unbekannte IP) benachrichtigen
+                  <span data-i18n="settings.notifyNewSource"
+                    >Bei neuer Quelle (unbekannte IP) benachrichtigen</span
+                  >
                 </label>
 
                 <label>
-                  Pass-Rate-Alarm unter (%)
+                  <span data-i18n="settings.passRateAlarm">Pass-Rate-Alarm unter (%)</span>
                   <input
                     id="passRateAlertThreshold"
                     name="passRateAlertThreshold"
@@ -426,29 +655,31 @@
                     max="100"
                     step="0.1"
                     value="0"
+                    data-i18n-title="settings.passRateTitle"
                     title="0 = aus · bezogen auf die letzten 7 Tage"
                   />
                 </label>
               </div>
-              <p class="hint">
+              <p class="hint" data-i18n="settings.passRateHint">
                 Pass-Rate-Alarm: 0 = aus, bezogen auf die letzten 7 Tage nach jedem Abruf mit neuen
                 Reports.
               </p>
             </fieldset>
 
             <fieldset class="settings-group">
-              <legend>Ignorierte Quellen (für Alerts)</legend>
+              <legend data-i18n="settings.ignoredSources">Ignorierte Quellen (für Alerts)</legend>
               <label class="stacked">
                 <textarea
                   id="ignoredSources"
                   name="ignoredSources"
                   rows="4"
+                  data-i18n-placeholder="settings.ignoredPlaceholder"
                   placeholder="Eine IP pro Zeile, z. B. 203.0.113.5 oder 66.249.* für Präfixe"
                 ></textarea>
               </label>
-              <p class="hint">
-                Diese IPs lösen keinen „Neue Quelle"-Alert aus. Präfixe mit <code>*</code> am Ende,
-                z. B. <code>66.249.*</code>.
+              <p class="hint" data-i18n="settings.ignoredHint">
+                Diese IPs lösen keinen „Neue Quelle"-Alert aus. Präfixe mit * am Ende, z. B.
+                66.249.*.
               </p>
             </fieldset>
           </section>
@@ -457,7 +688,9 @@
         <footer class="dialog-footer">
           <p id="settings-status" class="hint" role="status"></p>
           <div class="dialog-actions">
-            <button type="submit" id="btn-save" class="btn primary">Speichern</button>
+            <button type="submit" id="btn-save" class="btn primary" data-i18n="settings.save">
+              Speichern
+            </button>
           </div>
         </footer>
       </form>
@@ -466,15 +699,25 @@
     <dialog id="export-dialog">
       <div class="settings-form">
         <header class="dialog-header">
-          <h2>Export</h2>
-          <button type="button" id="btn-close-export" class="btn ghost" aria-label="Schließen">
+          <h2 data-i18n="export.title">Export</h2>
+          <button
+            type="button"
+            id="btn-close-export"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
             ✕
           </button>
         </header>
-        <p class="hint">Aktuell gefilterte Daten exportieren.</p>
+        <p class="hint" data-i18n="export.hint">Aktuell gefilterte Daten exportieren.</p>
         <footer class="dialog-actions">
-          <button type="button" id="btn-export-csv" class="btn secondary">CSV speichern</button>
-          <button type="button" id="btn-export-json" class="btn primary">JSON speichern</button>
+          <button type="button" id="btn-export-csv" class="btn secondary" data-i18n="export.csv">
+            CSV speichern
+          </button>
+          <button type="button" id="btn-export-json" class="btn primary" data-i18n="export.json">
+            JSON speichern
+          </button>
         </footer>
       </div>
     </dialog>
@@ -482,26 +725,34 @@
     <dialog id="info-dialog">
       <div class="settings-form about-form">
         <header class="dialog-header">
-          <h2>Über DMARC Viewer</h2>
-          <button type="button" id="btn-close-info" class="btn ghost" aria-label="Schließen">
+          <h2 data-i18n="about.title">Über DMARC Viewer</h2>
+          <button
+            type="button"
+            id="btn-close-info"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
             ✕
           </button>
         </header>
 
         <div class="about-body">
           <p class="about-title">DMARC Viewer</p>
-          <p class="about-version">Version <span id="about-version">…</span></p>
-          <p>
+          <p class="about-version">
+            <span data-i18n="about.version">Version</span> <span id="about-version">…</span>
+          </p>
+          <p data-i18n="about.description">
             Desktop-Tool zum Abrufen und Analysieren von DMARC-Aggregate-Reports aus einem
             IMAP-Postfach oder lokalen Dateien.
           </p>
           <dl class="about-meta">
             <div>
-              <dt>Copyright</dt>
+              <dt data-i18n="about.copyright">Copyright</dt>
               <dd>© 2026 codemacher UG (haftungsbeschränkt)</dd>
             </div>
             <div>
-              <dt>Website</dt>
+              <dt data-i18n="about.website">Website</dt>
               <dd>
                 <a href="https://codemacher.de/" target="_blank" rel="noreferrer"
                   >https://codemacher.de/</a
@@ -509,28 +760,35 @@
               </dd>
             </div>
             <div>
-              <dt>E-Mail</dt>
+              <dt data-i18n="about.email">E-Mail</dt>
               <dd>
                 <a href="mailto:mail@codemacher.de">mail@codemacher.de</a>
               </dd>
             </div>
             <div>
-              <dt>Standort</dt>
-              <dd>Halle (Saale)</dd>
+              <dt data-i18n="about.location">Standort</dt>
+              <dd data-i18n="about.locationValue">Halle (Saale)</dd>
             </div>
           </dl>
           <p id="update-check-status" class="hint" role="status"></p>
-          <p class="hint">
-            Enthält Open-Source-Komponenten (u.&nbsp;a. Electron, imapflow, Chart.js,
+          <p class="hint" data-i18n="about.oss">
+            Enthält Open-Source-Komponenten (u. a. Electron, imapflow, Chart.js,
             @koduhai/dmarc-parser).
           </p>
         </div>
 
         <footer class="dialog-actions">
-          <button type="button" id="btn-check-update" class="btn secondary">
+          <button
+            type="button"
+            id="btn-check-update"
+            class="btn secondary"
+            data-i18n="about.checkUpdate"
+          >
             Auf Updates prüfen
           </button>
-          <button type="button" id="btn-info-ok" class="btn primary">Schließen</button>
+          <button type="button" id="btn-info-ok" class="btn primary" data-i18n="about.close">
+            Schließen
+          </button>
         </footer>
       </div>
     </dialog>

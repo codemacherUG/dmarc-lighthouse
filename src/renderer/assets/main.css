@@ -28,6 +28,8 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: linear-gradient(180deg, #e8eef3 0%, var(--bg) 220px), var(--bg);
   color: var(--ink);
   font-family: var(--font);
@@ -36,29 +38,136 @@ body {
 }
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 16px 18px 36px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 16px 20px 36px;
   display: grid;
   gap: 14px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.panel,
+.chart-card,
+.table-card,
+.toolbar,
+.filter-panel,
+.charts-panel,
+.tables-panel,
+.results-panel,
+.kpi-panel {
+  min-width: 0;
 }
 
 .app-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   gap: 16px;
+  padding: 4px 2px 2px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brand-mark {
+  flex-shrink: 0;
+  line-height: 0;
+  filter: drop-shadow(0 6px 14px rgba(31, 111, 139, 0.28));
+}
+
+.brand-text {
+  min-width: 0;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.65rem;
+  font-size: 1.55rem;
   letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .subtitle {
   margin: 4px 0 0;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, #fff 70%, #e8eef3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(26, 35, 50, 0.06);
+  filter: none;
+}
+
+.tool-btn:disabled {
+  opacity: 0.45;
+}
+
+.fetch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(31, 111, 139, 0.28);
+}
+
+.fetch-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .update-banner {
@@ -95,16 +204,9 @@ body {
   flex-shrink: 0;
 }
 
-.header-actions,
-.dialog-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.2fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 12px;
   align-items: center;
 }
@@ -147,7 +249,7 @@ body {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
 }
 
@@ -209,7 +311,7 @@ progress {
 
 .charts-row.pies {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -237,7 +339,7 @@ progress {
 
 .tables-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
 
@@ -381,7 +483,8 @@ label.checkbox {
   align-items: center;
   gap: 8px;
   align-self: end;
-  padding-bottom: 10px;
+  min-height: 38px;
+  padding-bottom: 0;
   font-weight: 500;
   color: var(--ink);
 }
@@ -392,7 +495,7 @@ button {
   font: inherit;
 }
 
-input,
+input:not([type='checkbox']):not([type='radio']),
 select {
   height: 38px;
   border: 1px solid var(--line);
@@ -402,11 +505,26 @@ select {
   color: var(--ink);
 }
 
-input:focus,
+input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+input:not([type='checkbox']):not([type='radio']):focus,
 select:focus,
 button:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
+}
+
+input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .btn {
@@ -531,6 +649,10 @@ button:focus-visible {
   grid-column: span 2;
 }
 
+.settings-grid > .hint {
+  margin: -4px 0 4px;
+}
+
 .dialog-actions {
   margin-top: 16px;
   justify-content: flex-end;
@@ -544,18 +666,20 @@ button:focus-visible {
 }
 
 .filter-panel .filter-row > label {
-  min-width: 150px;
+  min-width: min(150px, 100%);
+  flex: 1 1 140px;
 }
 
 .filter-panel .dns-check-field {
-  flex: 1;
-  min-width: 320px;
+  flex: 2 1 280px;
+  min-width: min(280px, 100%);
 }
 
 .inline-actions {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
+  min-width: 0;
 }
 
 .inline-actions.two-inputs {
@@ -563,7 +687,7 @@ button:focus-visible {
 }
 
 .inline-actions.dns-inputs {
-  grid-template-columns: 1.2fr 1fr auto;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
 }
 
 .filter-chips {
@@ -843,28 +967,55 @@ textarea:focus {
 }
 
 @media (max-width: 1100px) {
-  .summary-grid,
-  .charts-row.pies,
-  .tables-row {
-    grid-template-columns: 1fr 1fr;
+  .results-layout {
+    grid-template-columns: 1fr;
   }
 
-  .results-layout {
+  .inline-actions.dns-inputs {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .inline-actions.dns-inputs #dns-selectors {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
+
+@media (max-width: 900px) {
+  .tool-btn span {
+    display: none;
+  }
+
+  .tool-btn {
+    padding: 0 10px;
+  }
+
+  .toolbar {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 720px) {
-  .app-header,
-  .toolbar,
-  .summary-grid,
-  .charts-row.pies,
-  .tables-row,
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    justify-content: space-between;
+  }
+
   .settings-grid {
     grid-template-columns: 1fr;
   }
 
   .settings-grid .span-2 {
     grid-column: span 1;
+  }
+
+  .filter-panel .filter-row > label,
+  .filter-panel .dns-check-field {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 }

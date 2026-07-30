@@ -35,12 +35,13 @@
 
 DMARC-Aggregate-Reports (RUA) landen oft als XML/ZIP/GZ in einem eigenen Postfach und sind schwer lesbar. **DMARC Viewer** holt diese Mails per IMAP (oder per Datei-Import), parst sie lokal und zeigt auf einen Blick:
 
-- wie viele Nachrichten **Pass** bzw. **Fail** hatten
+- wie viele Nachrichten **Pass** bzw. **Fail** hatten und welche **Dispositions** (`none` / `quarantine` / `reject`) angewendet wurden
 - ob **DMARC-, SPF- und DKIM-Alignment** stimmen
 - welche **Quellen (IPs)**, **From-Domains** und **Reporting-Organisationen** auffällig sind
 - wie sich Volumen und Pass-Rate **über die Zeit** entwickeln
+- optionale **Alerts** bei steigenden Failures, niedriger Pass-Rate oder neu gesehenen Quell-IPs
 
-Alles läuft lokal auf dem Rechner: Zugangsdaten bleiben im Electron-`userData`-Ordner, das Passwort wird mit `safeStorage` verschlüsselt. Es gibt keinen Cloud-Account und keine Telemetrie.
+Alles läuft lokal auf dem Rechner: Zugangsdaten bleiben im Electron-`userData`-Ordner, das Passwort wird mit `safeStorage` verschlüsselt. Es gibt keinen Cloud-Account und keine Telemetrie. Die Oberfläche ist auf **Deutsch** und **Englisch** verfügbar.
 
 > **Hinweis:** Ausgewertet werden Aggregate-/RUA-Reports. Failure-/Forensik-Reports (RUF) werden nicht verarbeitet.
 
@@ -50,19 +51,19 @@ Alles läuft lokal auf dem Rechner: Zugangsdaten bleiben im Electron-`userData`-
 
 ### Dashboard
 
-Kennzahlen, Alignment-Charts, Zeitreihe sowie integrierter DNS-Check für DMARC- und SPF-Records:
+Kennzahlen, Alignment-Charts (inkl. Disposition), Zeitreihe, Filter sowie integrierter DNS-Check für DMARC, SPF und DKIM-Selektoren:
 
 ![Dashboard mit KPIs, Alignment-Charts und DNS-Check](docs/screenshots/dashboard.png)
 
 ### Aggregation & Details
 
-Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne Reports und Record-Details:
+Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne Reports und Record-Details — Klick auf eine Tabellenzeile filtert weiter:
 
 ![Tabellen mit Organisationen, IPs, Domains und Report-Details](docs/screenshots/tables.png)
 
 ### Einstellungen
 
-IMAP-Zugang (Gmail, Outlook/Microsoft 365 oder Custom), Ordner, Betreff-Filter, Auto-Abruf und Benachrichtigungen:
+Mehrere IMAP-Konten, Auto-Abruf, Alerts (Failures / Pass-Rate / neue Quellen), Ignorieren-Liste, System-Tray und Sprache:
 
 ![Einstellungen-Dialog mit IMAP-Konfiguration](docs/screenshots/settings.png)
 
@@ -73,7 +74,7 @@ IMAP-Zugang (Gmail, Outlook/Microsoft 365 oder Custom), Ordner, Betreff-Filter, 
 | Bereich | Details |
 | --- | --- |
 | **IMAP-Abruf** | Gmail, Outlook/Microsoft 365 oder beliebiger IMAP-Server; inkrementell über UIDs |
-| **Mehrere Konten** | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; Umschalten in der Toolbar |
+| **Mehrere Konten** | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; eigene Bezeichnung (Standard: E-Mail-Domain); Umschalten in der Toolbar |
 | **Datei-Import** | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop |
 | **Lokaler Cache** | Geparste Reports bleiben erhalten; erneuter Abruf lädt nur neue Nachrichten |
 | **Dashboard** | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum |
@@ -86,6 +87,8 @@ IMAP-Zugang (Gmail, Outlook/Microsoft 365 oder Custom), Ordner, Betreff-Filter, 
 | **Auto-Abruf** | Optionales Intervall über alle Konten + Desktop-Benachrichtigung bei steigenden Failures |
 | **Alerts** | Pass-Rate-Schwelle (7 Tage) und „neue Quelle erkannt“ mit Ignorieren-Liste für bekannte IPs |
 | **System-Tray** | Optional im Hintergrund weiterlaufen; Abruf und Benachrichtigungen auch bei geschlossenem Fenster |
+| **Autostart** | Optionaler Start beim System-Login; mit Tray kann die App versteckt im Hintergrund starten |
+| **Sprache** | Deutsch und Englisch umschaltbar (Einstellungen) |
 | **Auto-Update** | Prüfung auf GitHub Releases (NSIS, AppImage, macOS-ZIP) |
 
 ---
@@ -123,28 +126,37 @@ Native Gmail-API- / Microsoft-Graph-OAuth sind nicht enthalten — IMAP deckt di
 
 ## Nutzung
 
-1. **Einstellungen** öffnen, Anbieter/Host/Benutzer/App-Passwort setzen und speichern.
-2. Optional **Verbindung testen**.
-3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien öffnen** / Drag & Drop laden.
-4. Mit Zeitraum- und Domain-Filter eingrenzen, Charts und Tabellen prüfen, bei Bedarf exportieren.
-5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF).
+1. **Einstellungen** → **IMAP-Konto** öffnen, Anbieter/Host/Benutzer/App-Passwort setzen und speichern. Bei Bedarf weitere Konten anlegen.
+2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** Auto-Abruf, Alerts, System-Tray, Autostart und Sprache konfigurieren.
+3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
+4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain oder per Klick auf Org-/IP-/From-Zeilen eingrenzen; Charts und Tabellen prüfen; bei Bedarf exportieren.
+5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF sowie DKIM-Selektoren aus den Reports oder manuell).
+
+### Alerts & Hintergrundbetrieb
+
+- **Neue Failures** — Desktop-Benachrichtigung, wenn die Anzahl fehlgeschlagener Nachrichten nach einem Abruf steigt.
+- **Pass-Rate-Alarm** — Benachrichtigung, wenn die 7-Tage-Pass-Rate unter die konfigurierte Schwelle fällt (0 = aus).
+- **Neue Quelle** — Benachrichtigung bei zuvor ungesehener Quell-IP; bekannte IPs (oder Präfixe wie `66.249.*`) in der Ignorieren-Liste eintragen, um Rauschen zu vermeiden.
+- **System-Tray** — App optional bei geschlossenem Fenster weiterlaufen lassen, damit Auto-Abruf und Benachrichtigungen aktiv bleiben. Tray-Menü: anzeigen, jetzt abrufen, beenden.
+- **Autostart** — optionaler Start beim System-Login; zusammen mit dem Tray kann die App versteckt im Hintergrund starten.
 
 ### Typischer Ablauf
 
 ```text
-IMAP-Postfach / lokale Dateien
+IMAP-Postfach/-Postfächer / lokale Dateien
         │
         ▼
   Parsen (XML / GZ / ZIP / EML)
         │
         ▼
-  Lokaler Cache (userData)
+  Lokaler Cache pro Konto (userData)
         │
         ▼
   Analyse → KPIs, Charts, Tabellen
         │
-        ├── Filter (Zeitraum, Domain)
-        ├── DNS-Check
+        ├── Filter (Zeitraum, Domain, Drill-Down Org / IP / From)
+        ├── DNS-Check (DMARC / SPF / DKIM)
+        ├── Alerts (Failures / Pass-Rate / neue Quellen)
         └── Export (CSV / JSON)
 ```
 
@@ -155,6 +167,12 @@ IMAP-Postfach / lokale Dateien
 ```bash
 npm install
 npm run dev
+```
+
+Unit-Tests (Filter-/Aggregationslogik):
+
+```bash
+npm test
 ```
 
 Produktion lokal:
@@ -181,6 +199,7 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.5` pushen oder Work
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
 - Updates: [`electron-updater`](https://www.electron.build/auto-update) über GitHub Releases
+- Tests: [Vitest](https://vitest.dev/)
 
 ---
 
@@ -188,9 +207,11 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.5` pushen oder Work
 
 - Failure-/RUF-Reports werden nicht ausgewertet.
 - Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
-- Einstellungen und Report-Cache liegen unter dem Electron-`userData`-Pfad (nicht im Repo).
-- Cache leeren: Einstellungen → **Cache leeren** (nächster Abruf holt wieder alles).
+- Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
+- Cache leeren: Einstellungen → IMAP-Konto → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).
 - Optional können abgerufene Nachrichten als gelesen markiert werden (`\Seen`).
+- Mit aktivem System-Tray blendet das Schließen des Fensters die App nur aus — vollständig beenden über **Beenden** im Tray-Menü.
+- Bestehende Einzelkonto-Einstellungen älterer Versionen werden automatisch ins Multi-Konto-Format migriert.
 
 ---
 

@@ -13,7 +13,16 @@ import {
   Tooltip,
   Filler
 } from 'chart.js'
+import { suggestAccountName } from '../../shared/account'
 import { analyzeFromReports, applyDashboardFilter } from '../../shared/analyze'
+import {
+  getLocale,
+  normalizeLocale,
+  setLocale,
+  t,
+  type AppLocale,
+  type MessageKey
+} from '../../shared/i18n'
 import type {
   AccountPublic,
   AccountSettingsInput,
@@ -119,6 +128,7 @@ const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 
 const providerEl = document.getElementById('provider') as HTMLSelectElement
+const accountNameEl = document.getElementById('accountName') as HTMLInputElement
 const hostEl = document.getElementById('host') as HTMLInputElement
 const portEl = document.getElementById('port') as HTMLInputElement
 const secureEl = document.getElementById('secure') as HTMLInputElement
@@ -129,12 +139,14 @@ const subjectFilterEl = document.getElementById('subjectFilter') as HTMLInputEle
 const markSeenAfterFetchEl = document.getElementById('markSeenAfterFetch') as HTMLInputElement
 const autoFetchMinutesEl = document.getElementById('autoFetchMinutes') as HTMLInputElement
 const runInTrayEl = document.getElementById('runInTray') as HTMLInputElement
+const openAtLoginEl = document.getElementById('openAtLogin') as HTMLInputElement
 const notifyOnFailEl = document.getElementById('notifyOnFail') as HTMLInputElement
 const notifyNewSourceEl = document.getElementById('notifyNewSource') as HTMLInputElement
 const passRateAlertThresholdEl = document.getElementById(
   'passRateAlertThreshold'
 ) as HTMLInputElement
 const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
+const languageEl = document.getElementById('language') as HTMLSelectElement
 
 const NEW_ACCOUNT_VALUE = '__new__'
 
@@ -266,34 +278,86 @@ function hideUpdateBanner(): void {
 function applyUpdateStatus(payload: UpdateStatusPayload): void {
   switch (payload.status) {
     case 'checking':
-      updateCheckStatusEl.textContent = 'Prüfe auf Updates…'
+      updateCheckStatusEl.textContent = t('update.checking')
       break
     case 'available':
-      showUpdateBanner(`Update ${payload.version} verfügbar — Download startet…`, false)
-      updateCheckStatusEl.textContent = `Update ${payload.version} verfügbar.`
+      showUpdateBanner(t('update.available', { version: payload.version }), false)
+      updateCheckStatusEl.textContent = t('update.availableShort', { version: payload.version })
       break
     case 'downloading': {
       const pct = Math.max(0, Math.min(100, Math.round(payload.percent)))
-      showUpdateBanner(`Update wird heruntergeladen… ${pct}%`, false)
-      updateCheckStatusEl.textContent = `Download: ${pct}%`
+      showUpdateBanner(t('update.downloading', { percent: pct }), false)
+      updateCheckStatusEl.textContent = t('update.downloadShort', { percent: pct })
       break
     }
     case 'downloaded':
-      showUpdateBanner(`Update ${payload.version} bereit. Neu starten, um zu installieren.`, true)
-      updateCheckStatusEl.textContent = `Update ${payload.version} heruntergeladen.`
+      showUpdateBanner(t('update.downloaded', { version: payload.version }), true)
+      updateCheckStatusEl.textContent = t('update.downloadedShort', { version: payload.version })
       break
     case 'not-available':
       updateCheckStatusEl.textContent = payload.version
-        ? `Keine neueren Updates (aktuell ${payload.version}).`
-        : 'Keine neueren Updates.'
+        ? t('update.noneVersion', { version: payload.version })
+        : t('update.none')
       break
     case 'error':
-      updateBannerText.textContent = `Update-Fehler: ${payload.message}`
+      updateBannerText.textContent = t('update.error', { message: payload.message })
       updateBanner.classList.remove('hidden', 'ready')
       updateBanner.classList.add('error')
       btnUpdateInstall.classList.add('hidden')
       updateCheckStatusEl.textContent = payload.message
       break
+  }
+}
+
+function applyDomI18n(): void {
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) {
+    const key = el.dataset.i18n as MessageKey | undefined
+    if (key) el.textContent = t(key)
+  }
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-placeholder]')) {
+    const key = el.dataset.i18nPlaceholder as MessageKey | undefined
+    if (key) (el as HTMLInputElement).placeholder = t(key)
+  }
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-title]')) {
+    const key = el.dataset.i18nTitle as MessageKey | undefined
+    if (key) el.title = t(key)
+  }
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-aria]')) {
+    const key = el.dataset.i18nAria as MessageKey | undefined
+    if (key) el.setAttribute('aria-label', t(key))
+  }
+}
+
+function applyUiLocale(locale: AppLocale): void {
+  setLocale(locale)
+  document.documentElement.lang = locale
+  applyDomI18n()
+
+  const doughnutLabels = [t('chart.pass'), t('chart.fail'), t('chart.other')]
+  for (const chart of [chartDmarc, chartSpf, chartDkim]) {
+    chart.data.labels = doughnutLabels
+    chart.update()
+  }
+  chartVolume.data.datasets[0].label = t('chart.pass')
+  chartVolume.data.datasets[1].label = t('chart.fail')
+  chartVolume.data.datasets[2].label = t('chart.passRate')
+  chartVolume.update()
+
+  if (settings) {
+    updateAccountUi()
+    fillSettingsAccountSelect()
+    if (settingsDialog.open) {
+      const account = dialogAccount()
+      passwordHintEl.textContent = account?.hasPassword
+        ? t('settings.passwordSaved')
+        : t('settings.passwordHint')
+    }
+  }
+
+  if (fullResult) {
+    showResult(fullResult)
+  } else {
+    applyView()
   }
 }
 
@@ -317,9 +381,14 @@ function dialogAccount(): AccountPublic | null {
   return settings.accounts.find((a) => a.id === dialogAccountId) ?? null
 }
 
+function updateAccountNamePlaceholder(): void {
+  accountNameEl.placeholder = suggestAccountName(userEl.value, hostEl.value)
+}
+
 function readAccountForm(): AccountSettingsInput {
   return {
     id: dialogAccountId,
+    name: (accountNameEl.value ?? '').trim(),
     provider: providerEl.value as ProviderPreset,
     host: hostEl.value.trim(),
     port: Number(portEl.value) || 993,
@@ -339,7 +408,9 @@ function readGlobalForm(): GlobalSettings {
     passRateAlertThreshold: Number(passRateAlertThresholdEl.value) || 0,
     notifyNewSource: notifyNewSourceEl.checked,
     ignoredSources: ignoredSourcesEl.value,
-    runInTray: runInTrayEl.checked
+    runInTray: runInTrayEl.checked,
+    openAtLogin: openAtLoginEl.checked,
+    language: normalizeLocale(languageEl.value)
   }
 }
 
@@ -356,7 +427,7 @@ function formatDate(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString('de-DE')
+  return d.toLocaleDateString(getLocale() === 'de' ? 'de-DE' : 'en-US')
 }
 
 function formatRange(begin: string | null, end: string | null): string {
@@ -373,7 +444,7 @@ function escapeHtml(value: string): string {
 
 function updateAccountUi(): void {
   const account = activeAccount()
-  accountLabelEl.textContent = account ? account.label : 'Keine Zugangsdaten'
+  accountLabelEl.textContent = account ? account.label : t('app.noCredentials')
 
   const accounts = settings?.accounts ?? []
   accountFieldEl.classList.toggle('hidden', accounts.length <= 1)
@@ -420,7 +491,7 @@ function renderBucketTable(
   options: { withIpMeta?: boolean; onRowClick?: (name: string) => void } = {}
 ): void {
   if (!rows.length) {
-    tbody.innerHTML = '<tr class="empty"><td colspan="3">Keine Daten</td></tr>'
+    tbody.innerHTML = `<tr class="empty"><td colspan="3">${escapeHtml(t('table.noData'))}</td></tr>`
     return
   }
   tbody.innerHTML = rows
@@ -436,7 +507,7 @@ function renderBucketTable(
         if (bits.length) nameHtml += `<div class="ip-meta">${bits.join(' ')}</div>`
       }
       return `
-      <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ' title="Klicken zum Filtern"' : ''}>
+      <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
         <td>${nameHtml}</td>
         <td>${r.count}</td>
         <td>
@@ -456,9 +527,10 @@ function renderBucketTable(
 
 function renderFilterChips(): void {
   const chips: Array<{ key: keyof typeof drill; label: string; value: string }> = []
-  if (drill.org) chips.push({ key: 'org', label: 'Org', value: drill.org })
-  if (drill.sourceIp) chips.push({ key: 'sourceIp', label: 'IP', value: drill.sourceIp })
-  if (drill.headerFrom) chips.push({ key: 'headerFrom', label: 'From', value: drill.headerFrom })
+  if (drill.org) chips.push({ key: 'org', label: t('table.org'), value: drill.org })
+  if (drill.sourceIp) chips.push({ key: 'sourceIp', label: t('detail.ip'), value: drill.sourceIp })
+  if (drill.headerFrom)
+    chips.push({ key: 'headerFrom', label: t('detail.from'), value: drill.headerFrom })
 
   filterChipsEl.classList.toggle('hidden', chips.length === 0)
   filterChipsEl.innerHTML = chips
@@ -467,7 +539,7 @@ function renderFilterChips(): void {
       <span class="chip">
         <span class="chip-label">${c.label}:</span>
         <span class="mono">${escapeHtml(c.value)}</span>
-        <button type="button" class="chip-remove" data-chip="${c.key}" aria-label="Filter entfernen">✕</button>
+        <button type="button" class="chip-remove" data-chip="${c.key}" aria-label="${escapeHtml(t('filter.removeChip'))}">✕</button>
       </span>`
     )
     .join('')
@@ -552,7 +624,7 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
 
 function renderDetail(report: ReportRow | null): void {
   if (!report) {
-    detailEl.innerHTML = '<p class="muted">Report in der Tabelle auswählen.</p>'
+    detailEl.innerHTML = `<p class="muted">${escapeHtml(t('detail.pick'))}</p>`
     return
   }
 
@@ -582,24 +654,24 @@ function renderDetail(report: ReportRow | null): void {
     <h3>${escapeHtml(report.orgName)} → ${escapeHtml(report.domain)}</h3>
     <div class="meta">
       ID: <span class="mono">${escapeHtml(report.reportId)}</span><br />
-      Zeitraum: ${escapeHtml(formatRange(report.dateBegin, report.dateEnd))}<br />
-      Policy: ${escapeHtml(report.policyP ?? '—')} ·
+      ${escapeHtml(t('detail.period'))}: ${escapeHtml(formatRange(report.dateBegin, report.dateEnd))}<br />
+      ${escapeHtml(t('detail.policy'))}: ${escapeHtml(report.policyP ?? '—')} ·
       ${report.passing}/${report.total} pass (${report.passRate.toFixed(1)}%)
     </div>
     <table>
       <thead>
         <tr>
-          <th>IP</th>
-          <th>Count</th>
-          <th>Disp.</th>
-          <th>DKIM</th>
-          <th>SPF</th>
-          <th>DMARC</th>
-          <th>From</th>
-          <th>Reasons</th>
+          <th>${escapeHtml(t('detail.ip'))}</th>
+          <th>${escapeHtml(t('detail.count'))}</th>
+          <th>${escapeHtml(t('detail.disp'))}</th>
+          <th>${escapeHtml(t('detail.dkim'))}</th>
+          <th>${escapeHtml(t('detail.spf'))}</th>
+          <th>${escapeHtml(t('detail.dmarc'))}</th>
+          <th>${escapeHtml(t('detail.from'))}</th>
+          <th>${escapeHtml(t('detail.reasons'))}</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="8">Keine Records</td></tr>'}</tbody>
+      <tbody>${rows || `<tr><td colspan="8">${escapeHtml(t('detail.noRecords'))}</td></tr>`}</tbody>
     </table>
   `
 }
@@ -607,8 +679,7 @@ function renderDetail(report: ReportRow | null): void {
 function renderReports(result: AnalyzeResult | null): void {
   reportsBody.innerHTML = ''
   if (!result || result.reports.length === 0) {
-    reportsBody.innerHTML =
-      '<tr class="empty"><td colspan="8">Keine DMARC-Reports gefunden.</td></tr>'
+    reportsBody.innerHTML = `<tr class="empty"><td colspan="8">${escapeHtml(t('table.noReports'))}</td></tr>`
     renderDetail(null)
     return
   }
@@ -650,7 +721,7 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
   const current = filterDomainEl.value
   const domains = result?.aggregate.domains ?? []
   filterDomainEl.innerHTML =
-    '<option value="">Alle Domains</option>' +
+    `<option value="">${escapeHtml(t('filter.allDomains'))}</option>` +
     domains.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')
   if (domains.includes(current)) filterDomainEl.value = current
   if (domains.length === 1 && !dnsDomainEl.value) {
@@ -691,14 +762,22 @@ function showResult(result: AnalyzeResult, statusMessage?: string): void {
   if (statusMessage) {
     setStatus(statusMessage, 'ok')
   } else {
-    const skippedNote = result.skipped ? `, ${result.skipped} übersprungen` : ''
-    const newNote = result.newReports != null ? `, ${result.newReports} neu` : ''
-    const cacheNote = result.fromCache ? ' (inkl. Cache)' : ''
+    const skippedNote = result.skipped ? t('status.skippedPart', { count: result.skipped }) : ''
+    const newNote =
+      result.newReports != null ? t('status.newPart', { count: result.newReports }) : ''
+    const cacheNote = result.fromCache ? t('status.cachePart') : ''
     const sourceNote = result.newSourceIps?.length
-      ? ` · ${result.newSourceIps.length} neue Quelle(n)`
+      ? t('status.sourcePart', { count: result.newSourceIps.length })
       : ''
     setStatus(
-      `${result.aggregate.reportCount} Reports${newNote}${cacheNote} (${result.aggregate.total} Nachrichten${skippedNote})${sourceNote}.`,
+      t('status.result', {
+        reports: result.aggregate.reportCount,
+        newNote,
+        cacheNote,
+        messages: result.aggregate.total,
+        skippedNote,
+        sourceNote
+      }),
       'ok'
     )
   }
@@ -710,7 +789,7 @@ function applyProgress(progress: AnalyzeProgress): void {
   progressEl.value = progress.phase === 'done' ? 100 : pct
   progressLabelEl.textContent = progress.message ?? progress.phase
   if (progress.phase === 'error') {
-    setStatus(progress.message ?? 'Fehler', 'error')
+    setStatus(progress.message ?? t('app.error'), 'error')
   } else if (progress.message) {
     setStatus(progress.message)
   }
@@ -718,6 +797,8 @@ function applyProgress(progress: AnalyzeProgress): void {
 
 function fillAccountForm(account: AccountPublic | null): void {
   if (account) {
+    // Coerce carefully: assigning undefined to input.value becomes the string "undefined".
+    accountNameEl.value = account.name ?? ''
     providerEl.value = account.provider
     hostEl.value = account.host
     portEl.value = String(account.port)
@@ -727,6 +808,7 @@ function fillAccountForm(account: AccountPublic | null): void {
     subjectFilterEl.value = account.subjectFilter
     markSeenAfterFetchEl.checked = account.markSeenAfterFetch
   } else {
+    accountNameEl.value = ''
     providerEl.value = 'custom'
     hostEl.value = ''
     portEl.value = '993'
@@ -737,9 +819,10 @@ function fillAccountForm(account: AccountPublic | null): void {
     markSeenAfterFetchEl.checked = false
   }
   passwordEl.value = ''
+  updateAccountNamePlaceholder()
   passwordHintEl.textContent = account?.hasPassword
-    ? 'Ein Passwort ist verschlüsselt gespeichert. Feld leer lassen, um es beizubehalten.'
-    : 'Gmail/Outlook: App-Passwort verwenden (nicht das normale Kontopasswort).'
+    ? t('settings.passwordSaved')
+    : t('settings.passwordHint')
   settingsStatusEl.textContent = ''
 }
 
@@ -750,6 +833,8 @@ function fillGlobalForm(global: GlobalSettings): void {
   passRateAlertThresholdEl.value = String(global.passRateAlertThreshold ?? 0)
   ignoredSourcesEl.value = global.ignoredSources ?? ''
   runInTrayEl.checked = Boolean(global.runInTray)
+  openAtLoginEl.checked = Boolean(global.openAtLogin)
+  languageEl.value = normalizeLocale(global.language)
 }
 
 function fillSettingsAccountSelect(): void {
@@ -759,7 +844,7 @@ function fillSettingsAccountSelect(): void {
       `<option value="${escapeHtml(a.id)}"${a.id === dialogAccountId ? ' selected' : ''}>${escapeHtml(a.label)}</option>`
   )
   options.push(
-    `<option value="${NEW_ACCOUNT_VALUE}"${dialogAccountId == null ? ' selected' : ''}>➕ Neues Konto…</option>`
+    `<option value="${NEW_ACCOUNT_VALUE}"${dialogAccountId == null ? ' selected' : ''}>${escapeHtml(t('settings.newAccountOption'))}</option>`
   )
   settingsAccountSelectEl.innerHTML = options.join('')
   btnDeleteAccount.disabled = dialogAccountId == null
@@ -773,9 +858,10 @@ function applySettings(next: SettingsPublic): void {
 async function loadSettings(): Promise<void> {
   applySettings(await window.api.loadSettings())
   fillGlobalForm(settings!.global)
+  applyUiLocale(settings!.global.language)
   const account = activeAccount()
   if (!account?.hasPassword || !account.user) {
-    setStatus('Bitte zuerst IMAP-Zugangsdaten speichern — oder Dateien per Drag & Drop laden.')
+    setStatus(t('status.needSettings'))
   }
 }
 
@@ -805,10 +891,10 @@ async function switchActiveAccount(id: string): Promise<void> {
   fullResult = null
   const cached = await window.api.loadCache(id)
   if (cached && cached.reports.length > 0) {
-    showResult(cached, `${cached.aggregate.reportCount} Reports aus Cache — Abruf holt nur Neue.`)
+    showResult(cached, t('status.cached', { count: cached.aggregate.reportCount }))
   } else {
     applyView()
-    setStatus('Kein Cache für dieses Konto — Reports abrufen.')
+    setStatus(t('status.noCache'))
   }
 }
 
@@ -826,7 +912,7 @@ btnExport.addEventListener('click', () => exportDialog.showModal())
 btnCloseExport.addEventListener('click', () => exportDialog.close())
 
 btnCheckUpdate.addEventListener('click', async () => {
-  updateCheckStatusEl.textContent = 'Prüfe auf Updates…'
+  updateCheckStatusEl.textContent = t('update.checking')
   try {
     const result = await window.api.checkForUpdates()
     if (!result.ok) updateCheckStatusEl.textContent = result.message
@@ -843,7 +929,11 @@ btnUpdateDismiss.addEventListener('click', () => hideUpdateBanner())
 
 providerEl.addEventListener('change', () => {
   applyProviderPreset(providerEl.value as ProviderPreset)
+  updateAccountNamePlaceholder()
 })
+
+userEl.addEventListener('input', () => updateAccountNamePlaceholder())
+hostEl.addEventListener('input', () => updateAccountNamePlaceholder())
 
 accountSelectEl.addEventListener('change', () => {
   if (busy) return
@@ -867,7 +957,7 @@ btnDeleteAccount.addEventListener('click', async () => {
   if (busy || dialogAccountId == null) return
   const account = dialogAccount()
   if (!account) return
-  if (!confirm(`Konto „${account.label}" wirklich löschen? Der lokale Cache wird entfernt.`)) return
+  if (!confirm(t('settings.confirmDelete', { label: account.label }))) return
   setBusy(true)
   try {
     const wasActive = settings?.activeAccountId === dialogAccountId
@@ -875,7 +965,7 @@ btnDeleteAccount.addEventListener('click', async () => {
     dialogAccountId = settings?.activeAccountId ?? null
     fillSettingsAccountSelect()
     fillAccountForm(dialogAccount())
-    settingsStatusEl.textContent = 'Konto gelöscht.'
+    settingsStatusEl.textContent = t('settings.accountDeleted')
     if (wasActive) {
       selectedReportId = null
       fullResult = null
@@ -883,7 +973,7 @@ btnDeleteAccount.addEventListener('click', async () => {
         await switchActiveAccount(settings.activeAccountId)
       } else {
         applyView()
-        setStatus('Kein IMAP-Konto konfiguriert.')
+        setStatus(t('status.noAccount'))
       }
     }
   } catch (err) {
@@ -904,7 +994,7 @@ filterDomainEl.addEventListener('change', () => applyView())
 btnTest.addEventListener('click', async () => {
   if (busy) return
   setBusy(true)
-  settingsStatusEl.textContent = 'Teste Verbindung…'
+  settingsStatusEl.textContent = t('settings.testing')
   try {
     const result = await window.api.testConnection(readAccountForm())
     settingsStatusEl.textContent = result.message
@@ -921,7 +1011,7 @@ btnTest.addEventListener('click', async () => {
 btnClearCache.addEventListener('click', async () => {
   if (busy) return
   if (dialogAccountId == null) {
-    settingsStatusEl.textContent = 'Konto zuerst speichern.'
+    settingsStatusEl.textContent = t('settings.saveAccountFirst')
     return
   }
   setBusy(true)
@@ -931,7 +1021,7 @@ btnClearCache.addEventListener('click', async () => {
     if (result.ok && dialogAccountId === settings?.activeAccountId) {
       fullResult = null
       applyView()
-      setStatus('Cache geleert. Nächster Abruf holt alle Nachrichten erneut.', 'ok')
+      setStatus(t('status.cacheCleared'), 'ok')
     }
   } catch (err) {
     settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
@@ -946,13 +1036,14 @@ settingsForm.addEventListener('submit', async (event) => {
   setBusy(true)
   try {
     const accountInput = readAccountForm()
-    const wantsAccountSave = Boolean(
-      accountInput.user || accountInput.host || accountInput.password
-    )
+    // Always persist the edited account when one is selected (incl. display name only).
+    const wantsAccountSave =
+      dialogAccountId != null ||
+      Boolean(accountInput.user || accountInput.host || accountInput.password)
     if (wantsAccountSave) {
       if (!accountInput.user || !accountInput.host) {
         showSettingsTab('account')
-        throw new Error('Benutzer und Host sind für ein Konto erforderlich.')
+        throw new Error(t('settings.needUserHost'))
       }
       const before = new Set((settings?.accounts ?? []).map((a) => a.id))
       applySettings(await window.api.saveAccount(accountInput))
@@ -965,8 +1056,9 @@ settingsForm.addEventListener('submit', async (event) => {
     fillSettingsAccountSelect()
     fillAccountForm(dialogAccount())
     fillGlobalForm(settings!.global)
-    settingsStatusEl.textContent = 'Einstellungen gespeichert.'
-    setStatus('Einstellungen gespeichert.', 'ok')
+    applyUiLocale(settings!.global.language)
+    settingsStatusEl.textContent = t('settings.saved')
+    setStatus(t('status.settingsSaved'), 'ok')
     settingsDialog.close()
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -982,12 +1074,12 @@ btnFetch.addEventListener('click', async () => {
   const account = activeAccount()
   if (!account?.hasPassword || !account.user) {
     openSettings()
-    settingsStatusEl.textContent = 'Bitte Zugangsdaten speichern, bevor Reports abgerufen werden.'
+    settingsStatusEl.textContent = t('settings.needCredentials')
     return
   }
 
   setBusy(true)
-  setStatus('Starte Abruf…')
+  setStatus(t('status.fetchStart'))
   progressEl.value = 0
   progressLabelEl.textContent = ''
   try {
@@ -1019,10 +1111,10 @@ btnOpenFiles.addEventListener('click', async () => {
           errors: [...fullResult.errors, ...result.errors].slice(0, 50),
           newReports: result.reports.length
         }),
-        `${result.reports.length} lokale Reports geladen.`
+        t('status.localLoaded', { count: result.reports.length })
       )
     } else {
-      showResult(result, `${result.reports.length} lokale Reports geladen.`)
+      showResult(result, t('status.localLoaded', { count: result.reports.length }))
     }
   } catch (err) {
     setStatus(err instanceof Error ? err.message : String(err), 'error')
@@ -1053,7 +1145,7 @@ function collectDkimSelectors(domain: string): string[] {
 btnDns.addEventListener('click', async () => {
   const domain = dnsDomainEl.value.trim() || filterDomainEl.value
   if (!domain) {
-    dnsResultEl.textContent = 'Bitte eine Domain eingeben.'
+    dnsResultEl.textContent = t('dns.needDomain')
     dnsResultEl.className = 'dns-result error'
     return
   }
@@ -1063,29 +1155,35 @@ btnDns.addEventListener('click', async () => {
     .filter(Boolean)
   const selectors = manualSelectors.length > 0 ? manualSelectors : collectDkimSelectors(domain)
 
-  dnsResultEl.textContent = `Prüfe DNS für ${domain}…`
+  dnsResultEl.textContent = t('dns.checking', { domain })
   dnsResultEl.className = 'dns-result'
   try {
     const result = await window.api.checkDns(domain, selectors)
     const dmarcLine = result.dmarc.found
-      ? `DMARC: p=${result.dmarc.policy ?? '?'} · rua=${result.dmarc.rua ?? '—'}`
-      : `DMARC: nicht gefunden${result.dmarc.error ? ` (${result.dmarc.error})` : ''}`
+      ? t('dns.dmarcFound', {
+          policy: result.dmarc.policy ?? '?',
+          rua: result.dmarc.rua ?? '—'
+        })
+      : `${t('dns.dmarcMissing')}${result.dmarc.error ? ` (${result.dmarc.error})` : ''}`
     const spfLine = result.spf.found
-      ? `SPF: ${result.spf.records[0]}`
-      : `SPF: nicht gefunden${result.spf.error ? ` (${result.spf.error})` : ''}`
+      ? t('dns.spfFound', { record: result.spf.records[0] })
+      : `${t('dns.spfMissing')}${result.spf.error ? ` (${result.spf.error})` : ''}`
 
     let dkimHtml = ''
     if (result.dkim.selectors.length > 0) {
       dkimHtml = result.dkim.selectors
         .map((s) => {
           const state = s.found
-            ? '<span class="pass">gefunden</span>'
-            : '<span class="fail">nicht gefunden</span>'
-          return `DKIM <span class="mono">${escapeHtml(s.selector)}</span>: ${state}`
+            ? `<span class="pass">${escapeHtml(t('dns.dkimFound'))}</span>`
+            : `<span class="fail">${escapeHtml(t('dns.dkimMissing'))}</span>`
+          return t('dns.dkimLine', {
+            selector: `<span class="mono">${escapeHtml(s.selector)}</span>`,
+            state
+          })
         })
         .join('<br />')
     } else {
-      dkimHtml = 'DKIM: keine Selektoren bekannt — Selektoren eingeben oder Reports (neu) abrufen.'
+      dkimHtml = escapeHtml(t('dns.dkimNone'))
     }
 
     dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}`
@@ -1141,7 +1239,7 @@ window.addEventListener('drop', (e) => {
     })
     .filter(Boolean)
   if (!paths.length) {
-    setStatus('Dateien konnten nicht gelesen werden.', 'error')
+    setStatus(t('status.filesFailed'), 'error')
     return
   }
   void (async () => {
@@ -1149,7 +1247,7 @@ window.addEventListener('drop', (e) => {
     try {
       const result = await window.api.parsePaths(paths)
       selectedReportId = null
-      showResult(result, `${result.reports.length} Dateien geladen.`)
+      showResult(result, t('status.filesLoaded', { count: result.reports.length }))
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err), 'error')
     } finally {
@@ -1173,13 +1271,17 @@ window.api.onResult((result) => {
 })
 window.api.onUpdateStatus(applyUpdateStatus)
 
+languageEl.addEventListener('change', () => {
+  applyUiLocale(normalizeLocale(languageEl.value))
+})
+
 void (async () => {
   try {
     aboutVersionEl.textContent = await window.api.getAppVersion()
     await loadSettings()
     const cached = await window.api.loadCache()
     if (cached && cached.reports.length > 0) {
-      showResult(cached, `${cached.aggregate.reportCount} Reports aus Cache — Abruf holt nur Neue.`)
+      showResult(cached, t('status.cached', { count: cached.aggregate.reportCount }))
     }
   } catch (err) {
     setStatus(err instanceof Error ? err.message : String(err), 'error')
