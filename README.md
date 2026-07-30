@@ -5,8 +5,13 @@
 <h1 align="center">DMARC Viewer</h1>
 
 <p align="center">
-  Desktop-App zum Abrufen, Einlesen und Auswerten von DMARC-Aggregate-Reports.<br />
-  IMAP-Postfach oder lokale Dateien → KPIs, Alignment-Charts und Detailtabellen.
+  <a href="./README.md">English</a> ·
+  <a href="./README.de.md">Deutsch</a>
+</p>
+
+<p align="center">
+  Desktop app for fetching, importing, and analyzing DMARC aggregate reports.<br />
+  IMAP mailbox or local files → KPIs, alignment charts, and detail tables.
 </p>
 
 <p align="center">
@@ -17,27 +22,27 @@
 </p>
 
 <p align="center">
-  <a href="#funktionen">Funktionen</a> ·
+  <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
   <a href="#download--installation">Download</a> ·
-  <a href="#nutzung">Nutzung</a> ·
-  <a href="#entwicklung">Entwicklung</a>
+  <a href="#usage">Usage</a> ·
+  <a href="#development">Development</a>
 </p>
 
 ---
 
-## Was macht die App?
+## What does the app do?
 
-DMARC-Aggregate-Reports (RUA) landen oft als XML/ZIP/GZ in einem eigenen Postfach und sind schwer lesbar. **DMARC Viewer** holt diese Mails per IMAP (oder per Datei-Import), parst sie lokal und zeigt auf einen Blick:
+DMARC aggregate reports (RUA) often land as XML/ZIP/GZ in a dedicated mailbox and are hard to read. **DMARC Viewer** fetches these emails via IMAP (or via file import), parses them locally, and shows at a glance:
 
-- wie viele Nachrichten **Pass** bzw. **Fail** hatten
-- ob **DMARC-, SPF- und DKIM-Alignment** stimmen
-- welche **Quellen (IPs)**, **From-Domains** und **Reporting-Organisationen** auffällig sind
-- wie sich Volumen und Pass-Rate **über die Zeit** entwickeln
+- how many messages **passed** or **failed**
+- whether **DMARC, SPF, and DKIM alignment** hold
+- which **sources (IPs)**, **From domains**, and **reporting organizations** stand out
+- how volume and pass rate evolve **over time**
 
-Alles läuft lokal auf dem Rechner: Zugangsdaten bleiben im Electron-`userData`-Ordner, das Passwort wird mit `safeStorage` verschlüsselt. Es gibt keinen Cloud-Account und keine Telemetrie.
+Everything runs locally on your machine: credentials stay in the Electron `userData` folder, and the password is encrypted with `safeStorage`. There is no cloud account and no telemetry.
 
-> **Hinweis:** Ausgewertet werden Aggregate-/RUA-Reports. Failure-/Forensik-Reports (RUF) werden nicht verarbeitet.
+> **Note:** Only aggregate/RUA reports are analyzed. Failure/forensic reports (RUF) are not processed.
 
 ---
 
@@ -45,149 +50,149 @@ Alles läuft lokal auf dem Rechner: Zugangsdaten bleiben im Electron-`userData`-
 
 ### Dashboard
 
-Kennzahlen, Alignment-Charts, Zeitreihe sowie integrierter DNS-Check für DMARC- und SPF-Records:
+KPIs, alignment charts, time series, and a built-in DNS check for DMARC and SPF records:
 
-![Dashboard mit KPIs, Alignment-Charts und DNS-Check](docs/screenshots/dashboard.png)
+![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/dashboard.png)
 
-### Aggregation & Details
+### Aggregation & details
 
-Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne Reports und Record-Details:
+Reporting organizations, source IPs (including reverse DNS), From domains, individual reports, and record details:
 
-![Tabellen mit Organisationen, IPs, Domains und Report-Details](docs/screenshots/tables.png)
+![Tables with organizations, IPs, domains, and report details](docs/screenshots/tables.png)
 
-### Einstellungen
+### Settings
 
-IMAP-Zugang (Gmail, Outlook/Microsoft 365 oder Custom), Ordner, Betreff-Filter, Auto-Abruf und Benachrichtigungen:
+IMAP access (Gmail, Outlook/Microsoft 365, or custom), folders, subject filters, auto-fetch, and notifications:
 
-![Einstellungen-Dialog mit IMAP-Konfiguration](docs/screenshots/settings.png)
-
----
-
-## Funktionen
-
-| Bereich | Details |
-| --- | --- |
-| **IMAP-Abruf** | Gmail, Outlook/Microsoft 365 oder beliebiger IMAP-Server; inkrementell über UIDs |
-| **Datei-Import** | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop |
-| **Lokaler Cache** | Geparste Reports bleiben erhalten; erneuter Abruf lädt nur neue Nachrichten |
-| **Dashboard** | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum |
-| **Charts** | Doughnut für DMARC-/SPF-/DKIM-Alignment; Volumen & Pass-Rate über Zeit |
-| **Tabellen** | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details |
-| **IP-Anreicherung** | Reverse-DNS und Erkennung bekannter Absender (Google, Microsoft, Amazon SES, …) |
-| **Filter** | Zeitraum (7 / 30 / 90 Tage / Gesamt) und Domain |
-| **DNS-Check** | Live-Abfrage von DMARC (`p`, `rua`) und SPF |
-| **Export** | Aktuell gefilterte Daten als CSV oder JSON |
-| **Auto-Abruf** | Optionales Intervall + Desktop-Benachrichtigung bei steigenden Failures |
-| **Auto-Update** | Prüfung auf GitHub Releases (NSIS, AppImage, macOS-ZIP) |
+![Settings dialog with IMAP configuration](docs/screenshots/settings.png)
 
 ---
 
-## Download & Installation
+## Features
 
-Fertige Builds liegen unter den [GitHub Releases](https://github.com/codemacherUG/dmarcviewer/releases/latest):
-
-| Plattform | Pakete |
+| Area | Details |
 | --- | --- |
-| **Windows** | NSIS-Installer, portable EXE |
+| **IMAP fetch** | Gmail, Outlook/Microsoft 365, or any IMAP server; incremental via UIDs |
+| **File import** | XML, GZ, ZIP, EML/MIME — dialog or drag & drop |
+| **Local cache** | Parsed reports are kept; subsequent fetches only load new messages |
+| **Dashboard** | Reports, messages, pass/fail, pass rate, date range |
+| **Charts** | Doughnut for DMARC/SPF/DKIM alignment; volume & pass rate over time |
+| **Tables** | Organizations, source IPs, From domains, individual reports + record details |
+| **IP enrichment** | Reverse DNS and detection of known senders (Google, Microsoft, Amazon SES, …) |
+| **Filters** | Date range (7 / 30 / 90 days / all) and domain |
+| **DNS check** | Live lookup of DMARC (`p`, `rua`) and SPF |
+| **Export** | Currently filtered data as CSV or JSON |
+| **Auto-fetch** | Optional interval + desktop notification when failures increase |
+| **Auto-update** | Checks GitHub Releases (NSIS, AppImage, macOS ZIP) |
+
+---
+
+## Download & installation
+
+Ready-made builds are available under [GitHub Releases](https://github.com/codemacherUG/dmarcviewer/releases/latest):
+
+| Platform | Packages |
+| --- | --- |
+| **Windows** | NSIS installer, portable EXE |
 | **Linux** | AppImage, `.deb` |
-| **macOS** | DMG und ZIP (x64 / arm64) |
+| **macOS** | DMG and ZIP (x64 / arm64) |
 
-Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.deb` werden nicht automatisch aktualisiert — NSIS-Setup, AppImage und macOS-ZIP schon.
+Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` are not updated automatically — NSIS setup, AppImage, and macOS ZIP are.
 
 ---
 
-## Voraussetzungen
+## Requirements
 
-- Für den Quellcode-Build: **Node.js 20+**
-- Für Gmail / Outlook: **App-Passwort** (nicht das normale Kontopasswort)
+- For building from source: **Node.js 20+**
+- For Gmail / Outlook: an **app password** (not your normal account password)
 
-### App-Passwörter & IMAP
+### App passwords & IMAP
 
-| Anbieter | Host | Port | Hinweis |
+| Provider | Host | Port | Notes |
 | --- | --- | --- | --- |
-| **Gmail** | `imap.gmail.com` | `993` (TLS) | Google-Konto → Sicherheit → 2-Schritt-Bestätigung → App-Passwörter |
-| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App-Passwort bzw. IMAP freigeben, sofern der Tenant es erlaubt |
-| **Custom** | beliebig | z. B. `993` | Benutzer/Passwort; TLS empfohlen |
+| **Gmail** | `imap.gmail.com` | `993` (TLS) | Google Account → Security → 2-Step Verification → App passwords |
+| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App password or enable IMAP if the tenant allows it |
+| **Custom** | any | e.g. `993` | Username/password; TLS recommended |
 
-Native Gmail-API- / Microsoft-Graph-OAuth sind nicht enthalten — IMAP deckt die gängigen Anbieter ab.
+Native Gmail API / Microsoft Graph OAuth are not included — IMAP covers the common providers.
 
 ---
 
-## Nutzung
+## Usage
 
-1. **Einstellungen** öffnen, Anbieter/Host/Benutzer/App-Passwort setzen und speichern.
-2. Optional **Verbindung testen**.
-3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien öffnen** / Drag & Drop laden.
-4. Mit Zeitraum- und Domain-Filter eingrenzen, Charts und Tabellen prüfen, bei Bedarf exportieren.
-5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF).
+1. Open **Settings**, set provider/host/user/app password, and save.
+2. Optionally **Test connection**.
+3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Open files** / drag & drop.
+4. Narrow with date-range and domain filters, review charts and tables, export if needed.
+5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF).
 
-### Typischer Ablauf
+### Typical flow
 
 ```text
-IMAP-Postfach / lokale Dateien
+IMAP mailbox / local files
         │
         ▼
-  Parsen (XML / GZ / ZIP / EML)
+  Parse (XML / GZ / ZIP / EML)
         │
         ▼
-  Lokaler Cache (userData)
+  Local cache (userData)
         │
         ▼
-  Analyse → KPIs, Charts, Tabellen
+  Analysis → KPIs, charts, tables
         │
-        ├── Filter (Zeitraum, Domain)
-        ├── DNS-Check
+        ├── Filters (date range, domain)
+        ├── DNS check
         └── Export (CSV / JSON)
 ```
 
 ---
 
-## Entwicklung
+## Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Produktion lokal:
+Production build locally:
 
 ```bash
 npm run build
 npm start
 ```
 
-Plattform-Pakete:
+Platform packages:
 
 ```bash
 npm run build:linux   # AppImage + deb
 npm run build:win     # NSIS + portable
-npm run build:mac     # DMG/ZIP (nur auf macOS)
+npm run build:mac     # DMG/ZIP (macOS only)
 ```
 
-GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.5` pushen oder Workflow **Release** manuell starten.
+GitHub release (all platforms via Actions): push a tag like `v1.0.5` or start the **Release** workflow manually.
 
-### Technik
+### Stack
 
 - **Electron** + **electron-vite** + **TypeScript**
 - IMAP: [`imapflow`](https://github.com/postalsys/imapflow)
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
-- Updates: [`electron-updater`](https://www.electron.build/auto-update) über GitHub Releases
+- Updates: [`electron-updater`](https://www.electron.build/auto-update) via GitHub Releases
 
 ---
 
-## Hinweise & Grenzen
+## Notes & limitations
 
-- Failure-/RUF-Reports werden nicht ausgewertet.
-- Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
-- Einstellungen und Report-Cache liegen unter dem Electron-`userData`-Pfad (nicht im Repo).
-- Cache leeren: Einstellungen → **Cache leeren** (nächster Abruf holt wieder alles).
-- Optional können abgerufene Nachrichten als gelesen markiert werden (`\Seen`).
+- Failure/RUF reports are not analyzed.
+- Messages without a valid DMARC attachment are skipped and counted.
+- Settings and report cache live under the Electron `userData` path (not in the repo).
+- Clear cache: Settings → **Clear cache** (the next fetch will retrieve everything again).
+- Optionally, fetched messages can be marked as read (`\Seen`).
 
 ---
 
-## Autor
+## Author
 
 **codemacher UG (haftungsbeschränkt)** · [codemacher.de](https://codemacher.de/)
 
-Issues und Pull Requests gerne über [GitHub](https://github.com/codemacherUG/dmarcviewer).
+Issues and pull requests welcome on [GitHub](https://github.com/codemacherUG/dmarcviewer).
