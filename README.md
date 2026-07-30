@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  Desktop app for fetching, importing, and analyzing DMARC aggregate reports.<br />
+  Desktop app for fetching, importing, and analyzing DMARC aggregate and forensic reports.<br />
   IMAP mailbox or local files → KPIs, alignment charts, and detail tables.
 </p>
 
@@ -33,17 +33,16 @@
 
 ## What does the app do?
 
-DMARC aggregate reports (RUA) often land as XML/ZIP/GZ in a dedicated mailbox and are hard to read. **DMARC Viewer** fetches these emails via IMAP (or via file import), parses them locally, and shows at a glance:
+DMARC aggregate reports (RUA) and failure reports (RUF) often land in a dedicated mailbox and are hard to read. **DMARC Viewer** fetches these emails via IMAP (or via file import), parses them locally, and shows at a glance:
 
 - how many messages **passed** or **failed**, and which **dispositions** (`none` / `quarantine` / `reject`) were applied
 - whether **DMARC, SPF, and DKIM alignment** hold
 - which **sources (IPs)**, **From domains**, and **reporting organizations** stand out
 - how volume and pass rate evolve **over time**
 - optional **alerts** for rising failures, a low pass rate, or newly seen source IPs
+- **forensic / RUF** failure reports as a sanitized table (headers only — no message bodies)
 
-Everything runs locally on your machine: credentials stay in the Electron `userData` folder, and the password is encrypted with `safeStorage`. There is no cloud account and no telemetry. The UI is available in **German** and **English**.
-
-> **Note:** Only aggregate/RUA reports are analyzed. Failure/forensic reports (RUF) are not processed.
+Everything runs locally on your machine: credentials and OAuth tokens stay in the Electron `userData` folder, encrypted with `safeStorage`. Report caches use **SQLite**. There is no cloud account and no telemetry. The UI is available in **German** and **English**.
 
 ---
 
@@ -74,9 +73,11 @@ Multiple IMAP accounts, auto-fetch, alerts (failures / pass-rate / new sources),
 | Area | Details |
 | --- | --- |
 | **IMAP fetch** | Gmail, Outlook/Microsoft 365, or any IMAP server; incremental via UIDs |
+| **Auth** | App password **or** OAuth (PKCE) for Gmail and Microsoft 365 IMAP |
 | **Multiple accounts** | Any number of IMAP accounts/profiles with separate caches; custom display name (default: email domain); switch via toolbar |
 | **File import** | XML, GZ, ZIP, EML/MIME — dialog or drag & drop |
-| **Local cache** | Parsed reports are kept; subsequent fetches only load new messages |
+| **Local cache** | SQLite store for aggregate + forensic reports; legacy JSON caches are migrated once |
+| **Forensic / RUF** | ARF failure reports (sanitized headers); separate table in the UI |
 | **Dashboard** | Reports, messages, pass/fail, pass rate, date range |
 | **Charts** | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time |
 | **Tables** | Organizations, source IPs, From domains, individual reports + record details; click a row to filter |
@@ -109,28 +110,36 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 
 ## Requirements
 
-- For building from source: **Node.js 20+**
-- For Gmail / Outlook: an **app password** (not your normal account password)
+- For building from source: **Node.js 22+** (uses built-in `node:sqlite`)
+- For Gmail / Outlook: an **app password**, or **OAuth** with your own client IDs
 
 ### App passwords & IMAP
 
 | Provider | Host | Port | Notes |
 | --- | --- | --- | --- |
-| **Gmail** | `imap.gmail.com` | `993` (TLS) | Google Account → Security → 2-Step Verification → App passwords |
-| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App password or enable IMAP if the tenant allows it |
+| **Gmail** | `imap.gmail.com` | `993` (TLS) | App password, or OAuth with scope `https://mail.google.com/` |
+| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App password, or OAuth with `IMAP.AccessAsUser.All` |
 | **Custom** | any | e.g. `993` | Username/password; TLS recommended |
 
-Native Gmail API / Microsoft Graph OAuth are not included — IMAP covers the common providers.
+### OAuth setup (optional)
+
+1. Create a **public desktop / native** OAuth client (PKCE, no client secret):
+   - Google Cloud Console → OAuth client type “Desktop”
+   - Microsoft Entra ID → App registration → public client, redirect URI `http://127.0.0.1:17893/oauth/callback`
+2. Paste the client IDs under **Settings → Fetch & notifications**, or set `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID`.
+3. On the IMAP account, choose **OAuth**, save the account, then **Sign in with provider**.
 
 ---
 
 ## Usage
 
-1. Open **Settings** → **IMAP account**, set provider/host/user/app password, and save. Add further accounts if needed.
-2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, autostart, and language.
+1. Open **Settings** → **IMAP account**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
+2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure OAuth client IDs, auto-fetch, alerts, system tray, autostart, and language.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
-4. Narrow with date range (including custom From/To), domain, or by clicking a row in the org / IP / From tables; review charts and tables; export if needed.
+4. Narrow with date range (including custom From/To), domain, or by clicking a row in the org / IP / From tables; review charts, aggregate tables, and the forensic/RUF table; export if needed.
 5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, and DKIM selectors from the reports or entered manually).
+
+> Tip: Broaden the subject filter (or leave it empty) if you want both RUA and RUF messages from the same mailbox.
 
 ### Alerts & background mode
 

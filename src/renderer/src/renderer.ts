@@ -29,7 +29,9 @@ import type {
   AlignmentBreakdown,
   AnalyzeProgress,
   AnalyzeResult,
+  AuthMode,
   DateRangePreset,
+  ForensicReportRow,
   GlobalSettings,
   NamedBucket,
   ProviderPreset,
@@ -128,12 +130,18 @@ const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 
 const providerEl = document.getElementById('provider') as HTMLSelectElement
+const authModeEl = document.getElementById('authMode') as HTMLSelectElement
 const accountNameEl = document.getElementById('accountName') as HTMLInputElement
 const hostEl = document.getElementById('host') as HTMLInputElement
 const portEl = document.getElementById('port') as HTMLInputElement
 const secureEl = document.getElementById('secure') as HTMLInputElement
 const userEl = document.getElementById('user') as HTMLInputElement
 const passwordEl = document.getElementById('password') as HTMLInputElement
+const passwordFieldEl = document.getElementById('password-field') as HTMLElement
+const oauthActionsEl = document.getElementById('oauth-actions') as HTMLElement
+const oauthHintEl = document.getElementById('oauth-hint') as HTMLElement
+const btnOauthLogin = document.getElementById('btn-oauth-login') as HTMLButtonElement
+const btnOauthDisconnect = document.getElementById('btn-oauth-disconnect') as HTMLButtonElement
 const mailboxEl = document.getElementById('mailbox') as HTMLInputElement
 const subjectFilterEl = document.getElementById('subjectFilter') as HTMLInputElement
 const markSeenAfterFetchEl = document.getElementById('markSeenAfterFetch') as HTMLInputElement
@@ -147,6 +155,11 @@ const passRateAlertThresholdEl = document.getElementById(
 ) as HTMLInputElement
 const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
 const languageEl = document.getElementById('language') as HTMLSelectElement
+const oauthGoogleClientIdEl = document.getElementById('oauthGoogleClientId') as HTMLInputElement
+const oauthMicrosoftClientIdEl = document.getElementById(
+  'oauthMicrosoftClientId'
+) as HTMLInputElement
+const forensicBody = document.getElementById('forensic-body') as HTMLTableSectionElement
 
 const NEW_ACCOUNT_VALUE = '__new__'
 
@@ -385,11 +398,30 @@ function updateAccountNamePlaceholder(): void {
   accountNameEl.placeholder = suggestAccountName(userEl.value, hostEl.value)
 }
 
+function accountHasAuth(account: AccountPublic | null | undefined): boolean {
+  return Boolean(account && account.user && (account.hasPassword || account.hasOAuth))
+}
+
+function syncAuthModeUi(): void {
+  const oauth = authModeEl.value === 'oauth'
+  const provider = providerEl.value
+  const oauthSupported = provider === 'gmail' || provider === 'outlook' || provider === 'microsoft'
+  passwordFieldEl.classList.toggle('hidden', oauth)
+  oauthActionsEl.classList.toggle('hidden', !oauth)
+  oauthHintEl.classList.toggle('hidden', !oauth)
+  btnOauthLogin.disabled = !oauth || !oauthSupported || dialogAccountId == null
+  btnOauthDisconnect.disabled = !oauth || dialogAccountId == null || !dialogAccount()?.hasOAuth
+  if (oauth && !oauthSupported) {
+    passwordHintEl.textContent = t('oauth.providerUnsupported')
+  }
+}
+
 function readAccountForm(): AccountSettingsInput {
   return {
     id: dialogAccountId,
     name: (accountNameEl.value ?? '').trim(),
     provider: providerEl.value as ProviderPreset,
+    authMode: (authModeEl.value === 'oauth' ? 'oauth' : 'password') as AuthMode,
     host: hostEl.value.trim(),
     port: Number(portEl.value) || 993,
     secure: secureEl.checked,
@@ -410,7 +442,9 @@ function readGlobalForm(): GlobalSettings {
     ignoredSources: ignoredSourcesEl.value,
     runInTray: runInTrayEl.checked,
     openAtLogin: openAtLoginEl.checked,
-    language: normalizeLocale(languageEl.value)
+    language: normalizeLocale(languageEl.value),
+    oauthGoogleClientId: oauthGoogleClientIdEl.value.trim(),
+    oauthMicrosoftClientId: oauthMicrosoftClientIdEl.value.trim()
   }
 }
 
@@ -676,6 +710,28 @@ function renderDetail(report: ReportRow | null): void {
   `
 }
 
+function renderForensic(result: AnalyzeResult | null): void {
+  const rows = result?.forensicReports ?? []
+  if (rows.length === 0) {
+    forensicBody.innerHTML = `<tr class="empty"><td colspan="7">${escapeHtml(t('table.forensicEmpty'))}</td></tr>`
+    return
+  }
+  forensicBody.innerHTML = rows
+    .map(
+      (r: ForensicReportRow) => `
+      <tr>
+        <td>${escapeHtml(r.arrivalDate ? r.arrivalDate.slice(0, 19).replace('T', ' ') : '—')}</td>
+        <td>${escapeHtml(r.reportedDomain ?? '—')}</td>
+        <td class="mono">${escapeHtml(r.sourceIp ?? '—')}</td>
+        <td>${escapeHtml(r.authFailure ?? '—')}</td>
+        <td>${escapeHtml(r.envelopeFrom ?? '—')}</td>
+        <td>${escapeHtml(r.headerFrom ?? '—')}</td>
+        <td>${escapeHtml(r.feedbackType ?? '—')}</td>
+      </tr>`
+    )
+    .join('')
+}
+
 function renderReports(result: AnalyzeResult | null): void {
   reportsBody.innerHTML = ''
   if (!result || result.reports.length === 0) {
@@ -736,6 +792,7 @@ function applyView(): void {
     updateSummary(null)
     renderDashboard(null)
     renderReports(null)
+    renderForensic(null)
     btnExport.disabled = true
     return
   }
@@ -752,7 +809,8 @@ function applyView(): void {
   updateSummary(viewResult)
   renderDashboard(viewResult)
   renderReports(viewResult)
-  btnExport.disabled = viewResult.reports.length === 0
+  renderForensic(viewResult)
+  btnExport.disabled = viewResult.reports.length === 0 && (viewResult.forensicReports?.length ?? 0) === 0
 }
 
 function showResult(result: AnalyzeResult, statusMessage?: string): void {
@@ -800,6 +858,7 @@ function fillAccountForm(account: AccountPublic | null): void {
     // Coerce carefully: assigning undefined to input.value becomes the string "undefined".
     accountNameEl.value = account.name ?? ''
     providerEl.value = account.provider
+    authModeEl.value = account.authMode === 'oauth' ? 'oauth' : 'password'
     hostEl.value = account.host
     portEl.value = String(account.port)
     secureEl.checked = account.secure
@@ -810,6 +869,7 @@ function fillAccountForm(account: AccountPublic | null): void {
   } else {
     accountNameEl.value = ''
     providerEl.value = 'custom'
+    authModeEl.value = 'password'
     hostEl.value = ''
     portEl.value = '993'
     secureEl.checked = true
@@ -820,9 +880,14 @@ function fillAccountForm(account: AccountPublic | null): void {
   }
   passwordEl.value = ''
   updateAccountNamePlaceholder()
-  passwordHintEl.textContent = account?.hasPassword
-    ? t('settings.passwordSaved')
-    : t('settings.passwordHint')
+  if (account?.authMode === 'oauth' && account.hasOAuth) {
+    passwordHintEl.textContent = t('settings.oauthConnected')
+  } else {
+    passwordHintEl.textContent = account?.hasPassword
+      ? t('settings.passwordSaved')
+      : t('settings.passwordHint')
+  }
+  syncAuthModeUi()
   settingsStatusEl.textContent = ''
 }
 
@@ -835,6 +900,8 @@ function fillGlobalForm(global: GlobalSettings): void {
   runInTrayEl.checked = Boolean(global.runInTray)
   openAtLoginEl.checked = Boolean(global.openAtLogin)
   languageEl.value = normalizeLocale(global.language)
+  oauthGoogleClientIdEl.value = global.oauthGoogleClientId ?? ''
+  oauthMicrosoftClientIdEl.value = global.oauthMicrosoftClientId ?? ''
 }
 
 function fillSettingsAccountSelect(): void {
@@ -860,7 +927,7 @@ async function loadSettings(): Promise<void> {
   fillGlobalForm(settings!.global)
   applyUiLocale(settings!.global.language)
   const account = activeAccount()
-  if (!account?.hasPassword || !account.user) {
+  if (!accountHasAuth(account)) {
     setStatus(t('status.needSettings'))
   }
 }
@@ -930,6 +997,44 @@ btnUpdateDismiss.addEventListener('click', () => hideUpdateBanner())
 providerEl.addEventListener('change', () => {
   applyProviderPreset(providerEl.value as ProviderPreset)
   updateAccountNamePlaceholder()
+  syncAuthModeUi()
+})
+
+authModeEl.addEventListener('change', () => syncAuthModeUi())
+
+btnOauthLogin.addEventListener('click', async () => {
+  if (busy || dialogAccountId == null) {
+    settingsStatusEl.textContent = t('settings.saveAccountFirst')
+    return
+  }
+  // Persist current form (provider/auth mode) before starting the browser flow.
+  setBusy(true)
+  try {
+    applySettings(await window.api.saveAccount(readAccountForm()))
+    dialogAccountId = dialogAccountId ?? settings?.activeAccountId ?? null
+    applySettings(await window.api.oauthLogin(dialogAccountId!))
+    fillSettingsAccountSelect()
+    fillAccountForm(dialogAccount())
+    settingsStatusEl.textContent = t('settings.oauthConnected')
+  } catch (err) {
+    settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  } finally {
+    setBusy(false)
+  }
+})
+
+btnOauthDisconnect.addEventListener('click', async () => {
+  if (busy || dialogAccountId == null) return
+  setBusy(true)
+  try {
+    applySettings(await window.api.oauthDisconnect(dialogAccountId))
+    fillAccountForm(dialogAccount())
+    settingsStatusEl.textContent = t('settings.oauthDisconnect')
+  } catch (err) {
+    settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  } finally {
+    setBusy(false)
+  }
 })
 
 userEl.addEventListener('input', () => updateAccountNamePlaceholder())
@@ -1072,7 +1177,7 @@ settingsForm.addEventListener('submit', async (event) => {
 btnFetch.addEventListener('click', async () => {
   if (busy) return
   const account = activeAccount()
-  if (!account?.hasPassword || !account.user) {
+  if (!account || !accountHasAuth(account)) {
     openSettings()
     settingsStatusEl.textContent = t('settings.needCredentials')
     return
@@ -1105,11 +1210,17 @@ btnOpenFiles.addEventListener('click', async () => {
       for (const r of result.reports) {
         map.set(r.reportId || `${r.orgName}|${r.domain}|${r.dateEnd}`, r)
       }
+      const forensicMap = new Map(
+        (fullResult.forensicReports ?? []).map((r) => [r.id, r] as const)
+      )
+      for (const r of result.forensicReports ?? []) forensicMap.set(r.id, r)
       showResult(
         analyzeFromReports([...map.values()], {
           skipped: fullResult.skipped + result.skipped,
           errors: [...fullResult.errors, ...result.errors].slice(0, 50),
-          newReports: result.reports.length
+          newReports: result.reports.length,
+          newForensicReports: result.forensicReports?.length ?? 0,
+          forensicReports: [...forensicMap.values()]
         }),
         t('status.localLoaded', { count: result.reports.length })
       )

@@ -363,6 +363,30 @@
       </section>
 
       <section class="panel results-panel">
+        <div class="table-wrap">
+          <h2 data-i18n="table.forensic">Forensik / RUF (Failure-Reports)</h2>
+          <table id="forensic-table">
+            <thead>
+              <tr>
+                <th data-i18n="table.arrival">Empfang</th>
+                <th data-i18n="table.domain">Domain</th>
+                <th data-i18n="table.sourceIp">Quell-IP</th>
+                <th data-i18n="table.authFailure">Auth-Failure</th>
+                <th data-i18n="table.envelopeFrom">Envelope-From</th>
+                <th data-i18n="table.headerFrom">Header-From</th>
+                <th data-i18n="table.feedbackType">Typ</th>
+              </tr>
+            </thead>
+            <tbody id="forensic-body">
+              <tr class="empty">
+                <td colspan="7" data-i18n="table.forensicEmpty">Keine Forensik-Reports geladen.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel results-panel">
         <div class="results-layout">
           <div class="table-wrap">
             <h2 data-i18n="table.reports">Einzelne Reports</h2>
@@ -497,6 +521,18 @@
                 </label>
 
                 <label>
+                  <span data-i18n="settings.authMode">Anmeldung</span>
+                  <select id="authMode" name="authMode">
+                    <option value="password" selected data-i18n="settings.authPassword">
+                      Passwort / App-Passwort
+                    </option>
+                    <option value="oauth" data-i18n="settings.authOAuth">
+                      OAuth (Gmail / Microsoft 365)
+                    </option>
+                  </select>
+                </label>
+
+                <label>
                   <span data-i18n="settings.host">Host</span>
                   <input id="host" name="host" type="text" placeholder="imap.example.com" />
                 </label>
@@ -516,7 +552,7 @@
                   <input id="user" name="user" type="email" autocomplete="username" />
                 </label>
 
-                <label>
+                <label id="password-field">
                   <span data-i18n="settings.password">Passwort / App-Passwort</span>
                   <input
                     id="password"
@@ -527,8 +563,30 @@
                     placeholder="Leer lassen, wenn gespeichert"
                   />
                 </label>
+
+                <div id="oauth-actions" class="span-2 account-actions hidden">
+                  <button
+                    type="button"
+                    id="btn-oauth-login"
+                    class="btn secondary"
+                    data-i18n="settings.oauthLogin"
+                  >
+                    Mit Anbieter anmelden…
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-oauth-disconnect"
+                    class="btn secondary"
+                    data-i18n="settings.oauthDisconnect"
+                  >
+                    OAuth trennen
+                  </button>
+                </div>
               </div>
               <p id="password-hint" class="hint"></p>
+              <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
+                OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
+              </p>
             </fieldset>
 
             <fieldset class="settings-group">
@@ -589,6 +647,35 @@
               </div>
               <p class="hint" data-i18n="settings.languageHint">
                 Sprache der Benutzeroberfläche. Änderungen werden sofort übernommen.
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.oauthClientIds">OAuth-Client-IDs</legend>
+              <div class="settings-grid">
+                <label class="span-2">
+                  <span data-i18n="settings.oauthGoogleClientId">Google Client-ID</span>
+                  <input
+                    id="oauthGoogleClientId"
+                    name="oauthGoogleClientId"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </label>
+                <label class="span-2">
+                  <span data-i18n="settings.oauthMicrosoftClientId">Microsoft Client-ID</span>
+                  <input
+                    id="oauthMicrosoftClientId"
+                    name="oauthMicrosoftClientId"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </label>
+              </div>
+              <p class="hint" data-i18n="settings.oauthClientHint">
+                Öffentliche Desktop-Apps (PKCE, ohne Secret).
               </p>
             </fieldset>
 

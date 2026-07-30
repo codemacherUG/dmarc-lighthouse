@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  Desktop-App zum Abrufen, Einlesen und Auswerten von DMARC-Aggregate-Reports.<br />
+  Desktop-App zum Abrufen, Einlesen und Auswerten von DMARC-Aggregate- und Forensik-Reports.<br />
   IMAP-Postfach oder lokale Dateien → KPIs, Alignment-Charts und Detailtabellen.
 </p>
 
@@ -33,17 +33,16 @@
 
 ## Was macht die App?
 
-DMARC-Aggregate-Reports (RUA) landen oft als XML/ZIP/GZ in einem eigenen Postfach und sind schwer lesbar. **DMARC Viewer** holt diese Mails per IMAP (oder per Datei-Import), parst sie lokal und zeigt auf einen Blick:
+DMARC-Aggregate-Reports (RUA) und Failure-Reports (RUF) landen oft in einem eigenen Postfach und sind schwer lesbar. **DMARC Viewer** holt diese Mails per IMAP (oder per Datei-Import), parst sie lokal und zeigt auf einen Blick:
 
 - wie viele Nachrichten **Pass** bzw. **Fail** hatten und welche **Dispositions** (`none` / `quarantine` / `reject`) angewendet wurden
 - ob **DMARC-, SPF- und DKIM-Alignment** stimmen
 - welche **Quellen (IPs)**, **From-Domains** und **Reporting-Organisationen** auffällig sind
 - wie sich Volumen und Pass-Rate **über die Zeit** entwickeln
 - optionale **Alerts** bei steigenden Failures, niedriger Pass-Rate oder neu gesehenen Quell-IPs
+- **Forensik / RUF** als bereinigte Tabelle (nur Header — keine Nachrichteninhalte)
 
-Alles läuft lokal auf dem Rechner: Zugangsdaten bleiben im Electron-`userData`-Ordner, das Passwort wird mit `safeStorage` verschlüsselt. Es gibt keinen Cloud-Account und keine Telemetrie. Die Oberfläche ist auf **Deutsch** und **Englisch** verfügbar.
-
-> **Hinweis:** Ausgewertet werden Aggregate-/RUA-Reports. Failure-/Forensik-Reports (RUF) werden nicht verarbeitet.
+Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Electron-`userData`-Ordner, verschlüsselt mit `safeStorage`. Der Report-Cache nutzt **SQLite**. Es gibt keinen Cloud-Account und keine Telemetrie. Die Oberfläche ist auf **Deutsch** und **Englisch** verfügbar.
 
 ---
 
@@ -74,9 +73,11 @@ Mehrere IMAP-Konten, Auto-Abruf, Alerts (Failures / Pass-Rate / neue Quellen), I
 | Bereich | Details |
 | --- | --- |
 | **IMAP-Abruf** | Gmail, Outlook/Microsoft 365 oder beliebiger IMAP-Server; inkrementell über UIDs |
+| **Anmeldung** | App-Passwort **oder** OAuth (PKCE) für Gmail und Microsoft 365 IMAP |
 | **Mehrere Konten** | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; eigene Bezeichnung (Standard: E-Mail-Domain); Umschalten in der Toolbar |
 | **Datei-Import** | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop |
-| **Lokaler Cache** | Geparste Reports bleiben erhalten; erneuter Abruf lädt nur neue Nachrichten |
+| **Lokaler Cache** | SQLite für Aggregate- und Forensik-Reports; alte JSON-Caches werden einmalig migriert |
+| **Forensik / RUF** | ARF-Failure-Reports (bereinigte Header); eigene Tabelle in der UI |
 | **Dashboard** | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum |
 | **Charts** | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit |
 | **Tabellen** | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert |
@@ -109,28 +110,36 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 
 ## Voraussetzungen
 
-- Für den Quellcode-Build: **Node.js 20+**
-- Für Gmail / Outlook: **App-Passwort** (nicht das normale Kontopasswort)
+- Für den Quellcode-Build: **Node.js 22+** (nutzt eingebautes `node:sqlite`)
+- Für Gmail / Outlook: **App-Passwort** oder **OAuth** mit eigenen Client-IDs
 
 ### App-Passwörter & IMAP
 
 | Anbieter | Host | Port | Hinweis |
 | --- | --- | --- | --- |
-| **Gmail** | `imap.gmail.com` | `993` (TLS) | Google-Konto → Sicherheit → 2-Schritt-Bestätigung → App-Passwörter |
-| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App-Passwort bzw. IMAP freigeben, sofern der Tenant es erlaubt |
+| **Gmail** | `imap.gmail.com` | `993` (TLS) | App-Passwort oder OAuth mit Scope `https://mail.google.com/` |
+| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App-Passwort oder OAuth mit `IMAP.AccessAsUser.All` |
 | **Custom** | beliebig | z. B. `993` | Benutzer/Passwort; TLS empfohlen |
 
-Native Gmail-API- / Microsoft-Graph-OAuth sind nicht enthalten — IMAP deckt die gängigen Anbieter ab.
+### OAuth einrichten (optional)
+
+1. Öffentliche Desktop-/Native-OAuth-App anlegen (PKCE, ohne Client-Secret):
+   - Google Cloud Console → OAuth-Client-Typ „Desktop“
+   - Microsoft Entra ID → App-Registrierung → öffentlicher Client, Redirect-URI `http://127.0.0.1:17893/oauth/callback`
+2. Client-IDs unter **Einstellungen → Abruf & Benachrichtigungen** eintragen oder `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID` setzen.
+3. Beim IMAP-Konto **OAuth** wählen, speichern, dann **Mit Anbieter anmelden**.
 
 ---
 
 ## Nutzung
 
-1. **Einstellungen** → **IMAP-Konto** öffnen, Anbieter/Host/Benutzer/App-Passwort setzen und speichern. Bei Bedarf weitere Konten anlegen.
-2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** Auto-Abruf, Alerts, System-Tray, Autostart und Sprache konfigurieren.
+1. **Einstellungen** → **IMAP-Konto** öffnen, Anbieter/Host sowie App-Passwort oder OAuth setzen und speichern. Bei Bedarf weitere Konten anlegen.
+2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** OAuth-Client-IDs, Auto-Abruf, Alerts, System-Tray, Autostart und Sprache konfigurieren.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
-4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain oder per Klick auf Org-/IP-/From-Zeilen eingrenzen; Charts und Tabellen prüfen; bei Bedarf exportieren.
+4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain oder per Klick auf Org-/IP-/From-Zeilen eingrenzen; Charts, Aggregate-Tabellen und die Forensik-/RUF-Tabelle prüfen; bei Bedarf exportieren.
 5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF sowie DKIM-Selektoren aus den Reports oder manuell).
+
+> Tipp: Betreff-Filter erweitern oder leer lassen, wenn RUA und RUF aus demselben Postfach kommen sollen.
 
 ### Alerts & Hintergrundbetrieb
 

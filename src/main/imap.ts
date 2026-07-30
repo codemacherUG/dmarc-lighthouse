@@ -6,20 +6,28 @@ import type {
   TestConnectionResult
 } from '../shared/types'
 import { analyzeFromReports, parseMimeSources } from './analyze'
-import { accountKeyFor, loadCachedReports, mergeReports, saveCache } from './cache'
+import {
+  accountKeyFor,
+  loadCachedReports,
+  mergeForensicReports,
+  mergeReports,
+  saveCache
+} from './cache'
 import { t } from '../shared/i18n'
 
 export type ProgressCallback = (progress: AnalyzeProgress) => void
 
 function createClient(settings: ImapConnectionInput): ImapFlow {
+  const auth =
+    settings.authMode === 'oauth' && settings.accessToken
+      ? { user: settings.user, accessToken: settings.accessToken }
+      : { user: settings.user, pass: settings.password ?? '' }
+
   return new ImapFlow({
     host: settings.host,
     port: settings.port,
     secure: settings.secure,
-    auth: {
-      user: settings.user,
-      pass: settings.password
-    },
+    auth,
     logger: false,
     connectionTimeout: 30_000,
     greetingTimeout: 30_000
@@ -58,8 +66,12 @@ export async function testConnection(settings: ImapConnectionInput): Promise<Tes
 
 export function loadCachedAnalyzeResult(settings: ImapConnectionInput): AnalyzeResult {
   const key = accountKeyFor(settings.user, settings.host, settings.mailbox)
-  const { reports } = loadCachedReports(key)
-  return analyzeFromReports(reports, { fromCache: true, newReports: 0 })
+  const { reports, forensicReports } = loadCachedReports(key)
+  return analyzeFromReports(reports, {
+    fromCache: true,
+    newReports: 0,
+    forensicReports
+  })
 }
 
 export async function fetchAndAnalyze(
@@ -113,13 +125,14 @@ export async function fetchAndAnalyze(
           parsed: cached.reports.length,
           skipped: 0,
           message:
-            cached.reports.length > 0
+            cached.reports.length > 0 || cached.forensicReports.length > 0
               ? t('imap.noNewCached', { count: cached.reports.length })
               : t('imap.noneFound')
         })
         return analyzeFromReports(cached.reports, {
           fromCache: true,
-          newReports: 0
+          newReports: 0,
+          forensicReports: cached.forensicReports
         })
       }
 
@@ -173,6 +186,10 @@ export async function fetchAndAnalyze(
 
       const fresh = await parseMimeSources(sources)
       const merged = mergeReports(cached.reports, fresh.reports)
+      const mergedForensic = mergeForensicReports(
+        cached.forensicReports,
+        fresh.forensicReports ?? []
+      )
 
       // Detect source IPs never seen for this account before. When the cache
       // predates this feature (reports but no known IPs), seed silently.
@@ -183,6 +200,9 @@ export async function fetchAndAnalyze(
       }
       const freshIps = new Set<string>()
       for (const r of fresh.reports) for (const rec of r.records) freshIps.add(rec.sourceIp)
+      for (const f of fresh.forensicReports ?? []) {
+        if (f.sourceIp) freshIps.add(f.sourceIp)
+      }
       const newSourceIps =
         cached.reports.length === 0 || seedOnly
           ? []
@@ -192,14 +212,17 @@ export async function fetchAndAnalyze(
       const result = analyzeFromReports(merged, {
         skipped: fresh.skipped,
         errors: fresh.errors,
-        fromCache: cached.reports.length > 0,
-        newReports: fresh.reports.length
+        fromCache: cached.reports.length > 0 || cached.forensicReports.length > 0,
+        newReports: fresh.reports.length,
+        newForensicReports: fresh.forensicReports?.length ?? 0,
+        forensicReports: mergedForensic
       })
       result.newSourceIps = newSourceIps
 
       saveCache({
         accountKey,
         reports: merged,
+        forensicReports: mergedForensic,
         lastUid: maxUid,
         lastFailingTotal: result.aggregate.failing,
         knownSourceIps: [...known].sort()

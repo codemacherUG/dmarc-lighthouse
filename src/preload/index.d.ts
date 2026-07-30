@@ -17,6 +17,8 @@ export interface DmarcViewerApi {
   deleteAccount: (id: string) => Promise<SettingsPublic>
   setActiveAccount: (id: string) => Promise<SettingsPublic>
   saveGlobalSettings: (input: GlobalSettings) => Promise<SettingsPublic>
+  oauthLogin: (accountId: string) => Promise<SettingsPublic>
+  oauthDisconnect: (accountId: string) => Promise<SettingsPublic>
   testConnection: (input: AccountSettingsInput) => Promise<TestConnectionResult>
   fetchSaved: (accountId?: string | null) => Promise<AnalyzeResult>
   loadCache: (accountId?: string | null) => Promise<AnalyzeResult | null>

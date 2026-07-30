@@ -95,6 +95,40 @@ export function exportReportsCsv(result: AnalyzeResult): string {
     }
   }
 
+  if ((result.forensicReports ?? []).length > 0) {
+    lines.push('')
+    lines.push(
+      [
+        'forensicId',
+        'arrivalDate',
+        'reportedDomain',
+        'sourceIp',
+        'authFailure',
+        'envelopeFrom',
+        'headerFrom',
+        'feedbackType',
+        'deliveryResult'
+      ].join(',')
+    )
+    for (const f of result.forensicReports) {
+      lines.push(
+        [
+          f.id,
+          f.arrivalDate,
+          f.reportedDomain,
+          f.sourceIp,
+          f.authFailure,
+          f.envelopeFrom,
+          f.headerFrom,
+          f.feedbackType,
+          f.deliveryResult
+        ]
+          .map(csvEscape)
+          .join(',')
+      )
+    }
+  }
+
   return lines.join('\n')
 }
 

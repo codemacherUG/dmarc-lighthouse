@@ -2,7 +2,11 @@ import type { AppLocale } from './i18n'
 
 export type { AppLocale }
 
-export type ProviderPreset = 'gmail' | 'outlook' | 'custom'
+export type ProviderPreset = 'gmail' | 'outlook' | 'microsoft' | 'custom'
+
+export type AuthMode = 'password' | 'oauth'
+
+export type OAuthProvider = 'google' | 'microsoft'
 
 export type DateRangePreset = 'all' | '7' | '30' | '90' | 'custom'
 
@@ -23,17 +27,22 @@ export interface ProviderDefaults {
 export const PROVIDER_PRESETS: Record<ProviderPreset, ProviderDefaults> = {
   gmail: { host: 'imap.gmail.com', port: 993, secure: true },
   outlook: { host: 'outlook.office365.com', port: 993, secure: true },
+  microsoft: { host: 'outlook.office365.com', port: 993, secure: true },
   custom: { host: '', port: 993, secure: true }
 }
 
-/** Resolved connection used by the IMAP layer (password always present). */
+/** Resolved connection used by the IMAP layer. */
 export interface ImapConnectionInput {
   provider: ProviderPreset
   host: string
   port: number
   secure: boolean
   user: string
-  password: string
+  authMode: AuthMode
+  /** Present for password auth. */
+  password?: string
+  /** Present for OAuth (XOAUTH2) auth. */
+  accessToken?: string
   mailbox: string
   subjectFilter: string
   markSeenAfterFetch: boolean
@@ -45,6 +54,7 @@ export interface AccountSettingsInput {
   /** Custom display name; empty = use suggested domain name. */
   name: string
   provider: ProviderPreset
+  authMode: AuthMode
   host: string
   port: number
   secure: boolean
@@ -64,6 +74,7 @@ export interface AccountPublic {
   /** Suggested default name (usually the email domain). */
   suggestedName: string
   provider: ProviderPreset
+  authMode: AuthMode
   host: string
   port: number
   secure: boolean
@@ -71,6 +82,8 @@ export interface AccountPublic {
   mailbox: string
   subjectFilter: string
   hasPassword: boolean
+  /** True when a refresh token is stored for OAuth. */
+  hasOAuth: boolean
   markSeenAfterFetch: boolean
 }
 
@@ -89,6 +102,10 @@ export interface GlobalSettings {
   openAtLogin: boolean
   /** UI language. */
   language: AppLocale
+  /** Optional Google OAuth client ID (desktop/public PKCE client). */
+  oauthGoogleClientId: string
+  /** Optional Microsoft Entra / Azure AD application (client) ID. */
+  oauthMicrosoftClientId: string
 }
 
 export interface SettingsPublic {
@@ -138,6 +155,24 @@ export interface ReportRow {
   passRate: number
   policyP: string | null
   records: SerializedRecord[]
+}
+
+/** Sanitized DMARC failure / forensic (RUF) report — no message bodies. */
+export interface ForensicReportRow {
+  id: string
+  reportId: string | null
+  orgName: string | null
+  reportedDomain: string | null
+  arrivalDate: string | null
+  sourceIp: string | null
+  authFailure: string | null
+  deliveryResult: string | null
+  envelopeFrom: string | null
+  headerFrom: string | null
+  originalRcptTo: string | null
+  authenticationResults: string | null
+  subject: string | null
+  feedbackType: string | null
 }
 
 export interface AlignmentBreakdown {
@@ -190,12 +225,16 @@ export interface AnalyzeResult {
   }
   dashboard: DashboardData
   reports: ReportRow[]
+  /** Forensic / RUF failure reports (sanitized). */
+  forensicReports: ForensicReportRow[]
   skipped: number
   errors: string[]
   /** True when result came (partly) from local cache. */
   fromCache?: boolean
   /** Newly parsed report count in this fetch. */
   newReports?: number
+  /** Newly parsed forensic reports in this fetch. */
+  newForensicReports?: number
   /** Source IPs that were not seen in any earlier fetch of this account. */
   newSourceIps?: string[]
   /** Account this result belongs to (set for IMAP fetches). */
@@ -283,6 +322,7 @@ export function emptyAnalyzeResult(): AnalyzeResult {
     },
     dashboard: emptyDashboard(),
     reports: [],
+    forensicReports: [],
     skipped: 0,
     errors: []
   }

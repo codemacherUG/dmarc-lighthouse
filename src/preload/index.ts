@@ -22,6 +22,10 @@ const api = {
     ipcRenderer.invoke('settings:setActiveAccount', id),
   saveGlobalSettings: (input: GlobalSettings): Promise<SettingsPublic> =>
     ipcRenderer.invoke('settings:saveGlobal', input),
+  oauthLogin: (accountId: string): Promise<SettingsPublic> =>
+    ipcRenderer.invoke('oauth:login', accountId),
+  oauthDisconnect: (accountId: string): Promise<SettingsPublic> =>
+    ipcRenderer.invoke('oauth:disconnect', accountId),
   testConnection: (input: AccountSettingsInput): Promise<TestConnectionResult> =>
     ipcRenderer.invoke('imap:test', input),
   fetchSaved: (accountId?: string | null): Promise<AnalyzeResult> =>

@@ -8,7 +8,8 @@ import {
   type DmarcReport
 } from '@koduhai/dmarc-parser'
 import { analyzeFromReports } from '../shared/analyze'
-import type { AnalyzeResult, ReportRow, SerializedRecord } from '../shared/types'
+import type { AnalyzeResult, ForensicReportRow, ReportRow, SerializedRecord } from '../shared/types'
+import { ForensicParseError, isLikelyForensicMime, parseForensicEmail } from './forensic'
 
 function toIso(date: Date | null | undefined): string | null {
   if (!date) return null
@@ -54,21 +55,47 @@ function serializeReport(report: DmarcReport): ReportRow {
 
 export { analyzeFromReports, applyDashboardFilter, buildDashboard } from '../shared/analyze'
 
+type ParsedMime =
+  | { kind: 'aggregate'; report: DmarcReport }
+  | { kind: 'forensic'; report: ForensicReportRow }
+
+async function parseMimeBuffer(source: Buffer): Promise<ParsedMime> {
+  if (isLikelyForensicMime(source)) {
+    try {
+      return { kind: 'forensic', report: parseForensicEmail(source) }
+    } catch {
+      // Fall through to aggregate parsing.
+    }
+  }
+  try {
+    const report = await parseReportEmail(source)
+    return { kind: 'aggregate', report }
+  } catch (aggErr) {
+    try {
+      return { kind: 'forensic', report: parseForensicEmail(source) }
+    } catch {
+      throw aggErr
+    }
+  }
+}
+
 export async function parseMimeSources(
   sources: Array<{ uid: number; source: Buffer }>
 ): Promise<AnalyzeResult> {
   const reports: DmarcReport[] = []
+  const forensicReports: ForensicReportRow[] = []
   const errors: string[] = []
   let skipped = 0
 
   for (const item of sources) {
     try {
-      const report = await parseReportEmail(item.source)
-      reports.push(report)
+      const parsed = await parseMimeBuffer(item.source)
+      if (parsed.kind === 'aggregate') reports.push(parsed.report)
+      else forensicReports.push(parsed.report)
     } catch (err) {
       skipped += 1
       const message =
-        err instanceof DmarcParseError
+        err instanceof DmarcParseError || err instanceof ForensicParseError
           ? err.message
           : err instanceof Error
             ? err.message
@@ -78,24 +105,32 @@ export async function parseMimeSources(
   }
 
   const rows = reports.map(serializeReport)
-  return analyzeFromReports(rows, { skipped, errors: errors.slice(0, 50), newReports: rows.length })
+  return analyzeFromReports(rows, {
+    skipped,
+    errors: errors.slice(0, 50),
+    newReports: rows.length,
+    newForensicReports: forensicReports.length,
+    forensicReports
+  })
 }
 
 export async function parseLocalBuffers(
   files: Array<{ name: string; data: Buffer }>
 ): Promise<AnalyzeResult> {
   const reports: DmarcReport[] = []
+  const forensicReports: ForensicReportRow[] = []
   const errors: string[] = []
   let skipped = 0
 
   for (const file of files) {
     try {
-      const report = await parseLocalBuffer(file.name, file.data)
-      reports.push(report)
+      const parsed = await parseLocalBuffer(file.name, file.data)
+      if (parsed.kind === 'aggregate') reports.push(parsed.report)
+      else forensicReports.push(parsed.report)
     } catch (err) {
       skipped += 1
       const message =
-        err instanceof DmarcParseError
+        err instanceof DmarcParseError || err instanceof ForensicParseError
           ? err.message
           : err instanceof Error
             ? err.message
@@ -105,31 +140,40 @@ export async function parseLocalBuffers(
   }
 
   const rows = reports.map(serializeReport)
-  return analyzeFromReports(rows, { skipped, errors: errors.slice(0, 50), newReports: rows.length })
+  return analyzeFromReports(rows, {
+    skipped,
+    errors: errors.slice(0, 50),
+    newReports: rows.length,
+    newForensicReports: forensicReports.length,
+    forensicReports
+  })
 }
 
-async function parseLocalBuffer(name: string, data: Buffer): Promise<DmarcReport> {
+async function parseLocalBuffer(name: string, data: Buffer): Promise<ParsedMime> {
   const lower = name.toLowerCase()
   if (lower.endsWith('.eml') || lower.endsWith('.mime')) {
-    return parseReportEmail(data)
+    return parseMimeBuffer(data)
   }
   if (lower.endsWith('.gz') || lower.endsWith('.zip')) {
     const xml = decompressReport(name, new Uint8Array(data))
-    return parseDmarcXml(xml)
+    return { kind: 'aggregate', report: parseDmarcXml(xml) }
   }
   if (lower.endsWith('.xml')) {
-    return parseDmarcXml(data.toString('utf8'))
+    return { kind: 'aggregate', report: parseDmarcXml(data.toString('utf8')) }
   }
-
-  const head = data.subarray(0, Math.min(data.length, 256)).toString('utf8')
-  if (/^(return-path|received|from|mime-version|content-type):/im.test(head)) {
-    return parseReportEmail(data)
+  // Heuristic for extension-less payloads.
+  const head = data.subarray(0, Math.min(data.length, 256))
+  if (head[0] === 0x1f && head[1] === 0x8b) {
+    const xml = decompressReport(`${name}.gz`, new Uint8Array(data))
+    return { kind: 'aggregate', report: parseDmarcXml(xml) }
   }
-  if (data[0] === 0x1f && data[1] === 0x8b) {
-    return parseDmarcXml(decompressReport(name || 'report.gz', new Uint8Array(data)))
+  if (head[0] === 0x50 && head[1] === 0x4b) {
+    const xml = decompressReport(`${name}.zip`, new Uint8Array(data))
+    return { kind: 'aggregate', report: parseDmarcXml(xml) }
   }
-  if (data[0] === 0x50 && data[1] === 0x4b) {
-    return parseDmarcXml(decompressReport(name || 'report.zip', new Uint8Array(data)))
+  const asText = data.toString('utf8', 0, Math.min(data.length, 512)).toLowerCase()
+  if (asText.includes('content-type:') || asText.includes('mime-version:')) {
+    return parseMimeBuffer(data)
   }
-  return parseDmarcXml(data.toString('utf8'))
+  return { kind: 'aggregate', report: parseDmarcXml(data.toString('utf8')) }
 }

@@ -4,6 +4,7 @@ import type {
   DashboardData,
   DashboardFilter,
   DateRangePreset,
+  ForensicReportRow,
   NamedBucket,
   ReportRow,
   VolumePoint
@@ -104,16 +105,28 @@ export function buildDashboard(reports: ReportRow[]): DashboardData {
 
 export function analyzeFromReports(
   reports: ReportRow[],
-  extras?: { skipped?: number; errors?: string[]; fromCache?: boolean; newReports?: number }
+  extras?: {
+    skipped?: number
+    errors?: string[]
+    fromCache?: boolean
+    newReports?: number
+    newForensicReports?: number
+    forensicReports?: ForensicReportRow[]
+  }
 ): AnalyzeResult {
   const rows = [...reports].sort((a, b) => b.dateEnd.localeCompare(a.dateEnd))
+  const forensicReports = [...(extras?.forensicReports ?? [])].sort((a, b) =>
+    (b.arrivalDate ?? '').localeCompare(a.arrivalDate ?? '')
+  )
   if (rows.length === 0) {
     return {
       ...emptyAnalyzeResult(),
+      forensicReports,
       skipped: extras?.skipped ?? 0,
       errors: extras?.errors ?? [],
       fromCache: extras?.fromCache,
-      newReports: extras?.newReports ?? 0
+      newReports: extras?.newReports ?? 0,
+      newForensicReports: extras?.newForensicReports ?? 0
     }
   }
 
@@ -146,10 +159,12 @@ export function analyzeFromReports(
     },
     dashboard: buildDashboard(rows),
     reports: rows,
+    forensicReports,
     skipped: extras?.skipped ?? 0,
     errors: extras?.errors ?? [],
     fromCache: extras?.fromCache,
-    newReports: extras?.newReports
+    newReports: extras?.newReports,
+    newForensicReports: extras?.newForensicReports
   }
 }
 
@@ -231,12 +246,42 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
   return rows
 }
 
+export function filterForensicReports(
+  reports: ForensicReportRow[],
+  filter: DashboardFilter
+): ForensicReportRow[] {
+  const cutoff = rangeCutoff(filter.range)
+  const customFrom = filter.range === 'custom' ? parseDay(filter.from, false) : null
+  const customTo = filter.range === 'custom' ? parseDay(filter.to, true) : null
+  const domain = filter.domain.trim().toLowerCase()
+  const sourceIp = filter.sourceIp?.trim()
+  const headerFrom = filter.headerFrom?.trim()
+
+  return reports.filter((r) => {
+    if (domain && (r.reportedDomain ?? '').toLowerCase() !== domain) return false
+    if (sourceIp && r.sourceIp !== sourceIp) return false
+    if (headerFrom && (r.headerFrom ?? UNKNOWN) !== headerFrom) return false
+    const end = r.arrivalDate
+    if (cutoff || customFrom != null || customTo != null) {
+      if (!end) return false
+      const t = new Date(end).getTime()
+      if (Number.isNaN(t)) return false
+      if (cutoff && t < cutoff.getTime()) return false
+      if (customFrom != null && t < customFrom) return false
+      if (customTo != null && t > customTo) return false
+    }
+    return true
+  })
+}
+
 export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilter): AnalyzeResult {
   const filtered = filterReports(full.reports, filter)
   return analyzeFromReports(filtered, {
     skipped: full.skipped,
     errors: full.errors,
     fromCache: full.fromCache,
-    newReports: full.newReports
+    newReports: full.newReports,
+    newForensicReports: full.newForensicReports,
+    forensicReports: filterForensicReports(full.forensicReports ?? [], filter)
   })
 }

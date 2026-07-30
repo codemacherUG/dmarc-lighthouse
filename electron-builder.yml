@@ -77,8 +77,8 @@ linux:
         - x64
   maintainer: mail@codemacher.de
   category: Utility
-  synopsis: DMARC aggregate report viewer
-  description: Fetch and analyze DMARC aggregate reports from an IMAP mailbox.
+  synopsis: DMARC aggregate and forensic report viewer
+  description: Fetch and analyze DMARC aggregate (RUA) and forensic (RUF) reports from an IMAP mailbox.
   desktop:
     entry:
       Name: DMARC Viewer

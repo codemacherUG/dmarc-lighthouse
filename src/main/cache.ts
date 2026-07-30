@@ -1,8 +1,9 @@
 import { app } from 'electron'
 import { createHash } from 'crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from 'fs'
 import { join } from 'path'
-import type { ReportRow } from '../shared/types'
+import { DatabaseSync } from 'node:sqlite'
+import type { ForensicReportRow, ReportRow, SerializedRecord } from '../shared/types'
 
 export interface CacheMeta {
   accountKey: string
@@ -12,7 +13,7 @@ export interface CacheMeta {
   knownSourceIps: string[]
 }
 
-interface CacheFile {
+interface LegacyCacheFile {
   version: 1
   accountKey: string
   lastUid: number
@@ -22,14 +23,190 @@ interface CacheFile {
   reports: ReportRow[]
 }
 
+let db: DatabaseSync | null = null
+/** Test-only override for the userData root (avoids needing Electron `app`). */
+let userDataOverride: string | null = null
+
+export function setCacheUserDataForTests(dir: string | null): void {
+  closeCacheDb()
+  userDataOverride = dir
+}
+
 function cacheDir(): string {
-  const dir = join(app.getPath('userData'), 'cache')
+  const root = userDataOverride ?? app.getPath('userData')
+  const dir = join(root, 'cache')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
 
-function cachePath(accountKey: string): string {
-  return join(cacheDir(), `${accountKey}.json`)
+function dbPath(): string {
+  return join(cacheDir(), 'dmarcviewer.sqlite')
+}
+
+function normalizeRecord(rec: SerializedRecord): SerializedRecord {
+  return {
+    ...rec,
+    reasons: rec.reasons ?? [],
+    dkimSelectors: rec.dkimSelectors ?? []
+  }
+}
+
+function normalizeReport(r: ReportRow): ReportRow {
+  return {
+    ...r,
+    records: (r.records ?? []).map(normalizeRecord)
+  }
+}
+
+function openDb(): DatabaseSync {
+  if (db) return db
+  const path = dbPath()
+  db = new DatabaseSync(path)
+  db.exec('PRAGMA journal_mode = WAL;')
+  db.exec('PRAGMA foreign_keys = ON;')
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cache_meta (
+      account_key TEXT PRIMARY KEY,
+      last_uid INTEGER NOT NULL DEFAULT 0,
+      last_fetch_at TEXT,
+      last_failing_total INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS known_source_ips (
+      account_key TEXT NOT NULL,
+      source_ip TEXT NOT NULL,
+      PRIMARY KEY (account_key, source_ip)
+    );
+
+    CREATE TABLE IF NOT EXISTS reports (
+      account_key TEXT NOT NULL,
+      report_id TEXT NOT NULL,
+      org_name TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      date_begin TEXT NOT NULL,
+      date_end TEXT NOT NULL,
+      total INTEGER NOT NULL,
+      passing INTEGER NOT NULL,
+      failing INTEGER NOT NULL,
+      pass_rate REAL NOT NULL,
+      policy_p TEXT,
+      PRIMARY KEY (account_key, report_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS report_records (
+      account_key TEXT NOT NULL,
+      report_id TEXT NOT NULL,
+      ordinal INTEGER NOT NULL,
+      source_ip TEXT NOT NULL,
+      count INTEGER NOT NULL,
+      disposition TEXT,
+      dkim_result TEXT,
+      spf_result TEXT,
+      header_from TEXT,
+      dkim_domain TEXT,
+      spf_domain TEXT,
+      passes_dmarc INTEGER NOT NULL,
+      reasons_json TEXT NOT NULL,
+      selectors_json TEXT NOT NULL,
+      PRIMARY KEY (account_key, report_id, ordinal),
+      FOREIGN KEY (account_key, report_id)
+        REFERENCES reports(account_key, report_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS forensic_reports (
+      account_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      report_id TEXT,
+      org_name TEXT,
+      reported_domain TEXT,
+      arrival_date TEXT,
+      source_ip TEXT,
+      auth_failure TEXT,
+      delivery_result TEXT,
+      envelope_from TEXT,
+      header_from TEXT,
+      original_rcpt_to TEXT,
+      authentication_results TEXT,
+      subject TEXT,
+      feedback_type TEXT,
+      PRIMARY KEY (account_key, id)
+    );
+  `)
+  db.prepare(
+    `INSERT INTO schema_meta(key, value) VALUES('version', '1')
+     ON CONFLICT(key) DO NOTHING`
+  ).run()
+  migrateJsonCaches(db)
+  return db
+}
+
+/** One-time import of legacy per-account `*.json` cache files. */
+function migrateJsonCaches(database: DatabaseSync): void {
+  const dir = cacheDir()
+  let files: string[] = []
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith('.json'))
+  } catch {
+    return
+  }
+  if (files.length === 0) return
+
+  for (const fileName of files) {
+    const full = join(dir, fileName)
+    try {
+      withTransaction(database, () => {
+        let parsed: LegacyCacheFile
+        try {
+          parsed = JSON.parse(readFileSync(full, 'utf8')) as LegacyCacheFile
+        } catch {
+          renameSync(full, `${full}.bad`)
+          return
+        }
+        if (parsed.version !== 1 || !Array.isArray(parsed.reports)) {
+          renameSync(full, `${full}.bad`)
+          return
+        }
+        const accountKey = parsed.accountKey || fileName.replace(/\.json$/, '')
+        const existing = database
+          .prepare('SELECT account_key FROM cache_meta WHERE account_key = ?')
+          .get(accountKey) as { account_key?: string } | undefined
+        if (!existing) {
+          writeAccountCache(database, {
+            accountKey,
+            reports: (parsed.reports ?? []).map(normalizeReport),
+            forensicReports: [],
+            lastUid: parsed.lastUid ?? 0,
+            lastFailingTotal: parsed.lastFailingTotal ?? 0,
+            knownSourceIps: parsed.knownSourceIps ?? [],
+            lastFetchAt: parsed.lastFetchAt ?? null
+          })
+        }
+        renameSync(full, `${full}.migrated`)
+      })
+    } catch {
+      // Keep the JSON file if migration fails for this account.
+    }
+  }
+}
+
+function withTransaction(database: DatabaseSync, fn: () => void): void {
+  database.exec('BEGIN')
+  try {
+    fn()
+    database.exec('COMMIT')
+  } catch (err) {
+    try {
+      database.exec('ROLLBACK')
+    } catch {
+      // ignore
+    }
+    throw err
+  }
 }
 
 export function accountKeyFor(user: string, host: string, mailbox: string): string {
@@ -37,60 +214,280 @@ export function accountKeyFor(user: string, host: string, mailbox: string): stri
   return createHash('sha256').update(raw).digest('hex').slice(0, 24)
 }
 
-function emptyCache(accountKey: string): CacheFile {
+function emptyMeta(accountKey: string): CacheMeta {
   return {
-    version: 1,
     accountKey,
     lastUid: 0,
     lastFetchAt: null,
     lastFailingTotal: 0,
-    reports: []
+    knownSourceIps: []
   }
 }
 
-function readCacheFile(accountKey: string): CacheFile {
-  const path = cachePath(accountKey)
-  if (!existsSync(path)) return emptyCache(accountKey)
-  try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as CacheFile
-    if (parsed.version !== 1 || !Array.isArray(parsed.reports)) {
-      return emptyCache(accountKey)
-    }
+function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
+  const reportRows = database
+    .prepare(
+      `SELECT report_id, org_name, domain, date_begin, date_end, total, passing, failing,
+              pass_rate, policy_p
+       FROM reports WHERE account_key = ?
+       ORDER BY date_end DESC`
+    )
+    .all(accountKey) as Array<{
+    report_id: string
+    org_name: string
+    domain: string
+    date_begin: string
+    date_end: string
+    total: number
+    passing: number
+    failing: number
+    pass_rate: number
+    policy_p: string | null
+  }>
+
+  const recStmt = database.prepare(
+    `SELECT source_ip, count, disposition, dkim_result, spf_result, header_from,
+            dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
+     FROM report_records
+     WHERE account_key = ? AND report_id = ?
+     ORDER BY ordinal ASC`
+  )
+
+  return reportRows.map((row) => {
+    const records = (
+      recStmt.all(accountKey, row.report_id) as Array<{
+        source_ip: string
+        count: number
+        disposition: string | null
+        dkim_result: string | null
+        spf_result: string | null
+        header_from: string | null
+        dkim_domain: string | null
+        spf_domain: string | null
+        passes_dmarc: number
+        reasons_json: string
+        selectors_json: string
+      }>
+    ).map((rec) =>
+      normalizeRecord({
+        sourceIp: rec.source_ip,
+        count: rec.count,
+        disposition: rec.disposition,
+        dkimResult: rec.dkim_result,
+        spfResult: rec.spf_result,
+        headerFrom: rec.header_from,
+        dkimDomain: rec.dkim_domain,
+        spfDomain: rec.spf_domain,
+        passesDmarc: Boolean(rec.passes_dmarc),
+        reasons: JSON.parse(rec.reasons_json || '[]'),
+        dkimSelectors: JSON.parse(rec.selectors_json || '[]')
+      })
+    )
     return {
-      ...emptyCache(accountKey),
-      ...parsed,
-      accountKey,
-      reports: (parsed.reports ?? []).map((r) => ({
-        ...r,
-        records: (r.records ?? []).map((rec) => ({
-          ...rec,
-          reasons: rec.reasons ?? [],
-          dkimSelectors: rec.dkimSelectors ?? []
-        }))
-      }))
+      reportId: row.report_id,
+      orgName: row.org_name,
+      domain: row.domain,
+      dateBegin: row.date_begin,
+      dateEnd: row.date_end,
+      total: row.total,
+      passing: row.passing,
+      failing: row.failing,
+      passRate: row.pass_rate,
+      policyP: row.policy_p,
+      records
     }
-  } catch {
-    return emptyCache(accountKey)
-  }
+  })
 }
 
-function writeCacheFile(cache: CacheFile): void {
-  writeFileSync(cachePath(cache.accountKey), JSON.stringify(cache), 'utf8')
+function loadForensic(database: DatabaseSync, accountKey: string): ForensicReportRow[] {
+  const rows = database
+    .prepare(
+      `SELECT id, report_id, org_name, reported_domain, arrival_date, source_ip, auth_failure,
+              delivery_result, envelope_from, header_from, original_rcpt_to,
+              authentication_results, subject, feedback_type
+       FROM forensic_reports
+       WHERE account_key = ?
+       ORDER BY COALESCE(arrival_date, '') DESC, id DESC`
+    )
+    .all(accountKey) as Array<{
+    id: string
+    report_id: string | null
+    org_name: string | null
+    reported_domain: string | null
+    arrival_date: string | null
+    source_ip: string | null
+    auth_failure: string | null
+    delivery_result: string | null
+    envelope_from: string | null
+    header_from: string | null
+    original_rcpt_to: string | null
+    authentication_results: string | null
+    subject: string | null
+    feedback_type: string | null
+  }>
+
+  return rows.map((r) => ({
+    id: r.id,
+    reportId: r.report_id,
+    orgName: r.org_name,
+    reportedDomain: r.reported_domain,
+    arrivalDate: r.arrival_date,
+    sourceIp: r.source_ip,
+    authFailure: r.auth_failure,
+    deliveryResult: r.delivery_result,
+    envelopeFrom: r.envelope_from,
+    headerFrom: r.header_from,
+    originalRcptTo: r.original_rcpt_to,
+    authenticationResults: r.authentication_results,
+    subject: r.subject,
+    feedbackType: r.feedback_type
+  }))
+}
+
+function writeAccountCache(
+  database: DatabaseSync,
+  input: {
+    accountKey: string
+    reports: ReportRow[]
+    forensicReports: ForensicReportRow[]
+    lastUid: number
+    lastFailingTotal: number
+    knownSourceIps: string[]
+    lastFetchAt: string | null
+  }
+): void {
+  database.prepare('DELETE FROM report_records WHERE account_key = ?').run(input.accountKey)
+  database.prepare('DELETE FROM reports WHERE account_key = ?').run(input.accountKey)
+  database.prepare('DELETE FROM forensic_reports WHERE account_key = ?').run(input.accountKey)
+  database.prepare('DELETE FROM known_source_ips WHERE account_key = ?').run(input.accountKey)
+  database.prepare('DELETE FROM cache_meta WHERE account_key = ?').run(input.accountKey)
+
+  database
+    .prepare(
+      `INSERT INTO cache_meta(account_key, last_uid, last_fetch_at, last_failing_total)
+       VALUES (?, ?, ?, ?)`
+    )
+    .run(input.accountKey, input.lastUid, input.lastFetchAt, input.lastFailingTotal)
+
+  const ipStmt = database.prepare(
+    'INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)'
+  )
+  for (const ip of input.knownSourceIps) {
+    ipStmt.run(input.accountKey, ip)
+  }
+
+  const reportStmt = database.prepare(
+    `INSERT INTO reports(
+       account_key, report_id, org_name, domain, date_begin, date_end,
+       total, passing, failing, pass_rate, policy_p
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  const recStmt = database.prepare(
+    `INSERT INTO report_records(
+       account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
+       header_from, dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+
+  for (const report of input.reports) {
+    const reportId =
+      report.reportId ||
+      `${report.orgName}|${report.domain}|${report.dateBegin}|${report.dateEnd}`
+    reportStmt.run(
+      input.accountKey,
+      reportId,
+      report.orgName,
+      report.domain,
+      report.dateBegin,
+      report.dateEnd,
+      report.total,
+      report.passing,
+      report.failing,
+      report.passRate,
+      report.policyP
+    )
+    report.records.forEach((rec, ordinal) => {
+      recStmt.run(
+        input.accountKey,
+        reportId,
+        ordinal,
+        rec.sourceIp,
+        rec.count,
+        rec.disposition,
+        rec.dkimResult,
+        rec.spfResult,
+        rec.headerFrom,
+        rec.dkimDomain,
+        rec.spfDomain,
+        rec.passesDmarc ? 1 : 0,
+        JSON.stringify(rec.reasons ?? []),
+        JSON.stringify(rec.dkimSelectors ?? [])
+      )
+    })
+  }
+
+  const forensicStmt = database.prepare(
+    `INSERT INTO forensic_reports(
+       account_key, id, report_id, org_name, reported_domain, arrival_date, source_ip,
+       auth_failure, delivery_result, envelope_from, header_from, original_rcpt_to,
+       authentication_results, subject, feedback_type
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  for (const f of input.forensicReports) {
+    forensicStmt.run(
+      input.accountKey,
+      f.id,
+      f.reportId,
+      f.orgName,
+      f.reportedDomain,
+      f.arrivalDate,
+      f.sourceIp,
+      f.authFailure,
+      f.deliveryResult,
+      f.envelopeFrom,
+      f.headerFrom,
+      f.originalRcptTo,
+      f.authenticationResults,
+      f.subject,
+      f.feedbackType
+    )
+  }
 }
 
 export function loadCachedReports(accountKey: string): {
   reports: ReportRow[]
+  forensicReports: ForensicReportRow[]
   meta: CacheMeta
 } {
-  const cache = readCacheFile(accountKey)
+  const database = openDb()
+  const metaRow = database
+    .prepare(
+      `SELECT last_uid, last_fetch_at, last_failing_total
+       FROM cache_meta WHERE account_key = ?`
+    )
+    .get(accountKey) as
+    | { last_uid: number; last_fetch_at: string | null; last_failing_total: number }
+    | undefined
+
+  if (!metaRow) {
+    return { reports: [], forensicReports: [], meta: emptyMeta(accountKey) }
+  }
+
+  const ips = (
+    database
+      .prepare('SELECT source_ip FROM known_source_ips WHERE account_key = ? ORDER BY source_ip')
+      .all(accountKey) as Array<{ source_ip: string }>
+  ).map((r) => r.source_ip)
+
   return {
-    reports: cache.reports,
+    reports: loadReports(database, accountKey),
+    forensicReports: loadForensic(database, accountKey),
     meta: {
-      accountKey: cache.accountKey,
-      lastUid: cache.lastUid,
-      lastFetchAt: cache.lastFetchAt,
-      lastFailingTotal: cache.lastFailingTotal,
-      knownSourceIps: cache.knownSourceIps ?? []
+      accountKey,
+      lastUid: metaRow.last_uid,
+      lastFetchAt: metaRow.last_fetch_at,
+      lastFailingTotal: metaRow.last_failing_total,
+      knownSourceIps: ips
     }
   }
 }
@@ -107,32 +504,72 @@ export function mergeReports(existing: ReportRow[], incoming: ReportRow[]): Repo
   return [...map.values()].sort((a, b) => b.dateEnd.localeCompare(a.dateEnd))
 }
 
+export function mergeForensicReports(
+  existing: ForensicReportRow[],
+  incoming: ForensicReportRow[]
+): ForensicReportRow[] {
+  const map = new Map<string, ForensicReportRow>()
+  for (const r of existing) map.set(r.id, r)
+  for (const r of incoming) map.set(r.id, r)
+  return [...map.values()].sort((a, b) =>
+    (b.arrivalDate ?? '').localeCompare(a.arrivalDate ?? '')
+  )
+}
+
 export function saveCache(input: {
   accountKey: string
   reports: ReportRow[]
+  forensicReports?: ForensicReportRow[]
   lastUid: number
   lastFailingTotal: number
   knownSourceIps: string[]
 }): CacheMeta {
-  const cache: CacheFile = {
-    version: 1,
+  const database = openDb()
+  const lastFetchAt = new Date().toISOString()
+  const forensicReports = input.forensicReports ?? []
+  withTransaction(database, () => {
+    writeAccountCache(database, {
+      accountKey: input.accountKey,
+      reports: input.reports.map(normalizeReport),
+      forensicReports,
+      lastUid: input.lastUid,
+      lastFailingTotal: input.lastFailingTotal,
+      knownSourceIps: input.knownSourceIps,
+      lastFetchAt
+    })
+  })
+  return {
     accountKey: input.accountKey,
     lastUid: input.lastUid,
-    lastFetchAt: new Date().toISOString(),
+    lastFetchAt,
     lastFailingTotal: input.lastFailingTotal,
-    knownSourceIps: input.knownSourceIps,
-    reports: input.reports
-  }
-  writeCacheFile(cache)
-  return {
-    accountKey: cache.accountKey,
-    lastUid: cache.lastUid,
-    lastFetchAt: cache.lastFetchAt,
-    lastFailingTotal: cache.lastFailingTotal,
-    knownSourceIps: cache.knownSourceIps ?? []
+    knownSourceIps: input.knownSourceIps
   }
 }
 
 export function clearCache(accountKey: string): void {
-  writeCacheFile(emptyCache(accountKey))
+  const database = openDb()
+  withTransaction(database, () => {
+    writeAccountCache(database, {
+      accountKey,
+      reports: [],
+      forensicReports: [],
+      lastUid: 0,
+      lastFailingTotal: 0,
+      knownSourceIps: [],
+      lastFetchAt: null
+    })
+  })
+}
+
+/** Close the DB (tests / shutdown). */
+export function closeCacheDb(): void {
+  if (db) {
+    try {
+      db.close()
+    } catch {
+      // ignore
+    }
+    db = null
+  }
 }

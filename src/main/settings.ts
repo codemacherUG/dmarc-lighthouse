@@ -5,8 +5,10 @@ import { join } from 'path'
 import type {
   AccountPublic,
   AccountSettingsInput,
+  AuthMode,
   GlobalSettings,
   ImapConnectionInput,
+  OAuthProvider,
   ProviderPreset,
   SettingsPublic
 } from '../shared/types'
@@ -14,11 +16,19 @@ import { PROVIDER_PRESETS } from '../shared/types'
 import { resolveAccountLabel, suggestAccountName } from '../shared/account'
 import { detectSystemLocale, normalizeLocale, setLocale, t } from '../shared/i18n'
 import type { AppLocale } from '../shared/i18n'
+import {
+  authorizeInteractive,
+  oauthProviderForAccount,
+  refreshAccessToken,
+  type OAuthClientConfig,
+  type OAuthTokens
+} from './oauth'
 
 interface StoredAccount {
   id: string
   name?: string
   provider: ProviderPreset
+  authMode?: AuthMode
   host: string
   port: number
   secure: boolean
@@ -26,6 +36,9 @@ interface StoredAccount {
   mailbox: string
   subjectFilter: string
   passwordEncrypted?: string
+  refreshTokenEncrypted?: string
+  accessTokenEncrypted?: string
+  accessTokenExpiresAt?: number
   markSeenAfterFetch?: boolean
 }
 
@@ -38,6 +51,8 @@ interface StoredGlobal {
   runInTray?: boolean
   openAtLogin?: boolean
   language?: AppLocale
+  oauthGoogleClientId?: string
+  oauthMicrosoftClientId?: string
 }
 
 interface StoredSettingsV2 {
@@ -70,7 +85,9 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   ignoredSources: '',
   runInTray: false,
   openAtLogin: false,
-  language: 'de'
+  language: 'de',
+  oauthGoogleClientId: '',
+  oauthMicrosoftClientId: ''
 }
 
 function settingsPath(): string {
@@ -83,6 +100,7 @@ function migrateV1(v1: StoredSettingsV1): StoredSettingsV2 {
     ? {
         id: randomUUID(),
         provider: v1.provider ?? 'custom',
+        authMode: 'password',
         host: v1.host ?? '',
         port: v1.port ?? 993,
         secure: v1.secure ?? true,
@@ -116,7 +134,9 @@ function readStored(): StoredSettingsV2 {
   if (!existsSync(path)) return empty
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as
-      StoredSettingsV2 | StoredSettingsV1 | null
+      | StoredSettingsV2
+      | StoredSettingsV1
+      | null
     if (!parsed || typeof parsed !== 'object') return empty
     if ('version' in parsed && parsed.version === 2) {
       return {
@@ -138,7 +158,14 @@ function writeStored(stored: StoredSettingsV2): void {
   writeFileSync(settingsPath(), JSON.stringify(stored, null, 2), 'utf8')
 }
 
-function decryptPassword(encrypted?: string): string {
+function encryptSecret(value: string): string {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error(t('main.passwordUnavailable'))
+  }
+  return safeStorage.encryptString(value).toString('base64')
+}
+
+function decryptSecret(encrypted?: string): string {
   if (!encrypted) return ''
   if (!safeStorage.isEncryptionAvailable()) return ''
   try {
@@ -160,16 +187,22 @@ function normalizeThreshold(value: unknown): number {
   return Math.min(100, Math.round(n * 10) / 10)
 }
 
+function normalizeAuthMode(value: unknown): AuthMode {
+  return value === 'oauth' ? 'oauth' : 'password'
+}
+
 function toPublicAccount(a: StoredAccount): AccountPublic {
   const user = a.user ?? ''
   const host = a.host ?? ''
   const name = (a.name ?? '').trim()
+  const authMode = normalizeAuthMode(a.authMode)
   return {
     id: a.id,
     name,
     label: resolveAccountLabel({ name, user, host }),
     suggestedName: suggestAccountName(user, host),
     provider: a.provider ?? 'custom',
+    authMode,
     host,
     port: a.port ?? 993,
     secure: a.secure ?? true,
@@ -177,6 +210,7 @@ function toPublicAccount(a: StoredAccount): AccountPublic {
     mailbox: a.mailbox || 'INBOX',
     subjectFilter: a.subjectFilter ?? '',
     hasPassword: Boolean(a.passwordEncrypted),
+    hasOAuth: Boolean(a.refreshTokenEncrypted),
     markSeenAfterFetch: Boolean(a.markSeenAfterFetch)
   }
 }
@@ -191,7 +225,23 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     ignoredSources: g.ignoredSources ?? '',
     runInTray: Boolean(g.runInTray),
     openAtLogin: Boolean(g.openAtLogin),
-    language
+    language,
+    oauthGoogleClientId:
+      g.oauthGoogleClientId?.trim() ||
+      process.env.DMARC_GOOGLE_CLIENT_ID?.trim() ||
+      '',
+    oauthMicrosoftClientId:
+      g.oauthMicrosoftClientId?.trim() ||
+      process.env.DMARC_MS_CLIENT_ID?.trim() ||
+      ''
+  }
+}
+
+export function getOAuthClientConfig(global?: GlobalSettings): OAuthClientConfig {
+  const g = global ?? loadSettings().global
+  return {
+    googleClientId: g.oauthGoogleClientId || process.env.DMARC_GOOGLE_CLIENT_ID || '',
+    microsoftClientId: g.oauthMicrosoftClientId || process.env.DMARC_MS_CLIENT_ID || ''
   }
 }
 
@@ -212,26 +262,34 @@ export function loadSettings(): SettingsPublic {
 export function saveAccount(input: AccountSettingsInput): SettingsPublic {
   const stored = readStored()
   const existing = input.id ? stored.accounts.find((a) => a.id === input.id) : undefined
+  const authMode = normalizeAuthMode(input.authMode)
 
   let passwordEncrypted = existing?.passwordEncrypted
-  if (input.password) {
-    if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error(t('main.passwordUnavailable'))
+  if (authMode === 'password' && input.password) {
+    passwordEncrypted = encryptSecret(input.password)
+  }
+  if (authMode === 'oauth') {
+    // Keep password cleared when switching to OAuth unless already empty.
+    if (!existing || existing.authMode !== 'oauth') {
+      passwordEncrypted = undefined
     }
-    passwordEncrypted = safeStorage.encryptString(input.password).toString('base64')
   }
 
   const account: StoredAccount = {
     id: existing?.id ?? randomUUID(),
     name: String(input.name ?? '').trim(),
     provider: input.provider,
+    authMode,
     host: input.host.trim(),
     port: input.port,
     secure: input.secure,
     user: input.user.trim(),
     mailbox: input.mailbox.trim() || 'INBOX',
     subjectFilter: input.subjectFilter,
-    passwordEncrypted,
+    passwordEncrypted: authMode === 'password' ? passwordEncrypted : undefined,
+    refreshTokenEncrypted: authMode === 'oauth' ? existing?.refreshTokenEncrypted : undefined,
+    accessTokenEncrypted: authMode === 'oauth' ? existing?.accessTokenEncrypted : undefined,
+    accessTokenExpiresAt: authMode === 'oauth' ? existing?.accessTokenExpiresAt : undefined,
     markSeenAfterFetch: Boolean(input.markSeenAfterFetch)
   }
 
@@ -243,6 +301,64 @@ export function saveAccount(input: AccountSettingsInput): SettingsPublic {
   if (!stored.activeAccountId) {
     stored.activeAccountId = account.id
   }
+  writeStored(stored)
+  return loadSettings()
+}
+
+function persistOAuthTokens(accountId: string, tokens: OAuthTokens): void {
+  const stored = readStored()
+  stored.accounts = stored.accounts.map((a) => {
+    if (a.id !== accountId) return a
+    return {
+      ...a,
+      authMode: 'oauth',
+      user: tokens.email || a.user,
+      refreshTokenEncrypted: encryptSecret(tokens.refreshToken),
+      accessTokenEncrypted: encryptSecret(tokens.accessToken),
+      accessTokenExpiresAt: tokens.expiresAt,
+      passwordEncrypted: undefined
+    }
+  })
+  writeStored(stored)
+}
+
+export async function beginOAuthLogin(accountId: string): Promise<SettingsPublic> {
+  const stored = readStored()
+  const account = stored.accounts.find((a) => a.id === accountId)
+  if (!account) throw new Error(t('main.noAccount'))
+  const oauthProvider = oauthProviderForAccount(account.provider)
+  if (!oauthProvider) throw new Error(t('oauth.providerUnsupported'))
+
+  const tokens = await authorizeInteractive(oauthProvider, getOAuthClientConfig())
+  const preset = PROVIDER_PRESETS[account.provider] ?? PROVIDER_PRESETS.custom
+  stored.accounts = stored.accounts.map((a) =>
+    a.id === accountId
+      ? {
+          ...a,
+          authMode: 'oauth' as const,
+          user: tokens.email || a.user,
+          host: a.host?.trim() || preset.host,
+          passwordEncrypted: undefined
+        }
+      : a
+  )
+  writeStored(stored)
+  persistOAuthTokens(accountId, tokens)
+  return loadSettings()
+}
+
+export function disconnectOAuth(accountId: string): SettingsPublic {
+  const stored = readStored()
+  stored.accounts = stored.accounts.map((a) =>
+    a.id === accountId
+      ? {
+          ...a,
+          refreshTokenEncrypted: undefined,
+          accessTokenEncrypted: undefined,
+          accessTokenExpiresAt: undefined
+        }
+      : a
+  )
   writeStored(stored)
   return loadSettings()
 }
@@ -276,60 +392,105 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     ignoredSources: input.ignoredSources ?? '',
     runInTray: Boolean(input.runInTray),
     openAtLogin: Boolean(input.openAtLogin),
-    language: normalizeLocale(input.language)
+    language: normalizeLocale(input.language),
+    oauthGoogleClientId: String(input.oauthGoogleClientId ?? '').trim(),
+    oauthMicrosoftClientId: String(input.oauthMicrosoftClientId ?? '').trim()
   }
   writeStored(stored)
   return loadSettings()
 }
 
-function toConnection(account: StoredAccount, password: string): ImapConnectionInput {
+function baseConnection(account: StoredAccount): Omit<ImapConnectionInput, 'authMode' | 'password' | 'accessToken'> {
   const preset = PROVIDER_PRESETS[account.provider ?? 'custom']
   const host = (account.host ?? '').trim() || preset.host
   if (!host) throw new Error(t('main.hostMissing'))
   if (!(account.user ?? '').trim()) throw new Error(t('main.userMissing'))
-  if (!password) throw new Error(t('main.passwordMissing'))
   return {
     provider: account.provider ?? 'custom',
     host,
     port: account.port || preset.port,
     secure: account.secure ?? true,
     user: account.user.trim(),
-    password,
     mailbox: (account.mailbox ?? '').trim() || 'INBOX',
     subjectFilter: account.subjectFilter ?? '',
     markSeenAfterFetch: Boolean(account.markSeenAfterFetch)
   }
 }
 
+async function resolveOAuthAccessToken(account: StoredAccount): Promise<string> {
+  const oauthProvider = oauthProviderForAccount(account.provider) as OAuthProvider | null
+  if (!oauthProvider) throw new Error(t('oauth.providerUnsupported'))
+  const refreshToken = decryptSecret(account.refreshTokenEncrypted)
+  if (!refreshToken) throw new Error(t('oauth.notConnected'))
+
+  const accessToken = decryptSecret(account.accessTokenEncrypted)
+  const expiresAt = account.accessTokenExpiresAt ?? 0
+  if (accessToken && expiresAt > Date.now() + 30_000) {
+    return accessToken
+  }
+
+  const tokens = await refreshAccessToken(
+    oauthProvider,
+    getOAuthClientConfig(),
+    refreshToken,
+    account.user
+  )
+  persistOAuthTokens(account.id, tokens)
+  return tokens.accessToken
+}
+
+async function toConnection(account: StoredAccount, passwordFallback = ''): Promise<ImapConnectionInput> {
+  const base = baseConnection(account)
+  const authMode = normalizeAuthMode(account.authMode)
+  if (authMode === 'oauth') {
+    const accessToken = await resolveOAuthAccessToken(account)
+    return { ...base, authMode: 'oauth', accessToken }
+  }
+  const password = passwordFallback || decryptSecret(account.passwordEncrypted)
+  if (!password) throw new Error(t('main.passwordMissing'))
+  return { ...base, authMode: 'password', password }
+}
+
 /** Resolve the connection for a stored account (default: active account). */
-export function resolveAccountConnection(accountId?: string | null): ImapConnectionInput {
+export async function resolveAccountConnection(
+  accountId?: string | null
+): Promise<ImapConnectionInput> {
   const stored = readStored()
   const id = accountId ?? stored.activeAccountId ?? stored.accounts[0]?.id
   const account = stored.accounts.find((a) => a.id === id)
   if (!account) throw new Error(t('main.noAccount'))
-  return toConnection(account, decryptPassword(account.passwordEncrypted))
+  return toConnection(account)
 }
 
-/** Resolve a connection from form input; falls back to the stored password of the same account. */
-export function resolveInputConnection(input: AccountSettingsInput): ImapConnectionInput {
+/** Resolve a connection from form input; falls back to stored secrets of the same account. */
+export async function resolveInputConnection(
+  input: AccountSettingsInput
+): Promise<ImapConnectionInput> {
   const stored = readStored()
   const existing = input.id ? stored.accounts.find((a) => a.id === input.id) : undefined
-  const password = input.password || decryptPassword(existing?.passwordEncrypted)
-  return toConnection(
-    {
-      id: existing?.id ?? 'new',
-      name: input.name,
-      provider: input.provider,
-      host: input.host,
-      port: input.port,
-      secure: input.secure,
-      user: input.user,
-      mailbox: input.mailbox,
-      subjectFilter: input.subjectFilter,
-      markSeenAfterFetch: input.markSeenAfterFetch
-    },
-    password
-  )
+  const authMode = normalizeAuthMode(input.authMode ?? existing?.authMode)
+  const account: StoredAccount = {
+    id: existing?.id ?? 'new',
+    name: input.name,
+    provider: input.provider,
+    authMode,
+    host: input.host,
+    port: input.port,
+    secure: input.secure,
+    user: input.user,
+    mailbox: input.mailbox,
+    subjectFilter: input.subjectFilter,
+    passwordEncrypted: existing?.passwordEncrypted,
+    refreshTokenEncrypted: existing?.refreshTokenEncrypted,
+    accessTokenEncrypted: existing?.accessTokenEncrypted,
+    accessTokenExpiresAt: existing?.accessTokenExpiresAt,
+    markSeenAfterFetch: input.markSeenAfterFetch
+  }
+  if (authMode === 'oauth') {
+    if (!existing?.refreshTokenEncrypted) throw new Error(t('oauth.notConnected'))
+    return toConnection(account)
+  }
+  return toConnection(account, input.password)
 }
 
 /** Apply / clear OS login-item (autostart) based on global settings. */

@@ -22,7 +22,9 @@ import {
 } from './imap'
 import { resolveIps } from './ipinfo'
 import {
+  beginOAuthLogin,
   deleteAccount,
+  disconnectOAuth,
   isIgnoredSource,
   loadSettings,
   parseIgnoredSources,
@@ -33,6 +35,10 @@ import {
   saveGlobalSettings,
   setActiveAccount
 } from './settings'
+
+function accountReady(account: AccountPublic): boolean {
+  return Boolean(account.user && (account.hasPassword || account.hasOAuth))
+}
 import { setupAutoUpdater } from './updater'
 import { t } from '../shared/i18n'
 
@@ -236,7 +242,7 @@ async function fetchAccount(accountId?: string | null): Promise<AnalyzeResult> {
   const account = settingsPub.accounts.find((a) => a.id === id)
   if (!account) throw new Error(t('main.noAccount'))
 
-  const connection = resolveAccountConnection(account.id)
+  const connection = await resolveAccountConnection(account.id)
   const prevFailing = previousFailingTotal(connection)
   const result = await fetchAndAnalyze(connection, (progress) => {
     mainWindow?.webContents.send('imap:progress', progress)
@@ -254,7 +260,7 @@ async function runAutoFetchAll(): Promise<void> {
   try {
     const settingsPub = loadSettings()
     for (const account of settingsPub.accounts) {
-      if (!account.hasPassword || !account.user) continue
+      if (!accountReady(account)) continue
       try {
         await fetchAccount(account.id)
       } catch (err) {
@@ -284,7 +290,7 @@ function scheduleAutoFetch(): void {
   stopAutoFetch()
   const settingsPub = loadSettings()
   const minutes = settingsPub.global.autoFetchMinutes
-  const hasAccount = settingsPub.accounts.some((a) => a.hasPassword && a.user)
+  const hasAccount = settingsPub.accounts.some((a) => accountReady(a))
   if (!minutes || minutes <= 0 || !hasAccount) return
 
   autoFetchTimer = setInterval(() => {
@@ -327,7 +333,7 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('imap:test', async (_event, input: AccountSettingsInput) => {
-    const connection = resolveInputConnection(input)
+    const connection = await resolveInputConnection(input)
     return testConnection(connection)
   })
 
@@ -335,12 +341,28 @@ function registerIpc(): void {
     runSavedFetch(accountId)
   )
 
+  ipcMain.handle('oauth:login', async (_event, accountId: string) => beginOAuthLogin(accountId))
+
+  ipcMain.handle('oauth:disconnect', (_event, accountId: string) => disconnectOAuth(accountId))
+
   ipcMain.handle('cache:load', (_event, accountId?: string | null) => {
     try {
-      const connection = resolveAccountConnection(accountId)
-      const result = loadCachedAnalyzeResult(connection)
       const settingsPub = loadSettings()
-      result.accountId = accountId ?? settingsPub.activeAccountId ?? undefined
+      const id = accountId ?? settingsPub.activeAccountId
+      const account = settingsPub.accounts.find((a) => a.id === id)
+      if (!account?.user || !account.host) return null
+      const result = loadCachedAnalyzeResult({
+        provider: account.provider,
+        host: account.host,
+        port: account.port,
+        secure: account.secure,
+        user: account.user,
+        authMode: account.authMode,
+        mailbox: account.mailbox,
+        subjectFilter: account.subjectFilter,
+        markSeenAfterFetch: account.markSeenAfterFetch
+      })
+      result.accountId = id ?? undefined
       return result
     } catch {
       return null
