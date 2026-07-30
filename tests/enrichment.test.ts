@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isListedDnsblAnswer, reverseIpForDnsbl } from '../src/main/dnsbl'
+import { rdapIpPathSegment } from '../src/main/rdap'
 import { matchCloudProvider, parseCidr, type CloudPrefix } from '../src/shared/ipcidr'
 import { buildDomainStats, mergeDomainHealth } from '../src/shared/analyze'
 import type { DnsCheckResult, ReportRow, SerializedRecord } from '../src/shared/types'
@@ -188,5 +189,22 @@ describe('domain health / Ampel', () => {
   it('returns unknown without DNS', () => {
     const stats = buildDomainStats([report()])[0]!
     expect(mergeDomainHealth(stats, null).status).toBe('unknown')
+  })
+})
+
+describe('rdapIpPathSegment', () => {
+  it('keeps IPv6 colons literal (encodeURIComponent alone breaks RDAP)', () => {
+    expect(rdapIpPathSegment('2a00:1450:4001:827::200e')).toBe('2a00:1450:4001:827::200e')
+    expect(rdapIpPathSegment('2001:db8::1')).toBe('2001:db8::1')
+  })
+
+  it('accepts IPv4 unchanged', () => {
+    expect(rdapIpPathSegment('8.8.8.8')).toBe('8.8.8.8')
+  })
+
+  it('strips IPv6 zone ids and rejects garbage', () => {
+    expect(rdapIpPathSegment('fe80::1%eth0')).toBe('fe80::1')
+    expect(rdapIpPathSegment('not-an-ip')).toBeNull()
+    expect(rdapIpPathSegment('')).toBeNull()
   })
 })

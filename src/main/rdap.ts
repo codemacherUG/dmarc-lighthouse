@@ -1,5 +1,18 @@
+import { isIP } from 'net'
 import type { RdapInfo } from '../shared/types'
 import { t } from '../shared/i18n'
+
+/**
+ * Build the `/ip/{…}` path segment for RDAP.
+ * Colons in IPv6 (and `/` in CIDR) must stay literal — `encodeURIComponent`
+ * turns `:` into `%3A`, which many RDAP servers reject with HTTP 400.
+ */
+export function rdapIpPathSegment(ipRaw: string): string | null {
+  // Strip IPv6 zone ids (`fe80::1%eth0`) before validation/lookup.
+  const ip = ipRaw.trim().replace(/%[^/]*$/, '')
+  if (!ip || !isIP(ip.split('/')[0] ?? '')) return null
+  return encodeURIComponent(ip).replace(/%3A/gi, ':').replace(/%2F/gi, '/')
+}
 
 interface RdapEntity {
   roles?: string[]
@@ -77,49 +90,38 @@ function extractCidr(data: RdapResponse): string | null {
   return null
 }
 
+function emptyRdap(ip: string, error: string): RdapInfo {
+  return {
+    ip,
+    org: null,
+    country: null,
+    cidr: null,
+    abuseEmail: null,
+    rawSummary: null,
+    error
+  }
+}
+
 /** On-demand RDAP lookup via rdap.org bootstrap. */
 export async function lookupRdap(ipRaw: string): Promise<RdapInfo> {
-  const ip = ipRaw.trim()
-  if (!ip) {
-    return {
-      ip: '',
-      org: null,
-      country: null,
-      cidr: null,
-      abuseEmail: null,
-      rawSummary: null,
-      error: t('enrichment.rdapInvalidIp')
-    }
+  const path = rdapIpPathSegment(ipRaw)
+  const displayIp = ipRaw.trim().replace(/%[^/]*$/, '') || ipRaw.trim()
+  if (!path) {
+    return emptyRdap(displayIp, t('enrichment.rdapInvalidIp'))
   }
 
   try {
-    const res = await fetch(`https://rdap.org/ip/${encodeURIComponent(ip)}`, {
+    const res = await fetch(`https://rdap.org/ip/${path}`, {
       headers: { Accept: 'application/rdap+json, application/json' },
       signal: AbortSignal.timeout(10_000),
       redirect: 'follow'
     })
     if (!res.ok) {
-      return {
-        ip,
-        org: null,
-        country: null,
-        cidr: null,
-        abuseEmail: null,
-        rawSummary: null,
-        error: t('enrichment.rdapHttpError', { status: String(res.status) })
-      }
+      return emptyRdap(displayIp, t('enrichment.rdapHttpError', { status: String(res.status) }))
     }
     const data = (await res.json()) as RdapResponse
     if (data.errorCode) {
-      return {
-        ip,
-        org: null,
-        country: null,
-        cidr: null,
-        abuseEmail: null,
-        rawSummary: null,
-        error: data.title || String(data.errorCode)
-      }
+      return emptyRdap(displayIp, data.title || String(data.errorCode))
     }
 
     const org = extractOrg(data)
@@ -134,7 +136,7 @@ export async function lookupRdap(ipRaw: string): Promise<RdapInfo> {
     ].filter(Boolean)
 
     return {
-      ip,
+      ip: displayIp,
       org,
       country,
       cidr,
@@ -142,14 +144,6 @@ export async function lookupRdap(ipRaw: string): Promise<RdapInfo> {
       rawSummary: parts.join(' · ') || null
     }
   } catch (err) {
-    return {
-      ip,
-      org: null,
-      country: null,
-      cidr: null,
-      abuseEmail: null,
-      rawSummary: null,
-      error: err instanceof Error ? err.message : String(err)
-    }
+    return emptyRdap(displayIp, err instanceof Error ? err.message : String(err))
   }
 }
