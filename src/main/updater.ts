@@ -24,8 +24,6 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
   started = true
   getMainWindow = getWindow
 
-  ipcMain.handle('app:getVersion', () => app.getVersion())
-
   ipcMain.handle('update:check', async () => {
     if (is.dev) {
       send({ status: 'not-available', version: '' })

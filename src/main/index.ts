@@ -40,6 +40,7 @@ function accountReady(account: AccountPublic): boolean {
   return Boolean(account.user && (account.hasPassword || account.hasOAuth))
 }
 import { setupAutoUpdater } from './updater'
+import { runScreenshotCapture, wantsScreenshotCapture } from './screenshots'
 import { t } from '../shared/i18n'
 
 app.disableHardwareAcceleration()
@@ -67,10 +68,11 @@ function shouldStartHidden(): boolean {
 
 function createWindow(): BrowserWindow {
   const appIcon = createAppIcon()
+  const capture = wantsScreenshotCapture()
 
   const win = new BrowserWindow({
-    width: 1280,
-    height: 900,
+    width: capture ? 1400 : 1280,
+    height: capture ? 960 : 900,
     minWidth: 960,
     minHeight: 680,
     show: false,
@@ -94,11 +96,17 @@ function createWindow(): BrowserWindow {
       win.setIcon(appIcon)
     }
     // Autostart + tray: stay in the background until the user opens the window.
-    if (startHidden && loadSettings().global.runInTray) {
+    if (!capture && startHidden && loadSettings().global.runInTray) {
       updateTray()
       return
     }
     win.show()
+    if (capture) {
+      void runScreenshotCapture(win).catch((err) => {
+        console.error(err)
+        app.exit(1)
+      })
+    }
   })
 
   win.on('close', (event) => {
@@ -299,6 +307,8 @@ function scheduleAutoFetch(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.handle('app:getVersion', () => app.getVersion())
+
   ipcMain.handle('settings:load', () => loadSettings())
 
   ipcMain.handle('settings:saveAccount', (_event, input: AccountSettingsInput) => {
@@ -444,15 +454,18 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  const capture = wantsScreenshotCapture()
   const settings = loadSettings()
-  startHidden = shouldStartHidden()
-  applyOpenAtLogin(settings.global)
+  startHidden = capture ? false : shouldStartHidden()
+  if (!capture) applyOpenAtLogin(settings.global)
 
   registerIpc()
-  setupAutoUpdater(() => mainWindow)
+  if (!capture) setupAutoUpdater(() => mainWindow)
   mainWindow = createWindow()
-  scheduleAutoFetch()
-  updateTray()
+  if (!capture) {
+    scheduleAutoFetch()
+    updateTray()
+  }
 
   app.on('activate', () => {
     startHidden = false

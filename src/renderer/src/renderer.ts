@@ -15,6 +15,7 @@ import {
 } from 'chart.js'
 import { suggestAccountName } from '../../shared/account'
 import { analyzeFromReports, applyDashboardFilter } from '../../shared/analyze'
+import { buildDemoAnalyzeResult, buildDemoSettings, DEMO_DNS_HTML } from '../../shared/demo-data'
 import {
   getLocale,
   normalizeLocale,
@@ -1398,3 +1399,48 @@ void (async () => {
     setStatus(err instanceof Error ? err.message : String(err), 'error')
   }
 })()
+
+/** Helpers used by `npm run screenshots` (Electron capture script). */
+window.__dmarcScreenshot = {
+  async prepareDemo(): Promise<void> {
+    applyUiLocale('de')
+    applySettings(buildDemoSettings())
+    fillGlobalForm(settings!.global)
+    selectedReportId = null
+    Object.keys(drill).forEach((k) => delete drill[k as keyof typeof drill])
+    showResult(buildDemoAnalyzeResult(), t('status.cached', { count: 12 }))
+    dnsDomainEl.value = 'example.com'
+    dnsResultEl.innerHTML = DEMO_DNS_HTML
+    dnsResultEl.className = 'dns-result ok'
+    // Seed PTR labels without calling the network.
+    ipLabelCache.set('192.0.2.10', { ptr: 'mail-a.example.net', provider: 'Example Net' })
+    ipLabelCache.set('192.0.2.40', { ptr: 'smtp.example.net', provider: 'Example Net' })
+    ipLabelCache.set('198.51.100.20', { ptr: null, provider: null })
+    ipLabelCache.set('198.51.100.55', { ptr: 'mta.yahoo.example', provider: 'Yahoo' })
+    ipLabelCache.set('203.0.113.15', { ptr: null, provider: null })
+    ipLabelCache.set('2001:db8:1::10', { ptr: 'ipv6.example.net', provider: 'Example Net' })
+    applyView()
+    settingsDialog.close()
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  },
+  openSettingsDemo(): void {
+    openSettings()
+    showSettingsTab('account')
+  },
+  closeSettings(): void {
+    settingsDialog.close()
+  },
+  async scrollTo(selector: string): Promise<void> {
+    const el = document.querySelector(selector)
+    if (el) el.scrollIntoView({ block: 'start' })
+    await new Promise((r) => setTimeout(r, 200))
+  },
+  async selectFirstReport(): Promise<void> {
+    const first = fullResult?.reports[0]
+    if (!first) return
+    selectedReportId = first.reportId
+    renderReports(viewResult)
+    renderDetail(first)
+    await new Promise((r) => setTimeout(r, 100))
+  }
+}

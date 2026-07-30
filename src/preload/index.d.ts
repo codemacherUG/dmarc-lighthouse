@@ -44,5 +44,12 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: DmarcViewerApi
+    __dmarcScreenshot?: {
+      prepareDemo: () => Promise<void>
+      openSettingsDemo: () => void
+      closeSettings: () => void
+      scrollTo: (selector: string) => Promise<void>
+      selectFirstReport: () => Promise<void>
+    }
   }
 }
