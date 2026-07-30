@@ -77,12 +77,14 @@ describe('sqlite cache', () => {
         }
       ],
       lastUid: 42,
+      lastUidArchive: 7,
       lastFailingTotal: 1,
       knownSourceIps: ['192.0.2.1']
     })
 
     const loaded = loadCachedReports('acct1')
     expect(loaded.meta.lastUid).toBe(42)
+    expect(loaded.meta.lastUidArchive).toBe(7)
     expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1'])
     expect(loaded.reports).toHaveLength(1)
     expect(loaded.reports[0].records[0].dkimSelectors).toEqual(['s1'])

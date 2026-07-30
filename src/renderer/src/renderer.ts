@@ -14,7 +14,12 @@ import {
   Filler
 } from 'chart.js'
 import { suggestAccountName } from '../../shared/account'
-import { analyzeFromReports, applyDashboardFilter } from '../../shared/analyze'
+import {
+  analyzeFromReports,
+  applyDashboardFilter,
+  buildDomainStats,
+  mergeDomainHealth
+} from '../../shared/analyze'
 import { buildDemoAnalyzeResult, buildDemoSettings, DEMO_DNS_HTML } from '../../shared/demo-data'
 import {
   getLocale,
@@ -32,8 +37,10 @@ import type {
   AnalyzeResult,
   AuthMode,
   DateRangePreset,
+  DomainHealth,
   ForensicReportRow,
   GlobalSettings,
+  IpInfo,
   NamedBucket,
   ProviderPreset,
   ReportRow,
@@ -91,6 +98,12 @@ const accountSelectEl = document.getElementById('account-select') as HTMLSelectE
 const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputElement
 const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLInputElement
 const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
+const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
+const ipDetailDialog = document.getElementById('ip-detail-dialog') as HTMLDialogElement
+const ipDetailBody = document.getElementById('ip-detail-body') as HTMLDivElement
+const btnCloseIpDetail = document.getElementById('btn-close-ip-detail') as HTMLButtonElement
+const btnIpRdap = document.getElementById('btn-ip-rdap') as HTMLButtonElement
+const btnIpFilter = document.getElementById('btn-ip-filter') as HTMLButtonElement
 
 const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
 const btnInfo = document.getElementById('btn-info') as HTMLButtonElement
@@ -101,6 +114,21 @@ const btnDns = document.getElementById('btn-dns') as HTMLButtonElement
 const settingsDialog = document.getElementById('settings-dialog') as HTMLDialogElement
 const infoDialog = document.getElementById('info-dialog') as HTMLDialogElement
 const exportDialog = document.getElementById('export-dialog') as HTMLDialogElement
+const createMailboxDialog = document.getElementById('create-mailbox-dialog') as HTMLDialogElement
+const createMailboxPathEl = document.getElementById('create-mailbox-path') as HTMLInputElement
+const createMailboxStatusEl = document.getElementById('create-mailbox-status') as HTMLParagraphElement
+const btnCloseCreateMailbox = document.getElementById(
+  'btn-close-create-mailbox'
+) as HTMLButtonElement
+const btnCancelCreateMailbox = document.getElementById(
+  'btn-cancel-create-mailbox'
+) as HTMLButtonElement
+const btnConfirmCreateMailbox = document.getElementById(
+  'btn-confirm-create-mailbox'
+) as HTMLButtonElement
+/** Input that opened the create-mailbox dialog (mailbox or archive). */
+let createMailboxTarget: HTMLInputElement | null = null
+let createMailboxBusy = false
 const settingsForm = document.getElementById('settings-form') as HTMLFormElement
 const btnCloseSettings = document.getElementById('btn-close-settings') as HTMLButtonElement
 const btnCloseInfo = document.getElementById('btn-close-info') as HTMLButtonElement
@@ -127,8 +155,10 @@ const btnNewAccount = document.getElementById('btn-new-account') as HTMLButtonEl
 const btnDeleteAccount = document.getElementById('btn-delete-account') as HTMLButtonElement
 const tabBtnAccount = document.getElementById('tab-btn-account') as HTMLButtonElement
 const tabBtnGeneral = document.getElementById('tab-btn-general') as HTMLButtonElement
+const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as HTMLButtonElement
 const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
+const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
 
 const providerEl = document.getElementById('provider') as HTMLSelectElement
 const authModeEl = document.getElementById('authMode') as HTMLSelectElement
@@ -144,6 +174,10 @@ const oauthHintEl = document.getElementById('oauth-hint') as HTMLElement
 const btnOauthLogin = document.getElementById('btn-oauth-login') as HTMLButtonElement
 const btnOauthDisconnect = document.getElementById('btn-oauth-disconnect') as HTMLButtonElement
 const mailboxEl = document.getElementById('mailbox') as HTMLInputElement
+const archiveMailboxEl = document.getElementById('archiveMailbox') as HTMLInputElement
+const btnClearArchiveMailbox = document.getElementById(
+  'btn-clear-archive-mailbox'
+) as HTMLButtonElement
 const subjectFilterEl = document.getElementById('subjectFilter') as HTMLInputElement
 const markSeenAfterFetchEl = document.getElementById('markSeenAfterFetch') as HTMLInputElement
 const autoFetchMinutesEl = document.getElementById('autoFetchMinutes') as HTMLInputElement
@@ -160,6 +194,14 @@ const oauthGoogleClientIdEl = document.getElementById('oauthGoogleClientId') as 
 const oauthMicrosoftClientIdEl = document.getElementById(
   'oauthMicrosoftClientId'
 ) as HTMLInputElement
+const enrichmentEnabledEl = document.getElementById('enrichmentEnabled') as HTMLInputElement
+const cloudRangesEnabledEl = document.getElementById('cloudRangesEnabled') as HTMLInputElement
+const dnsblEnabledEl = document.getElementById('dnsblEnabled') as HTMLInputElement
+const rdapEnabledEl = document.getElementById('rdapEnabled') as HTMLInputElement
+const geoIpOnlineFallbackEl = document.getElementById('geoIpOnlineFallback') as HTMLInputElement
+const maxmindLicenseKeyEl = document.getElementById('maxmindLicenseKey') as HTMLInputElement
+const btnDownloadGeolite = document.getElementById('btn-download-geolite') as HTMLButtonElement
+const geoliteStatusEl = document.getElementById('geolite-status') as HTMLSpanElement
 const forensicBody = document.getElementById('forensic-body') as HTMLTableSectionElement
 
 const NEW_ACCOUNT_VALUE = '__new__'
@@ -173,7 +215,10 @@ let fullResult: AnalyzeResult | null = null
 let viewResult: AnalyzeResult | null = null
 /** Drill-down filters set by clicking rows in the aggregate tables. */
 const drill: { org?: string; sourceIp?: string; headerFrom?: string } = {}
-const ipLabelCache = new Map<string, { ptr: string | null; provider: string | null }>()
+const ipLabelCache = new Map<string, IpInfo>()
+let selectedDetailIp: string | null = null
+let domainHealthCache: DomainHealth[] = []
+let domainHealthToken = 0
 
 const chartDmarc = createDoughnut('chart-dmarc')
 const chartSpf = createDoughnut('chart-spf')
@@ -429,9 +474,211 @@ function readAccountForm(): AccountSettingsInput {
     user: userEl.value.trim(),
     password: passwordEl.value,
     mailbox: mailboxEl.value.trim() || 'INBOX',
+    archiveMailbox: archiveMailboxEl.value.trim(),
     subjectFilter: subjectFilterEl.value,
     markSeenAfterFetch: markSeenAfterFetchEl.checked
   }
+}
+
+/** Full IMAP folder list for the custom picker (never filtered by the input value). */
+let mailboxPaths: string[] = []
+
+function fillMailboxOptions(paths: string[]): void {
+  mailboxPaths = [...new Set(paths.map((p) => p.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' })
+  )
+  for (const input of [mailboxEl, archiveMailboxEl]) {
+    const menu = input.parentElement?.querySelector<HTMLUListElement>('[data-mailbox-menu]')
+    if (menu && !menu.hidden) renderMailboxMenu(input, menu)
+  }
+}
+
+function closeMailboxMenus(except?: HTMLUListElement): void {
+  for (const input of [mailboxEl, archiveMailboxEl]) {
+    const menu = input.parentElement?.querySelector<HTMLUListElement>('[data-mailbox-menu]')
+    if (menu && menu !== except) menu.hidden = true
+  }
+}
+
+function mailboxPathExists(path: string): boolean {
+  const wanted = path.trim().toLowerCase()
+  return Boolean(wanted) && mailboxPaths.some((p) => p.toLowerCase() === wanted)
+}
+
+function renderMailboxMenu(input: HTMLInputElement, menu: HTMLUListElement): void {
+  const current = input.value.trim()
+  const items = mailboxPaths.map((path) => {
+    const li = document.createElement('li')
+    li.setAttribute('role', 'option')
+    li.textContent = path
+    if (path === current) li.setAttribute('aria-selected', 'true')
+    li.addEventListener('mousedown', (event) => {
+      event.preventDefault()
+      input.value = path
+      menu.hidden = true
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    return li
+  })
+
+  const createLi = document.createElement('li')
+  createLi.className = 'mailbox-menu-action'
+  createLi.setAttribute('role', 'option')
+  createLi.textContent =
+    current && !mailboxPathExists(current)
+      ? t('settings.createMailboxNamed', { path: current })
+      : t('settings.createMailbox')
+  createLi.addEventListener('mousedown', (event) => {
+    event.preventDefault()
+    menu.hidden = true
+    openCreateMailboxDialog(input)
+  })
+  items.push(createLi)
+
+  menu.replaceChildren(...items)
+  menu.hidden = false
+  const selected = menu.querySelector<HTMLElement>('li[aria-selected="true"]')
+  selected?.scrollIntoView({ block: 'nearest' })
+}
+
+function closeCreateMailboxDialog(): void {
+  createMailboxBusy = false
+  btnConfirmCreateMailbox.disabled = false
+  createMailboxTarget = null
+  if (createMailboxDialog.open) createMailboxDialog.close()
+}
+
+function openCreateMailboxDialog(input: HTMLInputElement): void {
+  if (!canListMailboxes()) {
+    settingsStatusEl.textContent = t('settings.needCredentials')
+    return
+  }
+  if (typeof window.api.createMailbox !== 'function') {
+    settingsStatusEl.textContent = t('enrichment.preloadRestart')
+    return
+  }
+  createMailboxTarget = input
+  createMailboxBusy = false
+  btnConfirmCreateMailbox.disabled = false
+  createMailboxStatusEl.textContent = ''
+  createMailboxPathEl.value = input.value.trim() || 'Archive/DMARC'
+  createMailboxDialog.showModal()
+  queueMicrotask(() => {
+    createMailboxPathEl.focus()
+    createMailboxPathEl.select()
+  })
+}
+
+async function confirmCreateMailbox(): Promise<void> {
+  if (createMailboxBusy) return
+  const input = createMailboxTarget
+  const path = createMailboxPathEl.value.trim()
+  if (!input) {
+    closeCreateMailboxDialog()
+    return
+  }
+  if (!path) {
+    createMailboxStatusEl.textContent = t('imap.createMailboxEmpty')
+    createMailboxPathEl.focus()
+    return
+  }
+  if (typeof window.api.createMailbox !== 'function') {
+    createMailboxStatusEl.textContent = t('enrichment.preloadRestart')
+    return
+  }
+
+  createMailboxBusy = true
+  btnConfirmCreateMailbox.disabled = true
+  createMailboxStatusEl.textContent = t('settings.creatingMailbox')
+  try {
+    const result = await window.api.createMailbox(readAccountForm(), path)
+    createMailboxStatusEl.textContent = result.message
+    if (!result.ok) {
+      setStatus(result.message, 'error')
+      return
+    }
+    input.value = result.path || path
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    settingsStatusEl.textContent = result.message
+    setStatus(result.message, 'ok')
+    closeCreateMailboxDialog()
+    await loadMailboxOptions({ quiet: true })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    createMailboxStatusEl.textContent = msg
+    setStatus(msg, 'error')
+  } finally {
+    createMailboxBusy = false
+    btnConfirmCreateMailbox.disabled = false
+  }
+}
+
+function openMailboxMenu(input: HTMLInputElement): void {
+  const menu = input.parentElement?.querySelector<HTMLUListElement>('[data-mailbox-menu]')
+  if (!menu) return
+  closeMailboxMenus(menu)
+  renderMailboxMenu(input, menu)
+}
+
+function isInsideMailboxCombo(target: EventTarget | null): boolean {
+  const el = target instanceof Element ? target : target instanceof Node ? target.parentElement : null
+  return Boolean(el?.closest('.mailbox-combo'))
+}
+
+let mailboxLoadToken = 0
+
+function canListMailboxes(): boolean {
+  const form = readAccountForm()
+  if (!form.user || !form.host) return false
+  if (form.password) return true
+  const account = dialogAccount()
+  if (form.authMode === 'oauth') return Boolean(account?.hasOAuth)
+  return Boolean(account?.hasPassword)
+}
+
+/** Load IMAP folder names into the datalist. Quiet mode skips noisy global status. */
+async function loadMailboxOptions(options: { quiet?: boolean } = {}): Promise<boolean> {
+  const quiet = Boolean(options.quiet)
+  if (!canListMailboxes()) return false
+  if (typeof window.api.listMailboxes !== 'function') {
+    if (!quiet) settingsStatusEl.textContent = t('enrichment.preloadRestart')
+    return false
+  }
+  const token = ++mailboxLoadToken
+  if (!quiet) settingsStatusEl.textContent = t('settings.listingMailboxes')
+  try {
+    const result = await window.api.listMailboxes(readAccountForm())
+    if (token !== mailboxLoadToken) return false
+    if (!result.ok) {
+      if (!quiet) {
+        settingsStatusEl.textContent = result.message
+        setStatus(result.message, 'error')
+      }
+      return false
+    }
+    fillMailboxOptions(result.mailboxes.map((m) => m.path))
+    settingsStatusEl.textContent = result.message
+    if (!quiet) setStatus(result.message, 'ok')
+    return true
+  } catch (err) {
+    if (token !== mailboxLoadToken) return false
+    if (!quiet) {
+      const msg = err instanceof Error ? err.message : String(err)
+      settingsStatusEl.textContent = msg
+      setStatus(msg, 'error')
+    }
+    return false
+  }
+}
+
+let mailboxRefreshTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleMailboxOptionsRefresh(): void {
+  if (mailboxRefreshTimer) clearTimeout(mailboxRefreshTimer)
+  mailboxRefreshTimer = setTimeout(() => {
+    mailboxRefreshTimer = null
+    void loadMailboxOptions({ quiet: true })
+  }, 150)
 }
 
 function readGlobalForm(): GlobalSettings {
@@ -445,7 +692,13 @@ function readGlobalForm(): GlobalSettings {
     openAtLogin: openAtLoginEl.checked,
     language: normalizeLocale(languageEl.value),
     oauthGoogleClientId: oauthGoogleClientIdEl.value.trim(),
-    oauthMicrosoftClientId: oauthMicrosoftClientIdEl.value.trim()
+    oauthMicrosoftClientId: oauthMicrosoftClientIdEl.value.trim(),
+    enrichmentEnabled: enrichmentEnabledEl.checked,
+    geoIpOnlineFallback: geoIpOnlineFallbackEl.checked,
+    maxmindLicenseKey: maxmindLicenseKeyEl.value.trim(),
+    dnsblEnabled: dnsblEnabledEl.checked,
+    cloudRangesEnabled: cloudRangesEnabledEl.checked,
+    rdapEnabled: rdapEnabledEl.checked
   }
 }
 
@@ -520,10 +773,67 @@ function setDispositionChart(buckets: NamedBucket[]): void {
   chartDisposition.update()
 }
 
+/** Known ESP/cloud label, else ASN org (ISP / network). */
+function resolveProviderLabel(
+  info?: IpInfo | null,
+  fallbackProvider?: string | null
+): string | null {
+  return fallbackProvider || info?.provider || info?.cloudProvider || info?.asOrg || null
+}
+
+function formatIpMetaHtml(
+  ip: string,
+  fallbackProvider?: string | null,
+  fallbackPtr?: string | null
+): string {
+  const meta = ipLabelCache.get(ip)
+  const provider = resolveProviderLabel(meta, fallbackProvider)
+  const ptr = fallbackPtr ?? meta?.ptr
+  const bits: string[] = []
+  if (meta?.countryCode || meta?.country) {
+    const geo = [meta.countryCode, meta.city].filter(Boolean).join(' · ')
+    bits.push(`<span class="badge">${escapeHtml(geo || meta.country || '')}</span>`)
+  }
+  if (meta?.asn != null) {
+    bits.push(`<span class="badge">AS${meta.asn}</span>`)
+  }
+  if (meta?.cloudProvider) {
+    bits.push(`<span class="badge cloud">${escapeHtml(meta.cloudProvider)}</span>`)
+  } else if (provider) {
+    bits.push(`<span class="badge">${escapeHtml(provider)}</span>`)
+  }
+  const blockHits = (meta?.dnsblHits ?? []).filter((h) => h !== 'dnswl')
+  const whiteHits = (meta?.dnsblHits ?? []).filter((h) => h === 'dnswl')
+  for (const hit of blockHits) {
+    bits.push(`<span class="badge bad">${escapeHtml(hit)}</span>`)
+  }
+  for (const hit of whiteHits) {
+    bits.push(`<span class="badge">${escapeHtml(hit)}</span>`)
+  }
+  if (ptr) bits.push(`<span class="ptr">${escapeHtml(ptr)}</span>`)
+  return bits.length ? `<div class="ip-meta">${bits.join(' ')}</div>` : ''
+}
+
+function formatIpCellHtml(
+  ip: string,
+  fallbackProvider?: string | null,
+  fallbackPtr?: string | null
+): string {
+  return `<span class="ip-cell">
+    <span class="ip-cell-head mono">
+      <span>${escapeHtml(ip)}</span><button type="button" class="ip-detail-btn" data-ip-detail="${escapeHtml(ip)}" title="${escapeHtml(t('ipDetail.openHint'))}" aria-label="${escapeHtml(t('ipDetail.openHint'))}">i</button>
+    </span>
+    ${formatIpMetaHtml(ip, fallbackProvider, fallbackPtr)}
+  </span>`
+}
+
 function renderBucketTable(
   tbody: HTMLTableSectionElement,
   rows: NamedBucket[],
-  options: { withIpMeta?: boolean; onRowClick?: (name: string) => void } = {}
+  options: {
+    withIpMeta?: boolean
+    onRowClick?: (name: string) => void
+  } = {}
 ): void {
   if (!rows.length) {
     tbody.innerHTML = `<tr class="empty"><td colspan="3">${escapeHtml(t('table.noData'))}</td></tr>`
@@ -531,16 +841,9 @@ function renderBucketTable(
   }
   tbody.innerHTML = rows
     .map((r) => {
-      let nameHtml = `<span class="mono">${escapeHtml(r.name)}</span>`
-      if (options.withIpMeta) {
-        const meta = ipLabelCache.get(r.name)
-        const provider = r.provider ?? meta?.provider
-        const ptr = r.label ?? meta?.ptr
-        const bits: string[] = []
-        if (provider) bits.push(`<span class="badge">${escapeHtml(provider)}</span>`)
-        if (ptr) bits.push(`<span class="ptr">${escapeHtml(ptr)}</span>`)
-        if (bits.length) nameHtml += `<div class="ip-meta">${bits.join(' ')}</div>`
-      }
+      const nameHtml = options.withIpMeta
+        ? formatIpCellHtml(r.name, r.provider, r.label)
+        : `<span class="mono">${escapeHtml(r.name)}</span>`
       return `
       <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
         <td>${nameHtml}</td>
@@ -555,8 +858,22 @@ function renderBucketTable(
 
   if (options.onRowClick) {
     for (const tr of tbody.querySelectorAll<HTMLTableRowElement>('tr[data-name]')) {
-      tr.addEventListener('click', () => options.onRowClick?.(tr.dataset.name ?? ''))
+      tr.addEventListener('click', (ev) => {
+        const target = ev.target as HTMLElement
+        if (target.closest('[data-ip-detail]')) return
+        options.onRowClick?.(tr.dataset.name ?? '')
+      })
     }
+  }
+  bindIpDetailButtons(tbody)
+}
+
+function bindIpDetailButtons(root: ParentNode): void {
+  for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-ip-detail]')) {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation()
+      openIpDetail(btn.dataset.ipDetail ?? '')
+    })
   }
 }
 
@@ -595,6 +912,108 @@ function setDrillFilter(key: keyof typeof drill, value: string): void {
   applyView()
 }
 
+function renderDomainAmpel(rows: DomainHealth[]): void {
+  if (!rows.length) {
+    domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(t('health.empty'))}</p>`
+    return
+  }
+  domainAmpelEl.innerHTML = rows
+    .map((h) => {
+      const statusLabel = t(`health.status.${h.status}` as MessageKey)
+      const policy =
+        h.dmarcPolicy != null ? escapeHtml(t('health.policy', { policy: h.dmarcPolicy })) : '—'
+      const reasons = h.reasons.map((key) => t(key as MessageKey)).join(' · ')
+      return `
+      <button type="button" class="ampel-card ${h.status}" data-domain="${escapeHtml(h.domain)}" title="${escapeHtml(statusLabel)}">
+        <div class="ampel-domain">${escapeHtml(h.domain)}</div>
+        <div class="ampel-meta">
+          <span>${escapeHtml(statusLabel)}</span>
+          <span>${escapeHtml(t('health.passRate', { rate: h.passRate.toFixed(1) }))}</span>
+          <span>${escapeHtml(t('health.msgs', { count: String(h.total) }))}</span>
+          <span>${policy}</span>
+        </div>
+        ${reasons ? `<div class="ampel-reasons">${escapeHtml(reasons)}</div>` : ''}
+      </button>`
+    })
+    .join('')
+
+  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('[data-domain]')) {
+    btn.addEventListener('click', () => {
+      const domain = btn.dataset.domain ?? ''
+      if (!domain) return
+      selectDomainFilter(domain)
+      applyView()
+    })
+  }
+}
+
+/** Select a domain option case-insensitively (Ampel domains are lowercased). */
+function selectDomainFilter(domain: string): void {
+  const wanted = domain.trim().toLowerCase()
+  const match = [...filterDomainEl.options].find((o) => o.value.toLowerCase() === wanted)
+  filterDomainEl.value = match?.value ?? domain
+}
+
+function domainHealthFallback(reports: ReportRow[]): DomainHealth[] {
+  return buildDomainStats(reports).map((stats) => mergeDomainHealth(stats, null))
+}
+
+async function refreshDomainHealth(result: AnalyzeResult | null): Promise<void> {
+  const token = ++domainHealthToken
+  if (!domainAmpelEl) return
+  if (!result || result.reports.length === 0) {
+    domainHealthCache = []
+    renderDomainAmpel([])
+    return
+  }
+  domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(t('health.loading'))}</p>`
+  try {
+    let health: DomainHealth[]
+    if (typeof window.api.healthBatch === 'function') {
+      health = await window.api.healthBatch(result.reports)
+    } else {
+      // Preload not yet reloaded — still show Ampel from local stats.
+      health = domainHealthFallback(result.reports)
+    }
+    if (token !== domainHealthToken) return
+    domainHealthCache = health
+    renderDomainAmpel(health)
+  } catch {
+    if (token !== domainHealthToken) return
+    domainHealthCache = domainHealthFallback(result.reports)
+    renderDomainAmpel(domainHealthCache)
+  }
+}
+
+function renderIpDetailBody(ip: string, rdapSummary?: string | null, rdapError?: string): void {
+  const info = ipLabelCache.get(ip)
+  const provider = info?.provider || info?.asOrg || null
+  const geo =
+    [info?.countryCode, info?.country, info?.city].filter(Boolean).join(' · ') || t('ipDetail.none')
+  const asn =
+    info?.asn != null ? `AS${info.asn}${info.asOrg ? ` (${info.asOrg})` : ''}` : t('ipDetail.none')
+  const dnsbl = info?.dnsblHits?.length ? info.dnsblHits.join(', ') : t('ipDetail.none')
+  const rdapText = rdapError || rdapSummary || t('ipDetail.none')
+  ipDetailBody.innerHTML = `
+    <dl>
+      <dt>IP</dt><dd class="mono">${escapeHtml(ip)}</dd>
+      <dt>${escapeHtml(t('ipDetail.ptr'))}</dt><dd>${escapeHtml(info?.ptr ?? t('ipDetail.none'))}</dd>
+      <dt>${escapeHtml(t('ipDetail.provider'))}</dt><dd>${escapeHtml(provider ?? t('ipDetail.none'))}</dd>
+      <dt>${escapeHtml(t('ipDetail.cloud'))}</dt><dd>${escapeHtml(info?.cloudProvider ?? t('ipDetail.none'))}</dd>
+      <dt>${escapeHtml(t('ipDetail.geo'))}</dt><dd>${escapeHtml(geo)}</dd>
+      <dt>${escapeHtml(t('ipDetail.asn'))}</dt><dd>${escapeHtml(asn)}</dd>
+      <dt>${escapeHtml(t('ipDetail.dnsbl'))}</dt><dd>${escapeHtml(dnsbl)}</dd>
+      <dt>${escapeHtml(t('ipDetail.rdap'))}</dt><dd id="ip-detail-rdap">${escapeHtml(rdapText)}</dd>
+    </dl>`
+}
+
+function openIpDetail(ip: string): void {
+  if (!ip) return
+  selectedDetailIp = ip
+  renderIpDetailBody(ip)
+  ipDetailDialog.showModal()
+}
+
 function renderDashboard(result: AnalyzeResult | null): void {
   if (!result) {
     setAlignmentChart(chartDmarc, { pass: 0, fail: 0, other: 0 })
@@ -609,6 +1028,7 @@ function renderDashboard(result: AnalyzeResult | null): void {
     renderBucketTable(tableOrgs, [])
     renderBucketTable(tableIps, [])
     renderBucketTable(tableFrom, [])
+    void refreshDomainHealth(null)
     return
   }
 
@@ -636,6 +1056,8 @@ function renderDashboard(result: AnalyzeResult | null): void {
   })
 
   void enrichIpLabels(d.bySourceIp.map((r) => r.name))
+  // Ampel always reflects the unfiltered account data so domains stay clickable.
+  void refreshDomainHealth(fullResult)
 }
 
 async function enrichIpLabels(ips: string[]): Promise<void> {
@@ -644,7 +1066,7 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
   try {
     const infos = await window.api.resolveIps(missing)
     for (const info of infos) {
-      ipLabelCache.set(info.ip, { ptr: info.ptr, provider: info.provider })
+      ipLabelCache.set(info.ip, info)
     }
     if (viewResult) {
       renderBucketTable(tableIps, viewResult.dashboard.bySourceIp, {
@@ -652,8 +1074,14 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
         onRowClick: (name) => setDrillFilter('sourceIp', name)
       })
     }
+    // Refresh open record details so geo/ASN/DNSBL appear once enrichment lands.
+    if (selectedReportId && viewResult) {
+      const selected =
+        viewResult.reports.find((r) => r.reportId === selectedReportId) ?? null
+      if (selected) renderDetail(selected)
+    }
   } catch {
-    // Reverse-DNS ist optional.
+    // Enrichment ist optional.
   }
 }
 
@@ -673,7 +1101,7 @@ function renderDetail(report: ReportRow | null): void {
           : '—'
       return `
       <tr>
-        <td class="mono">${escapeHtml(r.sourceIp)}</td>
+        <td>${formatIpCellHtml(r.sourceIp)}</td>
         <td>${r.count}</td>
         <td>${escapeHtml(r.disposition ?? '—')}</td>
         <td class="${r.dkimResult === 'pass' ? 'pass' : 'fail'}">${escapeHtml(r.dkimResult ?? '—')}</td>
@@ -709,6 +1137,8 @@ function renderDetail(report: ReportRow | null): void {
       <tbody>${rows || `<tr><td colspan="8">${escapeHtml(t('detail.noRecords'))}</td></tr>`}</tbody>
     </table>
   `
+  bindIpDetailButtons(detailEl)
+  void enrichIpLabels(report.records.map((r) => r.sourceIp).filter(Boolean))
 }
 
 function renderForensic(result: AnalyzeResult | null): void {
@@ -811,7 +1241,8 @@ function applyView(): void {
   renderDashboard(viewResult)
   renderReports(viewResult)
   renderForensic(viewResult)
-  btnExport.disabled = viewResult.reports.length === 0 && (viewResult.forensicReports?.length ?? 0) === 0
+  btnExport.disabled =
+    viewResult.reports.length === 0 && (viewResult.forensicReports?.length ?? 0) === 0
 }
 
 function showResult(result: AnalyzeResult, statusMessage?: string): void {
@@ -865,6 +1296,7 @@ function fillAccountForm(account: AccountPublic | null): void {
     secureEl.checked = account.secure
     userEl.value = account.user
     mailboxEl.value = account.mailbox
+    archiveMailboxEl.value = account.archiveMailbox ?? ''
     subjectFilterEl.value = account.subjectFilter
     markSeenAfterFetchEl.checked = account.markSeenAfterFetch
   } else {
@@ -876,6 +1308,7 @@ function fillAccountForm(account: AccountPublic | null): void {
     secureEl.checked = true
     userEl.value = ''
     mailboxEl.value = 'INBOX'
+    archiveMailboxEl.value = ''
     subjectFilterEl.value = 'Report Domain'
     markSeenAfterFetchEl.checked = false
   }
@@ -889,7 +1322,12 @@ function fillAccountForm(account: AccountPublic | null): void {
       : t('settings.passwordHint')
   }
   syncAuthModeUi()
+  syncArchiveMailboxClear()
   settingsStatusEl.textContent = ''
+}
+
+function syncArchiveMailboxClear(): void {
+  btnClearArchiveMailbox.hidden = !archiveMailboxEl.value.trim()
 }
 
 function fillGlobalForm(global: GlobalSettings): void {
@@ -903,6 +1341,29 @@ function fillGlobalForm(global: GlobalSettings): void {
   languageEl.value = normalizeLocale(global.language)
   oauthGoogleClientIdEl.value = global.oauthGoogleClientId ?? ''
   oauthMicrosoftClientIdEl.value = global.oauthMicrosoftClientId ?? ''
+  enrichmentEnabledEl.checked = global.enrichmentEnabled !== false
+  cloudRangesEnabledEl.checked = global.cloudRangesEnabled !== false
+  dnsblEnabledEl.checked = global.dnsblEnabled !== false
+  rdapEnabledEl.checked = global.rdapEnabled !== false
+  geoIpOnlineFallbackEl.checked = Boolean(global.geoIpOnlineFallback)
+  maxmindLicenseKeyEl.value = global.maxmindLicenseKey ?? ''
+  void refreshGeoLiteStatus()
+}
+
+async function refreshGeoLiteStatus(): Promise<void> {
+  if (typeof window.api.geoLiteStatus !== 'function') {
+    geoliteStatusEl.textContent = t('enrichment.preloadRestart')
+    return
+  }
+  try {
+    const status = await window.api.geoLiteStatus()
+    geoliteStatusEl.textContent = t('settings.geoLiteStatus', {
+      city: status.cityDb ? '✓' : '—',
+      asn: status.asnDb ? '✓' : '—'
+    })
+  } catch {
+    geoliteStatusEl.textContent = ''
+  }
 }
 
 function fillSettingsAccountSelect(): void {
@@ -933,14 +1394,20 @@ async function loadSettings(): Promise<void> {
   }
 }
 
-function showSettingsTab(which: 'account' | 'general'): void {
-  const account = which === 'account'
-  tabBtnAccount.classList.toggle('active', account)
-  tabBtnGeneral.classList.toggle('active', !account)
-  tabBtnAccount.setAttribute('aria-selected', String(account))
-  tabBtnGeneral.setAttribute('aria-selected', String(!account))
-  tabAccountEl.classList.toggle('hidden', !account)
-  tabGeneralEl.classList.toggle('hidden', account)
+type SettingsTab = 'account' | 'general' | 'enrichment'
+
+function showSettingsTab(which: SettingsTab): void {
+  const tabs: Array<{ id: SettingsTab; btn: HTMLButtonElement; panel: HTMLElement }> = [
+    { id: 'account', btn: tabBtnAccount, panel: tabAccountEl },
+    { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
+    { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
+  ]
+  for (const tab of tabs) {
+    const active = tab.id === which
+    tab.btn.classList.toggle('active', active)
+    tab.btn.setAttribute('aria-selected', String(active))
+    tab.panel.classList.toggle('hidden', !active)
+  }
 }
 
 function openSettings(): void {
@@ -950,6 +1417,7 @@ function openSettings(): void {
   if (settings) fillGlobalForm(settings.global)
   showSettingsTab('account')
   settingsDialog.showModal()
+  scheduleMailboxOptionsRefresh()
 }
 
 async function switchActiveAccount(id: string): Promise<void> {
@@ -970,6 +1438,46 @@ btnSettings.addEventListener('click', () => openSettings())
 btnCloseSettings.addEventListener('click', () => settingsDialog.close())
 tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
 tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
+tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
+btnCloseIpDetail.addEventListener('click', () => ipDetailDialog.close())
+btnIpFilter.addEventListener('click', () => {
+  if (!selectedDetailIp) return
+  ipDetailDialog.close()
+  setDrillFilter('sourceIp', selectedDetailIp)
+})
+btnIpRdap.addEventListener('click', async () => {
+  if (!selectedDetailIp) return
+  const rdapEl = document.getElementById('ip-detail-rdap')
+  if (rdapEl) rdapEl.textContent = t('ipDetail.loadingRdap')
+  try {
+    const info = await window.api.lookupRdap(selectedDetailIp)
+    renderIpDetailBody(selectedDetailIp, info.rawSummary, info.error)
+  } catch (err) {
+    renderIpDetailBody(selectedDetailIp, null, err instanceof Error ? err.message : String(err))
+  }
+})
+btnDownloadGeolite.addEventListener('click', async () => {
+  if (typeof window.api.downloadGeoLite !== 'function') {
+    geoliteStatusEl.textContent = t('enrichment.preloadRestart')
+    return
+  }
+  geoliteStatusEl.textContent = t('settings.geoLiteDownloading')
+  btnDownloadGeolite.disabled = true
+  try {
+    // Persist key first so download uses the saved value too.
+    applySettings(await window.api.saveGlobalSettings(readGlobalForm()))
+    const result = await window.api.downloadGeoLite(maxmindLicenseKeyEl.value.trim())
+    geoliteStatusEl.textContent = result.message
+    if (result.ok) {
+      ipLabelCache.clear()
+      await refreshGeoLiteStatus()
+    }
+  } catch (err) {
+    geoliteStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  } finally {
+    btnDownloadGeolite.disabled = false
+  }
+})
 btnInfo.addEventListener('click', () => {
   updateCheckStatusEl.textContent = ''
   infoDialog.showModal()
@@ -1017,6 +1525,7 @@ btnOauthLogin.addEventListener('click', async () => {
     fillSettingsAccountSelect()
     fillAccountForm(dialogAccount())
     settingsStatusEl.textContent = t('settings.oauthConnected')
+    scheduleMailboxOptionsRefresh()
   } catch (err) {
     settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
   } finally {
@@ -1051,12 +1560,14 @@ settingsAccountSelectEl.addEventListener('change', () => {
     settingsAccountSelectEl.value === NEW_ACCOUNT_VALUE ? null : settingsAccountSelectEl.value
   fillSettingsAccountSelect()
   fillAccountForm(dialogAccount())
+  scheduleMailboxOptionsRefresh()
 })
 
 btnNewAccount.addEventListener('click', () => {
   dialogAccountId = null
   fillSettingsAccountSelect()
   fillAccountForm(null)
+  fillMailboxOptions([])
 })
 
 btnDeleteAccount.addEventListener('click', async () => {
@@ -1105,6 +1616,13 @@ btnTest.addEventListener('click', async () => {
     const result = await window.api.testConnection(readAccountForm())
     settingsStatusEl.textContent = result.message
     setStatus(result.message, result.ok ? 'ok' : 'error')
+    if (result.ok) {
+      try {
+        await loadMailboxOptions()
+      } catch {
+        // Ordnerliste ist optional nach dem Verbindungstest.
+      }
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     settingsStatusEl.textContent = msg
@@ -1112,6 +1630,56 @@ btnTest.addEventListener('click', async () => {
   } finally {
     setBusy(false)
   }
+})
+
+for (const el of [mailboxEl, archiveMailboxEl]) {
+  const menu = el.parentElement?.querySelector<HTMLUListElement>('[data-mailbox-menu]')
+  // Keep input focus when using the list/scrollbar so the menu stays open.
+  menu?.addEventListener('mousedown', (event) => event.preventDefault())
+  el.addEventListener('focus', () => {
+    scheduleMailboxOptionsRefresh()
+    openMailboxMenu(el)
+  })
+  el.addEventListener('click', () => openMailboxMenu(el))
+  el.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeMailboxMenus()
+  })
+}
+
+archiveMailboxEl.addEventListener('input', () => syncArchiveMailboxClear())
+btnClearArchiveMailbox.addEventListener('mousedown', (event) => event.preventDefault())
+btnClearArchiveMailbox.addEventListener('click', () => {
+  archiveMailboxEl.value = ''
+  syncArchiveMailboxClear()
+  closeMailboxMenus()
+  archiveMailboxEl.focus()
+})
+
+btnCloseCreateMailbox.addEventListener('click', () => {
+  if (!createMailboxBusy) closeCreateMailboxDialog()
+})
+btnCancelCreateMailbox.addEventListener('click', () => {
+  if (!createMailboxBusy) closeCreateMailboxDialog()
+})
+btnConfirmCreateMailbox.addEventListener('click', () => {
+  void confirmCreateMailbox()
+})
+createMailboxPathEl.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    void confirmCreateMailbox()
+  }
+})
+createMailboxDialog.addEventListener('cancel', (event) => {
+  if (createMailboxBusy) {
+    event.preventDefault()
+    return
+  }
+  createMailboxTarget = null
+})
+
+document.addEventListener('pointerdown', (event) => {
+  if (!isInsideMailboxCombo(event.target)) closeMailboxMenus()
 })
 
 btnClearCache.addEventListener('click', async () => {
@@ -1211,9 +1779,7 @@ btnOpenFiles.addEventListener('click', async () => {
       for (const r of result.reports) {
         map.set(r.reportId || `${r.orgName}|${r.domain}|${r.dateEnd}`, r)
       }
-      const forensicMap = new Map(
-        (fullResult.forensicReports ?? []).map((r) => [r.id, r] as const)
-      )
+      const forensicMap = new Map((fullResult.forensicReports ?? []).map((r) => [r.id, r] as const))
       for (const r of result.forensicReports ?? []) forensicMap.set(r.id, r)
       showResult(
         analyzeFromReports([...map.values()], {
@@ -1414,12 +1980,70 @@ window.__dmarcScreenshot = {
     dnsResultEl.innerHTML = DEMO_DNS_HTML
     dnsResultEl.className = 'dns-result ok'
     // Seed PTR labels without calling the network.
-    ipLabelCache.set('192.0.2.10', { ptr: 'mail-a.example.net', provider: 'Example Net' })
-    ipLabelCache.set('192.0.2.40', { ptr: 'smtp.example.net', provider: 'Example Net' })
-    ipLabelCache.set('198.51.100.20', { ptr: null, provider: null })
-    ipLabelCache.set('198.51.100.55', { ptr: 'mta.yahoo.example', provider: 'Yahoo' })
-    ipLabelCache.set('203.0.113.15', { ptr: null, provider: null })
-    ipLabelCache.set('2001:db8:1::10', { ptr: 'ipv6.example.net', provider: 'Example Net' })
+    const demoIp = (
+      ip: string,
+      ptr: string | null,
+      provider: string | null,
+      extra: Partial<IpInfo> = {}
+    ): void => {
+      ipLabelCache.set(ip, {
+        ip,
+        ptr,
+        provider,
+        country: extra.country ?? null,
+        countryCode: extra.countryCode ?? null,
+        city: extra.city ?? null,
+        asn: extra.asn ?? null,
+        asOrg: extra.asOrg ?? null,
+        cloudProvider: extra.cloudProvider ?? null,
+        dnsblHits: extra.dnsblHits ?? [],
+        geoSource: extra.geoSource ?? 'none'
+      })
+    }
+    demoIp('192.0.2.10', 'mail-a.example.net', 'Example Net', {
+      countryCode: 'DE',
+      city: 'Berlin',
+      asn: 64496,
+      cloudProvider: null
+    })
+    demoIp('192.0.2.40', 'smtp.example.net', 'Example Net', {
+      countryCode: 'DE',
+      asn: 64496
+    })
+    demoIp('198.51.100.20', null, null, {
+      countryCode: 'US',
+      asn: 15169,
+      cloudProvider: 'Google',
+      dnsblHits: []
+    })
+    demoIp('198.51.100.55', 'mta.yahoo.example', 'Yahoo', {
+      countryCode: 'US',
+      asn: 10310
+    })
+    demoIp('203.0.113.15', null, null, {
+      countryCode: 'NL',
+      dnsblHits: ['spamhaus-zen']
+    })
+    demoIp('2001:db8:1::10', 'ipv6.example.net', 'Example Net', {
+      countryCode: 'DE',
+      asn: 64496
+    })
+    domainHealthCache = [
+      {
+        domain: 'example.com',
+        total: 100,
+        passing: 98,
+        failing: 2,
+        passRate: 98,
+        dkimSelectors: ['selector1'],
+        dmarcPolicy: 'reject',
+        spfOk: true,
+        dkimOk: true,
+        status: 'ok',
+        reasons: ['health.reason.ok']
+      }
+    ]
+    renderDomainAmpel(domainHealthCache)
     applyView()
     settingsDialog.close()
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))

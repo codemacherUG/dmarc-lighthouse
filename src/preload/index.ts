@@ -5,8 +5,15 @@ import type {
   AnalyzeProgress,
   AnalyzeResult,
   DnsCheckResult,
+  DomainHealth,
+  GeoLiteDownloadResult,
+  GeoLiteStatus,
   GlobalSettings,
   IpInfo,
+  CreateMailboxResult,
+  ListMailboxesResult,
+  RdapInfo,
+  ReportRow,
   SettingsPublic,
   TestConnectionResult,
   UpdateStatusPayload
@@ -28,6 +35,10 @@ const api = {
     ipcRenderer.invoke('oauth:disconnect', accountId),
   testConnection: (input: AccountSettingsInput): Promise<TestConnectionResult> =>
     ipcRenderer.invoke('imap:test', input),
+  listMailboxes: (input: AccountSettingsInput): Promise<ListMailboxesResult> =>
+    ipcRenderer.invoke('imap:listMailboxes', input),
+  createMailbox: (input: AccountSettingsInput, path: string): Promise<CreateMailboxResult> =>
+    ipcRenderer.invoke('imap:createMailbox', input, path),
   fetchSaved: (accountId?: string | null): Promise<AnalyzeResult> =>
     ipcRenderer.invoke('imap:fetchSaved', accountId ?? null),
   loadCache: (accountId?: string | null): Promise<AnalyzeResult | null> =>
@@ -35,8 +46,14 @@ const api = {
   clearCache: (accountId?: string | null): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('cache:clear', accountId ?? null),
   resolveIps: (ips: string[]): Promise<IpInfo[]> => ipcRenderer.invoke('ip:resolve', ips),
+  lookupRdap: (ip: string): Promise<RdapInfo> => ipcRenderer.invoke('ip:rdap', ip),
   checkDns: (domain: string, selectors?: string[]): Promise<DnsCheckResult> =>
     ipcRenderer.invoke('dns:check', domain, selectors ?? []),
+  healthBatch: (reports: ReportRow[]): Promise<DomainHealth[]> =>
+    ipcRenderer.invoke('dns:healthBatch', reports),
+  geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),
+  downloadGeoLite: (licenseKey?: string): Promise<GeoLiteDownloadResult> =>
+    ipcRenderer.invoke('enrichment:downloadGeoLite', licenseKey),
   openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
   parsePaths: (paths: string[]): Promise<AnalyzeResult> =>
     ipcRenderer.invoke('files:parsePaths', paths),

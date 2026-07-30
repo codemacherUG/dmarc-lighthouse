@@ -4,6 +4,10 @@ import type {
   DashboardData,
   DashboardFilter,
   DateRangePreset,
+  DnsCheckResult,
+  DomainHealth,
+  DomainHealthStatus,
+  DomainStats,
   ForensicReportRow,
   NamedBucket,
   ReportRow,
@@ -284,4 +288,117 @@ export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilte
     newForensicReports: full.newForensicReports,
     forensicReports: filterForensicReports(full.forensicReports ?? [], filter)
   })
+}
+
+/** Aggregate volume / selectors per report domain. */
+export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
+  const map = new Map<
+    string,
+    { total: number; passing: number; failing: number; selectors: Set<string> }
+  >()
+  for (const r of reports) {
+    const domain = (r.domain || '').trim().toLowerCase()
+    if (!domain) continue
+    const cur = map.get(domain) ?? {
+      total: 0,
+      passing: 0,
+      failing: 0,
+      selectors: new Set<string>()
+    }
+    cur.total += r.total
+    cur.passing += r.passing
+    cur.failing += r.failing
+    for (const rec of r.records) {
+      for (const sel of rec.dkimSelectors ?? []) {
+        if (sel) cur.selectors.add(sel)
+      }
+    }
+    map.set(domain, cur)
+  }
+  return [...map.entries()]
+    .map(([domain, v]) => ({
+      domain,
+      total: v.total,
+      passing: v.passing,
+      failing: v.failing,
+      passRate: v.total ? Math.round((v.passing / v.total) * 1000) / 10 : 0,
+      dkimSelectors: [...v.selectors].sort()
+    }))
+    .sort((a, b) => b.total - a.total)
+}
+
+/**
+ * Merge report stats with a DNS check into Ampel status.
+ * Rules:
+ * - bad: no DMARC, or pass rate &lt; 90%, or no SPF
+ * - warn: p=none, or pass rate 90–98%, or DKIM selectors missing in DNS
+ * - ok: quarantine/reject, SPF ok, pass rate ≥ 98%
+ * - unknown: no DNS result yet
+ */
+export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null): DomainHealth {
+  if (!dns) {
+    return {
+      ...stats,
+      dmarcPolicy: null,
+      spfOk: null,
+      dkimOk: null,
+      status: 'unknown',
+      reasons: ['health.reason.dnsPending']
+    }
+  }
+
+  const dmarcFound = dns.dmarc.found
+  const policy = dns.dmarc.policy?.toLowerCase() ?? null
+  const spfOk = dns.spf.found
+  const selectors = dns.dkim.selectors
+  const dkimOk = selectors.length === 0 ? null : selectors.every((s) => s.found)
+
+  const reasons: string[] = []
+  let status: DomainHealthStatus = 'ok'
+
+  if (!dmarcFound) {
+    status = 'bad'
+    reasons.push('health.reason.noDmarc')
+  }
+  if (!spfOk) {
+    status = 'bad'
+    reasons.push('health.reason.noSpf')
+  }
+  if (stats.passRate < 90) {
+    status = 'bad'
+    reasons.push('health.reason.lowPassRate')
+  }
+
+  if (status !== 'bad') {
+    if (policy === 'none') {
+      status = 'warn'
+      reasons.push('health.reason.policyNone')
+    }
+    if (stats.passRate < 98) {
+      status = 'warn'
+      reasons.push('health.reason.passRateWarn')
+    }
+    if (dkimOk === false) {
+      status = 'warn'
+      reasons.push('health.reason.dkimMissing')
+    }
+  }
+
+  if (status === 'ok') {
+    if (policy !== 'quarantine' && policy !== 'reject') {
+      status = 'warn'
+      reasons.push('health.reason.policyWeak')
+    } else {
+      reasons.push('health.reason.ok')
+    }
+  }
+
+  return {
+    ...stats,
+    dmarcPolicy: policy,
+    spfOk,
+    dkimOk,
+    status,
+    reasons
+  }
 }

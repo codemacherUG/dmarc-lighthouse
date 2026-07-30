@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import electronUpdater, { type ProgressInfo, type UpdateInfo } from 'electron-updater'
 import type { UpdateStatusPayload } from '../shared/types'

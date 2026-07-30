@@ -44,6 +44,8 @@ export interface ImapConnectionInput {
   /** Present for OAuth (XOAUTH2) auth. */
   accessToken?: string
   mailbox: string
+  /** When set and different from `mailbox`, fetched messages are moved here after import. */
+  archiveMailbox: string
   subjectFilter: string
   markSeenAfterFetch: boolean
 }
@@ -61,6 +63,8 @@ export interface AccountSettingsInput {
   user: string
   password: string
   mailbox: string
+  /** Empty = do not move messages after fetch. */
+  archiveMailbox: string
   subjectFilter: string
   markSeenAfterFetch: boolean
 }
@@ -80,11 +84,33 @@ export interface AccountPublic {
   secure: boolean
   user: string
   mailbox: string
+  archiveMailbox: string
   subjectFilter: string
   hasPassword: boolean
   /** True when a refresh token is stored for OAuth. */
   hasOAuth: boolean
   markSeenAfterFetch: boolean
+}
+
+/** IMAP folder entry returned by LIST. */
+export interface MailboxListEntry {
+  path: string
+  name: string
+  /** Special-use flag if the server reports one (e.g. \\Archive). */
+  specialUse?: string
+}
+
+export interface ListMailboxesResult {
+  ok: boolean
+  message: string
+  mailboxes: MailboxListEntry[]
+}
+
+export interface CreateMailboxResult {
+  ok: boolean
+  message: string
+  path: string
+  created: boolean
 }
 
 export interface GlobalSettings {
@@ -106,6 +132,18 @@ export interface GlobalSettings {
   oauthGoogleClientId: string
   /** Optional Microsoft Entra / Azure AD application (client) ID. */
   oauthMicrosoftClientId: string
+  /** Master switch for IP enrichment (PTR still runs when off). */
+  enrichmentEnabled: boolean
+  /** Use ip-api.com when GeoLite2 DBs are missing (opt-in). */
+  geoIpOnlineFallback: boolean
+  /** MaxMind license key for GeoLite2 download. */
+  maxmindLicenseKey: string
+  /** Query DNSBLs (Spamhaus ZEN, dnswl). */
+  dnsblEnabled: boolean
+  /** Match source IPs against cloud provider prefix lists. */
+  cloudRangesEnabled: boolean
+  /** Allow on-demand RDAP/WHOIS lookups. */
+  rdapEnabled: boolean
 }
 
 export interface SettingsPublic {
@@ -115,7 +153,7 @@ export interface SettingsPublic {
 }
 
 export interface AnalyzeProgress {
-  phase: 'connecting' | 'searching' | 'fetching' | 'parsing' | 'done' | 'error'
+  phase: 'connecting' | 'searching' | 'fetching' | 'parsing' | 'moving' | 'done' | 'error'
   processed: number
   total: number
   parsed: number
@@ -247,10 +285,63 @@ export interface TestConnectionResult {
   mailboxExists?: number
 }
 
+export type GeoSource = 'maxmind' | 'online' | 'none'
+
 export interface IpInfo {
   ip: string
   ptr: string | null
   provider: string | null
+  country: string | null
+  countryCode: string | null
+  city: string | null
+  asn: number | null
+  asOrg: string | null
+  cloudProvider: string | null
+  dnsblHits: string[]
+  geoSource: GeoSource
+}
+
+export type DomainHealthStatus = 'ok' | 'warn' | 'bad' | 'unknown'
+
+/** Per-domain volume stats from aggregate reports (no DNS yet). */
+export interface DomainStats {
+  domain: string
+  total: number
+  passing: number
+  failing: number
+  passRate: number
+  /** DKIM selectors seen in report auth results. */
+  dkimSelectors: string[]
+}
+
+export interface DomainHealth extends DomainStats {
+  dmarcPolicy: string | null
+  spfOk: boolean | null
+  dkimOk: boolean | null
+  status: DomainHealthStatus
+  /** i18n message keys explaining the status. */
+  reasons: string[]
+}
+
+export interface RdapInfo {
+  ip: string
+  org: string | null
+  country: string | null
+  cidr: string | null
+  abuseEmail: string | null
+  rawSummary: string | null
+  error?: string
+}
+
+export interface GeoLiteStatus {
+  cityDb: boolean
+  asnDb: boolean
+  dir: string
+}
+
+export interface GeoLiteDownloadResult {
+  ok: boolean
+  message: string
 }
 
 export interface DkimSelectorCheck {

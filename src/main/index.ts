@@ -15,12 +15,17 @@ import { accountKeyFor, clearCache } from './cache'
 import { checkDomainDns } from './dnscheck'
 import { exportReportsCsv, exportReportsJson } from './export'
 import {
+  createMailbox,
   fetchAndAnalyze,
+  listMailboxes,
   loadCachedAnalyzeResult,
   previousFailingTotal,
   testConnection
 } from './imap'
-import { resolveIps } from './ipinfo'
+import { clearIpInfoMemoryCache, resolveIps } from './ipinfo'
+import { lookupRdap } from './rdap'
+import { buildDomainHealth } from './domainhealth'
+import { downloadGeoLite, getGeoLiteStatus } from './geoip'
 import {
   beginOAuthLogin,
   deleteAccount,
@@ -336,6 +341,7 @@ function registerIpc(): void {
 
   ipcMain.handle('settings:saveGlobal', (_event, input: GlobalSettings) => {
     const saved = saveGlobalSettings(input)
+    clearIpInfoMemoryCache()
     applyOpenAtLogin(saved.global)
     scheduleAutoFetch()
     updateTray()
@@ -346,6 +352,19 @@ function registerIpc(): void {
     const connection = await resolveInputConnection(input)
     return testConnection(connection)
   })
+
+  ipcMain.handle('imap:listMailboxes', async (_event, input: AccountSettingsInput) => {
+    const connection = await resolveInputConnection(input)
+    return listMailboxes(connection)
+  })
+
+  ipcMain.handle(
+    'imap:createMailbox',
+    async (_event, input: AccountSettingsInput, path: string) => {
+      const connection = await resolveInputConnection(input)
+      return createMailbox(connection, path ?? '')
+    }
+  )
 
   ipcMain.handle('imap:fetchSaved', async (_event, accountId?: string | null) =>
     runSavedFetch(accountId)
@@ -369,6 +388,7 @@ function registerIpc(): void {
         user: account.user,
         authMode: account.authMode,
         mailbox: account.mailbox,
+        archiveMailbox: account.archiveMailbox,
         subjectFilter: account.subjectFilter,
         markSeenAfterFetch: account.markSeenAfterFetch
       })
@@ -390,9 +410,36 @@ function registerIpc(): void {
 
   ipcMain.handle('ip:resolve', async (_event, ips: string[]) => resolveIps(ips ?? []))
 
+  ipcMain.handle('ip:rdap', async (_event, ip: string) => {
+    const settingsPub = loadSettings()
+    if (!settingsPub.global.rdapEnabled || !settingsPub.global.enrichmentEnabled) {
+      return {
+        ip: ip ?? '',
+        org: null,
+        country: null,
+        cidr: null,
+        abuseEmail: null,
+        rawSummary: null,
+        error: t('enrichment.rdapDisabled')
+      }
+    }
+    return lookupRdap(ip ?? '')
+  })
+
   ipcMain.handle('dns:check', async (_event, domain: string, selectors?: string[]) =>
     checkDomainDns(domain, selectors ?? [])
   )
+
+  ipcMain.handle('dns:healthBatch', async (_event, reports: ReportRow[]) =>
+    buildDomainHealth(Array.isArray(reports) ? reports : [])
+  )
+
+  ipcMain.handle('enrichment:geoLiteStatus', () => getGeoLiteStatus())
+
+  ipcMain.handle('enrichment:downloadGeoLite', async (_event, licenseKey?: string) => {
+    const key = (licenseKey ?? loadSettings().global.maxmindLicenseKey ?? '').trim()
+    return downloadGeoLite(key)
+  })
 
   ipcMain.handle('files:open', async () => {
     const openOptions = {

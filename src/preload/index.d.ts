@@ -4,8 +4,15 @@ import type {
   AnalyzeProgress,
   AnalyzeResult,
   DnsCheckResult,
+  DomainHealth,
+  GeoLiteDownloadResult,
+  GeoLiteStatus,
   GlobalSettings,
   IpInfo,
+  CreateMailboxResult,
+  ListMailboxesResult,
+  RdapInfo,
+  ReportRow,
   SettingsPublic,
   TestConnectionResult,
   UpdateStatusPayload
@@ -20,11 +27,17 @@ export interface DmarcViewerApi {
   oauthLogin: (accountId: string) => Promise<SettingsPublic>
   oauthDisconnect: (accountId: string) => Promise<SettingsPublic>
   testConnection: (input: AccountSettingsInput) => Promise<TestConnectionResult>
+  listMailboxes: (input: AccountSettingsInput) => Promise<ListMailboxesResult>
+  createMailbox: (input: AccountSettingsInput, path: string) => Promise<CreateMailboxResult>
   fetchSaved: (accountId?: string | null) => Promise<AnalyzeResult>
   loadCache: (accountId?: string | null) => Promise<AnalyzeResult | null>
   clearCache: (accountId?: string | null) => Promise<{ ok: boolean; message: string }>
   resolveIps: (ips: string[]) => Promise<IpInfo[]>
+  lookupRdap: (ip: string) => Promise<RdapInfo>
   checkDns: (domain: string, selectors?: string[]) => Promise<DnsCheckResult>
+  healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>
+  geoLiteStatus: () => Promise<GeoLiteStatus>
+  downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
   openFiles: () => Promise<AnalyzeResult | null>
   parsePaths: (paths: string[]) => Promise<AnalyzeResult>
   getPathForFile: (file: File) => string

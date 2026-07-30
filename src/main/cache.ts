@@ -3,11 +3,13 @@ import { createHash } from 'crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from 'fs'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
-import type { ForensicReportRow, ReportRow, SerializedRecord } from '../shared/types'
+import type { DnsCheckResult, ForensicReportRow, IpInfo, ReportRow, SerializedRecord } from '../shared/types'
 
 export interface CacheMeta {
   accountKey: string
   lastUid: number
+  /** UID watermark for the optional archive mailbox (when dual-folder fetch is used). */
+  lastUidArchive: number
   lastFetchAt: string | null
   lastFailingTotal: number
   knownSourceIps: string[]
@@ -73,6 +75,7 @@ function openDb(): DatabaseSync {
     CREATE TABLE IF NOT EXISTS cache_meta (
       account_key TEXT PRIMARY KEY,
       last_uid INTEGER NOT NULL DEFAULT 0,
+      last_uid_archive INTEGER NOT NULL DEFAULT 0,
       last_fetch_at TEXT,
       last_failing_total INTEGER NOT NULL DEFAULT 0
     );
@@ -136,13 +139,104 @@ function openDb(): DatabaseSync {
       feedback_type TEXT,
       PRIMARY KEY (account_key, id)
     );
+
+    CREATE TABLE IF NOT EXISTS ip_enrichment (
+      ip TEXT PRIMARY KEY,
+      ptr TEXT,
+      provider TEXT,
+      cloud_provider TEXT,
+      country TEXT,
+      country_code TEXT,
+      city TEXT,
+      asn INTEGER,
+      as_org TEXT,
+      dnsbl_json TEXT NOT NULL DEFAULT '[]',
+      geo_source TEXT NOT NULL DEFAULT 'none',
+      checked_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS dns_health_cache (
+      domain TEXT PRIMARY KEY,
+      result_json TEXT NOT NULL,
+      checked_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
   `)
   db.prepare(
     `INSERT INTO schema_meta(key, value) VALUES('version', '1')
      ON CONFLICT(key) DO NOTHING`
   ).run()
+  migrateSchema(db)
   migrateJsonCaches(db)
   return db
+}
+
+function schemaVersion(database: DatabaseSync): number {
+  const row = database
+    .prepare(`SELECT value FROM schema_meta WHERE key = 'version'`)
+    .get() as { value?: string } | undefined
+  const n = Number(row?.value ?? '1')
+  return Number.isFinite(n) ? n : 1
+}
+
+function setSchemaVersion(database: DatabaseSync, version: number): void {
+  database
+    .prepare(
+      `INSERT INTO schema_meta(key, value) VALUES('version', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    )
+    .run(String(version))
+}
+
+/** Incremental schema upgrades beyond the CREATE IF NOT EXISTS bootstrap. */
+function migrateSchema(database: DatabaseSync): void {
+  let version = schemaVersion(database)
+  if (version < 2) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS ip_enrichment (
+        ip TEXT PRIMARY KEY,
+        ptr TEXT,
+        provider TEXT,
+        cloud_provider TEXT,
+        country TEXT,
+        country_code TEXT,
+        city TEXT,
+        asn INTEGER,
+        as_org TEXT,
+        dnsbl_json TEXT NOT NULL DEFAULT '[]',
+        geo_source TEXT NOT NULL DEFAULT 'none',
+        checked_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS dns_health_cache (
+        domain TEXT PRIMARY KEY,
+        result_json TEXT NOT NULL,
+        checked_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      );
+    `)
+    version = 2
+    setSchemaVersion(database, version)
+  }
+  // v3: drop enrichment rows that treated Spamhaus error codes (127.255.255.x) as hits.
+  if (version < 3) {
+    database.exec('DELETE FROM ip_enrichment')
+    version = 3
+    setSchemaVersion(database, version)
+  }
+  // v4: track UID watermark for optional archive mailbox.
+  if (version < 4) {
+    try {
+      database.exec(
+        'ALTER TABLE cache_meta ADD COLUMN last_uid_archive INTEGER NOT NULL DEFAULT 0'
+      )
+    } catch {
+      // Column may already exist on partially migrated DBs.
+    }
+    version = 4
+    setSchemaVersion(database, version)
+  }
 }
 
 /** One-time import of legacy per-account `*.json` cache files. */
@@ -218,6 +312,7 @@ function emptyMeta(accountKey: string): CacheMeta {
   return {
     accountKey,
     lastUid: 0,
+    lastUidArchive: 0,
     lastFetchAt: null,
     lastFailingTotal: 0,
     knownSourceIps: []
@@ -351,6 +446,7 @@ function writeAccountCache(
     reports: ReportRow[]
     forensicReports: ForensicReportRow[]
     lastUid: number
+    lastUidArchive?: number
     lastFailingTotal: number
     knownSourceIps: string[]
     lastFetchAt: string | null
@@ -364,10 +460,16 @@ function writeAccountCache(
 
   database
     .prepare(
-      `INSERT INTO cache_meta(account_key, last_uid, last_fetch_at, last_failing_total)
-       VALUES (?, ?, ?, ?)`
+      `INSERT INTO cache_meta(account_key, last_uid, last_uid_archive, last_fetch_at, last_failing_total)
+       VALUES (?, ?, ?, ?, ?)`
     )
-    .run(input.accountKey, input.lastUid, input.lastFetchAt, input.lastFailingTotal)
+    .run(
+      input.accountKey,
+      input.lastUid,
+      input.lastUidArchive ?? 0,
+      input.lastFetchAt,
+      input.lastFailingTotal
+    )
 
   const ipStmt = database.prepare(
     'INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)'
@@ -462,11 +564,16 @@ export function loadCachedReports(accountKey: string): {
   const database = openDb()
   const metaRow = database
     .prepare(
-      `SELECT last_uid, last_fetch_at, last_failing_total
+      `SELECT last_uid, last_uid_archive, last_fetch_at, last_failing_total
        FROM cache_meta WHERE account_key = ?`
     )
     .get(accountKey) as
-    | { last_uid: number; last_fetch_at: string | null; last_failing_total: number }
+    | {
+        last_uid: number
+        last_uid_archive: number | null
+        last_fetch_at: string | null
+        last_failing_total: number
+      }
     | undefined
 
   if (!metaRow) {
@@ -485,6 +592,7 @@ export function loadCachedReports(accountKey: string): {
     meta: {
       accountKey,
       lastUid: metaRow.last_uid,
+      lastUidArchive: metaRow.last_uid_archive ?? 0,
       lastFetchAt: metaRow.last_fetch_at,
       lastFailingTotal: metaRow.last_failing_total,
       knownSourceIps: ips
@@ -521,18 +629,21 @@ export function saveCache(input: {
   reports: ReportRow[]
   forensicReports?: ForensicReportRow[]
   lastUid: number
+  lastUidArchive?: number
   lastFailingTotal: number
   knownSourceIps: string[]
 }): CacheMeta {
   const database = openDb()
   const lastFetchAt = new Date().toISOString()
   const forensicReports = input.forensicReports ?? []
+  const lastUidArchive = input.lastUidArchive ?? 0
   withTransaction(database, () => {
     writeAccountCache(database, {
       accountKey: input.accountKey,
       reports: input.reports.map(normalizeReport),
       forensicReports,
       lastUid: input.lastUid,
+      lastUidArchive,
       lastFailingTotal: input.lastFailingTotal,
       knownSourceIps: input.knownSourceIps,
       lastFetchAt
@@ -541,6 +652,7 @@ export function saveCache(input: {
   return {
     accountKey: input.accountKey,
     lastUid: input.lastUid,
+    lastUidArchive,
     lastFetchAt,
     lastFailingTotal: input.lastFailingTotal,
     knownSourceIps: input.knownSourceIps
@@ -555,11 +667,164 @@ export function clearCache(accountKey: string): void {
       reports: [],
       forensicReports: [],
       lastUid: 0,
+      lastUidArchive: 0,
       lastFailingTotal: 0,
       knownSourceIps: [],
       lastFetchAt: null
     })
   })
+}
+
+const IP_ENRICHMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const DNS_HEALTH_TTL_MS = 6 * 60 * 60 * 1000
+
+function rowToIpInfo(row: {
+  ip: string
+  ptr: string | null
+  provider: string | null
+  cloud_provider: string | null
+  country: string | null
+  country_code: string | null
+  city: string | null
+  asn: number | null
+  as_org: string | null
+  dnsbl_json: string
+  geo_source: string
+}): IpInfo {
+  let dnsblHits: string[] = []
+  try {
+    dnsblHits = JSON.parse(row.dnsbl_json || '[]') as string[]
+  } catch {
+    dnsblHits = []
+  }
+  const geoSource =
+    row.geo_source === 'maxmind' || row.geo_source === 'online' ? row.geo_source : 'none'
+  return {
+    ip: row.ip,
+    ptr: row.ptr,
+    provider: row.provider,
+    country: row.country,
+    countryCode: row.country_code,
+    city: row.city,
+    asn: row.asn,
+    asOrg: row.as_org,
+    cloudProvider: row.cloud_provider,
+    dnsblHits,
+    geoSource
+  }
+}
+
+/** Return non-expired enrichment rows for the given IPs. */
+export function getIpEnrichment(ips: string[]): Map<string, IpInfo> {
+  const database = openDb()
+  const now = new Date().toISOString()
+  const out = new Map<string, IpInfo>()
+  const stmt = database.prepare(
+    `SELECT ip, ptr, provider, cloud_provider, country, country_code, city, asn, as_org,
+            dnsbl_json, geo_source
+     FROM ip_enrichment
+     WHERE ip = ? AND expires_at > ?`
+  )
+  for (const ip of ips) {
+    const row = stmt.get(ip, now) as
+      | {
+          ip: string
+          ptr: string | null
+          provider: string | null
+          cloud_provider: string | null
+          country: string | null
+          country_code: string | null
+          city: string | null
+          asn: number | null
+          as_org: string | null
+          dnsbl_json: string
+          geo_source: string
+        }
+      | undefined
+    if (row) out.set(ip, rowToIpInfo(row))
+  }
+  return out
+}
+
+export function upsertIpEnrichment(infos: IpInfo[], ttlMs = IP_ENRICHMENT_TTL_MS): void {
+  if (infos.length === 0) return
+  const database = openDb()
+  const checkedAt = new Date().toISOString()
+  const expiresAt = new Date(Date.now() + ttlMs).toISOString()
+  const stmt = database.prepare(
+    `INSERT INTO ip_enrichment(
+       ip, ptr, provider, cloud_provider, country, country_code, city, asn, as_org,
+       dnsbl_json, geo_source, checked_at, expires_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(ip) DO UPDATE SET
+       ptr = excluded.ptr,
+       provider = excluded.provider,
+       cloud_provider = excluded.cloud_provider,
+       country = excluded.country,
+       country_code = excluded.country_code,
+       city = excluded.city,
+       asn = excluded.asn,
+       as_org = excluded.as_org,
+       dnsbl_json = excluded.dnsbl_json,
+       geo_source = excluded.geo_source,
+       checked_at = excluded.checked_at,
+       expires_at = excluded.expires_at`
+  )
+  withTransaction(database, () => {
+    for (const info of infos) {
+      stmt.run(
+        info.ip,
+        info.ptr,
+        info.provider,
+        info.cloudProvider,
+        info.country,
+        info.countryCode,
+        info.city,
+        info.asn,
+        info.asOrg,
+        JSON.stringify(info.dnsblHits ?? []),
+        info.geoSource,
+        checkedAt,
+        expiresAt
+      )
+    }
+  })
+}
+
+export function getDnsHealthCache(domain: string): DnsCheckResult | null {
+  const database = openDb()
+  const now = new Date().toISOString()
+  const row = database
+    .prepare(
+      `SELECT result_json FROM dns_health_cache WHERE domain = ? AND expires_at > ?`
+    )
+    .get(domain.trim().toLowerCase(), now) as { result_json?: string } | undefined
+  if (!row?.result_json) return null
+  try {
+    return JSON.parse(row.result_json) as DnsCheckResult
+  } catch {
+    return null
+  }
+}
+
+export function upsertDnsHealthCache(
+  domain: string,
+  result: DnsCheckResult,
+  ttlMs = DNS_HEALTH_TTL_MS
+): void {
+  const database = openDb()
+  const checkedAt = new Date().toISOString()
+  const expiresAt = new Date(Date.now() + ttlMs).toISOString()
+  database
+    .prepare(
+      `INSERT INTO dns_health_cache(domain, result_json, checked_at, expires_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(domain) DO UPDATE SET
+         result_json = excluded.result_json,
+         checked_at = excluded.checked_at,
+         expires_at = excluded.expires_at`
+    )
+    .run(domain.trim().toLowerCase(), JSON.stringify(result), checkedAt, expiresAt)
 }
 
 /** Close the DB (tests / shutdown). */

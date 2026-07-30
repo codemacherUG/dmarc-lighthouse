@@ -62,7 +62,7 @@ Reporting organizations, source IPs (including reverse DNS), From domains, indiv
 
 ### Settings
 
-Multiple IMAP accounts, auto-fetch, alerts (failures / pass-rate / new sources), ignore list, system tray, and UI language:
+Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, and UI language:
 
 ![Settings dialog with IMAP configuration](docs/screenshots/settings.png)
 
@@ -73,6 +73,7 @@ Multiple IMAP accounts, auto-fetch, alerts (failures / pass-rate / new sources),
 | Area | Details |
 | --- | --- |
 | **IMAP fetch** | Gmail, Outlook/Microsoft 365, or any IMAP server; incremental via UIDs |
+| **Archive folder** | Optional “move after fetch” folder (selectable from IMAP list; create missing folders); inbox stays monitored while reports land in e.g. `Archive/Aggregate` |
 | **Auth** | App password **or** OAuth (PKCE) for Gmail and Microsoft 365 IMAP |
 | **Multiple accounts** | Any number of IMAP accounts/profiles with separate caches; custom display name (default: email domain); switch via toolbar |
 | **File import** | XML, GZ, ZIP, EML/MIME — dialog or drag & drop |
@@ -81,7 +82,8 @@ Multiple IMAP accounts, auto-fetch, alerts (failures / pass-rate / new sources),
 | **Dashboard** | Reports, messages, pass/fail, pass rate, date range |
 | **Charts** | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time |
 | **Tables** | Organizations, source IPs, From domains, individual reports + record details; click a row to filter |
-| **IP enrichment** | Reverse DNS and detection of known senders (Google, Microsoft, Amazon SES, …) |
+| **IP enrichment** | Reverse DNS, known senders, cloud IP ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optional online fallback), DNSBL/DNSWL, on-demand RDAP/WHOIS |
+| **Domain health** | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter |
 | **Filters** | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain |
 | **DNS check** | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual) |
 | **Export** | Currently filtered data as CSV or JSON |
@@ -134,12 +136,14 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 ## Usage
 
 1. Open **Settings** → **IMAP account**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
-2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure OAuth client IDs, auto-fetch, alerts, system tray, autostart, and language.
+2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure OAuth client IDs, auto-fetch, alerts, system tray, autostart, and language. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
-4. Narrow with date range (including custom From/To), domain, or by clicking a row in the org / IP / From tables; review charts, aggregate tables, and the forensic/RUF table; export if needed.
+4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables; review charts, aggregate tables, and the forensic/RUF table; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP.
 5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, and DKIM selectors from the reports or entered manually).
 
 > Tip: Broaden the subject filter (or leave it empty) if you want both RUA and RUF messages from the same mailbox.
+>
+> Tip: Set the fetch folder to `INBOX` and optionally **Move after fetch to** an archive folder (e.g. `Archive/Aggregate`). The IMAP folder list appears when you focus the folder fields; missing folders can be created there via **Create new folder**. New reports are read from the inbox, imported, then moved; the archive folder is also scanned for existing reports.
 
 ### Alerts & background mode
 
@@ -199,7 +203,13 @@ npm run build:win     # NSIS + portable
 npm run build:mac     # DMG/ZIP (macOS only)
 ```
 
-GitHub release (all platforms via Actions): push a tag like `v1.0.5` or start the **Release** workflow manually.
+Refresh README screenshots (demo data, no real credentials):
+
+```bash
+npm run screenshots
+```
+
+GitHub release (all platforms via Actions): push a tag like `v1.0.7` or start the **Release** workflow manually.
 
 ### Stack
 
@@ -207,6 +217,7 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.5` or start th
 - IMAP: [`imapflow`](https://github.com/postalsys/imapflow)
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
+- GeoIP: [`maxmind`](https://www.npmjs.com/package/maxmind) (GeoLite2) + optional online fallback
 - Updates: [`electron-updater`](https://www.electron.build/auto-update) via GitHub Releases
 - Tests: [Vitest](https://vitest.dev/)
 
@@ -214,11 +225,11 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.5` or start th
 
 ## Notes & limitations
 
-- Failure/RUF reports are not analyzed.
+- Forensic/RUF rows show sanitized headers only — message bodies are never stored or displayed.
 - Messages without a valid DMARC attachment are skipped and counted.
 - Settings and report caches live under the Electron `userData` path (not in the repo); each IMAP account has its own cache.
 - Clear cache: Settings → IMAP account → **Clear this account’s cache** (the next fetch will retrieve everything again for that account).
-- Optionally, fetched messages can be marked as read (`\Seen`).
+- Optionally, fetched messages can be marked as read (`\Seen`) and/or moved to an archive folder after import.
 - With system tray enabled, closing the window hides the app instead of quitting — use **Quit** from the tray menu to exit fully.
 - Existing single-account settings from older versions are migrated automatically to the multi-account format.
 

@@ -245,7 +245,8 @@ export function buildDemoSettings(): SettingsPublic {
         port: 993,
         secure: true,
         user: 'dmarc@example.com',
-        mailbox: 'INBOX/DMARC',
+        mailbox: 'INBOX',
+        archiveMailbox: 'Archive/Aggregate',
         subjectFilter: 'Report Domain',
         hasPassword: true,
         hasOAuth: false,
@@ -263,6 +264,7 @@ export function buildDemoSettings(): SettingsPublic {
         secure: true,
         user: 'reports@contoso.example',
         mailbox: 'INBOX',
+        archiveMailbox: '',
         subjectFilter: 'Report Domain',
         hasPassword: false,
         hasOAuth: true,
@@ -279,7 +281,13 @@ export function buildDemoSettings(): SettingsPublic {
       openAtLogin: false,
       language: 'de',
       oauthGoogleClientId: '',
-      oauthMicrosoftClientId: ''
+      oauthMicrosoftClientId: '',
+      enrichmentEnabled: true,
+      geoIpOnlineFallback: false,
+      maxmindLicenseKey: '',
+      dnsblEnabled: true,
+      cloudRangesEnabled: true,
+      rdapEnabled: true
     }
   }
 }

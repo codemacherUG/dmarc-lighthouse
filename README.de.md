@@ -62,7 +62,7 @@ Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne 
 
 ### Einstellungen
 
-Mehrere IMAP-Konten, Auto-Abruf, Alerts (Failures / Pass-Rate / neue Quellen), Ignorieren-Liste, System-Tray und Sprache:
+Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray und Sprache:
 
 ![Einstellungen-Dialog mit IMAP-Konfiguration](docs/screenshots/settings.png)
 
@@ -73,6 +73,7 @@ Mehrere IMAP-Konten, Auto-Abruf, Alerts (Failures / Pass-Rate / neue Quellen), I
 | Bereich | Details |
 | --- | --- |
 | **IMAP-Abruf** | Gmail, Outlook/Microsoft 365 oder beliebiger IMAP-Server; inkrementell über UIDs |
+| **Archiv-Ordner** | Optional „nach Abruf verschieben“ (aus IMAP-Liste wählbar; fehlende Ordner anlegbar); Inbox bleibt überwacht, Reports landen z. B. in `Archive/Aggregate` |
 | **Anmeldung** | App-Passwort **oder** OAuth (PKCE) für Gmail und Microsoft 365 IMAP |
 | **Mehrere Konten** | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; eigene Bezeichnung (Standard: E-Mail-Domain); Umschalten in der Toolbar |
 | **Datei-Import** | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop |
@@ -81,7 +82,8 @@ Mehrere IMAP-Konten, Auto-Abruf, Alerts (Failures / Pass-Rate / neue Quellen), I
 | **Dashboard** | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum |
 | **Charts** | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit |
 | **Tabellen** | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert |
-| **IP-Anreicherung** | Reverse-DNS und Erkennung bekannter Absender (Google, Microsoft, Amazon SES, …) |
+| **IP-Anreicherung** | Reverse-DNS, bekannte Absender, Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand |
+| **Domain-Ampel** | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain |
 | **Filter** | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain sowie Drill-Down nach Org, Quell-IP und From-Domain |
 | **DNS-Check** | Live-Abfrage von DMARC (`p`, `rua`), SPF und DKIM-Selektoren (automatisch aus den Reports oder manuell) |
 | **Export** | Aktuell gefilterte Daten als CSV oder JSON |
@@ -134,12 +136,14 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 ## Nutzung
 
 1. **Einstellungen** → **IMAP-Konto** öffnen, Anbieter/Host sowie App-Passwort oder OAuth setzen und speichern. Bei Bedarf weitere Konten anlegen.
-2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** OAuth-Client-IDs, Auto-Abruf, Alerts, System-Tray, Autostart und Sprache konfigurieren.
+2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** OAuth-Client-IDs, Auto-Abruf, Alerts, System-Tray, Autostart und Sprache konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
-4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain oder per Klick auf Org-/IP-/From-Zeilen eingrenzen; Charts, Aggregate-Tabellen und die Forensik-/RUF-Tabelle prüfen; bei Bedarf exportieren.
+4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen eingrenzen; Charts, Aggregate-Tabellen und die Forensik-/RUF-Tabelle prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen.
 5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF sowie DKIM-Selektoren aus den Reports oder manuell).
 
 > Tipp: Betreff-Filter erweitern oder leer lassen, wenn RUA und RUF aus demselben Postfach kommen sollen.
+>
+> Tipp: Abruf-Ordner auf `INBOX` setzen und optional unter **Nach Abruf verschieben nach** einen Archiv-Ordner wählen (z. B. `Archive/Aggregate`). Die IMAP-Ordnerliste erscheint beim Fokus auf die Ordnerfelder; fehlende Ordner lassen sich dort mit **Neuen Ordner anlegen** erstellen. Neue Reports kommen aus der Inbox, werden importiert und verschoben; der Archiv-Ordner wird zusätzlich nach vorhandenen Reports durchsucht.
 
 ### Alerts & Hintergrundbetrieb
 

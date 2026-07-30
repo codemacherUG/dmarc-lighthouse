@@ -34,6 +34,8 @@ interface StoredAccount {
   secure: boolean
   user: string
   mailbox: string
+  /** Optional destination folder; empty = leave messages in place. */
+  archiveMailbox?: string
   subjectFilter: string
   passwordEncrypted?: string
   refreshTokenEncrypted?: string
@@ -53,6 +55,12 @@ interface StoredGlobal {
   language?: AppLocale
   oauthGoogleClientId?: string
   oauthMicrosoftClientId?: string
+  enrichmentEnabled?: boolean
+  geoIpOnlineFallback?: boolean
+  maxmindLicenseKey?: string
+  dnsblEnabled?: boolean
+  cloudRangesEnabled?: boolean
+  rdapEnabled?: boolean
 }
 
 interface StoredSettingsV2 {
@@ -87,7 +95,13 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   openAtLogin: false,
   language: 'de',
   oauthGoogleClientId: '',
-  oauthMicrosoftClientId: ''
+  oauthMicrosoftClientId: '',
+  enrichmentEnabled: true,
+  geoIpOnlineFallback: false,
+  maxmindLicenseKey: '',
+  dnsblEnabled: true,
+  cloudRangesEnabled: true,
+  rdapEnabled: true
 }
 
 function settingsPath(): string {
@@ -208,6 +222,7 @@ function toPublicAccount(a: StoredAccount): AccountPublic {
     secure: a.secure ?? true,
     user,
     mailbox: a.mailbox || 'INBOX',
+    archiveMailbox: (a.archiveMailbox ?? '').trim(),
     subjectFilter: a.subjectFilter ?? '',
     hasPassword: Boolean(a.passwordEncrypted),
     hasOAuth: Boolean(a.refreshTokenEncrypted),
@@ -233,7 +248,13 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     oauthMicrosoftClientId:
       g.oauthMicrosoftClientId?.trim() ||
       process.env.DMARC_MS_CLIENT_ID?.trim() ||
-      ''
+      '',
+    enrichmentEnabled: g.enrichmentEnabled ?? GLOBAL_DEFAULTS.enrichmentEnabled,
+    geoIpOnlineFallback: Boolean(g.geoIpOnlineFallback),
+    maxmindLicenseKey: g.maxmindLicenseKey?.trim() ?? '',
+    dnsblEnabled: g.dnsblEnabled ?? GLOBAL_DEFAULTS.dnsblEnabled,
+    cloudRangesEnabled: g.cloudRangesEnabled ?? GLOBAL_DEFAULTS.cloudRangesEnabled,
+    rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled
   }
 }
 
@@ -285,6 +306,7 @@ export function saveAccount(input: AccountSettingsInput): SettingsPublic {
     secure: input.secure,
     user: input.user.trim(),
     mailbox: input.mailbox.trim() || 'INBOX',
+    archiveMailbox: (input.archiveMailbox ?? '').trim(),
     subjectFilter: input.subjectFilter,
     passwordEncrypted: authMode === 'password' ? passwordEncrypted : undefined,
     refreshTokenEncrypted: authMode === 'oauth' ? existing?.refreshTokenEncrypted : undefined,
@@ -394,7 +416,13 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     openAtLogin: Boolean(input.openAtLogin),
     language: normalizeLocale(input.language),
     oauthGoogleClientId: String(input.oauthGoogleClientId ?? '').trim(),
-    oauthMicrosoftClientId: String(input.oauthMicrosoftClientId ?? '').trim()
+    oauthMicrosoftClientId: String(input.oauthMicrosoftClientId ?? '').trim(),
+    enrichmentEnabled: input.enrichmentEnabled !== false,
+    geoIpOnlineFallback: Boolean(input.geoIpOnlineFallback),
+    maxmindLicenseKey: String(input.maxmindLicenseKey ?? '').trim(),
+    dnsblEnabled: input.dnsblEnabled !== false,
+    cloudRangesEnabled: input.cloudRangesEnabled !== false,
+    rdapEnabled: input.rdapEnabled !== false
   }
   writeStored(stored)
   return loadSettings()
@@ -412,6 +440,7 @@ function baseConnection(account: StoredAccount): Omit<ImapConnectionInput, 'auth
     secure: account.secure ?? true,
     user: account.user.trim(),
     mailbox: (account.mailbox ?? '').trim() || 'INBOX',
+    archiveMailbox: (account.archiveMailbox ?? '').trim(),
     subjectFilter: account.subjectFilter ?? '',
     markSeenAfterFetch: Boolean(account.markSeenAfterFetch)
   }
@@ -479,6 +508,7 @@ export async function resolveInputConnection(
     secure: input.secure,
     user: input.user,
     mailbox: input.mailbox,
+    archiveMailbox: input.archiveMailbox,
     subjectFilter: input.subjectFilter,
     passwordEncrypted: existing?.passwordEncrypted,
     refreshTokenEncrypted: existing?.refreshTokenEncrypted,

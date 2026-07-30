@@ -118,21 +118,20 @@
               data-i18n-aria="header.settings"
               title="Einstellungen öffnen"
             >
-              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
-                  d="M8.2 3.5h3.6l.4 1.6 1.5.9 1.7-.5 1.8 1.8-.5 1.7.9 1.5 1.6.4v3.6l-1.6.4-.9 1.5.5 1.7-1.8 1.8-1.7-.5-1.5.9-.4 1.6H8.2l-.4-1.6-1.5-.9-1.7.5L3 15.4l.5-1.7-.9-1.5L1 11.8V8.2l1.6-.4.9-1.5L3 4.6 4.8 2.8l1.7.5 1.5-.9.4-1.6Z"
+                  d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="1.35"
-                  stroke-linejoin="round"
+                  stroke-width="1.75"
                 />
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="2.4"
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="1.5"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 />
               </svg>
               <span data-i18n="header.settings">Einstellungen</span>
@@ -272,6 +271,18 @@
             <span class="stat-label" data-i18n="kpi.range">Zeitraum</span>
             <span class="stat-value small" data-key="range">—</span>
           </div>
+        </div>
+      </section>
+
+      <section class="panel domain-health-panel">
+        <div class="panel-heading">
+          <h2 data-i18n="health.title">Domain-Ampel</h2>
+          <p class="hint" data-i18n="health.hint">
+            Pass-Rate und DNS-Status pro Domain. Klick filtert auf die Domain.
+          </p>
+        </div>
+        <div id="domain-ampel" class="domain-ampel">
+          <p class="muted" data-i18n="health.empty">Noch keine Domains geladen.</p>
         </div>
       </section>
 
@@ -461,6 +472,17 @@
           >
             Abruf &amp; Benachrichtigungen
           </button>
+          <button
+            type="button"
+            id="tab-btn-enrichment"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-enrichment"
+            data-i18n="settings.tabEnrichment"
+          >
+            Anreicherung
+          </button>
         </nav>
 
         <div class="dialog-body">
@@ -594,8 +616,51 @@
               <div class="settings-grid">
                 <label>
                   <span data-i18n="settings.mailbox">Ordner</span>
-                  <input id="mailbox" name="mailbox" type="text" value="INBOX" />
+                  <div class="mailbox-combo">
+                    <input
+                      id="mailbox"
+                      name="mailbox"
+                      type="text"
+                      value="INBOX"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                  </div>
                 </label>
+
+                <label>
+                  <span data-i18n="settings.archiveMailbox">Nach Abruf verschieben nach</span>
+                  <div class="mailbox-combo">
+                    <input
+                      id="archiveMailbox"
+                      name="archiveMailbox"
+                      type="text"
+                      value=""
+                      autocomplete="off"
+                      spellcheck="false"
+                      data-i18n-placeholder="settings.archiveMailboxPlaceholder"
+                      placeholder="Leer = nicht verschieben"
+                    />
+                    <button
+                      type="button"
+                      id="btn-clear-archive-mailbox"
+                      class="mailbox-clear"
+                      hidden
+                      data-i18n-aria="settings.clearArchiveMailbox"
+                      aria-label="Archiv-Ordner leeren"
+                    >
+                      ✕
+                    </button>
+                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                  </div>
+                </label>
+
+                <p class="hint span-2" data-i18n="settings.archiveMailboxHint">
+                  Neue DMARC-Mails werden aus dem Abruf-Ordner (z. B. INBOX) gelesen und danach in
+                  diesen Ordner verschoben. Der Archiv-Ordner wird zusätzlich nach vorhandenen
+                  Reports durchsucht.
+                </p>
 
                 <label>
                   <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
@@ -770,6 +835,71 @@
               </p>
             </fieldset>
           </section>
+
+          <section id="tab-enrichment" class="tab-panel hidden" role="tabpanel">
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.enrichmentFeatures">Quellen &amp; Dienste</legend>
+              <div class="settings-grid">
+                <label class="checkbox span-2">
+                  <input id="enrichmentEnabled" name="enrichmentEnabled" type="checkbox" checked />
+                  <span data-i18n="settings.enrichmentEnabled"
+                    >IP-Anreicherung (Geo, Cloud-Ranges, DNSBL)</span
+                  >
+                </label>
+                <label class="checkbox">
+                  <input id="cloudRangesEnabled" name="cloudRangesEnabled" type="checkbox" checked />
+                  <span data-i18n="settings.cloudRangesEnabled">Cloud-IP-Ranges</span>
+                </label>
+                <label class="checkbox">
+                  <input id="dnsblEnabled" name="dnsblEnabled" type="checkbox" checked />
+                  <span data-i18n="settings.dnsblEnabled">DNSBL / DNSWL</span>
+                </label>
+                <label class="checkbox">
+                  <input id="rdapEnabled" name="rdapEnabled" type="checkbox" checked />
+                  <span data-i18n="settings.rdapEnabled">RDAP / WHOIS on-demand</span>
+                </label>
+                <label class="checkbox">
+                  <input id="geoIpOnlineFallback" name="geoIpOnlineFallback" type="checkbox" />
+                  <span data-i18n="settings.geoIpOnlineFallback"
+                    >Geo-IP Online-Fallback (ip-api.com)</span
+                  >
+                </label>
+              </div>
+              <p class="hint" data-i18n="settings.enrichmentHint">
+                Offline zuerst (GeoLite2 unter userData/enrichment). Online-Fallback und RDAP sind
+                opt-in bzw. on-demand. Cloud-Ranges und DNSBL nutzen öffentliche Listen bzw. DNS.
+                PTR läuft unabhängig vom Master-Schalter.
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.enrichmentGeoLite">GeoLite2 (offline)</legend>
+              <div class="settings-grid">
+                <label class="span-2">
+                  <span data-i18n="settings.maxmindLicenseKey">MaxMind License-Key (GeoLite2)</span>
+                  <input
+                    id="maxmindLicenseKey"
+                    name="maxmindLicenseKey"
+                    type="password"
+                    autocomplete="off"
+                    data-i18n-placeholder="settings.maxmindKeyPlaceholder"
+                    placeholder="Für lokalen GeoLite2-Download"
+                  />
+                </label>
+                <div class="span-2 enrichment-actions">
+                  <button
+                    type="button"
+                    id="btn-download-geolite"
+                    class="btn"
+                    data-i18n="settings.downloadGeoLite"
+                  >
+                    GeoLite2 herunterladen
+                  </button>
+                  <span id="geolite-status" class="hint" role="status"></span>
+                </div>
+              </div>
+            </fieldset>
+          </section>
         </div>
 
         <footer class="dialog-footer">
@@ -781,6 +911,86 @@
           </div>
         </footer>
       </form>
+    </dialog>
+
+    <dialog id="create-mailbox-dialog">
+      <div class="settings-form">
+        <header class="dialog-header">
+          <h2 data-i18n="settings.createMailboxTitle">IMAP-Ordner anlegen</h2>
+          <button
+            type="button"
+            id="btn-close-create-mailbox"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="dialog-body">
+          <label>
+            <span data-i18n="settings.createMailboxPrompt"
+              >Name des neuen IMAP-Ordners (z. B. Archive/DMARC)</span
+            >
+            <input
+              id="create-mailbox-path"
+              name="createMailboxPath"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+        </div>
+        <footer class="dialog-footer">
+          <p id="create-mailbox-status" class="hint" role="status"></p>
+          <div class="dialog-actions">
+            <button
+              type="button"
+              id="btn-cancel-create-mailbox"
+              class="btn secondary"
+              data-i18n="settings.createMailboxCancel"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              id="btn-confirm-create-mailbox"
+              class="btn primary"
+              data-i18n="settings.createMailboxConfirm"
+            >
+              Anlegen
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog id="ip-detail-dialog">
+      <div class="settings-form">
+        <header class="dialog-header">
+          <h2 data-i18n="ipDetail.title">IP-Details</h2>
+          <button
+            type="button"
+            id="btn-close-ip-detail"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <div id="ip-detail-body" class="ip-detail-body"></div>
+        <footer class="dialog-footer">
+          <div class="dialog-actions">
+            <button type="button" id="btn-ip-rdap" class="btn" data-i18n="ipDetail.loadRdap">
+              WHOIS / RDAP laden
+            </button>
+            <button type="button" id="btn-ip-filter" class="btn primary" data-i18n="ipDetail.filter">
+              Nach IP filtern
+            </button>
+          </div>
+        </footer>
+      </div>
     </dialog>
 
     <dialog id="export-dialog">

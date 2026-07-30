@@ -505,6 +505,16 @@ select {
   color: var(--ink);
 }
 
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1.5 1.75 6 6.25 10.5 1.75' stroke='%235a6b78' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 12px 8px;
+}
+
 input[type='checkbox'] {
   width: 1rem;
   height: 1rem;
@@ -653,6 +663,93 @@ input[type='checkbox']:focus-visible {
   margin: -4px 0 4px;
 }
 
+.mailbox-combo {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.mailbox-combo > input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mailbox-combo:has(.mailbox-clear:not([hidden])) > input {
+  padding-right: 2rem;
+}
+
+.mailbox-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  z-index: 1;
+  transform: translateY(-50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.mailbox-clear:hover {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+
+.mailbox-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 35, 55, 0.12);
+}
+
+.mailbox-menu[hidden] {
+  display: none;
+}
+
+.mailbox-menu li {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.9em;
+  line-height: 1.3;
+  word-break: break-all;
+}
+
+.mailbox-menu li:hover,
+.mailbox-menu li[aria-selected='true'] {
+  background: #e7f2f7;
+  color: var(--accent);
+}
+
+.mailbox-menu-action {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  color: var(--accent);
+  font-family: inherit;
+  font-weight: 650;
+}
+
+.mailbox-menu-action:hover {
+  background: #e7f2f7;
+}
+
 .dialog-actions {
   margin-top: 16px;
   justify-content: flex-end;
@@ -739,6 +836,7 @@ input[type='checkbox']:focus-visible {
 
 .tab-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 0 18px;
   border-bottom: 1px solid var(--line);
@@ -858,9 +956,164 @@ textarea:focus {
   margin-right: 4px;
 }
 
+.badge.warn {
+  background: #f7efd9;
+  color: #8a5a00;
+}
+
+.badge.bad {
+  background: #f6e3e0;
+  color: var(--bad);
+}
+
+.badge.cloud {
+  background: #e8eef8;
+  color: #2a4a7a;
+}
+
 .ptr {
   font-family: var(--mono);
   word-break: break-all;
+}
+
+.ip-cell {
+  display: block;
+  min-width: 0;
+}
+
+.ip-cell-head {
+  display: inline;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.ip-detail-btn {
+  display: inline;
+  margin: 0 0 0 0.25em;
+  padding: 0 0.4em;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: 3px;
+  background: #e7f2f7;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.85em;
+  line-height: inherit;
+  vertical-align: 0.05em;
+}
+
+.ip-detail-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.domain-health-panel {
+  min-width: 0;
+}
+
+.domain-health-panel .panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.domain-health-panel h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.domain-ampel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ampel-card {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 160px;
+  flex: 1 1 160px;
+  max-width: 280px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ampel-card:hover {
+  border-color: var(--accent);
+}
+
+.ampel-card.ok {
+  border-left-color: var(--ok, #1f7a45);
+}
+
+.ampel-card.warn {
+  border-left-color: #b57b12;
+}
+
+.ampel-card.bad {
+  border-left-color: var(--bad);
+}
+
+.ampel-card.unknown {
+  border-left-color: var(--muted);
+}
+
+.ampel-domain {
+  font-weight: 650;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.ampel-meta {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+}
+
+.ampel-reasons {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.ip-detail-body {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ip-detail-body dt {
+  font-weight: 650;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.ip-detail-body dd {
+  margin: 0 0 0.4rem;
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+.enrichment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .reasons {
@@ -904,7 +1157,8 @@ textarea:focus {
 
 #settings-dialog,
 #info-dialog,
-#export-dialog {
+#export-dialog,
+#create-mailbox-dialog {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0;
@@ -914,6 +1168,15 @@ textarea:focus {
   box-shadow: 0 20px 50px rgba(26, 35, 50, 0.22);
   background: var(--bg-panel);
   color: var(--ink);
+}
+
+#create-mailbox-dialog {
+  width: min(440px, calc(100vw - 32px));
+}
+
+#create-mailbox-dialog .dialog-body input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 #settings-dialog {
@@ -962,7 +1225,8 @@ textarea:focus {
 
 #settings-dialog::backdrop,
 #info-dialog::backdrop,
-#export-dialog::backdrop {
+#export-dialog::backdrop,
+#create-mailbox-dialog::backdrop {
   background: rgba(20, 28, 38, 0.45);
 }
 
