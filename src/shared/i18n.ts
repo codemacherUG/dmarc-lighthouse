@@ -243,7 +243,7 @@ const de = {
 
   'dns.needDomain': 'Bitte eine Domain eingeben.',
   'dns.checking': 'Prüfe DNS für {domain}…',
-  'dns.dmarcFound': 'DMARC: p={policy} · rua={rua}',
+  'dns.dmarcFound': 'DMARC: p={policy} · rua={rua} · ruf={ruf}',
   'dns.dmarcMissing': 'DMARC: nicht gefunden',
   'dns.spfFound': 'SPF: {record}',
   'dns.spfMissing': 'SPF: nicht gefunden',
@@ -530,7 +530,7 @@ const en: Dict = {
 
   'dns.needDomain': 'Please enter a domain.',
   'dns.checking': 'Checking DNS for {domain}…',
-  'dns.dmarcFound': 'DMARC: p={policy} · rua={rua}',
+  'dns.dmarcFound': 'DMARC: p={policy} · rua={rua} · ruf={ruf}',
   'dns.dmarcMissing': 'DMARC: not found',
   'dns.spfFound': 'SPF: {record}',
   'dns.spfMissing': 'SPF: not found',

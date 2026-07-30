@@ -1274,7 +1274,8 @@ btnDns.addEventListener('click', async () => {
     const dmarcLine = result.dmarc.found
       ? t('dns.dmarcFound', {
           policy: result.dmarc.policy ?? '?',
-          rua: result.dmarc.rua ?? '—'
+          rua: result.dmarc.rua ?? '—',
+          ruf: result.dmarc.ruf ?? '—'
         })
       : `${t('dns.dmarcMissing')}${result.dmarc.error ? ` (${result.dmarc.error})` : ''}`
     const spfLine = result.spf.found

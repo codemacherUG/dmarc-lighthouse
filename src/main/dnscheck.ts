@@ -6,13 +6,19 @@ function flattenTxt(records: string[][]): string[] {
   return records.map((parts) => parts.join(''))
 }
 
-function parseDmarcPolicy(records: string[]): { policy: string | null; rua: string | null } {
+function parseDmarcPolicy(records: string[]): {
+  policy: string | null
+  rua: string | null
+  ruf: string | null
+} {
   const joined = records.find((r) => /v\s*=\s*DMARC1/i.test(r)) ?? records[0] ?? ''
   const policyMatch = joined.match(/(?:^|;)\s*p\s*=\s*([^;\s]+)/i)
   const ruaMatch = joined.match(/(?:^|;)\s*rua\s*=\s*([^;]+)/i)
+  const rufMatch = joined.match(/(?:^|;)\s*ruf\s*=\s*([^;]+)/i)
   return {
     policy: policyMatch?.[1]?.trim() ?? null,
-    rua: ruaMatch?.[1]?.trim() ?? null
+    rua: ruaMatch?.[1]?.trim() ?? null,
+    ruf: rufMatch?.[1]?.trim() ?? null
   }
 }
 
@@ -51,7 +57,7 @@ export async function checkDomainDns(
   const checkedAt = new Date().toISOString()
   const result: DnsCheckResult = {
     domain,
-    dmarc: { found: false, records: [], policy: null, rua: null },
+    dmarc: { found: false, records: [], policy: null, rua: null, ruf: null },
     spf: { found: false, records: [] },
     dkim: { selectors: [] },
     checkedAt
@@ -64,6 +70,7 @@ export async function checkDomainDns(
     const parsed = parseDmarcPolicy(dmarcTxt)
     result.dmarc.policy = parsed.policy
     result.dmarc.rua = parsed.rua
+    result.dmarc.ruf = parsed.ruf
   } catch (err) {
     result.dmarc.error = err instanceof Error ? err.message : String(err)
   }

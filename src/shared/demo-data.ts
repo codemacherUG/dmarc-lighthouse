@@ -284,4 +284,4 @@ export function buildDemoSettings(): SettingsPublic {
   }
 }
 
-export const DEMO_DNS_HTML = `<strong>example.com</strong><br />DMARC: p=reject · rua=mailto:dmarc@example.com<br /><span class="mono">SPF: v=spf1 include:_spf.example.net -all</span><br />DKIM selector1: gefunden`
+export const DEMO_DNS_HTML = `<strong>example.com</strong><br />DMARC: p=reject · rua=mailto:dmarc@example.com · ruf=mailto:dmarc@example.com<br /><span class="mono">SPF: v=spf1 include:_spf.example.net -all</span><br />DKIM selector1: gefunden`

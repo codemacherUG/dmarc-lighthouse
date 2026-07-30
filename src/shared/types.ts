@@ -267,6 +267,7 @@ export interface DnsCheckResult {
     records: string[]
     policy: string | null
     rua: string | null
+    ruf: string | null
     error?: string
   }
   spf: {
