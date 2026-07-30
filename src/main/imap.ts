@@ -173,18 +173,36 @@ export async function fetchAndAnalyze(
 
       const fresh = await parseMimeSources(sources)
       const merged = mergeReports(cached.reports, fresh.reports)
+
+      // Detect source IPs never seen for this account before. When the cache
+      // predates this feature (reports but no known IPs), seed silently.
+      const known = new Set(cached.meta.knownSourceIps)
+      const seedOnly = known.size === 0
+      if (seedOnly) {
+        for (const r of cached.reports) for (const rec of r.records) known.add(rec.sourceIp)
+      }
+      const freshIps = new Set<string>()
+      for (const r of fresh.reports) for (const rec of r.records) freshIps.add(rec.sourceIp)
+      const newSourceIps =
+        cached.reports.length === 0 || seedOnly
+          ? []
+          : [...freshIps].filter((ip) => !known.has(ip)).sort()
+      for (const ip of freshIps) known.add(ip)
+
       const result = analyzeFromReports(merged, {
         skipped: fresh.skipped,
         errors: fresh.errors,
         fromCache: cached.reports.length > 0,
         newReports: fresh.reports.length
       })
+      result.newSourceIps = newSourceIps
 
       saveCache({
         accountKey,
         reports: merged,
         lastUid: maxUid,
-        lastFailingTotal: result.aggregate.failing
+        lastFailingTotal: result.aggregate.failing,
+        knownSourceIps: [...known].sort()
       })
 
       if (settings.markSeenAfterFetch && uidList.length > 0) {

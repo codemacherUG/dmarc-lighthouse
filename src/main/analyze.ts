@@ -28,6 +28,11 @@ function serializeReport(report: DmarcReport): ReportRow {
     headerFrom: rec.headerFrom,
     dkimDomain: rec.dkimDomain,
     spfDomain: rec.spfDomain,
+    dkimSelectors: [
+      ...new Set(
+        (rec.dkimAuth ?? []).map((a) => a.selector?.trim()).filter((s): s is string => Boolean(s))
+      )
+    ],
     passesDmarc: recordPassesDmarc(rec),
     reasons: (rec.reasons ?? []).map((r) => ({ type: r.type, comment: r.comment }))
   }))

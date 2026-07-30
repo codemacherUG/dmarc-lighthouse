@@ -11,7 +11,9 @@
   </head>
   <body>
     <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
-      <div class="drop-overlay-inner">DMARC-Dateien hier ablegen<br /><span>XML, GZ, ZIP, EML</span></div>
+      <div class="drop-overlay-inner">
+        DMARC-Dateien hier ablegen<br /><span>XML, GZ, ZIP, EML</span>
+      </div>
     </div>
 
     <div id="app">
@@ -53,6 +55,10 @@
 
       <section class="panel filter-panel">
         <div class="filter-row">
+          <label id="account-field" class="hidden">
+            Konto
+            <select id="account-select"></select>
+          </label>
           <label>
             Zeitraum
             <select id="filter-range">
@@ -60,7 +66,15 @@
               <option value="7">Letzte 7 Tage</option>
               <option value="30">Letzte 30 Tage</option>
               <option value="90">Letzte 90 Tage</option>
+              <option value="custom">Benutzerdefiniert</option>
             </select>
+          </label>
+          <label id="filter-custom-range" class="custom-range hidden">
+            Von / Bis
+            <div class="inline-actions two-inputs">
+              <input id="filter-from" type="date" />
+              <input id="filter-to" type="date" />
+            </div>
           </label>
           <label>
             Domain
@@ -70,13 +84,22 @@
           </label>
           <label class="dns-check-field">
             DNS-Check
-            <div class="inline-actions">
+            <div class="inline-actions dns-inputs">
               <input id="dns-domain" type="text" placeholder="example.com" />
+              <input
+                id="dns-selectors"
+                type="text"
+                placeholder="DKIM-Selektoren (auto)"
+                title="Kommagetrennt; leer = automatisch aus den Reports"
+              />
               <button type="button" id="btn-dns" class="btn secondary">Prüfen</button>
             </div>
           </label>
         </div>
-        <div id="dns-result" class="dns-result muted">DMARC-/SPF-DNS einer Domain prüfen.</div>
+        <div id="filter-chips" class="filter-chips hidden"></div>
+        <div id="dns-result" class="dns-result muted">
+          DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
+        </div>
       </section>
 
       <section class="panel kpi-panel">
@@ -122,6 +145,10 @@
             <h2>DKIM Alignment</h2>
             <canvas id="chart-dkim"></canvas>
           </div>
+          <div class="chart-card">
+            <h2>Disposition (Policy-Anwendung)</h2>
+            <canvas id="chart-disposition"></canvas>
+          </div>
         </div>
         <div class="chart-card volume-card">
           <h2>Nachrichtenvolumen &amp; Pass-Rate über Zeit</h2>
@@ -143,7 +170,9 @@
                   </tr>
                 </thead>
                 <tbody id="table-orgs">
-                  <tr class="empty"><td colspan="3">Noch keine Daten</td></tr>
+                  <tr class="empty">
+                    <td colspan="3">Noch keine Daten</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -160,7 +189,9 @@
                   </tr>
                 </thead>
                 <tbody id="table-ips">
-                  <tr class="empty"><td colspan="3">Noch keine Daten</td></tr>
+                  <tr class="empty">
+                    <td colspan="3">Noch keine Daten</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -177,7 +208,9 @@
                   </tr>
                 </thead>
                 <tbody id="table-from">
-                  <tr class="empty"><td colspan="3">Noch keine Daten</td></tr>
+                  <tr class="empty">
+                    <td colspan="3">Noch keine Daten</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -205,8 +238,8 @@
               <tbody id="reports-body">
                 <tr class="empty">
                   <td colspan="8">
-                    Einstellungen öffnen, Zugangsdaten speichern, dann Reports abrufen — oder Dateien
-                    per Drag &amp; Drop laden.
+                    Einstellungen öffnen, Zugangsdaten speichern, dann Reports abrufen — oder
+                    Dateien per Drag &amp; Drop laden.
                   </td>
                 </tr>
               </tbody>
@@ -231,94 +264,201 @@
           </button>
         </header>
 
-        <div class="settings-grid">
-          <label>
-            Anbieter
-            <select id="provider" name="provider">
-              <option value="gmail">Gmail</option>
-              <option value="outlook">Outlook / Microsoft 365</option>
-              <option value="custom" selected>Custom IMAP</option>
-            </select>
-          </label>
+        <nav class="tab-bar" role="tablist">
+          <button
+            type="button"
+            id="tab-btn-account"
+            class="tab active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-account"
+          >
+            IMAP-Konto
+          </button>
+          <button
+            type="button"
+            id="tab-btn-general"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-general"
+          >
+            Abruf &amp; Benachrichtigungen
+          </button>
+        </nav>
 
-          <label>
-            Host
-            <input id="host" name="host" type="text" placeholder="imap.example.com" required />
-          </label>
+        <div class="dialog-body">
+          <section id="tab-account" class="tab-panel" role="tabpanel">
+            <div class="account-toolbar">
+              <select id="settings-account-select" title="Konto auswählen"></select>
+              <button type="button" id="btn-new-account" class="btn secondary">Neues Konto</button>
+              <button type="button" id="btn-delete-account" class="btn secondary">Löschen</button>
+            </div>
 
-          <label>
-            Port
-            <input id="port" name="port" type="number" min="1" max="65535" value="993" required />
-          </label>
+            <fieldset class="settings-group">
+              <legend>Verbindung</legend>
+              <div class="settings-grid">
+                <label>
+                  Anbieter
+                  <select id="provider" name="provider">
+                    <option value="gmail">Gmail</option>
+                    <option value="outlook">Outlook / Microsoft 365</option>
+                    <option value="custom" selected>Custom IMAP</option>
+                  </select>
+                </label>
 
-          <label class="checkbox">
-            <input id="secure" name="secure" type="checkbox" checked />
-            TLS / SSL
-          </label>
+                <label>
+                  Host
+                  <input id="host" name="host" type="text" placeholder="imap.example.com" />
+                </label>
 
-          <label>
-            Benutzer
-            <input id="user" name="user" type="email" autocomplete="username" required />
-          </label>
+                <label>
+                  Port
+                  <input id="port" name="port" type="number" min="1" max="65535" value="993" />
+                </label>
 
-          <label>
-            Passwort / App-Passwort
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              placeholder="Leer lassen, wenn gespeichert"
-            />
-          </label>
+                <label class="checkbox">
+                  <input id="secure" name="secure" type="checkbox" checked />
+                  TLS / SSL
+                </label>
 
-          <label>
-            Ordner
-            <input id="mailbox" name="mailbox" type="text" value="INBOX" required />
-          </label>
+                <label>
+                  Benutzer
+                  <input id="user" name="user" type="email" autocomplete="username" />
+                </label>
 
-          <label class="span-2">
-            Betreff-Filter
-            <input
-              id="subjectFilter"
-              name="subjectFilter"
-              type="text"
-              value="Report Domain"
-              placeholder="Leer = alle Nachrichten"
-            />
-          </label>
+                <label>
+                  Passwort / App-Passwort
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    placeholder="Leer lassen, wenn gespeichert"
+                  />
+                </label>
+              </div>
+              <p id="password-hint" class="hint"></p>
+            </fieldset>
 
-          <label>
-            Auto-Abruf (Minuten)
-            <input
-              id="autoFetchMinutes"
-              name="autoFetchMinutes"
-              type="number"
-              min="0"
-              max="1440"
-              value="0"
-              title="0 = aus"
-            />
-          </label>
+            <fieldset class="settings-group">
+              <legend>Abruf aus diesem Postfach</legend>
+              <div class="settings-grid">
+                <label>
+                  Ordner
+                  <input id="mailbox" name="mailbox" type="text" value="INBOX" />
+                </label>
 
-          <label class="checkbox">
-            <input id="notifyOnFail" name="notifyOnFail" type="checkbox" checked />
-            Benachrichtigung bei neuen Failures
-          </label>
+                <label>
+                  Betreff-Filter
+                  <input
+                    id="subjectFilter"
+                    name="subjectFilter"
+                    type="text"
+                    value="Report Domain"
+                    placeholder="Leer = alle Nachrichten"
+                  />
+                </label>
 
-          <label class="checkbox span-2">
-            <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
-            Nachrichten nach Abruf als gelesen markieren
-          </label>
+                <label class="checkbox span-2">
+                  <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
+                  Nachrichten nach Abruf als gelesen markieren
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="account-actions">
+              <button type="button" id="btn-test" class="btn secondary">Verbindung testen</button>
+              <button type="button" id="btn-clear-cache" class="btn secondary">
+                Cache dieses Kontos leeren
+              </button>
+            </div>
+          </section>
+
+          <section id="tab-general" class="tab-panel hidden" role="tabpanel">
+            <fieldset class="settings-group">
+              <legend>Automatischer Abruf</legend>
+              <div class="settings-grid">
+                <label>
+                  Auto-Abruf (Minuten)
+                  <input
+                    id="autoFetchMinutes"
+                    name="autoFetchMinutes"
+                    type="number"
+                    min="0"
+                    max="1440"
+                    value="0"
+                    title="0 = aus"
+                  />
+                </label>
+
+                <label class="checkbox">
+                  <input id="runInTray" name="runInTray" type="checkbox" />
+                  Im Hintergrund weiterlaufen (System-Tray)
+                </label>
+              </div>
+              <p class="hint">
+                0 = aus. Der Auto-Abruf holt alle konfigurierten Konten nacheinander ab. Mit aktivem
+                System-Tray läuft er auch bei geschlossenem Fenster weiter.
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend>Benachrichtigungen</legend>
+              <div class="settings-grid">
+                <label class="checkbox">
+                  <input id="notifyOnFail" name="notifyOnFail" type="checkbox" checked />
+                  Bei neuen Failures benachrichtigen
+                </label>
+
+                <label class="checkbox">
+                  <input id="notifyNewSource" name="notifyNewSource" type="checkbox" />
+                  Bei neuer Quelle (unbekannte IP) benachrichtigen
+                </label>
+
+                <label>
+                  Pass-Rate-Alarm unter (%)
+                  <input
+                    id="passRateAlertThreshold"
+                    name="passRateAlertThreshold"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value="0"
+                    title="0 = aus · bezogen auf die letzten 7 Tage"
+                  />
+                </label>
+              </div>
+              <p class="hint">
+                Pass-Rate-Alarm: 0 = aus, bezogen auf die letzten 7 Tage nach jedem Abruf mit neuen
+                Reports.
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend>Ignorierte Quellen (für Alerts)</legend>
+              <label class="stacked">
+                <textarea
+                  id="ignoredSources"
+                  name="ignoredSources"
+                  rows="4"
+                  placeholder="Eine IP pro Zeile, z. B. 203.0.113.5 oder 66.249.* für Präfixe"
+                ></textarea>
+              </label>
+              <p class="hint">
+                Diese IPs lösen keinen „Neue Quelle"-Alert aus. Präfixe mit <code>*</code> am Ende,
+                z. B. <code>66.249.*</code>.
+              </p>
+            </fieldset>
+          </section>
         </div>
 
-        <p id="password-hint" class="hint"></p>
-        <p id="settings-status" class="hint" role="status"></p>
-
-        <footer class="dialog-actions">
-          <button type="button" id="btn-clear-cache" class="btn secondary">Cache leeren</button>
-          <button type="button" id="btn-test" class="btn secondary">Verbindung testen</button>
-          <button type="submit" id="btn-save" class="btn primary">Speichern</button>
+        <footer class="dialog-footer">
+          <p id="settings-status" class="hint" role="status"></p>
+          <div class="dialog-actions">
+            <button type="submit" id="btn-save" class="btn primary">Speichern</button>
+          </div>
         </footer>
       </form>
     </dialog>
@@ -363,7 +503,9 @@
             <div>
               <dt>Website</dt>
               <dd>
-                <a href="https://codemacher.de/" target="_blank" rel="noreferrer">https://codemacher.de/</a>
+                <a href="https://codemacher.de/" target="_blank" rel="noreferrer"
+                  >https://codemacher.de/</a
+                >
               </dd>
             </div>
             <div>
@@ -385,7 +527,9 @@
         </div>
 
         <footer class="dialog-actions">
-          <button type="button" id="btn-check-update" class="btn secondary">Auf Updates prüfen</button>
+          <button type="button" id="btn-check-update" class="btn secondary">
+            Auf Updates prüfen
+          </button>
           <button type="button" id="btn-info-ok" class="btn primary">Schließen</button>
         </footer>
       </div>

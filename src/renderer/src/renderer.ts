@@ -15,15 +15,17 @@ import {
 } from 'chart.js'
 import { analyzeFromReports, applyDashboardFilter } from '../../shared/analyze'
 import type {
+  AccountPublic,
+  AccountSettingsInput,
   AlignmentBreakdown,
   AnalyzeProgress,
   AnalyzeResult,
   DateRangePreset,
-  ImapConnectionInput,
+  GlobalSettings,
   NamedBucket,
   ProviderPreset,
   ReportRow,
-  SavedSettingsPublic,
+  SettingsPublic,
   UpdateStatusPayload
 } from '../../shared/types'
 import { PROVIDER_PRESETS } from '../../shared/types'
@@ -50,6 +52,12 @@ const VOLUME_PASS = 'rgba(31, 122, 69, 0.85)'
 const VOLUME_FAIL = 'rgba(179, 58, 43, 0.8)'
 const RATE_LINE = '#1f6f8b'
 
+const DISPOSITION_COLORS: Record<string, string> = {
+  none: '#1f6f8b',
+  quarantine: '#b57b12',
+  reject: '#b33a2b'
+}
+
 const statusEl = document.getElementById('status') as HTMLDivElement
 const progressEl = document.getElementById('progress') as HTMLProgressElement
 const progressLabelEl = document.getElementById('progress-label') as HTMLSpanElement
@@ -61,8 +69,15 @@ const tableIps = document.getElementById('table-ips') as HTMLTableSectionElement
 const tableFrom = document.getElementById('table-from') as HTMLTableSectionElement
 const dropOverlay = document.getElementById('drop-overlay') as HTMLDivElement
 const filterRangeEl = document.getElementById('filter-range') as HTMLSelectElement
+const filterCustomWrap = document.getElementById('filter-custom-range') as HTMLLabelElement
+const filterFromEl = document.getElementById('filter-from') as HTMLInputElement
+const filterToEl = document.getElementById('filter-to') as HTMLInputElement
 const filterDomainEl = document.getElementById('filter-domain') as HTMLSelectElement
+const filterChipsEl = document.getElementById('filter-chips') as HTMLDivElement
+const accountFieldEl = document.getElementById('account-field') as HTMLLabelElement
+const accountSelectEl = document.getElementById('account-select') as HTMLSelectElement
 const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputElement
+const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLInputElement
 const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 
 const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
@@ -93,6 +108,16 @@ const updateBannerText = document.getElementById('update-banner-text') as HTMLSp
 const btnUpdateInstall = document.getElementById('btn-update-install') as HTMLButtonElement
 const btnUpdateDismiss = document.getElementById('btn-update-dismiss') as HTMLButtonElement
 
+const settingsAccountSelectEl = document.getElementById(
+  'settings-account-select'
+) as HTMLSelectElement
+const btnNewAccount = document.getElementById('btn-new-account') as HTMLButtonElement
+const btnDeleteAccount = document.getElementById('btn-delete-account') as HTMLButtonElement
+const tabBtnAccount = document.getElementById('tab-btn-account') as HTMLButtonElement
+const tabBtnGeneral = document.getElementById('tab-btn-general') as HTMLButtonElement
+const tabAccountEl = document.getElementById('tab-account') as HTMLElement
+const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
+
 const providerEl = document.getElementById('provider') as HTMLSelectElement
 const hostEl = document.getElementById('host') as HTMLInputElement
 const portEl = document.getElementById('port') as HTMLInputElement
@@ -101,20 +126,47 @@ const userEl = document.getElementById('user') as HTMLInputElement
 const passwordEl = document.getElementById('password') as HTMLInputElement
 const mailboxEl = document.getElementById('mailbox') as HTMLInputElement
 const subjectFilterEl = document.getElementById('subjectFilter') as HTMLInputElement
-const autoFetchMinutesEl = document.getElementById('autoFetchMinutes') as HTMLInputElement
-const notifyOnFailEl = document.getElementById('notifyOnFail') as HTMLInputElement
 const markSeenAfterFetchEl = document.getElementById('markSeenAfterFetch') as HTMLInputElement
+const autoFetchMinutesEl = document.getElementById('autoFetchMinutes') as HTMLInputElement
+const runInTrayEl = document.getElementById('runInTray') as HTMLInputElement
+const notifyOnFailEl = document.getElementById('notifyOnFail') as HTMLInputElement
+const notifyNewSourceEl = document.getElementById('notifyNewSource') as HTMLInputElement
+const passRateAlertThresholdEl = document.getElementById(
+  'passRateAlertThreshold'
+) as HTMLInputElement
+const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
+
+const NEW_ACCOUNT_VALUE = '__new__'
 
 let selectedReportId: string | null = null
 let busy = false
-let savedSettings: SavedSettingsPublic | null = null
+let settings: SettingsPublic | null = null
+/** Account currently edited in the settings dialog (null = new account). */
+let dialogAccountId: string | null = null
 let fullResult: AnalyzeResult | null = null
 let viewResult: AnalyzeResult | null = null
+/** Drill-down filters set by clicking rows in the aggregate tables. */
+const drill: { org?: string; sourceIp?: string; headerFrom?: string } = {}
 const ipLabelCache = new Map<string, { ptr: string | null; provider: string | null }>()
 
 const chartDmarc = createDoughnut('chart-dmarc')
 const chartSpf = createDoughnut('chart-spf')
 const chartDkim = createDoughnut('chart-dkim')
+const chartDisposition = new Chart(
+  document.getElementById('chart-disposition') as HTMLCanvasElement,
+  {
+    type: 'doughnut',
+    data: {
+      labels: [] as string[],
+      datasets: [{ data: [] as number[], backgroundColor: [] as string[], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  }
+)
 const chartVolume = new Chart(document.getElementById('chart-volume') as HTMLCanvasElement, {
   data: {
     labels: [] as string[],
@@ -252,10 +304,22 @@ function setBusy(next: boolean): void {
   btnTest.disabled = next
   btnOpenFiles.disabled = next
   btnDns.disabled = next
+  accountSelectEl.disabled = next
 }
 
-function readSettingsForm(): ImapConnectionInput {
+function activeAccount(): AccountPublic | null {
+  if (!settings) return null
+  return settings.accounts.find((a) => a.id === settings?.activeAccountId) ?? null
+}
+
+function dialogAccount(): AccountPublic | null {
+  if (!settings || dialogAccountId == null) return null
+  return settings.accounts.find((a) => a.id === dialogAccountId) ?? null
+}
+
+function readAccountForm(): AccountSettingsInput {
   return {
+    id: dialogAccountId,
     provider: providerEl.value as ProviderPreset,
     host: hostEl.value.trim(),
     port: Number(portEl.value) || 993,
@@ -264,9 +328,18 @@ function readSettingsForm(): ImapConnectionInput {
     password: passwordEl.value,
     mailbox: mailboxEl.value.trim() || 'INBOX',
     subjectFilter: subjectFilterEl.value,
+    markSeenAfterFetch: markSeenAfterFetchEl.checked
+  }
+}
+
+function readGlobalForm(): GlobalSettings {
+  return {
     autoFetchMinutes: Number(autoFetchMinutesEl.value) || 0,
     notifyOnFail: notifyOnFailEl.checked,
-    markSeenAfterFetch: markSeenAfterFetchEl.checked
+    passRateAlertThreshold: Number(passRateAlertThresholdEl.value) || 0,
+    notifyNewSource: notifyNewSourceEl.checked,
+    ignoredSources: ignoredSourcesEl.value,
+    runInTray: runInTrayEl.checked
   }
 }
 
@@ -298,13 +371,18 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;')
 }
 
-function updateAccountLabel(settings: SavedSettingsPublic): void {
-  if (!settings.user) {
-    accountLabelEl.textContent = 'Keine Zugangsdaten'
-    return
-  }
-  const host = settings.host || PROVIDER_PRESETS[settings.provider].host || 'IMAP'
-  accountLabelEl.textContent = `${settings.user} @ ${host}`
+function updateAccountUi(): void {
+  const account = activeAccount()
+  accountLabelEl.textContent = account ? account.label : 'Keine Zugangsdaten'
+
+  const accounts = settings?.accounts ?? []
+  accountFieldEl.classList.toggle('hidden', accounts.length <= 1)
+  accountSelectEl.innerHTML = accounts
+    .map(
+      (a) =>
+        `<option value="${escapeHtml(a.id)}"${a.id === settings?.activeAccountId ? ' selected' : ''}>${escapeHtml(a.label)}</option>`
+    )
+    .join('')
 }
 
 function updateSummary(result: AnalyzeResult | null): void {
@@ -327,10 +405,19 @@ function setAlignmentChart(chart: Chart<'doughnut'>, data: AlignmentBreakdown): 
   chart.update()
 }
 
+function setDispositionChart(buckets: NamedBucket[]): void {
+  chartDisposition.data.labels = buckets.map((b) => b.name)
+  chartDisposition.data.datasets[0].data = buckets.map((b) => b.count)
+  ;(chartDisposition.data.datasets[0].backgroundColor as string[]) = buckets.map(
+    (b) => DISPOSITION_COLORS[b.name.toLowerCase()] ?? OTHER
+  )
+  chartDisposition.update()
+}
+
 function renderBucketTable(
   tbody: HTMLTableSectionElement,
   rows: NamedBucket[],
-  withIpMeta = false
+  options: { withIpMeta?: boolean; onRowClick?: (name: string) => void } = {}
 ): void {
   if (!rows.length) {
     tbody.innerHTML = '<tr class="empty"><td colspan="3">Keine Daten</td></tr>'
@@ -339,7 +426,7 @@ function renderBucketTable(
   tbody.innerHTML = rows
     .map((r) => {
       let nameHtml = `<span class="mono">${escapeHtml(r.name)}</span>`
-      if (withIpMeta) {
+      if (options.withIpMeta) {
         const meta = ipLabelCache.get(r.name)
         const provider = r.provider ?? meta?.provider
         const ptr = r.label ?? meta?.ptr
@@ -349,7 +436,7 @@ function renderBucketTable(
         if (bits.length) nameHtml += `<div class="ip-meta">${bits.join(' ')}</div>`
       }
       return `
-      <tr>
+      <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ' title="Klicken zum Filtern"' : ''}>
         <td>${nameHtml}</td>
         <td>${r.count}</td>
         <td>
@@ -359,6 +446,46 @@ function renderBucketTable(
       </tr>`
     })
     .join('')
+
+  if (options.onRowClick) {
+    for (const tr of tbody.querySelectorAll<HTMLTableRowElement>('tr[data-name]')) {
+      tr.addEventListener('click', () => options.onRowClick?.(tr.dataset.name ?? ''))
+    }
+  }
+}
+
+function renderFilterChips(): void {
+  const chips: Array<{ key: keyof typeof drill; label: string; value: string }> = []
+  if (drill.org) chips.push({ key: 'org', label: 'Org', value: drill.org })
+  if (drill.sourceIp) chips.push({ key: 'sourceIp', label: 'IP', value: drill.sourceIp })
+  if (drill.headerFrom) chips.push({ key: 'headerFrom', label: 'From', value: drill.headerFrom })
+
+  filterChipsEl.classList.toggle('hidden', chips.length === 0)
+  filterChipsEl.innerHTML = chips
+    .map(
+      (c) => `
+      <span class="chip">
+        <span class="chip-label">${c.label}:</span>
+        <span class="mono">${escapeHtml(c.value)}</span>
+        <button type="button" class="chip-remove" data-chip="${c.key}" aria-label="Filter entfernen">✕</button>
+      </span>`
+    )
+    .join('')
+
+  for (const btn of filterChipsEl.querySelectorAll<HTMLButtonElement>('.chip-remove')) {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.chip as keyof typeof drill
+      delete drill[key]
+      applyView()
+    })
+  }
+}
+
+function setDrillFilter(key: keyof typeof drill, value: string): void {
+  if (!value) return
+  if (drill[key] === value) delete drill[key]
+  else drill[key] = value
+  applyView()
 }
 
 function renderDashboard(result: AnalyzeResult | null): void {
@@ -366,6 +493,7 @@ function renderDashboard(result: AnalyzeResult | null): void {
     setAlignmentChart(chartDmarc, { pass: 0, fail: 0, other: 0 })
     setAlignmentChart(chartSpf, { pass: 0, fail: 0, other: 0 })
     setAlignmentChart(chartDkim, { pass: 0, fail: 0, other: 0 })
+    setDispositionChart([])
     chartVolume.data.labels = []
     chartVolume.data.datasets[0].data = []
     chartVolume.data.datasets[1].data = []
@@ -381,6 +509,7 @@ function renderDashboard(result: AnalyzeResult | null): void {
   setAlignmentChart(chartDmarc, d.dmarc)
   setAlignmentChart(chartSpf, d.spf)
   setAlignmentChart(chartDkim, d.dkim)
+  setDispositionChart(d.dispositions)
 
   chartVolume.data.labels = d.volumeByDay.map((p) => p.date)
   chartVolume.data.datasets[0].data = d.volumeByDay.map((p) => p.passing)
@@ -388,9 +517,16 @@ function renderDashboard(result: AnalyzeResult | null): void {
   chartVolume.data.datasets[2].data = d.volumeByDay.map((p) => p.passRate)
   chartVolume.update()
 
-  renderBucketTable(tableOrgs, d.byOrg)
-  renderBucketTable(tableIps, d.bySourceIp, true)
-  renderBucketTable(tableFrom, d.byHeaderFrom)
+  renderBucketTable(tableOrgs, d.byOrg, {
+    onRowClick: (name) => setDrillFilter('org', name)
+  })
+  renderBucketTable(tableIps, d.bySourceIp, {
+    withIpMeta: true,
+    onRowClick: (name) => setDrillFilter('sourceIp', name)
+  })
+  renderBucketTable(tableFrom, d.byHeaderFrom, {
+    onRowClick: (name) => setDrillFilter('headerFrom', name)
+  })
 
   void enrichIpLabels(d.bySourceIp.map((r) => r.name))
 }
@@ -404,7 +540,10 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
       ipLabelCache.set(info.ip, { ptr: info.ptr, provider: info.provider })
     }
     if (viewResult) {
-      renderBucketTable(tableIps, viewResult.dashboard.bySourceIp, true)
+      renderBucketTable(tableIps, viewResult.dashboard.bySourceIp, {
+        withIpMeta: true,
+        onRowClick: (name) => setDrillFilter('sourceIp', name)
+      })
     }
   } catch {
     // Reverse-DNS ist optional.
@@ -520,6 +659,7 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
 }
 
 function applyView(): void {
+  renderFilterChips()
   if (!fullResult) {
     viewResult = null
     updateSummary(null)
@@ -531,7 +671,12 @@ function applyView(): void {
 
   viewResult = applyDashboardFilter(fullResult, {
     range: filterRangeEl.value as DateRangePreset,
-    domain: filterDomainEl.value
+    from: filterFromEl.value || undefined,
+    to: filterToEl.value || undefined,
+    domain: filterDomainEl.value,
+    org: drill.org,
+    sourceIp: drill.sourceIp,
+    headerFrom: drill.headerFrom
   })
   updateSummary(viewResult)
   renderDashboard(viewResult)
@@ -549,8 +694,11 @@ function showResult(result: AnalyzeResult, statusMessage?: string): void {
     const skippedNote = result.skipped ? `, ${result.skipped} übersprungen` : ''
     const newNote = result.newReports != null ? `, ${result.newReports} neu` : ''
     const cacheNote = result.fromCache ? ' (inkl. Cache)' : ''
+    const sourceNote = result.newSourceIps?.length
+      ? ` · ${result.newSourceIps.length} neue Quelle(n)`
+      : ''
     setStatus(
-      `${result.aggregate.reportCount} Reports${newNote}${cacheNote} (${result.aggregate.total} Nachrichten${skippedNote}).`,
+      `${result.aggregate.reportCount} Reports${newNote}${cacheNote} (${result.aggregate.total} Nachrichten${skippedNote})${sourceNote}.`,
       'ok'
     )
   }
@@ -568,40 +716,106 @@ function applyProgress(progress: AnalyzeProgress): void {
   }
 }
 
-function fillSettingsForm(settings: SavedSettingsPublic): void {
-  providerEl.value = settings.provider
-  hostEl.value = settings.host
-  portEl.value = String(settings.port)
-  secureEl.checked = settings.secure
-  userEl.value = settings.user
-  mailboxEl.value = settings.mailbox
-  subjectFilterEl.value = settings.subjectFilter
-  autoFetchMinutesEl.value = String(settings.autoFetchMinutes ?? 0)
-  notifyOnFailEl.checked = settings.notifyOnFail !== false
-  markSeenAfterFetchEl.checked = Boolean(settings.markSeenAfterFetch)
+function fillAccountForm(account: AccountPublic | null): void {
+  if (account) {
+    providerEl.value = account.provider
+    hostEl.value = account.host
+    portEl.value = String(account.port)
+    secureEl.checked = account.secure
+    userEl.value = account.user
+    mailboxEl.value = account.mailbox
+    subjectFilterEl.value = account.subjectFilter
+    markSeenAfterFetchEl.checked = account.markSeenAfterFetch
+  } else {
+    providerEl.value = 'custom'
+    hostEl.value = ''
+    portEl.value = '993'
+    secureEl.checked = true
+    userEl.value = ''
+    mailboxEl.value = 'INBOX'
+    subjectFilterEl.value = 'Report Domain'
+    markSeenAfterFetchEl.checked = false
+  }
   passwordEl.value = ''
-  passwordHintEl.textContent = settings.hasPassword
+  passwordHintEl.textContent = account?.hasPassword
     ? 'Ein Passwort ist verschlüsselt gespeichert. Feld leer lassen, um es beizubehalten.'
     : 'Gmail/Outlook: App-Passwort verwenden (nicht das normale Kontopasswort).'
   settingsStatusEl.textContent = ''
 }
 
+function fillGlobalForm(global: GlobalSettings): void {
+  autoFetchMinutesEl.value = String(global.autoFetchMinutes ?? 0)
+  notifyOnFailEl.checked = global.notifyOnFail !== false
+  notifyNewSourceEl.checked = Boolean(global.notifyNewSource)
+  passRateAlertThresholdEl.value = String(global.passRateAlertThreshold ?? 0)
+  ignoredSourcesEl.value = global.ignoredSources ?? ''
+  runInTrayEl.checked = Boolean(global.runInTray)
+}
+
+function fillSettingsAccountSelect(): void {
+  const accounts = settings?.accounts ?? []
+  const options = accounts.map(
+    (a) =>
+      `<option value="${escapeHtml(a.id)}"${a.id === dialogAccountId ? ' selected' : ''}>${escapeHtml(a.label)}</option>`
+  )
+  options.push(
+    `<option value="${NEW_ACCOUNT_VALUE}"${dialogAccountId == null ? ' selected' : ''}>➕ Neues Konto…</option>`
+  )
+  settingsAccountSelectEl.innerHTML = options.join('')
+  btnDeleteAccount.disabled = dialogAccountId == null
+}
+
+function applySettings(next: SettingsPublic): void {
+  settings = next
+  updateAccountUi()
+}
+
 async function loadSettings(): Promise<void> {
-  savedSettings = await window.api.loadSettings()
-  fillSettingsForm(savedSettings)
-  updateAccountLabel(savedSettings)
-  if (!savedSettings.hasPassword || !savedSettings.user) {
+  applySettings(await window.api.loadSettings())
+  fillGlobalForm(settings!.global)
+  const account = activeAccount()
+  if (!account?.hasPassword || !account.user) {
     setStatus('Bitte zuerst IMAP-Zugangsdaten speichern — oder Dateien per Drag & Drop laden.')
   }
 }
 
+function showSettingsTab(which: 'account' | 'general'): void {
+  const account = which === 'account'
+  tabBtnAccount.classList.toggle('active', account)
+  tabBtnGeneral.classList.toggle('active', !account)
+  tabBtnAccount.setAttribute('aria-selected', String(account))
+  tabBtnGeneral.setAttribute('aria-selected', String(!account))
+  tabAccountEl.classList.toggle('hidden', !account)
+  tabGeneralEl.classList.toggle('hidden', account)
+}
+
 function openSettings(): void {
-  if (savedSettings) fillSettingsForm(savedSettings)
+  dialogAccountId = settings?.activeAccountId ?? null
+  fillSettingsAccountSelect()
+  fillAccountForm(dialogAccount())
+  if (settings) fillGlobalForm(settings.global)
+  showSettingsTab('account')
   settingsDialog.showModal()
+}
+
+async function switchActiveAccount(id: string): Promise<void> {
+  applySettings(await window.api.setActiveAccount(id))
+  selectedReportId = null
+  Object.keys(drill).forEach((k) => delete drill[k as keyof typeof drill])
+  fullResult = null
+  const cached = await window.api.loadCache(id)
+  if (cached && cached.reports.length > 0) {
+    showResult(cached, `${cached.aggregate.reportCount} Reports aus Cache — Abruf holt nur Neue.`)
+  } else {
+    applyView()
+    setStatus('Kein Cache für dieses Konto — Reports abrufen.')
+  }
 }
 
 btnSettings.addEventListener('click', () => openSettings())
 btnCloseSettings.addEventListener('click', () => settingsDialog.close())
+tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
+tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
 btnInfo.addEventListener('click', () => {
   updateCheckStatusEl.textContent = ''
   infoDialog.showModal()
@@ -631,7 +845,60 @@ providerEl.addEventListener('change', () => {
   applyProviderPreset(providerEl.value as ProviderPreset)
 })
 
-filterRangeEl.addEventListener('change', () => applyView())
+accountSelectEl.addEventListener('change', () => {
+  if (busy) return
+  void switchActiveAccount(accountSelectEl.value)
+})
+
+settingsAccountSelectEl.addEventListener('change', () => {
+  dialogAccountId =
+    settingsAccountSelectEl.value === NEW_ACCOUNT_VALUE ? null : settingsAccountSelectEl.value
+  fillSettingsAccountSelect()
+  fillAccountForm(dialogAccount())
+})
+
+btnNewAccount.addEventListener('click', () => {
+  dialogAccountId = null
+  fillSettingsAccountSelect()
+  fillAccountForm(null)
+})
+
+btnDeleteAccount.addEventListener('click', async () => {
+  if (busy || dialogAccountId == null) return
+  const account = dialogAccount()
+  if (!account) return
+  if (!confirm(`Konto „${account.label}" wirklich löschen? Der lokale Cache wird entfernt.`)) return
+  setBusy(true)
+  try {
+    const wasActive = settings?.activeAccountId === dialogAccountId
+    applySettings(await window.api.deleteAccount(dialogAccountId))
+    dialogAccountId = settings?.activeAccountId ?? null
+    fillSettingsAccountSelect()
+    fillAccountForm(dialogAccount())
+    settingsStatusEl.textContent = 'Konto gelöscht.'
+    if (wasActive) {
+      selectedReportId = null
+      fullResult = null
+      if (settings?.activeAccountId) {
+        await switchActiveAccount(settings.activeAccountId)
+      } else {
+        applyView()
+        setStatus('Kein IMAP-Konto konfiguriert.')
+      }
+    }
+  } catch (err) {
+    settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  } finally {
+    setBusy(false)
+  }
+})
+
+filterRangeEl.addEventListener('change', () => {
+  filterCustomWrap.classList.toggle('hidden', filterRangeEl.value !== 'custom')
+  applyView()
+})
+filterFromEl.addEventListener('change', () => applyView())
+filterToEl.addEventListener('change', () => applyView())
 filterDomainEl.addEventListener('change', () => applyView())
 
 btnTest.addEventListener('click', async () => {
@@ -639,7 +906,7 @@ btnTest.addEventListener('click', async () => {
   setBusy(true)
   settingsStatusEl.textContent = 'Teste Verbindung…'
   try {
-    const result = await window.api.testConnection(readSettingsForm())
+    const result = await window.api.testConnection(readAccountForm())
     settingsStatusEl.textContent = result.message
     setStatus(result.message, result.ok ? 'ok' : 'error')
   } catch (err) {
@@ -653,11 +920,15 @@ btnTest.addEventListener('click', async () => {
 
 btnClearCache.addEventListener('click', async () => {
   if (busy) return
+  if (dialogAccountId == null) {
+    settingsStatusEl.textContent = 'Konto zuerst speichern.'
+    return
+  }
   setBusy(true)
   try {
-    const result = await window.api.clearCache()
+    const result = await window.api.clearCache(dialogAccountId)
     settingsStatusEl.textContent = result.message
-    if (result.ok) {
+    if (result.ok && dialogAccountId === settings?.activeAccountId) {
       fullResult = null
       applyView()
       setStatus('Cache geleert. Nächster Abruf holt alle Nachrichten erneut.', 'ok')
@@ -674,11 +945,27 @@ settingsForm.addEventListener('submit', async (event) => {
   if (busy) return
   setBusy(true)
   try {
-    savedSettings = await window.api.saveSettings(readSettingsForm())
+    const accountInput = readAccountForm()
+    const wantsAccountSave = Boolean(
+      accountInput.user || accountInput.host || accountInput.password
+    )
+    if (wantsAccountSave) {
+      if (!accountInput.user || !accountInput.host) {
+        showSettingsTab('account')
+        throw new Error('Benutzer und Host sind für ein Konto erforderlich.')
+      }
+      const before = new Set((settings?.accounts ?? []).map((a) => a.id))
+      applySettings(await window.api.saveAccount(accountInput))
+      if (dialogAccountId == null) {
+        dialogAccountId = settings?.accounts.find((a) => !before.has(a.id))?.id ?? null
+      }
+    }
+    applySettings(await window.api.saveGlobalSettings(readGlobalForm()))
     passwordEl.value = ''
-    fillSettingsForm(savedSettings)
-    updateAccountLabel(savedSettings)
-    settingsStatusEl.textContent = 'Zugangsdaten gespeichert.'
+    fillSettingsAccountSelect()
+    fillAccountForm(dialogAccount())
+    fillGlobalForm(settings!.global)
+    settingsStatusEl.textContent = 'Einstellungen gespeichert.'
     setStatus('Einstellungen gespeichert.', 'ok')
     settingsDialog.close()
   } catch (err) {
@@ -692,7 +979,8 @@ settingsForm.addEventListener('submit', async (event) => {
 
 btnFetch.addEventListener('click', async () => {
   if (busy) return
-  if (!savedSettings?.hasPassword || !savedSettings.user) {
+  const account = activeAccount()
+  if (!account?.hasPassword || !account.user) {
     openSettings()
     settingsStatusEl.textContent = 'Bitte Zugangsdaten speichern, bevor Reports abgerufen werden.'
     return
@@ -703,7 +991,7 @@ btnFetch.addEventListener('click', async () => {
   progressEl.value = 0
   progressLabelEl.textContent = ''
   try {
-    const result = await window.api.fetchSaved()
+    const result = await window.api.fetchSaved(account.id)
     selectedReportId = null
     showResult(result)
   } catch (err) {
@@ -743,6 +1031,25 @@ btnOpenFiles.addEventListener('click', async () => {
   }
 })
 
+/** Collect DKIM selectors for a domain from the loaded reports. */
+function collectDkimSelectors(domain: string): string[] {
+  if (!fullResult) return []
+  const d = domain.toLowerCase()
+  const selectors = new Set<string>()
+  for (const report of fullResult.reports) {
+    for (const rec of report.records) {
+      if (
+        report.domain.toLowerCase() === d ||
+        rec.dkimDomain?.toLowerCase() === d ||
+        rec.headerFrom?.toLowerCase() === d
+      ) {
+        for (const sel of rec.dkimSelectors ?? []) selectors.add(sel)
+      }
+    }
+  }
+  return [...selectors].sort()
+}
+
 btnDns.addEventListener('click', async () => {
   const domain = dnsDomainEl.value.trim() || filterDomainEl.value
   if (!domain) {
@@ -750,17 +1057,38 @@ btnDns.addEventListener('click', async () => {
     dnsResultEl.className = 'dns-result error'
     return
   }
+  const manualSelectors = dnsSelectorsEl.value
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const selectors = manualSelectors.length > 0 ? manualSelectors : collectDkimSelectors(domain)
+
   dnsResultEl.textContent = `Prüfe DNS für ${domain}…`
   dnsResultEl.className = 'dns-result'
   try {
-    const result = await window.api.checkDns(domain)
+    const result = await window.api.checkDns(domain, selectors)
     const dmarcLine = result.dmarc.found
       ? `DMARC: p=${result.dmarc.policy ?? '?'} · rua=${result.dmarc.rua ?? '—'}`
       : `DMARC: nicht gefunden${result.dmarc.error ? ` (${result.dmarc.error})` : ''}`
     const spfLine = result.spf.found
       ? `SPF: ${result.spf.records[0]}`
       : `SPF: nicht gefunden${result.spf.error ? ` (${result.spf.error})` : ''}`
-    dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span>`
+
+    let dkimHtml = ''
+    if (result.dkim.selectors.length > 0) {
+      dkimHtml = result.dkim.selectors
+        .map((s) => {
+          const state = s.found
+            ? '<span class="pass">gefunden</span>'
+            : '<span class="fail">nicht gefunden</span>'
+          return `DKIM <span class="mono">${escapeHtml(s.selector)}</span>: ${state}`
+        })
+        .join('<br />')
+    } else {
+      dkimHtml = 'DKIM: keine Selektoren bekannt — Selektoren eingeben oder Reports (neu) abrufen.'
+    }
+
+    dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}`
     dnsResultEl.className = 'dns-result ok'
   } catch (err) {
     dnsResultEl.textContent = err instanceof Error ? err.message : String(err)
@@ -832,6 +1160,14 @@ window.addEventListener('drop', (e) => {
 
 window.api.onProgress(applyProgress)
 window.api.onResult((result) => {
+  // Ergebnisse anderer Konten (Auto-Abruf) nicht über die aktive Ansicht legen.
+  if (
+    result.accountId &&
+    settings?.activeAccountId &&
+    result.accountId !== settings.activeAccountId
+  ) {
+    return
+  }
   selectedReportId = null
   showResult(result)
 })

@@ -1,29 +1,38 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
+  AccountSettingsInput,
   AnalyzeProgress,
   AnalyzeResult,
   DnsCheckResult,
-  ImapConnectionInput,
+  GlobalSettings,
   IpInfo,
-  SavedSettingsPublic,
+  SettingsPublic,
   TestConnectionResult,
   UpdateStatusPayload
 } from '../shared/types'
 
 const api = {
-  loadSettings: (): Promise<SavedSettingsPublic> => ipcRenderer.invoke('settings:load'),
-  saveSettings: (input: ImapConnectionInput): Promise<SavedSettingsPublic> =>
-    ipcRenderer.invoke('settings:save', input),
-  testConnection: (input: ImapConnectionInput): Promise<TestConnectionResult> =>
+  loadSettings: (): Promise<SettingsPublic> => ipcRenderer.invoke('settings:load'),
+  saveAccount: (input: AccountSettingsInput): Promise<SettingsPublic> =>
+    ipcRenderer.invoke('settings:saveAccount', input),
+  deleteAccount: (id: string): Promise<SettingsPublic> =>
+    ipcRenderer.invoke('settings:deleteAccount', id),
+  setActiveAccount: (id: string): Promise<SettingsPublic> =>
+    ipcRenderer.invoke('settings:setActiveAccount', id),
+  saveGlobalSettings: (input: GlobalSettings): Promise<SettingsPublic> =>
+    ipcRenderer.invoke('settings:saveGlobal', input),
+  testConnection: (input: AccountSettingsInput): Promise<TestConnectionResult> =>
     ipcRenderer.invoke('imap:test', input),
-  fetchAndAnalyze: (input: ImapConnectionInput): Promise<AnalyzeResult> =>
-    ipcRenderer.invoke('imap:fetchAndAnalyze', input),
-  fetchSaved: (): Promise<AnalyzeResult> => ipcRenderer.invoke('imap:fetchSaved'),
-  loadCache: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('cache:load'),
-  clearCache: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke('cache:clear'),
+  fetchSaved: (accountId?: string | null): Promise<AnalyzeResult> =>
+    ipcRenderer.invoke('imap:fetchSaved', accountId ?? null),
+  loadCache: (accountId?: string | null): Promise<AnalyzeResult | null> =>
+    ipcRenderer.invoke('cache:load', accountId ?? null),
+  clearCache: (accountId?: string | null): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('cache:clear', accountId ?? null),
   resolveIps: (ips: string[]): Promise<IpInfo[]> => ipcRenderer.invoke('ip:resolve', ips),
-  checkDns: (domain: string): Promise<DnsCheckResult> => ipcRenderer.invoke('dns:check', domain),
+  checkDns: (domain: string, selectors?: string[]): Promise<DnsCheckResult> =>
+    ipcRenderer.invoke('dns:check', domain, selectors ?? []),
   openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
   parsePaths: (paths: string[]): Promise<AnalyzeResult> =>
     ipcRenderer.invoke('files:parsePaths', paths),

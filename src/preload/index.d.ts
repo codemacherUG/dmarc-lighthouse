@@ -1,25 +1,28 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  AccountSettingsInput,
   AnalyzeProgress,
   AnalyzeResult,
   DnsCheckResult,
-  ImapConnectionInput,
+  GlobalSettings,
   IpInfo,
-  SavedSettingsPublic,
+  SettingsPublic,
   TestConnectionResult,
   UpdateStatusPayload
 } from '../shared/types'
 
 export interface DmarcViewerApi {
-  loadSettings: () => Promise<SavedSettingsPublic>
-  saveSettings: (input: ImapConnectionInput) => Promise<SavedSettingsPublic>
-  testConnection: (input: ImapConnectionInput) => Promise<TestConnectionResult>
-  fetchAndAnalyze: (input: ImapConnectionInput) => Promise<AnalyzeResult>
-  fetchSaved: () => Promise<AnalyzeResult>
-  loadCache: () => Promise<AnalyzeResult | null>
-  clearCache: () => Promise<{ ok: boolean; message: string }>
+  loadSettings: () => Promise<SettingsPublic>
+  saveAccount: (input: AccountSettingsInput) => Promise<SettingsPublic>
+  deleteAccount: (id: string) => Promise<SettingsPublic>
+  setActiveAccount: (id: string) => Promise<SettingsPublic>
+  saveGlobalSettings: (input: GlobalSettings) => Promise<SettingsPublic>
+  testConnection: (input: AccountSettingsInput) => Promise<TestConnectionResult>
+  fetchSaved: (accountId?: string | null) => Promise<AnalyzeResult>
+  loadCache: (accountId?: string | null) => Promise<AnalyzeResult | null>
+  clearCache: (accountId?: string | null) => Promise<{ ok: boolean; message: string }>
   resolveIps: (ips: string[]) => Promise<IpInfo[]>
-  checkDns: (domain: string) => Promise<DnsCheckResult>
+  checkDns: (domain: string, selectors?: string[]) => Promise<DnsCheckResult>
   openFiles: () => Promise<AnalyzeResult | null>
   parsePaths: (paths: string[]) => Promise<AnalyzeResult>
   getPathForFile: (file: File) => string

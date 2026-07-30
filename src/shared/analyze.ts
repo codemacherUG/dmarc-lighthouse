@@ -154,7 +154,7 @@ export function analyzeFromReports(
 }
 
 function rangeCutoff(range: DateRangePreset): Date | null {
-  if (range === 'all') return null
+  if (range === 'all' || range === 'custom') return null
   const days = Number(range)
   if (!Number.isFinite(days) || days <= 0) return null
   const d = new Date()
@@ -163,20 +163,72 @@ function rangeCutoff(range: DateRangePreset): Date | null {
   return d
 }
 
+function parseDay(value: string | undefined, endOfDay: boolean): number | null {
+  if (!value) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  if (endOfDay) d.setHours(23, 59, 59, 999)
+  else d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+const UNKNOWN = '(unbekannt)'
+
+/** Rebuild a report row after its records were filtered (drill-down). */
+function withRecords(report: ReportRow, records: ReportRow['records']): ReportRow {
+  let total = 0
+  let passing = 0
+  for (const rec of records) {
+    total += rec.count || 0
+    if (rec.passesDmarc) passing += rec.count || 0
+  }
+  return {
+    ...report,
+    records,
+    total,
+    passing,
+    failing: total - passing,
+    passRate: total ? Math.round((passing / total) * 1000) / 10 : 0
+  }
+}
+
 export function filterReports(reports: ReportRow[], filter: DashboardFilter): ReportRow[] {
   const cutoff = rangeCutoff(filter.range)
+  const customFrom = filter.range === 'custom' ? parseDay(filter.from, false) : null
+  const customTo = filter.range === 'custom' ? parseDay(filter.to, true) : null
   const domain = filter.domain.trim().toLowerCase()
+  const org = filter.org?.trim()
+  const sourceIp = filter.sourceIp?.trim()
+  const headerFrom = filter.headerFrom?.trim()
 
-  return reports.filter((r) => {
-    if (domain && r.domain.toLowerCase() !== domain) return false
-    if (cutoff) {
-      const end = r.dateEnd || r.dateBegin
-      if (!end) return false
+  const rows: ReportRow[] = []
+  for (const r of reports) {
+    if (domain && r.domain.toLowerCase() !== domain) continue
+    if (org && (r.orgName || UNKNOWN) !== org) continue
+
+    const end = r.dateEnd || r.dateBegin
+    if (cutoff || customFrom != null || customTo != null) {
+      if (!end) continue
       const t = new Date(end).getTime()
-      if (Number.isNaN(t) || t < cutoff.getTime()) return false
+      if (Number.isNaN(t)) continue
+      if (cutoff && t < cutoff.getTime()) continue
+      if (customFrom != null && t < customFrom) continue
+      if (customTo != null && t > customTo) continue
     }
-    return true
-  })
+
+    if (sourceIp || headerFrom) {
+      const records = r.records.filter((rec) => {
+        if (sourceIp && rec.sourceIp !== sourceIp) return false
+        if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
+        return true
+      })
+      if (records.length === 0) continue
+      rows.push(withRecords(r, records))
+    } else {
+      rows.push(r)
+    }
+  }
+  return rows
 }
 
 export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilter): AnalyzeResult {

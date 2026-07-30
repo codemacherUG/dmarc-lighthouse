@@ -1,6 +1,6 @@
 export type ProviderPreset = 'gmail' | 'outlook' | 'custom'
 
-export type DateRangePreset = 'all' | '7' | '30' | '90'
+export type DateRangePreset = 'all' | '7' | '30' | '90' | 'custom'
 
 export type UpdateStatusPayload =
   | { status: 'checking' }
@@ -22,6 +22,7 @@ export const PROVIDER_PRESETS: Record<ProviderPreset, ProviderDefaults> = {
   custom: { host: '', port: 993, secure: true }
 }
 
+/** Resolved connection used by the IMAP layer (password always present). */
 export interface ImapConnectionInput {
   provider: ProviderPreset
   host: string
@@ -31,12 +32,26 @@ export interface ImapConnectionInput {
   password: string
   mailbox: string
   subjectFilter: string
-  autoFetchMinutes: number
-  notifyOnFail: boolean
   markSeenAfterFetch: boolean
 }
 
-export interface SavedSettingsPublic {
+/** Account form input from the renderer. `id` is null for a new account. */
+export interface AccountSettingsInput {
+  id: string | null
+  provider: ProviderPreset
+  host: string
+  port: number
+  secure: boolean
+  user: string
+  password: string
+  mailbox: string
+  subjectFilter: string
+  markSeenAfterFetch: boolean
+}
+
+export interface AccountPublic {
+  id: string
+  label: string
   provider: ProviderPreset
   host: string
   port: number
@@ -45,9 +60,26 @@ export interface SavedSettingsPublic {
   mailbox: string
   subjectFilter: string
   hasPassword: boolean
+  markSeenAfterFetch: boolean
+}
+
+export interface GlobalSettings {
   autoFetchMinutes: number
   notifyOnFail: boolean
-  markSeenAfterFetch: boolean
+  /** Alert when the 7-day pass rate falls below this percentage. 0 = off. */
+  passRateAlertThreshold: number
+  /** Alert when a previously unseen source IP shows up in new reports. */
+  notifyNewSource: boolean
+  /** Ignore list for source alerts: IPs or prefixes with `*`, comma/newline separated. */
+  ignoredSources: string
+  /** Keep running in the system tray when the window is closed. */
+  runInTray: boolean
+}
+
+export interface SettingsPublic {
+  accounts: AccountPublic[]
+  activeAccountId: string | null
+  global: GlobalSettings
 }
 
 export interface AnalyzeProgress {
@@ -73,6 +105,8 @@ export interface SerializedRecord {
   headerFrom: string | null
   dkimDomain: string | null
   spfDomain: string | null
+  /** DKIM selectors seen in auth_results (for DNS checks). */
+  dkimSelectors: string[]
   passesDmarc: boolean
   reasons: SerializedReason[]
 }
@@ -147,6 +181,10 @@ export interface AnalyzeResult {
   fromCache?: boolean
   /** Newly parsed report count in this fetch. */
   newReports?: number
+  /** Source IPs that were not seen in any earlier fetch of this account. */
+  newSourceIps?: string[]
+  /** Account this result belongs to (set for IMAP fetches). */
+  accountId?: string
 }
 
 export interface TestConnectionResult {
@@ -159,6 +197,13 @@ export interface IpInfo {
   ip: string
   ptr: string | null
   provider: string | null
+}
+
+export interface DkimSelectorCheck {
+  selector: string
+  found: boolean
+  record: string | null
+  error?: string
 }
 
 export interface DnsCheckResult {
@@ -175,12 +220,25 @@ export interface DnsCheckResult {
     records: string[]
     error?: string
   }
+  dkim: {
+    selectors: DkimSelectorCheck[]
+  }
   checkedAt: string
 }
 
 export interface DashboardFilter {
   range: DateRangePreset
+  /** Custom range start (YYYY-MM-DD), only used when range === 'custom'. */
+  from?: string
+  /** Custom range end (YYYY-MM-DD), only used when range === 'custom'. */
+  to?: string
   domain: string
+  /** Drill-down: only reports from this reporting organization. */
+  org?: string
+  /** Drill-down: only records from this source IP. */
+  sourceIp?: string
+  /** Drill-down: only records with this header-from domain. */
+  headerFrom?: string
 }
 
 export function emptyDashboard(): DashboardData {

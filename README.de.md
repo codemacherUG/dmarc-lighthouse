@@ -73,16 +73,19 @@ IMAP-Zugang (Gmail, Outlook/Microsoft 365 oder Custom), Ordner, Betreff-Filter, 
 | Bereich | Details |
 | --- | --- |
 | **IMAP-Abruf** | Gmail, Outlook/Microsoft 365 oder beliebiger IMAP-Server; inkrementell über UIDs |
+| **Mehrere Konten** | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; Umschalten in der Toolbar |
 | **Datei-Import** | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop |
 | **Lokaler Cache** | Geparste Reports bleiben erhalten; erneuter Abruf lädt nur neue Nachrichten |
 | **Dashboard** | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum |
-| **Charts** | Doughnut für DMARC-/SPF-/DKIM-Alignment; Volumen & Pass-Rate über Zeit |
-| **Tabellen** | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details |
+| **Charts** | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit |
+| **Tabellen** | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert |
 | **IP-Anreicherung** | Reverse-DNS und Erkennung bekannter Absender (Google, Microsoft, Amazon SES, …) |
-| **Filter** | Zeitraum (7 / 30 / 90 Tage / Gesamt) und Domain |
-| **DNS-Check** | Live-Abfrage von DMARC (`p`, `rua`) und SPF |
+| **Filter** | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain sowie Drill-Down nach Org, Quell-IP und From-Domain |
+| **DNS-Check** | Live-Abfrage von DMARC (`p`, `rua`), SPF und DKIM-Selektoren (automatisch aus den Reports oder manuell) |
 | **Export** | Aktuell gefilterte Daten als CSV oder JSON |
-| **Auto-Abruf** | Optionales Intervall + Desktop-Benachrichtigung bei steigenden Failures |
+| **Auto-Abruf** | Optionales Intervall über alle Konten + Desktop-Benachrichtigung bei steigenden Failures |
+| **Alerts** | Pass-Rate-Schwelle (7 Tage) und „neue Quelle erkannt“ mit Ignorieren-Liste für bekannte IPs |
+| **System-Tray** | Optional im Hintergrund weiterlaufen; Abruf und Benachrichtigungen auch bei geschlossenem Fenster |
 | **Auto-Update** | Prüfung auf GitHub Releases (NSIS, AppImage, macOS-ZIP) |
 
 ---

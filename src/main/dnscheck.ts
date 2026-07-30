@@ -1,5 +1,5 @@
 import { promises as dns } from 'dns'
-import type { DnsCheckResult } from '../shared/types'
+import type { DkimSelectorCheck, DnsCheckResult } from '../shared/types'
 
 function flattenTxt(records: string[][]): string[] {
   return records.map((parts) => parts.join(''))
@@ -15,17 +15,44 @@ function parseDmarcPolicy(records: string[]): { policy: string | null; rua: stri
   }
 }
 
-export async function checkDomainDns(domainRaw: string): Promise<DnsCheckResult> {
+async function checkDkimSelector(domain: string, selector: string): Promise<DkimSelectorCheck> {
+  try {
+    const txt = flattenTxt(await dns.resolveTxt(`${selector}._domainkey.${domain}`))
+    const record = txt.find((r) => /v\s*=\s*DKIM1/i.test(r) || /(?:^|;)\s*p\s*=/i.test(r)) ?? null
+    return { selector, found: record != null, record }
+  } catch (err) {
+    return {
+      selector,
+      found: false,
+      record: null,
+      error: err instanceof Error ? err.message : String(err)
+    }
+  }
+}
+
+export async function checkDomainDns(
+  domainRaw: string,
+  selectorsRaw: string[] = []
+): Promise<DnsCheckResult> {
   const domain = domainRaw.trim().toLowerCase().replace(/\.$/, '')
   if (!domain || !/^[a-z0-9.-]+$/i.test(domain)) {
     throw new Error('Ungültige Domain.')
   }
+
+  const selectors = [
+    ...new Set(
+      (selectorsRaw ?? [])
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s && /^[a-z0-9._-]+$/.test(s))
+    )
+  ].slice(0, 10)
 
   const checkedAt = new Date().toISOString()
   const result: DnsCheckResult = {
     domain,
     dmarc: { found: false, records: [], policy: null, rua: null },
     spf: { found: false, records: [] },
+    dkim: { selectors: [] },
     checkedAt
   }
 
@@ -48,6 +75,8 @@ export async function checkDomainDns(domainRaw: string): Promise<DnsCheckResult>
   } catch (err) {
     result.spf.error = err instanceof Error ? err.message : String(err)
   }
+
+  result.dkim.selectors = await Promise.all(selectors.map((sel) => checkDkimSelector(domain, sel)))
 
   return result
 }

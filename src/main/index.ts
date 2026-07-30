@@ -1,11 +1,17 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, Notification } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, Menu, Notification, Tray } from 'electron'
 import { join, basename } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createAppIcon } from './icon'
-import type { AnalyzeResult, ImapConnectionInput, SavedSettingsPublic } from '../shared/types'
+import type {
+  AccountPublic,
+  AccountSettingsInput,
+  AnalyzeResult,
+  GlobalSettings,
+  ReportRow
+} from '../shared/types'
 import { parseLocalBuffers } from './analyze'
-import { accountKeyFor, clearCache, loadCachedReports } from './cache'
+import { accountKeyFor, clearCache } from './cache'
 import { checkDomainDns } from './dnscheck'
 import { exportReportsCsv, exportReportsJson } from './export'
 import {
@@ -16,10 +22,15 @@ import {
 } from './imap'
 import { resolveIps } from './ipinfo'
 import {
-  loadPublicSettings,
-  resolveConnection,
-  resolveSavedConnection,
-  saveSettings
+  deleteAccount,
+  isIgnoredSource,
+  loadSettings,
+  parseIgnoredSources,
+  resolveAccountConnection,
+  resolveInputConnection,
+  saveAccount,
+  saveGlobalSettings,
+  setActiveAccount
 } from './settings'
 import { setupAutoUpdater } from './updater'
 
@@ -30,6 +41,8 @@ if (process.platform === 'linux') {
 }
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+let isQuitting = false
 let autoFetchTimer: ReturnType<typeof setInterval> | null = null
 let fetchInFlight = false
 
@@ -64,6 +77,14 @@ function createWindow(): BrowserWindow {
     win.show()
   })
 
+  win.on('close', (event) => {
+    // With tray mode enabled, closing the window keeps the app (and auto-fetch) running.
+    if (!isQuitting && loadSettings().global.runInTray) {
+      event.preventDefault()
+      win.hide()
+    }
+  })
+
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -78,34 +99,146 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-function notifyFailIncrease(prevFailing: number, result: AnalyzeResult): void {
-  const settings = loadPublicSettings()
-  if (!settings.notifyOnFail) return
-  if (result.aggregate.failing <= prevFailing) return
-  if (!Notification.isSupported()) return
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = createWindow()
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
 
-  const delta = result.aggregate.failing - prevFailing
-  const n = new Notification({
-    title: 'DMARC Viewer',
-    body: `Neue Failures: +${delta} Nachrichten (gesamt ${result.aggregate.failing} fail).`
-  })
+function updateTray(): void {
+  const wantTray = loadSettings().global.runInTray
+  if (wantTray && !tray) {
+    const icon = createAppIcon()
+    tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 22, height: 22 }))
+    tray.setToolTip('DMARC Viewer')
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: 'DMARC Viewer anzeigen', click: () => showMainWindow() },
+        { label: 'Jetzt abrufen', click: () => void runAutoFetchAll() },
+        { type: 'separator' },
+        {
+          label: 'Beenden',
+          click: () => {
+            isQuitting = true
+            app.quit()
+          }
+        }
+      ])
+    )
+    tray.on('click', () => showMainWindow())
+  } else if (!wantTray && tray) {
+    tray.destroy()
+    tray = null
+  }
+}
+
+function notify(body: string): void {
+  if (!Notification.isSupported()) return
+  const n = new Notification({ title: 'DMARC Viewer', body })
+  n.on('click', () => showMainWindow())
   n.show()
 }
 
-async function runSavedFetch(): Promise<AnalyzeResult> {
+/** Pass rate over reports whose window ends within the last `days` days, or null without data. */
+function passRateLastDays(reports: ReportRow[], days: number): number | null {
+  const cutoff = Date.now() - days * 86_400_000
+  let total = 0
+  let passing = 0
+  for (const r of reports) {
+    const end = new Date(r.dateEnd || r.dateBegin).getTime()
+    if (Number.isNaN(end) || end < cutoff) continue
+    total += r.total
+    passing += r.passing
+  }
+  if (total === 0) return null
+  return Math.round((passing / total) * 1000) / 10
+}
+
+function runAlerts(account: AccountPublic, prevFailing: number, result: AnalyzeResult): void {
+  const global = loadSettings().global
+  const suffix = loadSettings().accounts.length > 1 ? ` (${account.label})` : ''
+
+  if (global.notifyOnFail && result.aggregate.failing > prevFailing) {
+    const delta = result.aggregate.failing - prevFailing
+    notify(
+      `Neue Failures: +${delta} Nachrichten (gesamt ${result.aggregate.failing} fail)${suffix}.`
+    )
+  }
+
+  if (global.passRateAlertThreshold > 0 && (result.newReports ?? 0) > 0) {
+    const rate = passRateLastDays(result.reports, 7)
+    if (rate != null && rate < global.passRateAlertThreshold) {
+      notify(
+        `Pass-Rate der letzten 7 Tage bei ${rate.toFixed(1)}% — unter Schwelle von ${global.passRateAlertThreshold}%${suffix}.`
+      )
+    }
+  }
+
+  if (global.notifyNewSource && result.newSourceIps && result.newSourceIps.length > 0) {
+    const matchers = parseIgnoredSources(global.ignoredSources)
+    const relevant = result.newSourceIps.filter((ip) => !isIgnoredSource(ip, matchers))
+    if (relevant.length > 0) {
+      const shown = relevant.slice(0, 3).join(', ')
+      const more = relevant.length > 3 ? ` und ${relevant.length - 3} weitere` : ''
+      notify(`Neue Quelle erkannt: ${shown}${more}${suffix}.`)
+    }
+  }
+}
+
+async function runSavedFetch(accountId?: string | null): Promise<AnalyzeResult> {
   if (fetchInFlight) {
     throw new Error('Abruf läuft bereits.')
   }
   fetchInFlight = true
   try {
-    const settings = resolveSavedConnection()
-    const prevFailing = previousFailingTotal(settings)
-    const result = await fetchAndAnalyze(settings, (progress) => {
-      mainWindow?.webContents.send('imap:progress', progress)
-    })
-    notifyFailIncrease(prevFailing, result)
-    mainWindow?.webContents.send('imap:result', result)
-    return result
+    return await fetchAccount(accountId)
+  } finally {
+    fetchInFlight = false
+  }
+}
+
+async function fetchAccount(accountId?: string | null): Promise<AnalyzeResult> {
+  const settingsPub = loadSettings()
+  const id = accountId ?? settingsPub.activeAccountId
+  const account = settingsPub.accounts.find((a) => a.id === id)
+  if (!account) throw new Error('Kein IMAP-Konto konfiguriert.')
+
+  const connection = resolveAccountConnection(account.id)
+  const prevFailing = previousFailingTotal(connection)
+  const result = await fetchAndAnalyze(connection, (progress) => {
+    mainWindow?.webContents.send('imap:progress', progress)
+  })
+  result.accountId = account.id
+  runAlerts(account, prevFailing, result)
+  mainWindow?.webContents.send('imap:result', result)
+  return result
+}
+
+/** Fetch all configured accounts sequentially (auto-fetch / tray action). */
+async function runAutoFetchAll(): Promise<void> {
+  if (fetchInFlight) return
+  fetchInFlight = true
+  try {
+    const settingsPub = loadSettings()
+    for (const account of settingsPub.accounts) {
+      if (!account.hasPassword || !account.user) continue
+      try {
+        await fetchAccount(account.id)
+      } catch (err) {
+        mainWindow?.webContents.send('imap:progress', {
+          phase: 'error',
+          processed: 0,
+          total: 0,
+          parsed: 0,
+          skipped: 0,
+          message: `${account.label}: ${err instanceof Error ? err.message : String(err)}`
+        })
+      }
+    }
   } finally {
     fetchInFlight = false
   }
@@ -118,83 +251,86 @@ function stopAutoFetch(): void {
   }
 }
 
-function scheduleAutoFetch(settings?: SavedSettingsPublic): void {
+function scheduleAutoFetch(): void {
   stopAutoFetch()
-  const s = settings ?? loadPublicSettings()
-  const minutes = s.autoFetchMinutes
-  if (!minutes || minutes <= 0 || !s.hasPassword || !s.user) return
+  const settingsPub = loadSettings()
+  const minutes = settingsPub.global.autoFetchMinutes
+  const hasAccount = settingsPub.accounts.some((a) => a.hasPassword && a.user)
+  if (!minutes || minutes <= 0 || !hasAccount) return
 
   autoFetchTimer = setInterval(() => {
-    void runSavedFetch().catch((err) => {
-      mainWindow?.webContents.send('imap:progress', {
-        phase: 'error',
-        processed: 0,
-        total: 0,
-        parsed: 0,
-        skipped: 0,
-        message: err instanceof Error ? err.message : String(err)
-      })
-    })
+    void runAutoFetchAll()
   }, minutes * 60_000)
 }
 
 function registerIpc(): void {
-  ipcMain.handle('settings:load', () => loadPublicSettings())
+  ipcMain.handle('settings:load', () => loadSettings())
 
-  ipcMain.handle('settings:save', (_event, input: ImapConnectionInput) => {
-    const saved = saveSettings(input)
-    scheduleAutoFetch(saved)
+  ipcMain.handle('settings:saveAccount', (_event, input: AccountSettingsInput) => {
+    const saved = saveAccount(input)
+    scheduleAutoFetch()
     return saved
   })
 
-  ipcMain.handle('imap:test', async (_event, input: ImapConnectionInput) => {
-    const settings = resolveConnection(input)
-    return testConnection(settings)
-  })
-
-  ipcMain.handle('imap:fetchAndAnalyze', async (_event, input: ImapConnectionInput) => {
-    const settings = resolveConnection(input)
-    const prevFailing = previousFailingTotal(settings)
-    const result = await fetchAndAnalyze(settings, (progress) => {
-      mainWindow?.webContents.send('imap:progress', progress)
-    })
-    notifyFailIncrease(prevFailing, result)
-    return result
-  })
-
-  ipcMain.handle('imap:fetchSaved', async () => runSavedFetch())
-
-  ipcMain.handle('cache:load', () => {
+  ipcMain.handle('settings:deleteAccount', (_event, id: string) => {
+    // Drop the account's cache along with the account itself.
     try {
-      const settings = resolveSavedConnection()
-      return loadCachedAnalyzeResult(settings)
+      const account = loadSettings().accounts.find((a) => a.id === id)
+      if (account) {
+        clearCache(accountKeyFor(account.user, account.host, account.mailbox))
+      }
+    } catch {
+      // Cache-Aufräumen ist optional.
+    }
+    const saved = deleteAccount(id)
+    scheduleAutoFetch()
+    return saved
+  })
+
+  ipcMain.handle('settings:setActiveAccount', (_event, id: string) => setActiveAccount(id))
+
+  ipcMain.handle('settings:saveGlobal', (_event, input: GlobalSettings) => {
+    const saved = saveGlobalSettings(input)
+    scheduleAutoFetch()
+    updateTray()
+    return saved
+  })
+
+  ipcMain.handle('imap:test', async (_event, input: AccountSettingsInput) => {
+    const connection = resolveInputConnection(input)
+    return testConnection(connection)
+  })
+
+  ipcMain.handle('imap:fetchSaved', async (_event, accountId?: string | null) =>
+    runSavedFetch(accountId)
+  )
+
+  ipcMain.handle('cache:load', (_event, accountId?: string | null) => {
+    try {
+      const connection = resolveAccountConnection(accountId)
+      const result = loadCachedAnalyzeResult(connection)
+      const settingsPub = loadSettings()
+      result.accountId = accountId ?? settingsPub.activeAccountId ?? undefined
+      return result
     } catch {
       return null
     }
   })
 
-  ipcMain.handle('cache:clear', () => {
-    const pub = loadPublicSettings()
-    if (!pub.user) return { ok: false, message: 'Keine Zugangsdaten.' }
-    const host = pub.host || ''
-    const key = accountKeyFor(pub.user, host, pub.mailbox)
-    clearCache(key)
+  ipcMain.handle('cache:clear', (_event, accountId?: string | null) => {
+    const settingsPub = loadSettings()
+    const id = accountId ?? settingsPub.activeAccountId
+    const account = settingsPub.accounts.find((a) => a.id === id)
+    if (!account) return { ok: false, message: 'Kein Konto ausgewählt.' }
+    clearCache(accountKeyFor(account.user, account.host, account.mailbox))
     return { ok: true, message: 'Cache geleert.' }
-  })
-
-  ipcMain.handle('cache:meta', () => {
-    try {
-      const settings = resolveSavedConnection()
-      const key = accountKeyFor(settings.user, settings.host, settings.mailbox)
-      return loadCachedReports(key).meta
-    } catch {
-      return null
-    }
   })
 
   ipcMain.handle('ip:resolve', async (_event, ips: string[]) => resolveIps(ips ?? []))
 
-  ipcMain.handle('dns:check', async (_event, domain: string) => checkDomainDns(domain))
+  ipcMain.handle('dns:check', async (_event, domain: string, selectors?: string[]) =>
+    checkDomainDns(domain, selectors ?? [])
+  )
 
   ipcMain.handle('files:open', async () => {
     const openOptions = {
@@ -260,15 +396,24 @@ app.whenReady().then(() => {
   setupAutoUpdater(() => mainWindow)
   mainWindow = createWindow()
   scheduleAutoFetch()
+  updateTray()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow()
+    } else {
+      showMainWindow()
     }
   })
 })
 
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
 app.on('window-all-closed', () => {
+  // With an active tray the app keeps running in the background.
+  if (tray) return
   stopAutoFetch()
   if (process.platform !== 'darwin') {
     app.quit()

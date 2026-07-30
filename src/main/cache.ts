@@ -9,6 +9,7 @@ export interface CacheMeta {
   lastUid: number
   lastFetchAt: string | null
   lastFailingTotal: number
+  knownSourceIps: string[]
 }
 
 interface CacheFile {
@@ -17,6 +18,7 @@ interface CacheFile {
   lastUid: number
   lastFetchAt: string | null
   lastFailingTotal: number
+  knownSourceIps?: string[]
   reports: ReportRow[]
 }
 
@@ -62,7 +64,8 @@ function readCacheFile(accountKey: string): CacheFile {
         ...r,
         records: (r.records ?? []).map((rec) => ({
           ...rec,
-          reasons: rec.reasons ?? []
+          reasons: rec.reasons ?? [],
+          dkimSelectors: rec.dkimSelectors ?? []
         }))
       }))
     }
@@ -86,7 +89,8 @@ export function loadCachedReports(accountKey: string): {
       accountKey: cache.accountKey,
       lastUid: cache.lastUid,
       lastFetchAt: cache.lastFetchAt,
-      lastFailingTotal: cache.lastFailingTotal
+      lastFailingTotal: cache.lastFailingTotal,
+      knownSourceIps: cache.knownSourceIps ?? []
     }
   }
 }
@@ -108,6 +112,7 @@ export function saveCache(input: {
   reports: ReportRow[]
   lastUid: number
   lastFailingTotal: number
+  knownSourceIps: string[]
 }): CacheMeta {
   const cache: CacheFile = {
     version: 1,
@@ -115,6 +120,7 @@ export function saveCache(input: {
     lastUid: input.lastUid,
     lastFetchAt: new Date().toISOString(),
     lastFailingTotal: input.lastFailingTotal,
+    knownSourceIps: input.knownSourceIps,
     reports: input.reports
   }
   writeCacheFile(cache)
@@ -122,7 +128,8 @@ export function saveCache(input: {
     accountKey: cache.accountKey,
     lastUid: cache.lastUid,
     lastFetchAt: cache.lastFetchAt,
-    lastFailingTotal: cache.lastFailingTotal
+    lastFailingTotal: cache.lastFailingTotal,
+    knownSourceIps: cache.knownSourceIps ?? []
   }
 }
 

@@ -73,16 +73,19 @@ IMAP access (Gmail, Outlook/Microsoft 365, or custom), folders, subject filters,
 | Area | Details |
 | --- | --- |
 | **IMAP fetch** | Gmail, Outlook/Microsoft 365, or any IMAP server; incremental via UIDs |
+| **Multiple accounts** | Any number of IMAP accounts/profiles with separate caches; switch via toolbar |
 | **File import** | XML, GZ, ZIP, EML/MIME — dialog or drag & drop |
 | **Local cache** | Parsed reports are kept; subsequent fetches only load new messages |
 | **Dashboard** | Reports, messages, pass/fail, pass rate, date range |
-| **Charts** | Doughnut for DMARC/SPF/DKIM alignment; volume & pass rate over time |
-| **Tables** | Organizations, source IPs, From domains, individual reports + record details |
+| **Charts** | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time |
+| **Tables** | Organizations, source IPs, From domains, individual reports + record details; click a row to filter |
 | **IP enrichment** | Reverse DNS and detection of known senders (Google, Microsoft, Amazon SES, …) |
-| **Filters** | Date range (7 / 30 / 90 days / all) and domain |
-| **DNS check** | Live lookup of DMARC (`p`, `rua`) and SPF |
+| **Filters** | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain |
+| **DNS check** | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual) |
 | **Export** | Currently filtered data as CSV or JSON |
-| **Auto-fetch** | Optional interval + desktop notification when failures increase |
+| **Auto-fetch** | Optional interval across all accounts + desktop notification when failures increase |
+| **Alerts** | Pass-rate threshold (7 days) and "new source detected" with an ignore list for known IPs |
+| **System tray** | Optionally keep running in the background; fetching and notifications continue with the window closed |
 | **Auto-update** | Checks GitHub Releases (NSIS, AppImage, macOS ZIP) |
 
 ---
