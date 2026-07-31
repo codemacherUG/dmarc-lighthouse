@@ -23,6 +23,7 @@ import {
   type OAuthClientConfig,
   type OAuthTokens
 } from './oauth'
+import { applyLinuxOpenAtLogin } from './autostart'
 
 interface StoredAccount {
   id: string
@@ -528,14 +529,22 @@ export function applyOpenAtLogin(settings?: GlobalSettings): void {
   const global = settings ?? loadSettings().global
   const openAtLogin = Boolean(global.openAtLogin)
   const openAsHidden = openAtLogin && Boolean(global.runInTray)
+  if (process.platform === 'linux') {
+    try {
+      applyLinuxOpenAtLogin(openAtLogin, openAsHidden)
+    } catch (err) {
+      console.warn('[autostart] Failed to update XDG autostart entry:', err)
+    }
+    return
+  }
   try {
     app.setLoginItemSettings({
       openAtLogin,
       openAsHidden,
       args: openAsHidden ? ['--hidden'] : []
     })
-  } catch {
-    // Some environments (e.g. certain Linux packaging modes) may not support this.
+  } catch (err) {
+    console.warn('[autostart] Failed to update login item settings:', err)
   }
 }
 
