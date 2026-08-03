@@ -4,6 +4,7 @@
   "description": "Desktop DMARC report viewer — IMAP/OAuth fetch, SQLite cache, aggregate and forensic analysis",
   "main": "./out/main/index.js",
   "author": "codemacher UG (haftungsbeschränkt)",
+  "license": "MIT",
   "homepage": "https://codemacher.de/",
   "repository": {
     "type": "git",
