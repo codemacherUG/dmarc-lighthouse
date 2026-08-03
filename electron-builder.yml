@@ -21,6 +21,10 @@ extraResources:
       - '*.png'
   - from: build/icon.svg
     to: icons/icon.svg
+  - from: LICENSE
+    to: LICENSE
+  - from: THIRD_PARTY_NOTICES.txt
+    to: THIRD_PARTY_NOTICES.txt
 afterPack: build/hooks/afterPack.cjs
 icon: icon.png
 win:

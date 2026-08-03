@@ -1,8 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Menu, Notification, Tray } from 'electron'
 import { join, basename } from 'path'
-import { readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { createAppIcon } from './icon'
+import { createAppIcon, createTrayIcon } from './icon'
 import type {
   AccountPublic,
   AccountSettingsInput,
@@ -55,12 +55,15 @@ if (process.platform === 'linux') {
 }
 
 let mainWindow: BrowserWindow | null = null
+let noticesWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
 let autoFetchTimer: ReturnType<typeof setInterval> | null = null
 let fetchInFlight = false
 /** True when the app was launched at login as a hidden background instance. */
 let startHidden = false
+/** Tray badge: new reports arrived while the window was not in view. */
+let trayNeedsAttention = false
 
 function shouldStartHidden(): boolean {
   if (process.argv.includes('--hidden')) return true
@@ -122,6 +125,10 @@ function createWindow(): BrowserWindow {
     }
   })
 
+  win.on('show', () => {
+    clearTrayAttention()
+  })
+
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -137,6 +144,7 @@ function createWindow(): BrowserWindow {
 }
 
 function showMainWindow(): void {
+  clearTrayAttention()
   if (!mainWindow || mainWindow.isDestroyed()) {
     mainWindow = createWindow()
     return
@@ -146,20 +154,58 @@ function showMainWindow(): void {
   mainWindow.focus()
 }
 
+function isMainWindowInView(): boolean {
+  if (!mainWindow || mainWindow.isDestroyed()) return false
+  return mainWindow.isVisible() && !mainWindow.isMinimized()
+}
+
+function applyTrayIconAndTooltip(): void {
+  if (!tray) return
+  const icon = createTrayIcon(trayNeedsAttention)
+  if (!icon.isEmpty()) tray.setImage(icon)
+  tray.setToolTip(trayNeedsAttention ? t('main.trayTooltipNew') : t('app.title'))
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setBadge(trayNeedsAttention ? '•' : '')
+  }
+}
+
+function setTrayAttention(on: boolean): void {
+  if (trayNeedsAttention === on) {
+    if (on) applyTrayIconAndTooltip()
+    return
+  }
+  trayNeedsAttention = on
+  applyTrayIconAndTooltip()
+}
+
+function clearTrayAttention(): void {
+  setTrayAttention(false)
+}
+
+function markTrayAttentionIfHidden(): void {
+  if (!loadSettings().global.runInTray) return
+  if (isMainWindowInView()) return
+  updateTray()
+  setTrayAttention(true)
+}
+
 function updateTray(): void {
   const wantTray = loadSettings().global.runInTray
   if (wantTray && !tray) {
-    const icon = createAppIcon()
-    tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 22, height: 22 }))
-    tray.setToolTip(t('app.title'))
+    const icon = createTrayIcon(trayNeedsAttention)
+    tray = new Tray(icon.isEmpty() ? createAppIcon() : icon)
     tray.on('click', () => showMainWindow())
   } else if (!wantTray && tray) {
     tray.destroy()
     tray = null
+    trayNeedsAttention = false
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.setBadge('')
+    }
     return
   }
   if (!tray) return
-  tray.setToolTip(t('app.title'))
+  applyTrayIconAndTooltip()
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: t('main.trayShow'), click: () => showMainWindow() },
@@ -262,6 +308,9 @@ async function fetchAccount(accountId?: string | null): Promise<AnalyzeResult> {
   })
   result.accountId = account.id
   runAlerts(account, prevFailing, result)
+  if ((result.newReports ?? 0) > 0) {
+    markTrayAttentionIfHidden()
+  }
   mainWindow?.webContents.send('imap:result', result)
   return result
 }
@@ -311,8 +360,92 @@ function scheduleAutoFetch(): void {
   }, minutes * 60_000)
 }
 
+function thirdPartyNoticesPath(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'THIRD_PARTY_NOTICES.txt')
+  }
+  return join(__dirname, '../../THIRD_PARTY_NOTICES.txt')
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** Show notices in-app — shell.openPath often hangs on Linux and never resolves IPC. */
+async function openThirdPartyNoticesWindow(): Promise<{ ok: boolean; message: string }> {
+  const target = thirdPartyNoticesPath()
+  if (!existsSync(target)) {
+    return { ok: false, message: t('about.noticesMissing') }
+  }
+
+  if (noticesWindow && !noticesWindow.isDestroyed()) {
+    noticesWindow.focus()
+    return { ok: true, message: '' }
+  }
+
+  const body = escapeHtml(readFileSync(target, 'utf8'))
+  const title = escapeHtml(t('about.openLicenses'))
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${title}</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      padding: 16px 18px 24px;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #1a2332;
+      background: #f7f9fb;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>${body}</body>
+</html>`
+
+  const appIcon = createAppIcon()
+  noticesWindow = new BrowserWindow({
+    width: 780,
+    height: 640,
+    minWidth: 480,
+    minHeight: 360,
+    title: t('about.openLicenses'),
+    autoHideMenuBar: true,
+    parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+    ...(appIcon.isEmpty() ? {} : { icon: appIcon }),
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+
+  noticesWindow.on('closed', () => {
+    noticesWindow = null
+  })
+
+  // data: URL avoids file:// MIME quirks for plain .txt
+  await noticesWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  return { ok: true, message: '' }
+}
+
 function registerIpc(): void {
   ipcMain.handle('app:getVersion', () => app.getVersion())
+
+  ipcMain.handle('app:openThirdPartyNotices', async () => {
+    try {
+      return await openThirdPartyNoticesWindow()
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) }
+    }
+  })
 
   ipcMain.handle('settings:load', () => loadSettings())
 

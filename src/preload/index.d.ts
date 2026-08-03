@@ -46,6 +46,7 @@ export interface DmarcViewerApi {
     format: 'json' | 'csv'
   ) => Promise<{ ok: boolean; message: string }>
   getAppVersion: () => Promise<string>
+  openThirdPartyNotices: () => Promise<{ ok: boolean; message: string }>
   checkForUpdates: () => Promise<{ ok: boolean; message: string }>
   installUpdate: () => Promise<{ ok: boolean; message: string }>
   onProgress: (callback: (progress: AnalyzeProgress) => void) => () => void

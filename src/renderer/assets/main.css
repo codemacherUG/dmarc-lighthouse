@@ -630,6 +630,12 @@ input[type='checkbox']:focus-visible {
   text-decoration: underline;
 }
 
+.about-attribution {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .settings-form {
   padding: 16px 18px 18px;
 }

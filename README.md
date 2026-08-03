@@ -230,8 +230,20 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.7` or start th
 - Settings and report caches live under the Electron `userData` path (not in the repo); each IMAP account has its own cache.
 - Clear cache: Settings → IMAP account → **Clear this account’s cache** (the next fetch will retrieve everything again for that account).
 - Optionally, fetched messages can be marked as read (`\Seen`) and/or moved to an archive folder after import.
-- With system tray enabled, closing the window hides the app instead of quitting — use **Quit** from the tray menu to exit fully.
+- With system tray enabled, closing the window hides the app instead of quitting — use **Quit** from the tray menu to exit fully. The tray icon shows a marker when new reports arrived while the window was hidden; opening the window clears it.
 - Existing single-account settings from older versions are migrated automatically to the multi-account format.
+
+---
+
+## License & attributions
+
+DMARC Viewer is released under the [MIT License](LICENSE). Bundled dependency license texts are listed in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) (also via **About → View open-source licenses**). Electron/Chromium notices ship with the packaged app.
+
+Optional offline GeoIP uses MaxMind GeoLite2 (downloaded by the user with a MaxMind license key):
+
+> This product includes GeoLite2 Data created by MaxMind, available from https://www.maxmind.com
+
+Regenerate the notices file after dependency changes: `npm run licenses:generate`.
 
 ---
 
