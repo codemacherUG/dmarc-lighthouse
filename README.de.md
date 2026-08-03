@@ -230,8 +230,20 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.7` pushen oder Work
 - Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
 - Cache leeren: Einstellungen → IMAP-Konto → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).
 - Optional können abgerufene Nachrichten als gelesen markiert (`\Seen`) und/oder nach dem Import in einen Archiv-Ordner verschoben werden.
-- Mit aktivem System-Tray blendet das Schließen des Fensters die App nur aus — vollständig beenden über **Beenden** im Tray-Menü.
+- Mit aktivem System-Tray blendet das Schließen des Fensters die App nur aus — vollständig beenden über **Beenden** im Tray-Menü. Das Tray-Icon zeigt eine Markierung, wenn neue Reports eingegangen sind, während das Fenster verborgen war; beim Öffnen verschwindet sie wieder.
 - Bestehende Einzelkonto-Einstellungen älterer Versionen werden automatisch ins Multi-Konto-Format migriert.
+
+---
+
+## Lizenz & Attributionen
+
+DMARC Viewer steht unter der [MIT-Lizenz](LICENSE). Lizenztexte gebündelter Abhängigkeiten stehen in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) (auch unter **Über → Open-Source-Lizenzen anzeigen**). Electron-/Chromium-Hinweise liegen der Paketierung bei.
+
+Optionales Offline-GeoIP nutzt MaxMind GeoLite2 (Download durch den Nutzer mit MaxMind-License-Key):
+
+> This product includes GeoLite2 Data created by MaxMind, available from https://www.maxmind.com
+
+Notices nach Dependency-Änderungen neu erzeugen: `npm run licenses:generate`.
 
 ---
 

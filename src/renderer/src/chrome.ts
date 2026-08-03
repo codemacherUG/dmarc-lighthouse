@@ -8,6 +8,7 @@ import {
   btnFetch,
   btnInfo,
   btnOpenFiles,
+  btnOpenLicenses,
   btnSettings,
   btnTest,
   btnUpdateDismiss,
@@ -136,6 +137,16 @@ export function initChrome(): void {
     updateCheckStatusEl.textContent = t('update.checking')
     try {
       const result = await window.api.checkForUpdates()
+      if (!result.ok) updateCheckStatusEl.textContent = result.message
+    } catch (err) {
+      updateCheckStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    }
+  })
+
+  btnOpenLicenses.addEventListener('click', async () => {
+    updateCheckStatusEl.textContent = ''
+    try {
+      const result = await window.api.openThirdPartyNotices()
       if (!result.ok) updateCheckStatusEl.textContent = result.message
     } catch (err) {
       updateCheckStatusEl.textContent = err instanceof Error ? err.message : String(err)

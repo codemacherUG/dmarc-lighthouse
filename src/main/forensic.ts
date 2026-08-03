@@ -55,7 +55,10 @@ function splitMultipart(body: string, boundary: string): Array<{ headers: string
   const parts = body.split(delim)
   const out: Array<{ headers: string; body: string }> = []
   for (const part of parts) {
-    const trimmed = part.replace(/^\r?\n/, '').replace(/--\s*$/, '').trim()
+    const trimmed = part
+      .replace(/^\r?\n/, '')
+      .replace(/--\s*$/, '')
+      .trim()
     if (!trimmed || trimmed === '--') continue
     const splitAt = trimmed.search(/\r?\n\r?\n/)
     if (splitAt < 0) {
@@ -64,7 +67,10 @@ function splitMultipart(body: string, boundary: string): Array<{ headers: string
     }
     out.push({
       headers: trimmed.slice(0, splitAt),
-      body: trimmed.slice(splitAt).replace(/^\r?\n\r?\n/, '').replace(/^\n\n/, '')
+      body: trimmed
+        .slice(splitAt)
+        .replace(/^\r?\n\r?\n/, '')
+        .replace(/^\n\n/, '')
     })
   }
   return out
@@ -164,7 +170,10 @@ export function parseForensicEmail(source: Buffer | string): ForensicReportRow {
   const splitAt = text.search(/\r?\n\r?\n/)
   if (splitAt < 0) throw new ForensicParseError('Missing header/body separator')
   const topHeaders = parseHeaderBlock(text.slice(0, splitAt))
-  const body = text.slice(splitAt).replace(/^\r?\n\r?\n/, '').replace(/^\n\n/, '')
+  const body = text
+    .slice(splitAt)
+    .replace(/^\r?\n\r?\n/, '')
+    .replace(/^\n\n/, '')
 
   if (!looksLikeFeedbackReport(topHeaders, body)) {
     throw new ForensicParseError('Not an ARF/feedback forensic report')
@@ -214,7 +223,9 @@ export function parseForensicEmail(source: Buffer | string): ForensicReportRow {
 }
 
 export function isLikelyForensicMime(source: Buffer | string): boolean {
-  const sample = (typeof source === 'string' ? source : source.toString('utf8', 0, 4096)).toLowerCase()
+  const sample = (
+    typeof source === 'string' ? source : source.toString('utf8', 0, 4096)
+  ).toLowerCase()
   return (
     sample.includes('report-type=feedback-report') ||
     sample.includes('message/feedback-report') ||

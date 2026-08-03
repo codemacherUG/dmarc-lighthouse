@@ -7,7 +7,10 @@ import type {
   SettingsPublic
 } from './types'
 
-function rec(overrides: Partial<SerializedRecord> & Pick<SerializedRecord, 'sourceIp' | 'count' | 'passesDmarc'>): SerializedRecord {
+function rec(
+  overrides: Partial<SerializedRecord> &
+    Pick<SerializedRecord, 'sourceIp' | 'count' | 'passesDmarc'>
+): SerializedRecord {
   return {
     disposition: 'none',
     dkimResult: overrides.passesDmarc ? 'pass' : 'fail',

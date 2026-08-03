@@ -3,7 +3,13 @@ import { createHash } from 'crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from 'fs'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
-import type { DnsCheckResult, ForensicReportRow, IpInfo, ReportRow, SerializedRecord } from '../shared/types'
+import type {
+  DnsCheckResult,
+  ForensicReportRow,
+  IpInfo,
+  ReportRow,
+  SerializedRecord
+} from '../shared/types'
 
 export interface CacheMeta {
   accountKey: string
@@ -173,9 +179,8 @@ function openDb(): DatabaseSync {
 }
 
 function schemaVersion(database: DatabaseSync): number {
-  const row = database
-    .prepare(`SELECT value FROM schema_meta WHERE key = 'version'`)
-    .get() as { value?: string } | undefined
+  const row = database.prepare(`SELECT value FROM schema_meta WHERE key = 'version'`).get() as
+    { value?: string } | undefined
   const n = Number(row?.value ?? '1')
   return Number.isFinite(n) ? n : 1
 }
@@ -228,9 +233,7 @@ function migrateSchema(database: DatabaseSync): void {
   // v4: track UID watermark for optional archive mailbox.
   if (version < 4) {
     try {
-      database.exec(
-        'ALTER TABLE cache_meta ADD COLUMN last_uid_archive INTEGER NOT NULL DEFAULT 0'
-      )
+      database.exec('ALTER TABLE cache_meta ADD COLUMN last_uid_archive INTEGER NOT NULL DEFAULT 0')
     } catch {
       // Column may already exist on partially migrated DBs.
     }
@@ -493,8 +496,7 @@ function writeAccountCache(
 
   for (const report of input.reports) {
     const reportId =
-      report.reportId ||
-      `${report.orgName}|${report.domain}|${report.dateBegin}|${report.dateEnd}`
+      report.reportId || `${report.orgName}|${report.domain}|${report.dateBegin}|${report.dateEnd}`
     reportStmt.run(
       input.accountKey,
       reportId,
@@ -619,9 +621,7 @@ export function mergeForensicReports(
   const map = new Map<string, ForensicReportRow>()
   for (const r of existing) map.set(r.id, r)
   for (const r of incoming) map.set(r.id, r)
-  return [...map.values()].sort((a, b) =>
-    (b.arrivalDate ?? '').localeCompare(a.arrivalDate ?? '')
-  )
+  return [...map.values()].sort((a, b) => (b.arrivalDate ?? '').localeCompare(a.arrivalDate ?? ''))
 }
 
 export function saveCache(input: {
@@ -795,9 +795,7 @@ export function getDnsHealthCache(domain: string): DnsCheckResult | null {
   const database = openDb()
   const now = new Date().toISOString()
   const row = database
-    .prepare(
-      `SELECT result_json FROM dns_health_cache WHERE domain = ? AND expires_at > ?`
-    )
+    .prepare(`SELECT result_json FROM dns_health_cache WHERE domain = ? AND expires_at > ?`)
     .get(domain.trim().toLowerCase(), now) as { result_json?: string } | undefined
   if (!row?.result_json) return null
   try {

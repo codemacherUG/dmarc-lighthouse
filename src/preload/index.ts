@@ -63,6 +63,8 @@ const api = {
     format: 'json' | 'csv'
   ): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke('export:save', result, format),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  openThirdPartyNotices: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('app:openThirdPartyNotices'),
   checkForUpdates: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('update:check'),
   installUpdate: (): Promise<{ ok: boolean; message: string }> =>

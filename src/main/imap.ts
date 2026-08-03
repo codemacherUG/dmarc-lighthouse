@@ -351,11 +351,7 @@ function chunkUids(uids: number[], size = 100): number[][] {
   return out
 }
 
-async function markSeen(
-  client: ImapFlow,
-  mailbox: string,
-  uidList: number[]
-): Promise<void> {
+async function markSeen(client: ImapFlow, mailbox: string, uidList: number[]): Promise<void> {
   if (uidList.length === 0) return
   const path = await resolveServerMailboxPath(client, mailbox)
   const lock = await client.getMailboxLock(path)
@@ -497,9 +493,7 @@ export async function fetchAndAnalyze(
       if (totalFetched === 0) {
         const notes: string[] = []
         if (archiveMailbox) {
-          notes.push(
-            ...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress))
-          )
+          notes.push(...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress)))
         }
         const base =
           cached.reports.length > 0 || cached.forensicReports.length > 0
@@ -587,9 +581,7 @@ export async function fetchAndAnalyze(
       }
 
       if (archiveMailbox) {
-        notes.push(
-          ...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress))
-        )
+        notes.push(...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress)))
       } else if (settings.markSeenAfterFetch && sourceFetch.uidList.length > 0) {
         try {
           await markSeen(client, settings.mailbox, sourceFetch.uidList)

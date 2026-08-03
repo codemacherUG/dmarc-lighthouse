@@ -56,8 +56,7 @@ function serializeReport(report: DmarcReport): ReportRow {
 export { analyzeFromReports, applyDashboardFilter, buildDashboard } from '../shared/analyze'
 
 type ParsedMime =
-  | { kind: 'aggregate'; report: DmarcReport }
-  | { kind: 'forensic'; report: ForensicReportRow }
+  { kind: 'aggregate'; report: DmarcReport } | { kind: 'forensic'; report: ForensicReportRow }
 
 async function parseMimeBuffer(source: Buffer): Promise<ParsedMime> {
   if (isLikelyForensicMime(source)) {

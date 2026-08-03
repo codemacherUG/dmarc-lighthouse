@@ -58,6 +58,7 @@ export const btnCloseSettings = document.getElementById('btn-close-settings') as
 export const btnCloseInfo = document.getElementById('btn-close-info') as HTMLButtonElement
 export const btnCloseExport = document.getElementById('btn-close-export') as HTMLButtonElement
 export const btnInfoOk = document.getElementById('btn-info-ok') as HTMLButtonElement
+export const btnOpenLicenses = document.getElementById('btn-open-licenses') as HTMLButtonElement
 export const btnCheckUpdate = document.getElementById('btn-check-update') as HTMLButtonElement
 export const btnTest = document.getElementById('btn-test') as HTMLButtonElement
 export const btnClearCache = document.getElementById('btn-clear-cache') as HTMLButtonElement

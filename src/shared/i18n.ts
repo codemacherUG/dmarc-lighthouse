@@ -263,7 +263,8 @@ const de = {
   'table.headerFrom': 'Header-From',
   'table.feedbackType': 'Typ',
 
-  'oauth.missingGoogleClientId': 'Google OAuth Client-ID fehlt (Einstellungen oder DMARC_GOOGLE_CLIENT_ID).',
+  'oauth.missingGoogleClientId':
+    'Google OAuth Client-ID fehlt (Einstellungen oder DMARC_GOOGLE_CLIENT_ID).',
   'oauth.missingMicrosoftClientId':
     'Microsoft OAuth Client-ID fehlt (Einstellungen oder DMARC_MS_CLIENT_ID).',
   'oauth.invalidCallback': 'Ungültige OAuth-Antwort (State/Code).',
@@ -291,7 +292,11 @@ const de = {
   'about.location': 'Standort',
   'about.locationValue': 'Halle (Saale)',
   'about.oss':
-    'Enthält Open-Source-Komponenten (u. a. Electron, imapflow, Chart.js, @koduhai/dmarc-parser).',
+    'Enthält Open-Source-Komponenten (u. a. Electron, imapflow, Chart.js, @koduhai/dmarc-parser). Vollständige Lizenztexte: THIRD_PARTY_NOTICES.',
+  'about.maxmind':
+    'This product includes GeoLite2 Data created by MaxMind, available from https://www.maxmind.com',
+  'about.openLicenses': 'Open-Source-Lizenzen anzeigen',
+  'about.noticesMissing': 'THIRD_PARTY_NOTICES.txt wurde nicht gefunden.',
   'about.checkUpdate': 'Auf Updates prüfen',
   'about.close': 'Schließen',
 
@@ -346,6 +351,7 @@ const de = {
   'main.trayShow': 'DMARC Viewer anzeigen',
   'main.trayFetch': 'Jetzt abrufen',
   'main.trayQuit': 'Beenden',
+  'main.trayTooltipNew': 'DMARC Viewer — neue Reports',
 
   'imap.connectOk': 'Verbindung OK — Ordner „{mailbox}" enthält {count} Nachrichten.',
   'imap.listOk': '{count} Ordner geladen.',
@@ -666,7 +672,11 @@ const en: Dict = {
   'about.location': 'Location',
   'about.locationValue': 'Halle (Saale)',
   'about.oss':
-    'Includes open-source components (incl. Electron, imapflow, Chart.js, @koduhai/dmarc-parser).',
+    'Includes open-source components (incl. Electron, imapflow, Chart.js, @koduhai/dmarc-parser). Full license texts: THIRD_PARTY_NOTICES.',
+  'about.maxmind':
+    'This product includes GeoLite2 Data created by MaxMind, available from https://www.maxmind.com',
+  'about.openLicenses': 'View open-source licenses',
+  'about.noticesMissing': 'THIRD_PARTY_NOTICES.txt was not found.',
   'about.checkUpdate': 'Check for updates',
   'about.close': 'Close',
 
@@ -718,6 +728,7 @@ const en: Dict = {
   'main.trayShow': 'Show DMARC Viewer',
   'main.trayFetch': 'Fetch now',
   'main.trayQuit': 'Quit',
+  'main.trayTooltipNew': 'DMARC Viewer — new reports',
 
   'imap.connectOk': 'Connection OK — folder “{mailbox}" contains {count} messages.',
   'imap.listOk': 'Loaded {count} folders.',
