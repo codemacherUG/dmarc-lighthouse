@@ -149,9 +149,7 @@ function readStored(): StoredSettingsV2 {
   if (!existsSync(path)) return empty
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as
-      | StoredSettingsV2
-      | StoredSettingsV1
-      | null
+      StoredSettingsV2 | StoredSettingsV1 | null
     if (!parsed || typeof parsed !== 'object') return empty
     if ('version' in parsed && parsed.version === 2) {
       return {
@@ -243,13 +241,9 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     openAtLogin: Boolean(g.openAtLogin),
     language,
     oauthGoogleClientId:
-      g.oauthGoogleClientId?.trim() ||
-      process.env.DMARC_GOOGLE_CLIENT_ID?.trim() ||
-      '',
+      g.oauthGoogleClientId?.trim() || process.env.DMARC_GOOGLE_CLIENT_ID?.trim() || '',
     oauthMicrosoftClientId:
-      g.oauthMicrosoftClientId?.trim() ||
-      process.env.DMARC_MS_CLIENT_ID?.trim() ||
-      '',
+      g.oauthMicrosoftClientId?.trim() || process.env.DMARC_MS_CLIENT_ID?.trim() || '',
     enrichmentEnabled: g.enrichmentEnabled ?? GLOBAL_DEFAULTS.enrichmentEnabled,
     geoIpOnlineFallback: Boolean(g.geoIpOnlineFallback),
     maxmindLicenseKey: g.maxmindLicenseKey?.trim() ?? '',
@@ -429,7 +423,9 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
   return loadSettings()
 }
 
-function baseConnection(account: StoredAccount): Omit<ImapConnectionInput, 'authMode' | 'password' | 'accessToken'> {
+function baseConnection(
+  account: StoredAccount
+): Omit<ImapConnectionInput, 'authMode' | 'password' | 'accessToken'> {
   const preset = PROVIDER_PRESETS[account.provider ?? 'custom']
   const host = (account.host ?? '').trim() || preset.host
   if (!host) throw new Error(t('main.hostMissing'))
@@ -469,7 +465,10 @@ async function resolveOAuthAccessToken(account: StoredAccount): Promise<string> 
   return tokens.accessToken
 }
 
-async function toConnection(account: StoredAccount, passwordFallback = ''): Promise<ImapConnectionInput> {
+async function toConnection(
+  account: StoredAccount,
+  passwordFallback = ''
+): Promise<ImapConnectionInput> {
   const base = baseConnection(account)
   const authMode = normalizeAuthMode(account.authMode)
   if (authMode === 'oauth') {

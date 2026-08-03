@@ -263,7 +263,8 @@ const de = {
   'table.headerFrom': 'Header-From',
   'table.feedbackType': 'Typ',
 
-  'oauth.missingGoogleClientId': 'Google OAuth Client-ID fehlt (Einstellungen oder DMARC_GOOGLE_CLIENT_ID).',
+  'oauth.missingGoogleClientId':
+    'Google OAuth Client-ID fehlt (Einstellungen oder DMARC_GOOGLE_CLIENT_ID).',
   'oauth.missingMicrosoftClientId':
     'Microsoft OAuth Client-ID fehlt (Einstellungen oder DMARC_MS_CLIENT_ID).',
   'oauth.invalidCallback': 'Ungültige OAuth-Antwort (State/Code).',
