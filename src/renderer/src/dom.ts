@@ -19,6 +19,9 @@ export const filterCustomWrap = document.getElementById('filter-custom-range') a
 export const filterFromEl = document.getElementById('filter-from') as HTMLInputElement
 export const filterToEl = document.getElementById('filter-to') as HTMLInputElement
 export const filterDomainEl = document.getElementById('filter-domain') as HTMLSelectElement
+export const filterHideGoogleNoiseEl = document.getElementById(
+  'filter-hide-google-noise'
+) as HTMLInputElement
 export const filterChipsEl = document.getElementById('filter-chips') as HTMLDivElement
 export const accountFieldEl = document.getElementById('account-field') as HTMLLabelElement
 export const accountSelectEl = document.getElementById('account-select') as HTMLSelectElement
@@ -26,6 +29,8 @@ export const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputEle
 export const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLInputElement
 export const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
+export const ipMapEl = document.getElementById('ip-map') as HTMLDivElement
+export const ipMapEmptyEl = document.getElementById('ip-map-empty') as HTMLParagraphElement
 export const ipDetailDialog = document.getElementById('ip-detail-dialog') as HTMLDialogElement
 export const ipDetailBody = document.getElementById('ip-detail-body') as HTMLDivElement
 export const btnCloseIpDetail = document.getElementById('btn-close-ip-detail') as HTMLButtonElement

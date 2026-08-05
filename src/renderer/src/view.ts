@@ -1,4 +1,10 @@
-import { applyDashboardFilter, buildDomainStats, mergeDomainHealth } from '../../shared/analyze'
+import {
+  applyDashboardFilter,
+  buildDomainStats,
+  isGoogleIpInfo,
+  isGoogleNoiseAuthPattern,
+  mergeDomainHealth
+} from '../../shared/analyze'
 import { t, type MessageKey } from '../../shared/i18n'
 import type {
   AnalyzeResult,
@@ -17,7 +23,7 @@ import {
   setDispositionChart,
   setVolumeChart
 } from './charts'
-import { setStatus } from './chrome'
+import { setBusy, setStatus } from './chrome'
 import {
   btnCloseIpDetail,
   btnExport,
@@ -29,6 +35,7 @@ import {
   filterChipsEl,
   filterDomainEl,
   filterFromEl,
+  filterHideGoogleNoiseEl,
   filterRangeEl,
   filterToEl,
   filterCustomWrap,
@@ -40,7 +47,8 @@ import {
   tableIps,
   tableOrgs
 } from './dom'
-import { escapeHtml, formatIpCellHtml, formatRange } from './format'
+import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
+import { renderIpMap, setIpMapFilterHandler } from './ip-map'
 import { state, type DrillFilters } from './state'
 
 function updateSummary(result: AnalyzeResult | null): void {
@@ -81,12 +89,22 @@ function renderBucketTable(
   }
   tbody.innerHTML = rows
     .map((r) => {
-      const nameHtml = options.withIpMeta
-        ? formatIpCellHtml(r.name, r.provider, r.label)
-        : `<span class="mono">${escapeHtml(r.name)}</span>`
+      if (options.withIpMeta) {
+        const ipMeta = formatIpMetaHtml(r.name, r.provider, r.label)
+        return `
+      <tr data-name="${escapeHtml(r.name)}"${ipMeta ? ' class="has-ip-meta"' : ''}${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
+        <td class="ip-col">${formatIpCellHtml(r.name, r.provider, r.label, { includeMeta: false })}</td>
+        <td>${r.count}</td>
+        <td>
+          <span class="rate-bar"><span style="width:${Math.min(100, r.passRate)}%"></span></span>
+          ${r.passRate.toFixed(1)}%
+        </td>
+      </tr>
+      ${ipMeta ? `<tr class="ip-meta-row"><td colspan="3">${ipMeta}</td></tr>` : ''}`
+      }
       return `
       <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
-        <td>${nameHtml}</td>
+        <td><span class="mono">${escapeHtml(r.name)}</span></td>
         <td>${r.count}</td>
         <td>
           <span class="rate-bar"><span style="width:${Math.min(100, r.passRate)}%"></span></span>
@@ -190,6 +208,15 @@ function domainHealthFallback(reports: ReportRow[]): DomainHealth[] {
   return buildDomainStats(reports).map((stats) => mergeDomainHealth(stats, null))
 }
 
+/** Immediate Ampel numbers from filtered reports; keep prior DNS/status until batch returns. */
+function domainHealthQuickStats(reports: ReportRow[]): DomainHealth[] {
+  const prevByDomain = new Map(state.domainHealthCache.map((h) => [h.domain, h]))
+  return buildDomainStats(reports).map((stats) => {
+    const prev = prevByDomain.get(stats.domain)
+    return prev ? { ...prev, ...stats } : mergeDomainHealth(stats, null)
+  })
+}
+
 async function refreshDomainHealth(result: AnalyzeResult | null): Promise<void> {
   const token = ++state.domainHealthToken
   if (!domainAmpelEl) return
@@ -198,7 +225,16 @@ async function refreshDomainHealth(result: AnalyzeResult | null): Promise<void> 
     renderDomainAmpel([])
     return
   }
-  domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(t('health.loading'))}</p>`
+
+  // Update volume/pass-rate immediately from the filtered view (no loading flash).
+  if (state.domainHealthCache.length) {
+    const quick = domainHealthQuickStats(result.reports)
+    state.domainHealthCache = quick
+    renderDomainAmpel(quick)
+  } else {
+    domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(t('health.loading'))}</p>`
+  }
+
   try {
     let health: DomainHealth[]
     if (typeof window.api.healthBatch === 'function') {
@@ -256,6 +292,7 @@ function renderDashboard(result: AnalyzeResult | null): void {
     renderBucketTable(tableOrgs, [])
     renderBucketTable(tableIps, [])
     renderBucketTable(tableFrom, [])
+    renderIpMap([])
     void refreshDomainHealth(null)
     return
   }
@@ -283,25 +320,59 @@ function renderDashboard(result: AnalyzeResult | null): void {
   renderBucketTable(tableFrom, d.byHeaderFrom, {
     onRowClick: (name) => setDrillFilter('headerFrom', name)
   })
+  renderIpMap(d.bySourceIp)
 
-  void enrichIpLabels(d.bySourceIp.map((r) => r.name))
-  // Ampel always reflects the unfiltered account data so domains stay clickable.
-  void refreshDomainHealth(state.fullResult)
+  // Prefer enriching noise-candidate IPs so the Google filter can engage even when
+  // those sources fall outside the displayed top-N IP table.
+  const enrichIps: string[] = []
+  const seen = new Set<string>()
+  const pushIp = (ip: string): void => {
+    if (!ip || seen.has(ip)) return
+    seen.add(ip)
+    enrichIps.push(ip)
+  }
+  if (filterHideGoogleNoiseEl.checked && state.fullResult) {
+    for (const report of state.fullResult.reports) {
+      for (const rec of report.records) {
+        if (isGoogleNoiseAuthPattern(rec)) pushIp(rec.sourceIp)
+      }
+    }
+  }
+  for (const row of d.bySourceIp) pushIp(row.name)
+  void enrichIpLabels(enrichIps)
+  void refreshDomainHealth(result)
+}
+
+function collectGoogleIps(): Set<string> {
+  const set = new Set<string>()
+  for (const [ip, info] of state.ipLabelCache) {
+    if (isGoogleIpInfo(info)) set.add(ip)
+  }
+  return set
 }
 
 async function enrichIpLabels(ips: string[]): Promise<void> {
+  // When the Google-noise filter is on, resolve those candidates first (up to 40).
   const missing = ips.filter((ip) => !state.ipLabelCache.has(ip)).slice(0, 40)
   if (!missing.length) return
   try {
     const infos = await window.api.resolveIps(missing)
+    let foundGoogle = false
     for (const info of infos) {
       state.ipLabelCache.set(info.ip, info)
+      if (isGoogleIpInfo(info)) foundGoogle = true
+    }
+    // Re-filter once Google IPs are known so KPIs/charts/Ampel all update together.
+    if (foundGoogle && filterHideGoogleNoiseEl.checked) {
+      applyView()
+      return
     }
     if (state.viewResult) {
       renderBucketTable(tableIps, state.viewResult.dashboard.bySourceIp, {
         withIpMeta: true,
         onRowClick: (name) => setDrillFilter('sourceIp', name)
       })
+      renderIpMap(state.viewResult.dashboard.bySourceIp)
     }
     // Refresh open record details so geo/ASN/DNSBL appear once enrichment lands.
     if (state.selectedReportId && state.viewResult) {
@@ -328,9 +399,10 @@ export function renderDetail(report: ReportRow | null): void {
               .map((x) => escapeHtml([x.type, x.comment].filter(Boolean).join(': ')))
               .join('<br />')
           : '—'
+      const ipMeta = formatIpMetaHtml(r.sourceIp)
       return `
-      <tr>
-        <td>${formatIpCellHtml(r.sourceIp)}</td>
+      <tr${ipMeta ? ' class="has-ip-meta"' : ''}>
+        <td class="ip-col">${formatIpCellHtml(r.sourceIp, null, null, { includeMeta: false })}</td>
         <td>${r.count}</td>
         <td>${escapeHtml(r.disposition ?? '—')}</td>
         <td class="${r.dkimResult === 'pass' ? 'pass' : 'fail'}">${escapeHtml(r.dkimResult ?? '—')}</td>
@@ -338,7 +410,12 @@ export function renderDetail(report: ReportRow | null): void {
         <td class="${r.passesDmarc ? 'pass' : 'fail'}">${r.passesDmarc ? 'pass' : 'fail'}</td>
         <td>${escapeHtml(r.headerFrom ?? '—')}</td>
         <td class="reasons">${reasons}</td>
-      </tr>`
+      </tr>
+      ${
+        ipMeta
+          ? `<tr class="ip-meta-row"><td colspan="8">${ipMeta}</td></tr>`
+          : ''
+      }`
     })
     .join('')
 
@@ -353,7 +430,7 @@ export function renderDetail(report: ReportRow | null): void {
     <table>
       <thead>
         <tr>
-          <th>${escapeHtml(t('detail.ip'))}</th>
+          <th class="ip-col">${escapeHtml(t('table.ipSender'))}</th>
           <th>${escapeHtml(t('detail.count'))}</th>
           <th>${escapeHtml(t('detail.disp'))}</th>
           <th>${escapeHtml(t('detail.dkim'))}</th>
@@ -392,10 +469,23 @@ function renderForensic(result: AnalyzeResult | null): void {
     .join('')
 }
 
+async function downloadReportZip(report: ReportRow): Promise<void> {
+  if (state.busy) return
+  setBusy(true)
+  try {
+    const res = await window.api.exportReportZip(report)
+    setStatus(res.message, res.ok ? 'ok' : '')
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : String(err), 'error')
+  } finally {
+    setBusy(false)
+  }
+}
+
 export function renderReports(result: AnalyzeResult | null): void {
   reportsBody.innerHTML = ''
   if (!result || result.reports.length === 0) {
-    reportsBody.innerHTML = `<tr class="empty"><td colspan="8">${escapeHtml(t('table.noReports'))}</td></tr>`
+    reportsBody.innerHTML = `<tr class="empty"><td colspan="9">${escapeHtml(t('table.noReports'))}</td></tr>`
     renderDetail(null)
     return
   }
@@ -413,12 +503,32 @@ export function renderReports(result: AnalyzeResult | null): void {
       <td class="fail">${report.failing}</td>
       <td>${report.passRate.toFixed(1)}%</td>
       <td>${escapeHtml(report.policyP ?? '—')}</td>
+      <td class="col-actions">
+        <button
+          type="button"
+          class="report-download-btn"
+          data-report-download="${escapeHtml(report.reportId)}"
+          title="${escapeHtml(t('table.downloadReport'))}"
+          aria-label="${escapeHtml(t('table.downloadReport'))}"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M16 11h5l-9 10-9-10h5v-11h8v11zm1 11h-10v2h10v-2z" />
+          </svg>
+        </button>
+      </td>
     `
-    tr.addEventListener('click', () => {
+    tr.addEventListener('click', (ev) => {
+      const target = ev.target as HTMLElement
+      if (target.closest('[data-report-download]')) return
       state.selectedReportId = report.reportId
       for (const row of reportsBody.querySelectorAll('tr')) row.classList.remove('selected')
       tr.classList.add('selected')
       renderDetail(report)
+    })
+    const downloadBtn = tr.querySelector<HTMLButtonElement>('[data-report-download]')
+    downloadBtn?.addEventListener('click', (ev) => {
+      ev.stopPropagation()
+      void downloadReportZip(report)
     })
     reportsBody.appendChild(tr)
   }
@@ -457,6 +567,7 @@ export function applyView(): void {
     return
   }
 
+  const hideGoogleNoise = filterHideGoogleNoiseEl.checked
   state.viewResult = applyDashboardFilter(state.fullResult, {
     range: filterRangeEl.value as DateRangePreset,
     from: filterFromEl.value || undefined,
@@ -464,7 +575,9 @@ export function applyView(): void {
     domain: filterDomainEl.value,
     org: state.drill.org,
     sourceIp: state.drill.sourceIp,
-    headerFrom: state.drill.headerFrom
+    headerFrom: state.drill.headerFrom,
+    hideGoogleNoise,
+    googleIps: hideGoogleNoise ? collectGoogleIps() : undefined
   })
   updateSummary(state.viewResult)
   renderDashboard(state.viewResult)
@@ -503,6 +616,8 @@ export function showResult(result: AnalyzeResult, statusMessage?: string): void 
 }
 
 export function initView(): void {
+  setIpMapFilterHandler((ip) => setDrillFilter('sourceIp', ip))
+
   btnCloseIpDetail.addEventListener('click', () => ipDetailDialog.close())
   btnIpFilter.addEventListener('click', () => {
     if (!state.selectedDetailIp) return
@@ -532,4 +647,21 @@ export function initView(): void {
   filterFromEl.addEventListener('change', () => applyView())
   filterToEl.addEventListener('change', () => applyView())
   filterDomainEl.addEventListener('change', () => applyView())
+  filterHideGoogleNoiseEl.addEventListener('change', () => {
+    applyView()
+    void persistHideGoogleNoise()
+  })
+}
+
+async function persistHideGoogleNoise(): Promise<void> {
+  if (!state.settings) return
+  try {
+    const next = await window.api.saveGlobalSettings({
+      ...state.settings.global,
+      hideGoogleNoise: filterHideGoogleNoiseEl.checked
+    })
+    state.settings = next
+  } catch {
+    // Persistenz ist optional für den Dashboard-Filter.
+  }
 }

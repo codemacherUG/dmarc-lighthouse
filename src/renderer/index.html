@@ -5,7 +5,7 @@
     <title>DMARC Viewer</title>
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org"
     />
     <link href="./assets/main.css" type="text/css" rel="stylesheet" />
   </head>
@@ -150,6 +150,9 @@
       </div>
 
       <section class="panel filter-panel">
+        <div class="panel-heading">
+          <h2 data-i18n="filter.title">Filter</h2>
+        </div>
         <div class="filter-row">
           <label id="account-field" class="hidden">
             <span data-i18n="filter.account">Konto</span>
@@ -177,6 +180,14 @@
             <select id="filter-domain">
               <option value="" data-i18n="filter.allDomains">Alle Domains</option>
             </select>
+          </label>
+          <label
+            class="checkbox filter-google-noise"
+            data-i18n-title="filter.hideGoogleNoiseHint"
+            title="Google-IPs mit SPF fail / DKIM pass ausblenden (interne Weiterleitungen und Report-Echo)."
+          >
+            <input id="filter-hide-google-noise" type="checkbox" />
+            <span data-i18n="filter.hideGoogleNoise">Google-Rauschen ausblenden</span>
           </label>
         </div>
         <div id="filter-chips" class="filter-chips hidden"></div>
@@ -304,10 +315,10 @@
           <div class="table-card">
             <h2 data-i18n="table.ips">Quellen (IP)</h2>
             <div class="table-scroll">
-              <table>
+              <table class="ip-enriched">
                 <thead>
                   <tr>
-                    <th data-i18n="table.ipSender">IP / Absender</th>
+                    <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
                     <th data-i18n="table.msgs">Msgs</th>
                     <th data-i18n="table.passPct">Pass %</th>
                   </tr>
@@ -381,11 +392,12 @@
                   <th data-i18n="kpi.fail">Fail</th>
                   <th data-i18n="table.rate">Rate</th>
                   <th data-i18n="table.policy">Policy</th>
+                  <th class="col-actions" data-i18n="table.download">ZIP</th>
                 </tr>
               </thead>
               <tbody id="reports-body">
                 <tr class="empty">
-                  <td colspan="8" data-i18n="table.emptyReports">
+                  <td colspan="9" data-i18n="table.emptyReports">
                     Einstellungen öffnen, Zugangsdaten speichern, dann Reports abrufen — oder
                     Dateien per Drag &amp; Drop laden.
                   </td>
@@ -400,6 +412,19 @@
             </div>
           </aside>
         </div>
+      </section>
+
+      <section class="panel ip-map-panel">
+        <div class="panel-heading">
+          <h2 data-i18n="ipMap.title">Quellen auf der Karte</h2>
+          <p class="hint" data-i18n="ipMap.hint">
+            OpenStreetMap mit GeoIP-Positionen. Marker-Klick filtert auf die IP.
+          </p>
+        </div>
+        <div id="ip-map" class="ip-map" role="img" aria-label="OpenStreetMap"></div>
+        <p id="ip-map-empty" class="muted ip-map-empty hidden" data-i18n="ipMap.empty">
+          Keine Koordinaten — GeoLite2 City laden oder Online-Fallback aktivieren.
+        </p>
       </section>
     </div>
 

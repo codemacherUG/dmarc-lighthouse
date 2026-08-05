@@ -13,7 +13,7 @@ import type {
 import { parseLocalBuffers } from './analyze'
 import { accountKeyFor, clearCache } from './cache'
 import { checkDomainDns } from './dnscheck'
-import { exportReportsCsv, exportReportsJson } from './export'
+import { exportReportZip, exportReportsCsv, exportReportsJson } from './export'
 import {
   createMailbox,
   fetchAndAnalyze,
@@ -620,6 +620,22 @@ function registerIpc(): void {
 
     const content = format === 'json' ? exportReportsJson(result) : exportReportsCsv(result)
     writeFileSync(save.filePath, content, 'utf8')
+    return { ok: true, message: t('main.saved', { path: save.filePath }) }
+  })
+
+  ipcMain.handle('export:reportZip', async (_event, report: ReportRow) => {
+    if (!report?.reportId) return { ok: false, message: t('main.exportReportMissing') }
+    const { filename, data } = exportReportZip(report)
+    const saveOptions = {
+      title: t('main.saveReportZip'),
+      defaultPath: filename,
+      filters: [{ name: 'ZIP', extensions: ['zip'] }]
+    }
+    const save = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, saveOptions)
+      : await dialog.showSaveDialog(saveOptions)
+    if (save.canceled || !save.filePath) return { ok: false, message: t('main.cancelled') }
+    writeFileSync(save.filePath, data)
     return { ok: true, message: t('main.saved', { path: save.filePath }) }
   })
 }

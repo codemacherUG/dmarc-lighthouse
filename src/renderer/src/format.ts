@@ -65,12 +65,14 @@ export function formatIpMetaHtml(
 export function formatIpCellHtml(
   ip: string,
   fallbackProvider?: string | null,
-  fallbackPtr?: string | null
+  fallbackPtr?: string | null,
+  options: { includeMeta?: boolean } = {}
 ): string {
+  const includeMeta = options.includeMeta !== false
   return `<span class="ip-cell">
     <span class="ip-cell-head mono">
       <span>${escapeHtml(ip)}</span><button type="button" class="ip-detail-btn" data-ip-detail="${escapeHtml(ip)}" title="${escapeHtml(t('ipDetail.openHint'))}" aria-label="${escapeHtml(t('ipDetail.openHint'))}">i</button>
     </span>
-    ${formatIpMetaHtml(ip, fallbackProvider, fallbackPtr)}
+    ${includeMeta ? formatIpMetaHtml(ip, fallbackProvider, fallbackPtr) : ''}
   </span>`
 }

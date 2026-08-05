@@ -62,6 +62,7 @@ interface StoredGlobal {
   dnsblEnabled?: boolean
   cloudRangesEnabled?: boolean
   rdapEnabled?: boolean
+  hideGoogleNoise?: boolean
 }
 
 interface StoredSettingsV2 {
@@ -102,7 +103,8 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   maxmindLicenseKey: '',
   dnsblEnabled: true,
   cloudRangesEnabled: true,
-  rdapEnabled: true
+  rdapEnabled: true,
+  hideGoogleNoise: false
 }
 
 function settingsPath(): string {
@@ -249,7 +251,8 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     maxmindLicenseKey: g.maxmindLicenseKey?.trim() ?? '',
     dnsblEnabled: g.dnsblEnabled ?? GLOBAL_DEFAULTS.dnsblEnabled,
     cloudRangesEnabled: g.cloudRangesEnabled ?? GLOBAL_DEFAULTS.cloudRangesEnabled,
-    rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled
+    rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled,
+    hideGoogleNoise: Boolean(g.hideGoogleNoise)
   }
 }
 
@@ -417,7 +420,8 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     maxmindLicenseKey: String(input.maxmindLicenseKey ?? '').trim(),
     dnsblEnabled: input.dnsblEnabled !== false,
     cloudRangesEnabled: input.cloudRangesEnabled !== false,
-    rdapEnabled: input.rdapEnabled !== false
+    rdapEnabled: input.rdapEnabled !== false,
+    hideGoogleNoise: Boolean(input.hideGoogleNoise)
   }
   writeStored(stored)
   return loadSettings()

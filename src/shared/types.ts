@@ -144,6 +144,8 @@ export interface GlobalSettings {
   cloudRangesEnabled: boolean
   /** Allow on-demand RDAP/WHOIS lookups. */
   rdapEnabled: boolean
+  /** Persist dashboard filter: hide Google SPF-fail / DKIM-pass noise. */
+  hideGoogleNoise: boolean
 }
 
 export interface SettingsPublic {
@@ -294,6 +296,10 @@ export interface IpInfo {
   country: string | null
   countryCode: string | null
   city: string | null
+  /** WGS84 latitude from GeoLite2 / online lookup, when available. */
+  lat: number | null
+  /** WGS84 longitude from GeoLite2 / online lookup, when available. */
+  lon: number | null
   asn: number | null
   asOrg: string | null
   cloudProvider: string | null
@@ -385,6 +391,14 @@ export interface DashboardFilter {
   sourceIp?: string
   /** Drill-down: only records with this header-from domain. */
   headerFrom?: string
+  /**
+   * Hide Google forwarding / report-echo artifacts:
+   * Google source IP + SPF fail + DKIM pass + DMARC pass.
+   * Uses well-known Google IP prefixes; `googleIps` from enrichment is optional extra.
+   */
+  hideGoogleNoise?: boolean
+  /** Extra source IPs identified as Google (cloud / PTR / ASN). */
+  googleIps?: ReadonlySet<string>
 }
 
 export function emptyDashboard(): DashboardData {

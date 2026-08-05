@@ -9,11 +9,46 @@ import type {
   DomainHealthStatus,
   DomainStats,
   ForensicReportRow,
+  IpInfo,
   NamedBucket,
   ReportRow,
+  SerializedRecord,
   VolumePoint
 } from './types'
+import { isLikelyGoogleIp } from './google-ip'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
+
+/** True when enrichment labels the IP as Google (cloud, PTR, or ASN). */
+export function isGoogleIpInfo(
+  info: Pick<IpInfo, 'cloudProvider' | 'provider' | 'asn' | 'asOrg'> | null | undefined
+): boolean {
+  if (!info) return false
+  if (info.cloudProvider === 'Google' || info.provider === 'Google') return true
+  if (info.asn === 15169) return true
+  if (info.asOrg && /\bgoogle\b/i.test(info.asOrg)) return true
+  return false
+}
+
+/** Auth pattern of Google forwarding / report-echo noise (IP not checked). */
+export function isGoogleNoiseAuthPattern(rec: SerializedRecord): boolean {
+  if (!rec.passesDmarc) return false
+  const spf = (rec.spfResult ?? '').toLowerCase()
+  const dkim = (rec.dkimResult ?? '').toLowerCase()
+  return spf === 'fail' && dkim === 'pass'
+}
+
+/**
+ * Google-internal hop / report-echo noise: SPF fails on Google IP, DKIM holds, DMARC passes.
+ * Uses enrichment labels when available, otherwise well-known Google IP prefixes.
+ */
+export function isGoogleNoiseRecord(
+  rec: SerializedRecord,
+  googleIps?: ReadonlySet<string>
+): boolean {
+  if (!isGoogleNoiseAuthPattern(rec)) return false
+  if (googleIps?.has(rec.sourceIp)) return true
+  return isLikelyGoogleIp(rec.sourceIp)
+}
 
 function dayKey(iso: string): string {
   if (!iso) return 'unbekannt'
@@ -219,6 +254,8 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
   const org = filter.org?.trim()
   const sourceIp = filter.sourceIp?.trim()
   const headerFrom = filter.headerFrom?.trim()
+  const hideGoogleNoise = Boolean(filter.hideGoogleNoise)
+  const googleIps = filter.googleIps
 
   const rows: ReportRow[] = []
   for (const r of reports) {
@@ -235,10 +272,11 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
       if (customTo != null && t > customTo) continue
     }
 
-    if (sourceIp || headerFrom) {
+    if (sourceIp || headerFrom || hideGoogleNoise) {
       const records = r.records.filter((rec) => {
         if (sourceIp && rec.sourceIp !== sourceIp) return false
         if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
+        if (hideGoogleNoise && isGoogleNoiseRecord(rec, googleIps)) return false
         return true
       })
       if (records.length === 0) continue

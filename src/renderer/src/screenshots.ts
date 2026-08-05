@@ -34,6 +34,8 @@ export function installScreenshotApi(): void {
           country: extra.country ?? null,
           countryCode: extra.countryCode ?? null,
           city: extra.city ?? null,
+          lat: extra.lat ?? null,
+          lon: extra.lon ?? null,
           asn: extra.asn ?? null,
           asOrg: extra.asOrg ?? null,
           cloudProvider: extra.cloudProvider ?? null,
@@ -44,29 +46,46 @@ export function installScreenshotApi(): void {
       demoIp('192.0.2.10', 'mail-a.example.net', 'Example Net', {
         countryCode: 'DE',
         city: 'Berlin',
+        lat: 52.52,
+        lon: 13.405,
         asn: 64496,
         cloudProvider: null
       })
       demoIp('192.0.2.40', 'smtp.example.net', 'Example Net', {
         countryCode: 'DE',
+        city: 'Frankfurt',
+        lat: 50.11,
+        lon: 8.68,
         asn: 64496
       })
       demoIp('198.51.100.20', null, null, {
         countryCode: 'US',
+        city: 'Mountain View',
+        lat: 37.386,
+        lon: -122.084,
         asn: 15169,
         cloudProvider: 'Google',
         dnsblHits: []
       })
       demoIp('198.51.100.55', 'mta.yahoo.example', 'Yahoo', {
         countryCode: 'US',
+        city: 'Sunnyvale',
+        lat: 37.3688,
+        lon: -122.0363,
         asn: 10310
       })
       demoIp('203.0.113.15', null, null, {
         countryCode: 'NL',
+        city: 'Amsterdam',
+        lat: 52.3676,
+        lon: 4.9041,
         dnsblHits: ['spamhaus-zen']
       })
       demoIp('2001:db8:1::10', 'ipv6.example.net', 'Example Net', {
         countryCode: 'DE',
+        city: 'Berlin',
+        lat: 52.52,
+        lon: 13.405,
         asn: 64496
       })
       state.domainHealthCache = [

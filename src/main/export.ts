@@ -1,4 +1,16 @@
-import type { AnalyzeResult, NamedBucket } from '../shared/types'
+import type { AnalyzeResult, NamedBucket, ReportRow } from '../shared/types'
+import { reportToAggregateXml, reportZipBasename } from './report-xml'
+import { zipSingleFile } from './zip'
+
+export function exportReportZip(report: ReportRow): { filename: string; data: Buffer } {
+  const base = reportZipBasename(report)
+  const xmlName = `${base}.xml`
+  const xml = reportToAggregateXml(report)
+  return {
+    filename: `${base}.zip`,
+    data: zipSingleFile(xmlName, xml)
+  }
+}
 
 function csvEscape(value: string | number | null | undefined): string {
   const s = value == null ? '' : String(value)

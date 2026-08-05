@@ -45,6 +45,7 @@ export interface DmarcViewerApi {
     result: AnalyzeResult,
     format: 'json' | 'csv'
   ) => Promise<{ ok: boolean; message: string }>
+  exportReportZip: (report: ReportRow) => Promise<{ ok: boolean; message: string }>
   getAppVersion: () => Promise<string>
   openThirdPartyNotices: () => Promise<{ ok: boolean; message: string }>
   checkForUpdates: () => Promise<{ ok: boolean; message: string }>

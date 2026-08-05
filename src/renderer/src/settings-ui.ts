@@ -34,6 +34,7 @@ import {
   btnSettings,
   btnTest,
   cloudRangesEnabledEl,
+  filterHideGoogleNoiseEl,
   createMailboxDialog,
   createMailboxPathEl,
   createMailboxStatusEl,
@@ -363,7 +364,8 @@ export function readGlobalForm(): GlobalSettings {
     maxmindLicenseKey: maxmindLicenseKeyEl.value.trim(),
     dnsblEnabled: dnsblEnabledEl.checked,
     cloudRangesEnabled: cloudRangesEnabledEl.checked,
-    rdapEnabled: rdapEnabledEl.checked
+    rdapEnabled: rdapEnabledEl.checked,
+    hideGoogleNoise: filterHideGoogleNoiseEl.checked
   }
 }
 
@@ -486,6 +488,7 @@ export function fillSettingsAccountSelect(): void {
 
 export function applySettings(next: SettingsPublic): void {
   state.settings = next
+  filterHideGoogleNoiseEl.checked = Boolean(next.global.hideGoogleNoise)
   updateAccountUi()
 }
 

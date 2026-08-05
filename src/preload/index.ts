@@ -62,6 +62,8 @@ const api = {
     result: AnalyzeResult,
     format: 'json' | 'csv'
   ): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke('export:save', result, format),
+  exportReportZip: (report: ReportRow): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('export:reportZip', report),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   openThirdPartyNotices: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('app:openThirdPartyNotices'),

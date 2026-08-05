@@ -290,7 +290,8 @@ export function buildDemoSettings(): SettingsPublic {
       maxmindLicenseKey: '',
       dnsblEnabled: true,
       cloudRangesEnabled: true,
-      rdapEnabled: true
+      rdapEnabled: true,
+      hideGoogleNoise: false
     }
   }
 }

@@ -14,6 +14,8 @@ export interface GeoLookupResult {
   country: string | null
   countryCode: string | null
   city: string | null
+  lat: number | null
+  lon: number | null
   asn: number | null
   asOrg: string | null
   geoSource: GeoSource
@@ -82,6 +84,8 @@ function lookupMaxmind(ip: string): GeoLookupResult | null {
   let country: string | null = null
   let countryCode: string | null = null
   let city: string | null = null
+  let lat: number | null = null
+  let lon: number | null = null
   let asn: number | null = null
   let asOrg: string | null = null
 
@@ -92,6 +96,10 @@ function lookupMaxmind(ip: string): GeoLookupResult | null {
         country = r.country?.names?.en ?? r.registered_country?.names?.en ?? null
         countryCode = r.country?.iso_code ?? r.registered_country?.iso_code ?? null
         city = r.city?.names?.en ?? null
+        const la = r.location?.latitude
+        const lo = r.location?.longitude
+        lat = typeof la === 'number' && Number.isFinite(la) ? la : null
+        lon = typeof lo === 'number' && Number.isFinite(lo) ? lo : null
       }
     }
   } catch {
@@ -110,14 +118,16 @@ function lookupMaxmind(ip: string): GeoLookupResult | null {
     // ignore
   }
 
-  if (!country && !countryCode && !city && asn == null && !asOrg) return null
-  return { country, countryCode, city, asn, asOrg, geoSource: 'maxmind' }
+  if (!country && !countryCode && !city && lat == null && lon == null && asn == null && !asOrg) {
+    return null
+  }
+  return { country, countryCode, city, lat, lon, asn, asOrg, geoSource: 'maxmind' }
 }
 
 async function lookupOnline(ip: string): Promise<GeoLookupResult | null> {
   try {
     const res = await fetch(
-      `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,country,countryCode,city,as,asname`,
+      `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,country,countryCode,city,lat,lon,as,asname`,
       { signal: AbortSignal.timeout(5000) }
     )
     if (!res.ok) return null
@@ -126,6 +136,8 @@ async function lookupOnline(ip: string): Promise<GeoLookupResult | null> {
       country?: string
       countryCode?: string
       city?: string
+      lat?: number
+      lon?: number
       as?: string
       asname?: string
     }
@@ -137,6 +149,8 @@ async function lookupOnline(ip: string): Promise<GeoLookupResult | null> {
       country: data.country ?? null,
       countryCode: data.countryCode ?? null,
       city: data.city ?? null,
+      lat: typeof data.lat === 'number' && Number.isFinite(data.lat) ? data.lat : null,
+      lon: typeof data.lon === 'number' && Number.isFinite(data.lon) ? data.lon : null,
       asn,
       asOrg: data.asname ?? null,
       geoSource: 'online'
@@ -150,6 +164,8 @@ const emptyGeo = (): GeoLookupResult => ({
   country: null,
   countryCode: null,
   city: null,
+  lat: null,
+  lon: null,
   asn: null,
   asOrg: null,
   geoSource: 'none'

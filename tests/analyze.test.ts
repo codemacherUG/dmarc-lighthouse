@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeFromReports, buildDashboard, filterReports } from '../src/shared/analyze'
+import {
+  analyzeFromReports,
+  buildDashboard,
+  filterReports,
+  isGoogleIpInfo,
+  isGoogleNoiseRecord
+} from '../src/shared/analyze'
 import type { ReportRow, SerializedRecord } from '../src/shared/types'
 
 function record(overrides: Partial<SerializedRecord> = {}): SerializedRecord {
@@ -117,6 +123,146 @@ describe('filterReports', () => {
     const out = filterReports(rows, { range: 'all', domain: '', headerFrom: '(unbekannt)' })
     expect(out).toHaveLength(1)
     expect(out[0].total).toBe(2)
+  })
+
+  it('hides Google SPF-fail / DKIM-pass noise and keeps real sources', () => {
+    const googleIp = '2a00:1450:4864:20::346'
+    const ownIp = '159.195.74.209'
+    const rows = [
+      report({
+        reportId: 'a',
+        records: [
+          record({
+            sourceIp: ownIp,
+            count: 3,
+            spfResult: 'pass',
+            dkimResult: 'pass',
+            passesDmarc: true
+          }),
+          record({
+            sourceIp: googleIp,
+            count: 2,
+            spfResult: 'fail',
+            dkimResult: 'pass',
+            passesDmarc: true
+          }),
+          record({
+            sourceIp: googleIp,
+            count: 1,
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            passesDmarc: false
+          })
+        ]
+      })
+    ]
+    const out = filterReports(rows, {
+      range: 'all',
+      domain: '',
+      hideGoogleNoise: true,
+      googleIps: new Set([googleIp])
+    })
+    expect(out).toHaveLength(1)
+    expect(out[0].records.map((r) => ({ ip: r.sourceIp, count: r.count }))).toEqual([
+      { ip: ownIp, count: 3 },
+      { ip: googleIp, count: 1 }
+    ])
+    expect(out[0].total).toBe(4)
+    expect(out[0].passing).toBe(3)
+  })
+
+  it('hides Google noise via well-known prefixes without enrichment', () => {
+    const googleIp = '2a00:1450:4864:20::346'
+    const rows = [
+      report({
+        records: [
+          record({
+            sourceIp: googleIp,
+            count: 2,
+            spfResult: 'fail',
+            dkimResult: 'pass',
+            passesDmarc: true
+          }),
+          record({
+            sourceIp: '159.195.74.209',
+            count: 3,
+            spfResult: 'pass',
+            dkimResult: 'pass',
+            passesDmarc: true
+          })
+        ]
+      })
+    ]
+    const out = filterReports(rows, { range: 'all', domain: '', hideGoogleNoise: true })
+    expect(out).toHaveLength(1)
+    expect(out[0].total).toBe(3)
+    expect(out[0].records).toHaveLength(1)
+    expect(out[0].records[0]?.sourceIp).toBe('159.195.74.209')
+  })
+})
+
+describe('isGoogleIpInfo / isGoogleNoiseRecord', () => {
+  it('detects Google via cloud, provider, ASN, and asOrg', () => {
+    expect(isGoogleIpInfo({ cloudProvider: 'Google', provider: null, asn: null, asOrg: null })).toBe(
+      true
+    )
+    expect(isGoogleIpInfo({ cloudProvider: null, provider: 'Google', asn: null, asOrg: null })).toBe(
+      true
+    )
+    expect(isGoogleIpInfo({ cloudProvider: null, provider: null, asn: 15169, asOrg: null })).toBe(
+      true
+    )
+    expect(
+      isGoogleIpInfo({ cloudProvider: null, provider: null, asn: null, asOrg: 'GOOGLE' })
+    ).toBe(true)
+    expect(
+      isGoogleIpInfo({ cloudProvider: null, provider: 'Microsoft', asn: null, asOrg: null })
+    ).toBe(false)
+  })
+
+  it('matches only SPF-fail + DKIM-pass + DMARC-pass on Google IPs', () => {
+    expect(
+      isGoogleNoiseRecord(
+        record({
+          sourceIp: '2a00:1450:4864:20::346',
+          spfResult: 'fail',
+          dkimResult: 'pass',
+          passesDmarc: true
+        })
+      )
+    ).toBe(true)
+    expect(
+      isGoogleNoiseRecord(
+        record({
+          sourceIp: '2a00:1450:4864:20::346',
+          spfResult: 'fail',
+          dkimResult: 'pass',
+          passesDmarc: false
+        })
+      )
+    ).toBe(false)
+    expect(
+      isGoogleNoiseRecord(
+        record({
+          sourceIp: '192.0.2.1',
+          spfResult: 'fail',
+          dkimResult: 'pass',
+          passesDmarc: true
+        })
+      )
+    ).toBe(false)
+    // Enrichment can mark non-prefix IPs as Google too.
+    expect(
+      isGoogleNoiseRecord(
+        record({
+          sourceIp: '203.0.113.50',
+          spfResult: 'fail',
+          dkimResult: 'pass',
+          passesDmarc: true
+        }),
+        new Set(['203.0.113.50'])
+      )
+    ).toBe(true)
   })
 })
 

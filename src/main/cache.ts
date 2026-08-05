@@ -154,6 +154,8 @@ function openDb(): DatabaseSync {
       country TEXT,
       country_code TEXT,
       city TEXT,
+      lat REAL,
+      lon REAL,
       asn INTEGER,
       as_org TEXT,
       dnsbl_json TEXT NOT NULL DEFAULT '[]',
@@ -207,6 +209,8 @@ function migrateSchema(database: DatabaseSync): void {
         country TEXT,
         country_code TEXT,
         city TEXT,
+        lat REAL,
+        lon REAL,
         asn INTEGER,
         as_org TEXT,
         dnsbl_json TEXT NOT NULL DEFAULT '[]',
@@ -238,6 +242,22 @@ function migrateSchema(database: DatabaseSync): void {
       // Column may already exist on partially migrated DBs.
     }
     version = 4
+    setSchemaVersion(database, version)
+  }
+  // v5: store map coordinates from GeoIP for OSM markers.
+  if (version < 5) {
+    try {
+      database.exec('ALTER TABLE ip_enrichment ADD COLUMN lat REAL')
+    } catch {
+      // Column may already exist.
+    }
+    try {
+      database.exec('ALTER TABLE ip_enrichment ADD COLUMN lon REAL')
+    } catch {
+      // Column may already exist.
+    }
+    database.exec('DELETE FROM ip_enrichment')
+    version = 5
     setSchemaVersion(database, version)
   }
 }
@@ -686,6 +706,8 @@ function rowToIpInfo(row: {
   country: string | null
   country_code: string | null
   city: string | null
+  lat: number | null
+  lon: number | null
   asn: number | null
   as_org: string | null
   dnsbl_json: string
@@ -706,6 +728,8 @@ function rowToIpInfo(row: {
     country: row.country,
     countryCode: row.country_code,
     city: row.city,
+    lat: typeof row.lat === 'number' && Number.isFinite(row.lat) ? row.lat : null,
+    lon: typeof row.lon === 'number' && Number.isFinite(row.lon) ? row.lon : null,
     asn: row.asn,
     asOrg: row.as_org,
     cloudProvider: row.cloud_provider,
@@ -720,7 +744,7 @@ export function getIpEnrichment(ips: string[]): Map<string, IpInfo> {
   const now = new Date().toISOString()
   const out = new Map<string, IpInfo>()
   const stmt = database.prepare(
-    `SELECT ip, ptr, provider, cloud_provider, country, country_code, city, asn, as_org,
+    `SELECT ip, ptr, provider, cloud_provider, country, country_code, city, lat, lon, asn, as_org,
             dnsbl_json, geo_source
      FROM ip_enrichment
      WHERE ip = ? AND expires_at > ?`
@@ -735,6 +759,8 @@ export function getIpEnrichment(ips: string[]): Map<string, IpInfo> {
           country: string | null
           country_code: string | null
           city: string | null
+          lat: number | null
+          lon: number | null
           asn: number | null
           as_org: string | null
           dnsbl_json: string
@@ -753,9 +779,9 @@ export function upsertIpEnrichment(infos: IpInfo[], ttlMs = IP_ENRICHMENT_TTL_MS
   const expiresAt = new Date(Date.now() + ttlMs).toISOString()
   const stmt = database.prepare(
     `INSERT INTO ip_enrichment(
-       ip, ptr, provider, cloud_provider, country, country_code, city, asn, as_org,
+       ip, ptr, provider, cloud_provider, country, country_code, city, lat, lon, asn, as_org,
        dnsbl_json, geo_source, checked_at, expires_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(ip) DO UPDATE SET
        ptr = excluded.ptr,
        provider = excluded.provider,
@@ -763,6 +789,8 @@ export function upsertIpEnrichment(infos: IpInfo[], ttlMs = IP_ENRICHMENT_TTL_MS
        country = excluded.country,
        country_code = excluded.country_code,
        city = excluded.city,
+       lat = excluded.lat,
+       lon = excluded.lon,
        asn = excluded.asn,
        as_org = excluded.as_org,
        dnsbl_json = excluded.dnsbl_json,
@@ -780,6 +808,8 @@ export function upsertIpEnrichment(infos: IpInfo[], ttlMs = IP_ENRICHMENT_TTL_MS
         info.country,
         info.countryCode,
         info.city,
+        info.lat,
+        info.lon,
         info.asn,
         info.asOrg,
         JSON.stringify(info.dnsblHits ?? []),

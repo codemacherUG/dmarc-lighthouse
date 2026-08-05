@@ -57,7 +57,8 @@ body {
 .charts-panel,
 .tables-panel,
 .results-panel,
-.kpi-panel {
+.kpi-panel,
+.ip-map-panel {
   min-width: 0;
 }
 
@@ -497,6 +498,36 @@ th {
   background: var(--bg-panel);
 }
 
+#reports-table .col-actions {
+  width: 2.75rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.report-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 6px;
+  background: #e7f2f7;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.report-download-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.report-download-btn .btn-icon {
+  width: 14px;
+  height: 14px;
+}
+
 tbody tr {
   cursor: pointer;
 }
@@ -877,6 +908,12 @@ input[type='checkbox']:focus-visible {
   flex: 1 1 140px;
 }
 
+.filter-panel .filter-row > label.filter-google-noise {
+  flex: 0 1 auto;
+  min-width: auto;
+  white-space: nowrap;
+}
+
 .dns-panel .dns-selectors-field {
   flex: 2 1 220px;
   min-width: min(220px, 100%);
@@ -886,6 +923,7 @@ input[type='checkbox']:focus-visible {
   flex: 0 0 auto;
 }
 
+.filter-panel .panel-heading,
 .dns-panel .panel-heading {
   display: flex;
   flex-wrap: wrap;
@@ -894,6 +932,7 @@ input[type='checkbox']:focus-visible {
   margin-bottom: 0.75rem;
 }
 
+.filter-panel h2,
 .dns-panel h2 {
   margin: 0;
   font-size: 1rem;
@@ -1069,6 +1108,44 @@ textarea:focus {
   line-height: 1.3;
 }
 
+.detail table,
+table.ip-enriched {
+  width: max-content;
+  min-width: 100%;
+}
+
+th.ip-col,
+td.ip-col {
+  min-width: 11.5rem;
+  white-space: nowrap;
+}
+
+.ip-col .ip-cell-head {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+tr.has-ip-meta td {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+
+tr.ip-meta-row td {
+  padding-top: 0;
+  padding-bottom: 10px;
+  border-top: none;
+  color: var(--muted);
+}
+
+tr.ip-meta-row:hover {
+  background: transparent;
+}
+
+tr.ip-meta-row .ip-meta {
+  margin-top: 0;
+}
+
 .badge {
   display: inline-block;
   padding: 1px 6px;
@@ -1132,11 +1209,13 @@ textarea:focus {
   color: #fff;
 }
 
-.domain-health-panel {
+.domain-health-panel,
+.ip-map-panel {
   min-width: 0;
 }
 
-.domain-health-panel .panel-heading {
+.domain-health-panel .panel-heading,
+.ip-map-panel .panel-heading {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -1144,9 +1223,40 @@ textarea:focus {
   margin-bottom: 0.75rem;
 }
 
-.domain-health-panel h2 {
+.domain-health-panel h2,
+.ip-map-panel h2 {
   margin: 0;
   font-size: 1rem;
+}
+
+.ip-map {
+  height: min(420px, 55vh);
+  min-height: 280px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #e8eef3;
+  z-index: 0;
+}
+
+.ip-map-empty {
+  margin: 0.65rem 0 0;
+}
+
+.ip-map .leaflet-container {
+  font: inherit;
+  background: #e8eef3;
+}
+
+.ip-map .leaflet-popup-content {
+  margin: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.ip-map .leaflet-popup-content .mono {
+  font-family: var(--mono);
 }
 
 .domain-ampel {
