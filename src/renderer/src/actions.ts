@@ -31,6 +31,17 @@ import {
 import { clearDrill, state } from './state'
 import { applyView, showResult } from './view'
 
+/** Copy the active account's domain into the DNS-check field after a switch. */
+function syncDnsDomainFromAccount(): void {
+  const domains = state.fullResult?.aggregate.domains ?? []
+  if (domains.length === 0) {
+    dnsDomainEl.value = ''
+    return
+  }
+  const selected = filterDomainEl.value
+  dnsDomainEl.value = selected && domains.includes(selected) ? selected : domains[0]
+}
+
 export async function switchActiveAccount(id: string): Promise<void> {
   applySettings(await window.api.setActiveAccount(id))
   state.selectedReportId = null
@@ -43,6 +54,7 @@ export async function switchActiveAccount(id: string): Promise<void> {
     applyView()
     setStatus(t('status.noCache'))
   }
+  syncDnsDomainFromAccount()
 }
 
 /** Collect DKIM selectors for a domain from the loaded reports. */

@@ -53,6 +53,7 @@ body {
 .table-card,
 .toolbar,
 .filter-panel,
+.dns-panel,
 .charts-panel,
 .tables-panel,
 .results-panel,
@@ -761,21 +762,40 @@ input[type='checkbox']:focus-visible {
   justify-content: flex-end;
 }
 
-.filter-panel .filter-row {
+.filter-panel .filter-row,
+.dns-panel .dns-check-row {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 14px;
   align-items: flex-end;
 }
 
-.filter-panel .filter-row > label {
+.filter-panel .filter-row > label,
+.dns-panel .dns-check-row > label {
   min-width: min(150px, 100%);
   flex: 1 1 140px;
 }
 
-.filter-panel .dns-check-field {
-  flex: 2 1 280px;
-  min-width: min(280px, 100%);
+.dns-panel .dns-selectors-field {
+  flex: 2 1 220px;
+  min-width: min(220px, 100%);
+}
+
+.dns-panel .dns-check-actions {
+  flex: 0 0 auto;
+}
+
+.dns-panel .panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.dns-panel h2 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .inline-actions {
@@ -787,10 +807,6 @@ input[type='checkbox']:focus-visible {
 
 .inline-actions.two-inputs {
   grid-template-columns: 1fr 1fr;
-}
-
-.inline-actions.dns-inputs {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
 }
 
 .filter-chips {
@@ -1240,15 +1256,6 @@ textarea:focus {
   .results-layout {
     grid-template-columns: 1fr;
   }
-
-  .inline-actions.dns-inputs {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .inline-actions.dns-inputs #dns-selectors {
-    grid-column: 1 / -1;
-    order: 3;
-  }
 }
 
 @media (max-width: 900px) {
@@ -1284,7 +1291,8 @@ textarea:focus {
   }
 
   .filter-panel .filter-row > label,
-  .filter-panel .dns-check-field {
+  .dns-panel .dns-check-row > label,
+  .dns-panel .dns-check-actions {
     flex: 1 1 100%;
     min-width: 0;
   }

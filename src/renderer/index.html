@@ -221,28 +221,40 @@
               <option value="" data-i18n="filter.allDomains">Alle Domains</option>
             </select>
           </label>
-          <label class="dns-check-field">
-            <span data-i18n="filter.dns">DNS-Check</span>
-            <div class="inline-actions dns-inputs">
-              <input id="dns-domain" type="text" placeholder="example.com" />
-              <input
-                id="dns-selectors"
-                type="text"
-                data-i18n-placeholder="filter.selectorsPlaceholder"
-                data-i18n-title="filter.selectorsTitle"
-                placeholder="DKIM-Selektoren (auto)"
-                title="Kommagetrennt; leer = automatisch aus den Reports"
-              />
-              <button type="button" id="btn-dns" class="btn secondary" data-i18n="filter.dnsCheck">
-                Prüfen
-              </button>
-            </div>
-          </label>
         </div>
         <div id="filter-chips" class="filter-chips hidden"></div>
-        <div id="dns-result" class="dns-result muted" data-i18n="filter.dnsHint">
-          DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
+      </section>
+
+      <section class="panel dns-panel">
+        <div class="panel-heading">
+          <h2 data-i18n="filter.dns">DNS-Check</h2>
+          <p class="hint" data-i18n="filter.dnsHint">
+            DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
+          </p>
         </div>
+        <div class="dns-check-row">
+          <label>
+            <span data-i18n="filter.domain">Domain</span>
+            <input id="dns-domain" type="text" placeholder="example.com" />
+          </label>
+          <label class="dns-selectors-field">
+            <span data-i18n="filter.selectors">DKIM-Selektoren</span>
+            <input
+              id="dns-selectors"
+              type="text"
+              data-i18n-placeholder="filter.selectorsPlaceholder"
+              data-i18n-title="filter.selectorsTitle"
+              placeholder="DKIM-Selektoren (auto)"
+              title="Kommagetrennt; leer = automatisch aus den Reports"
+            />
+          </label>
+          <div class="dns-check-actions">
+            <button type="button" id="btn-dns" class="btn secondary" data-i18n="filter.dnsCheck">
+              Prüfen
+            </button>
+          </div>
+        </div>
+        <div id="dns-result" class="dns-result muted hidden"></div>
       </section>
 
       <section class="panel kpi-panel">
