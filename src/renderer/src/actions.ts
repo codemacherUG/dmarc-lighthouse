@@ -1,6 +1,6 @@
 import { analyzeFromReports } from '../../shared/analyze'
 import { t } from '../../shared/i18n'
-import { applyProgress, setBusy, setStatus } from './chrome'
+import { applyProgress, setBusy, setStatus, setTopProgress } from './chrome'
 import {
   accountSelectEl,
   btnCloseExport,
@@ -16,7 +16,6 @@ import {
   dropOverlay,
   exportDialog,
   filterDomainEl,
-  progressEl,
   progressLabelEl,
   settingsStatusEl
 } from './dom'
@@ -111,8 +110,8 @@ export function initActions(): void {
 
     setBusy(true)
     setStatus(t('status.fetchStart'))
-    progressEl.value = 0
     progressLabelEl.textContent = ''
+    setTopProgress(null, true)
     try {
       const result = await window.api.fetchSaved(account.id)
       state.selectedReportId = null
@@ -121,6 +120,8 @@ export function initActions(): void {
       setStatus(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setBusy(false)
+      setTopProgress(0, false)
+      progressLabelEl.textContent = ''
     }
   })
 

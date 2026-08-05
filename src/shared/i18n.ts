@@ -10,6 +10,9 @@ const de = {
   'app.noCredentials': 'Keine Zugangsdaten',
   'app.ready': 'Bereit',
   'app.error': 'Fehler',
+  'status.log': 'Verlauf',
+  'status.logTitle': 'Statusverlauf',
+  'status.logEmpty': 'Noch keine Meldungen.',
 
   'header.info': 'Info',
   'header.openFiles': 'Dateien',
@@ -393,6 +396,9 @@ const en: Dict = {
   'app.noCredentials': 'No credentials',
   'app.ready': 'Ready',
   'app.error': 'Error',
+  'status.log': 'History',
+  'status.logTitle': 'Status history',
+  'status.logEmpty': 'No messages yet.',
 
   'header.info': 'About',
   'header.openFiles': 'Files',

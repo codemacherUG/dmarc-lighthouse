@@ -1,6 +1,12 @@
 export const statusEl = document.getElementById('status') as HTMLDivElement
-export const progressEl = document.getElementById('progress') as HTMLProgressElement
-export const progressLabelEl = document.getElementById('progress-label') as HTMLSpanElement
+export const statusLogListEl = document.getElementById('status-log-list') as HTMLUListElement
+export const statusLogDialog = document.getElementById('status-log-dialog') as HTMLDialogElement
+export const btnStatusLog = document.getElementById('btn-status-log') as HTMLButtonElement
+export const btnCloseStatusLog = document.getElementById('btn-close-status-log') as HTMLButtonElement
+export const btnStatusLogOk = document.getElementById('btn-status-log-ok') as HTMLButtonElement
+export const topProgressEl = document.getElementById('top-progress') as HTMLDivElement
+export const progressEl = document.getElementById('progress') as HTMLDivElement
+export const progressLabelEl = document.getElementById('progress-label') as HTMLElement
 export const accountLabelEl = document.getElementById('account-label') as HTMLSpanElement
 export const reportsBody = document.getElementById('reports-body') as HTMLTableSectionElement
 export const detailEl = document.getElementById('detail') as HTMLDivElement

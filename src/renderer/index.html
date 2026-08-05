@@ -17,20 +17,23 @@
       </div>
     </div>
 
+    <div
+      id="top-progress"
+      class="top-progress"
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+      aria-hidden="true"
+    >
+      <div id="progress" class="top-progress-fill"></div>
+    </div>
+
     <div id="app">
       <header class="app-header">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="36" height="36" fill="none">
-              <rect width="32" height="32" rx="9" fill="#1f6f8b" />
-              <path
-                d="M8 11.5h16M8 16h16M8 20.5h10"
-                stroke="#fff"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-              <circle cx="22.5" cy="20.5" r="3" fill="#9fd6e8" />
-            </svg>
+            <img src="./assets/app-icon.svg" width="36" height="36" alt="" />
           </div>
           <div class="brand-text">
             <h1 data-i18n="app.title">DMARC Viewer</h1>
@@ -51,21 +54,11 @@
               data-i18n-aria="header.info"
               title="Über die App"
             >
-              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="7.25"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                />
+              <!-- Icons: iconmonstr (https://iconmonstr.com), free under iconmonstr license -->
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
-                  d="M10 9v4.5M10 6.5h.01"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
+                  fill="currentColor"
+                  d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-.001 5.75c.69 0 1.251.56 1.251 1.25s-.561 1.25-1.251 1.25-1.249-.56-1.249-1.25.559-1.25 1.249-1.25zm2.001 12.25h-4v-1c.484-.179 1-.201 1-.735v-4.467c0-.534-.516-.618-1-.797v-1h3v6.265c0 .535.517.558 1 .735v.999z"
                 />
               </svg>
               <span data-i18n="header.info">Info</span>
@@ -78,13 +71,10 @@
               data-i18n-aria="header.openFiles"
               title="Lokale DMARC-Dateien öffnen"
             >
-              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
-                  d="M3.5 6.5V15a1.5 1.5 0 0 0 1.5 1.5h10A1.5 1.5 0 0 0 16.5 15V8A1.5 1.5 0 0 0 15 6.5H9.2L7.8 5H5A1.5 1.5 0 0 0 3.5 6.5Z"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linejoin="round"
+                  fill="currentColor"
+                  d="M6.083 4c1.38 1.612 2.578 3 4.917 3h11v13h-20v-16h4.083zm.917-2h-7v20h24v-17h-13c-1.629 0-2.305-1.058-4-3z"
                 />
               </svg>
               <span data-i18n="header.openFiles">Dateien</span>
@@ -98,14 +88,10 @@
               data-i18n-aria="header.export"
               title="Gefilterte Daten exportieren"
             >
-              <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
-                  d="M10 3.5v8M6.5 8.5 10 12l3.5-3.5M4 15.5h12"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  fill="currentColor"
+                  d="M16 11h5l-9 10-9-10h5v-11h8v11zm1 11h-10v2h10v-2z"
                 />
               </svg>
               <span data-i18n="header.export">Export</span>
@@ -120,18 +106,8 @@
             >
               <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
-                  d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                />
-                <path
-                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  fill="currentColor"
+                  d="M24 13.616v-3.232c-1.651-.587-2.694-.752-3.219-2.019v-.001c-.527-1.271.1-2.134.847-3.707l-2.285-2.285c-1.561.742-2.433 1.375-3.707.847h-.001c-1.269-.526-1.435-1.576-2.019-3.219h-3.232c-.582 1.635-.749 2.692-2.019 3.219h-.001c-1.271.528-2.132-.098-3.707-.847l-2.285 2.285c.745 1.568 1.375 2.434.847 3.707-.527 1.271-1.584 1.438-3.219 2.02v3.232c1.632.58 2.692.749 3.219 2.019.53 1.282-.114 2.166-.847 3.707l2.285 2.286c1.562-.743 2.434-1.375 3.707-.847h.001c1.27.526 1.436 1.579 2.019 3.219h3.232c.582-1.636.75-2.69 2.027-3.222h.001c1.262-.524 2.12.101 3.698.851l2.285-2.286c-.744-1.563-1.375-2.433-.848-3.706.527-1.271 1.588-1.44 3.221-2.021zm-12 2.384c-2.209 0-4-1.791-4-4s1.791-4 4-4 4 1.791 4 4-1.791 4-4 4z"
                 />
               </svg>
               <span data-i18n="header.settings">Einstellungen</span>
@@ -144,21 +120,10 @@
             data-i18n-title="header.fetchTitle"
             title="Reports per IMAP abrufen"
           >
-            <svg class="btn-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path
-                d="M4 10a6 6 0 0 1 10.4-4M16 10a6 6 0 0 1-10.4 4"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-              />
-              <path
-                d="M14 3.5v3.2h3.2M6 16.5v-3.2H2.8"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+                fill="currentColor"
+                d="M9 12l-4.463 4.969-4.537-4.969h3c0-4.97 4.03-9 9-9 2.395 0 4.565.942 6.179 2.468l-2.004 2.231c-1.081-1.05-2.553-1.699-4.175-1.699-3.309 0-6 2.691-6 6h3zm10.463-4.969l-4.463 4.969h3c0 3.309-2.691 6-6 6-1.623 0-3.094-.65-4.175-1.699l-2.004 2.231c1.613 1.526 3.784 2.468 6.179 2.468 4.97 0 9-4.03 9-9h3l-4.537-4.969z"
               />
             </svg>
             <span data-i18n="header.fetch">Reports abrufen</span>
@@ -181,14 +146,6 @@
           >
             ✕
           </button>
-        </div>
-      </div>
-
-      <div class="toolbar">
-        <div id="status" class="status" role="status" data-i18n="app.ready">Bereit</div>
-        <div class="progress-wrap">
-          <progress id="progress" max="100" value="0"></progress>
-          <span id="progress-label"></span>
         </div>
       </div>
 
@@ -1113,6 +1070,46 @@
         </footer>
       </div>
     </dialog>
+
+    <dialog id="status-log-dialog">
+      <div class="settings-form">
+        <header class="dialog-header">
+          <h2 data-i18n="status.logTitle">Statusverlauf</h2>
+          <button
+            type="button"
+            id="btn-close-status-log"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <ul id="status-log-list" class="status-log-list"></ul>
+        <footer class="dialog-actions">
+          <button type="button" id="btn-status-log-ok" class="btn primary" data-i18n="about.close">
+            Schließen
+          </button>
+        </footer>
+      </div>
+    </dialog>
+
+    <footer id="status-bar" class="status-bar">
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <div class="status-bar-actions">
+        <div id="progress-label" class="status-progress-label"></div>
+        <button
+          type="button"
+          id="btn-status-log"
+          class="btn ghost status-log-btn"
+          data-i18n="status.log"
+          data-i18n-title="status.logTitle"
+          title="Statusverlauf"
+        >
+          Verlauf
+        </button>
+      </div>
+    </footer>
 
     <script type="module" src="./src/renderer.ts"></script>
   </body>

@@ -19,6 +19,18 @@ https://www.maxmind.com/en/geolite/eula
 
 
 -------------------------------------------------------------------------------
+iconmonstr icons (UI toolbar glyphs)
+-------------------------------------------------------------------------------
+Selected icons from https://iconmonstr.com (Alexander Kahlkopf) are used as
+part of the application UI design (Info, Folder, Download, Gear, Refresh).
+
+Use is permitted under the iconmonstr license without attribution:
+https://iconmonstr.com/license/
+
+The icons are not sold or redistributed as a standalone icon set.
+
+
+-------------------------------------------------------------------------------
 @electron-toolkit/preload@3.0.2
 License: MIT
 Repository: https://github.com/alex8088/electron-toolkit

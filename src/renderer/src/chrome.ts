@@ -4,12 +4,15 @@ import { updateChartLocaleLabels } from './charts'
 import {
   accountSelectEl,
   btnCheckUpdate,
+  btnCloseStatusLog,
   btnDns,
   btnFetch,
   btnInfo,
   btnOpenFiles,
   btnOpenLicenses,
   btnSettings,
+  btnStatusLog,
+  btnStatusLogOk,
   btnTest,
   btnUpdateDismiss,
   btnUpdateInstall,
@@ -18,10 +21,14 @@ import {
   progressEl,
   progressLabelEl,
   statusEl,
+  statusLogDialog,
+  statusLogListEl,
+  topProgressEl,
   updateBanner,
   updateBannerText,
   updateCheckStatusEl
 } from './dom'
+import { escapeHtml } from './format'
 import { state } from './state'
 
 /** Called after locale strings/charts are updated so view/settings can refresh. */
@@ -31,10 +38,47 @@ export function setAfterLocaleChange(fn: () => void): void {
   afterLocaleChange = fn
 }
 
-export function setStatus(message: string, kind: 'ok' | 'error' | '' = ''): void {
+type StatusKind = 'ok' | 'error' | ''
+
+type StatusEntry = {
+  message: string
+  kind: StatusKind
+}
+
+const MAX_STATUS_ITEMS = 40
+const statusHistory: StatusEntry[] = []
+
+function renderStatusLog(): void {
+  if (statusHistory.length === 0) {
+    statusLogListEl.innerHTML = `<li class="status-item empty">${escapeHtml(t('status.logEmpty'))}</li>`
+    return
+  }
+  statusLogListEl.innerHTML = statusHistory
+    .map((entry) => {
+      const cls = entry.kind ? `status-item ${entry.kind}` : 'status-item'
+      return `<li class="${cls}">${escapeHtml(entry.message)}</li>`
+    })
+    .join('')
+  statusLogListEl.scrollTop = statusLogListEl.scrollHeight
+}
+
+export function setStatus(message: string, kind: StatusKind = ''): void {
+  const last = statusHistory[statusHistory.length - 1]
+  if (last?.message === message && last.kind === kind) {
+    statusEl.textContent = message
+    statusEl.classList.remove('ok', 'error')
+    if (kind) statusEl.classList.add(kind)
+    return
+  }
+
+  statusHistory.push({ message, kind })
+  while (statusHistory.length > MAX_STATUS_ITEMS) statusHistory.shift()
+
   statusEl.textContent = message
   statusEl.classList.remove('ok', 'error')
   if (kind) statusEl.classList.add(kind)
+
+  if (statusLogDialog.open) renderStatusLog()
 }
 
 export function showUpdateBanner(text: string, showInstall: boolean): void {
@@ -120,19 +164,51 @@ export function setBusy(next: boolean): void {
   accountSelectEl.disabled = next
 }
 
+/** Update the fixed top progress line (0–100). Pass null for indeterminate. */
+export function setTopProgress(pct: number | null, active = true): void {
+  const indeterminate = pct == null
+  const value = indeterminate ? 0 : Math.max(0, Math.min(100, pct))
+  progressEl.style.width = `${value}%`
+  topProgressEl.classList.toggle('active', active)
+  topProgressEl.classList.toggle('indeterminate', active && indeterminate)
+  topProgressEl.setAttribute('aria-hidden', active ? 'false' : 'true')
+  topProgressEl.setAttribute('aria-valuenow', indeterminate ? '0' : String(value))
+}
+
 export function applyProgress(progress: AnalyzeProgress): void {
   const pct =
     progress.total > 0 ? Math.min(100, Math.round((progress.processed / progress.total) * 100)) : 0
-  progressEl.value = progress.phase === 'done' ? 100 : pct
-  progressLabelEl.textContent = progress.message ?? progress.phase
-  if (progress.phase === 'error') {
+  const done = progress.phase === 'done'
+  const errored = progress.phase === 'error'
+  if (done || errored) {
+    setTopProgress(done ? 100 : 0, false)
+  } else if (progress.total > 0) {
+    setTopProgress(pct, true)
+  } else {
+    setTopProgress(null, true)
+  }
+  progressLabelEl.textContent = progress.message ?? (done || errored ? '' : progress.phase)
+  if (errored) {
     setStatus(progress.message ?? t('app.error'), 'error')
-  } else if (progress.message) {
-    setStatus(progress.message)
+    progressLabelEl.textContent = ''
+  } else if (done && progress.message) {
+    setStatus(progress.message, 'ok')
+    progressLabelEl.textContent = ''
   }
 }
 
 export function initChrome(): void {
+  setStatus(t('app.ready'))
+
+  const openStatusLog = (): void => {
+    renderStatusLog()
+    statusLogDialog.showModal()
+  }
+  const closeStatusLog = (): void => statusLogDialog.close()
+  btnStatusLog.addEventListener('click', openStatusLog)
+  btnCloseStatusLog.addEventListener('click', closeStatusLog)
+  btnStatusLogOk.addEventListener('click', closeStatusLog)
+
   btnCheckUpdate.addEventListener('click', async () => {
     updateCheckStatusEl.textContent = t('update.checking')
     try {

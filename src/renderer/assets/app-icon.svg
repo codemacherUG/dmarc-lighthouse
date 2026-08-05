@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DMARC Viewer">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="48" x2="432" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#177089"/>
+      <stop offset="1" stop-color="#0A3A4C"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="url(#bg)"/>
+
+  <!-- Envelope: large filled shapes only (no thin strokes) -->
+  <rect x="96" y="148" width="320" height="200" rx="32" fill="#F4FAFB"/>
+  <path fill="#083140" d="M96 180V176c0-16 12-28 28-28h264c16 0 28 12 28 28v4L278 292c-12 10-28 10-40 0L96 180z"/>
+  <path fill="#F4FAFB" d="M112 176l132 104c8 6 20 6 28 0l132-104H112z"/>
+
+  <!-- Shield -->
+  <path fill="#2BB4A3" d="M256 262c58 0 102-24 102-24v62c0 56-38 98-102 128-64-30-102-72-102-128v-62s44 24 102 24z"/>
+
+  <!-- Check: thick filled geometry -->
+  <path fill="#F4FAFB" d="M222 348l-28-28 22-22 28 28 66-66 22 22-88 88z"/>
+</svg>
