@@ -61,6 +61,19 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
   await wait(400)
   await capture(win, join(outDir, 'tables.png'))
 
+  await api(
+    win,
+    `const target = document.querySelector('.ip-map-panel')
+     if (target) {
+       const top = target.getBoundingClientRect().top + window.scrollY - 72
+       window.scrollTo({ top: Math.max(0, top), behavior: 'instant' })
+     }
+     // Give Leaflet / OSM tiles a moment to paint.
+     await new Promise((r) => setTimeout(r, 1200))`
+  )
+  await wait(800)
+  await capture(win, join(outDir, 'map.png'))
+
   await api(win, 'api.openSettingsDemo()')
   await wait(500)
   await capture(win, join(outDir, 'settings.png'))

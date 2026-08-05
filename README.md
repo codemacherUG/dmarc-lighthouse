@@ -50,15 +50,21 @@ Everything runs locally on your machine: credentials and OAuth tokens stay in th
 
 ### Dashboard
 
-KPIs, alignment charts (including disposition), time series, filters, and a built-in DNS check for DMARC, SPF, and DKIM selectors:
+KPIs, alignment charts (including disposition), time series, filters (including optional Google-noise filter), and a built-in DNS check for DMARC, SPF, and DKIM selectors:
 
 ![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/dashboard.png)
 
 ### Aggregation & details
 
-Reporting organizations, source IPs (including reverse DNS), From domains, individual reports, and record details — click a table row to drill down:
+Reporting organizations, source IPs (including reverse DNS), From domains, individual reports and record details — click a table row to drill down; download a report as ZIP:
 
 ![Tables with organizations, IPs, domains, and report details](docs/screenshots/tables.png)
+
+### Source map
+
+Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
+
+![Source IPs on an OpenStreetMap](docs/screenshots/map.png)
 
 ### Settings
 
@@ -83,10 +89,12 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Charts** | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time |
 | **Tables** | Organizations, source IPs, From domains, individual reports + record details; click a row to filter |
 | **IP enrichment** | Reverse DNS, known senders, cloud IP ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optional online fallback), DNSBL/DNSWL, on-demand RDAP/WHOIS |
+| **Source map** | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP |
 | **Domain health** | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter |
 | **Filters** | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain |
+| **Google noise filter** | Optional, persisted filter that hides Google forwarding / report-echo rows (Google IP + SPF fail + DKIM pass + DMARC pass) |
 | **DNS check** | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual) |
-| **Export** | Currently filtered data as CSV or JSON |
+| **Export** | Currently filtered data as CSV or JSON; single aggregate reports as ZIP (XML) |
 | **Auto-fetch** | Optional interval across all accounts + desktop notification when failures increase |
 | **Alerts** | Pass-rate threshold (7 days) and "new source detected" with an ignore list for known IPs |
 | **System tray** | Optionally keep running in the background; fetching and notifications continue with the window closed |
@@ -138,7 +146,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 1. Open **Settings** → **IMAP account**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure OAuth client IDs, auto-fetch, alerts, system tray, autostart, and language. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
-4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables; review charts, aggregate tables, and the forensic/RUF table; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP.
+4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide Google noise** to drop Google report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
 5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, and DKIM selectors from the reports or entered manually).
 
 > Tip: Broaden the subject filter (or leave it empty) if you want both RUA and RUF messages from the same mailbox.

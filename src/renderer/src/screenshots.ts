@@ -20,74 +20,104 @@ export function installScreenshotApi(): void {
       dnsDomainEl.value = 'example.com'
       dnsResultEl.innerHTML = DEMO_DNS_HTML
       dnsResultEl.className = 'dns-result ok'
-      // Seed PTR labels without calling the network.
-      const demoIp = (
-        ip: string,
-        ptr: string | null,
-        provider: string | null,
-        extra: Partial<IpInfo> = {}
-      ): void => {
-        state.ipLabelCache.set(ip, {
-          ip,
-          ptr,
-          provider,
-          country: extra.country ?? null,
-          countryCode: extra.countryCode ?? null,
-          city: extra.city ?? null,
-          lat: extra.lat ?? null,
-          lon: extra.lon ?? null,
-          asn: extra.asn ?? null,
-          asOrg: extra.asOrg ?? null,
-          cloudProvider: extra.cloudProvider ?? null,
-          dnsblHits: extra.dnsblHits ?? [],
-          geoSource: extra.geoSource ?? 'none'
+      // Seed PTR / Geo labels without calling the network.
+      const seedDemoIps = (): void => {
+        const demoIp = (
+          ip: string,
+          ptr: string | null,
+          provider: string | null,
+          extra: Partial<IpInfo> = {}
+        ): void => {
+          state.ipLabelCache.set(ip, {
+            ip,
+            ptr,
+            provider,
+            country: extra.country ?? null,
+            countryCode: extra.countryCode ?? null,
+            city: extra.city ?? null,
+            lat: extra.lat ?? null,
+            lon: extra.lon ?? null,
+            asn: extra.asn ?? null,
+            asOrg: extra.asOrg ?? null,
+            cloudProvider: extra.cloudProvider ?? null,
+            dnsblHits: extra.dnsblHits ?? [],
+            geoSource: extra.geoSource ?? 'none'
+          })
+        }
+        demoIp('192.0.2.10', 'mail-a.example.net', 'Example Net', {
+          countryCode: 'DE',
+          city: 'Berlin',
+          lat: 52.52,
+          lon: 13.405,
+          asn: 64496,
+          cloudProvider: null
+        })
+        demoIp('192.0.2.40', 'smtp.example.net', 'Example Net', {
+          countryCode: 'DE',
+          city: 'Frankfurt',
+          lat: 50.11,
+          lon: 8.68,
+          asn: 64496
+        })
+        demoIp('192.0.2.41', 'smtp-b.example.net', 'Example Net', {
+          countryCode: 'DE',
+          city: 'München',
+          lat: 48.137,
+          lon: 11.575,
+          asn: 64496
+        })
+        demoIp('192.0.2.80', 'mx.gmx.example', 'GMX', {
+          countryCode: 'DE',
+          city: 'Karlsruhe',
+          lat: 49.0069,
+          lon: 8.4037,
+          asn: 6805
+        })
+        demoIp('198.51.100.20', null, null, {
+          countryCode: 'US',
+          city: 'Mountain View',
+          lat: 37.386,
+          lon: -122.084,
+          asn: 15169,
+          cloudProvider: 'Google',
+          dnsblHits: []
+        })
+        demoIp('198.51.100.55', 'mta.yahoo.example', 'Yahoo', {
+          countryCode: 'US',
+          city: 'Sunnyvale',
+          lat: 37.3688,
+          lon: -122.0363,
+          asn: 10310
+        })
+        demoIp('203.0.113.15', null, null, {
+          countryCode: 'NL',
+          city: 'Amsterdam',
+          lat: 52.3676,
+          lon: 4.9041,
+          dnsblHits: ['spamhaus-zen']
+        })
+        demoIp('203.0.113.80', null, null, {
+          countryCode: 'FR',
+          city: 'Paris',
+          lat: 48.8566,
+          lon: 2.3522
+        })
+        demoIp('2001:db8:1::10', 'ipv6.example.net', 'Example Net', {
+          countryCode: 'DE',
+          city: 'Berlin',
+          lat: 52.52,
+          lon: 13.405,
+          asn: 64496
+        })
+        demoIp('2001:db8:2::22', 'ipv6-b.example.net', 'Example Net', {
+          countryCode: 'AT',
+          city: 'Wien',
+          lat: 48.2082,
+          lon: 16.3738,
+          asn: 64496
         })
       }
-      demoIp('192.0.2.10', 'mail-a.example.net', 'Example Net', {
-        countryCode: 'DE',
-        city: 'Berlin',
-        lat: 52.52,
-        lon: 13.405,
-        asn: 64496,
-        cloudProvider: null
-      })
-      demoIp('192.0.2.40', 'smtp.example.net', 'Example Net', {
-        countryCode: 'DE',
-        city: 'Frankfurt',
-        lat: 50.11,
-        lon: 8.68,
-        asn: 64496
-      })
-      demoIp('198.51.100.20', null, null, {
-        countryCode: 'US',
-        city: 'Mountain View',
-        lat: 37.386,
-        lon: -122.084,
-        asn: 15169,
-        cloudProvider: 'Google',
-        dnsblHits: []
-      })
-      demoIp('198.51.100.55', 'mta.yahoo.example', 'Yahoo', {
-        countryCode: 'US',
-        city: 'Sunnyvale',
-        lat: 37.3688,
-        lon: -122.0363,
-        asn: 10310
-      })
-      demoIp('203.0.113.15', null, null, {
-        countryCode: 'NL',
-        city: 'Amsterdam',
-        lat: 52.3676,
-        lon: 4.9041,
-        dnsblHits: ['spamhaus-zen']
-      })
-      demoIp('2001:db8:1::10', 'ipv6.example.net', 'Example Net', {
-        countryCode: 'DE',
-        city: 'Berlin',
-        lat: 52.52,
-        lon: 13.405,
-        asn: 64496
-      })
+      seedDemoIps()
       state.domainHealthCache = [
         {
           domain: 'example.com',
@@ -106,6 +136,10 @@ export function installScreenshotApi(): void {
       renderDomainAmpel(state.domainHealthCache)
       applyView()
       settingsDialog.close()
+      // Async IP enrichment can overwrite demo coords — re-seed afterwards.
+      await new Promise((r) => setTimeout(r, 900))
+      seedDemoIps()
+      applyView()
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
     },
     openSettingsDemo(): void {
