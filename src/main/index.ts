@@ -48,6 +48,7 @@ import { setupAutoUpdater } from './updater'
 import { runScreenshotCapture, wantsScreenshotCapture } from './screenshots'
 import { t } from '../shared/i18n'
 import { applyAppIdentityBeforeReady, ensureSafeStorageIdentity } from './app-identity'
+import { fixPackagedExecEnv, relaunchApp } from './relaunch'
 
 function accountReady(account: AccountPublic): boolean {
   return Boolean(account.user && (account.hasPassword || account.hasOAuth))
@@ -648,6 +649,9 @@ function registerIpc(): void {
 // Stable Windows/macOS update + uninstall identity (must match electron-builder appId).
 electronApp.setAppUserModelId('de.codemacher.dmarcviewer')
 
+// AppImage updates may leave APPIMAGE pointing at a deleted versioned file.
+fixPackagedExecEnv()
+
 // userData + safeStorage-bound app name (must stay stable — see app-identity.ts).
 applyAppIdentityBeforeReady()
 
@@ -664,10 +668,7 @@ app.whenReady().then(() => {
       secretsDecryptable,
       exportSecrets: exportSecretsForMigration,
       importSecrets: importSecretsFromMigration,
-      relaunch: () => {
-        app.relaunch()
-        app.exit(0)
-      }
+      relaunch: relaunchApp
     })
   ) {
     return

@@ -55,6 +55,15 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
+  // When isSilent=false, quitAndInstall uses this flag (not the 2nd argument).
+  autoUpdater.autoRunAppAfterInstall = true
+
+  // Versioned AppImage filenames: updater writes a new path and emits this event.
+  autoUpdater.on('appimage-filename-updated', (newPath: string) => {
+    if (typeof newPath === 'string' && newPath.trim()) {
+      process.env.APPIMAGE = newPath
+    }
+  })
 
   autoUpdater.on('checking-for-update', () => {
     send({ status: 'checking' })
