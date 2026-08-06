@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/screenshots/icon.png" alt="DMARC Viewer" width="96" height="96" />
+  <img src="docs/screenshots/icon.png" alt="DMARC Lighthouse" width="96" height="96" />
 </p>
 
-<h1 align="center">DMARC Viewer</h1>
+<h1 align="center">DMARC Lighthouse</h1>
 
 <p align="center">
   <a href="./README.md">English</a> ·
@@ -15,8 +15,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/codemacherUG/dmarcviewer/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/codemacherUG/dmarcviewer?label=release" /></a>
-  <a href="https://github.com/codemacherUG/dmarcviewer/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/codemacherUG/dmarcviewer/total" /></a>
+  <a href="https://github.com/codemacherUG/dmarc-lighthouse/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/codemacherUG/dmarc-lighthouse?label=release" /></a>
+  <a href="https://github.com/codemacherUG/dmarc-lighthouse/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/codemacherUG/dmarc-lighthouse/total" /></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-1f6f8b" />
   <img alt="Electron" src="https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white" />
 </p>
@@ -33,7 +33,7 @@
 
 ## Was macht die App?
 
-DMARC-Aggregate-Reports (RUA) und Failure-Reports (RUF) landen oft in einem eigenen Postfach und sind schwer lesbar. **DMARC Viewer** holt diese Mails per IMAP (oder per Datei-Import), parst sie lokal und zeigt auf einen Blick:
+DMARC-Aggregate-Reports (RUA) und Failure-Reports (RUF) landen oft in einem eigenen Postfach und sind schwer lesbar. **DMARC Lighthouse** holt diese Mails per IMAP (oder per Datei-Import), parst sie lokal und zeigt auf einen Blick:
 
 - wie viele Nachrichten **Pass** bzw. **Fail** hatten und welche **Dispositions** (`none` / `quarantine` / `reject`) angewendet wurden
 - ob **DMARC-, SPF- und DKIM-Alignment** stimmen
@@ -106,7 +106,7 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 
 ## Download & Installation
 
-Fertige Builds liegen unter den [GitHub Releases](https://github.com/codemacherUG/dmarcviewer/releases/latest):
+Fertige Builds liegen unter den [GitHub Releases](https://github.com/codemacherUG/dmarc-lighthouse/releases/latest):
 
 | Plattform | Pakete |
 | --- | --- |
@@ -245,7 +245,7 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.7` pushen oder Work
 
 ## Lizenz & Attributionen
 
-DMARC Viewer steht unter der [MIT-Lizenz](LICENSE). Lizenztexte gebündelter Abhängigkeiten stehen in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) (auch unter **Über → Open-Source-Lizenzen anzeigen**). Electron-/Chromium-Hinweise liegen der Paketierung bei.
+DMARC Lighthouse steht unter der [MIT-Lizenz](LICENSE). Lizenztexte gebündelter Abhängigkeiten stehen in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) (auch unter **Über → Open-Source-Lizenzen anzeigen**). Electron-/Chromium-Hinweise liegen der Paketierung bei.
 
 Optionales Offline-GeoIP nutzt MaxMind GeoLite2 (Download durch den Nutzer mit MaxMind-License-Key):
 
@@ -259,4 +259,4 @@ Notices nach Dependency-Änderungen neu erzeugen: `npm run licenses:generate`.
 
 **codemacher UG (haftungsbeschränkt)** · [codemacher.de](https://codemacher.de/)
 
-Issues und Pull Requests gerne über [GitHub](https://github.com/codemacherUG/dmarcviewer).
+Issues und Pull Requests gerne über [GitHub](https://github.com/codemacherUG/dmarc-lighthouse).

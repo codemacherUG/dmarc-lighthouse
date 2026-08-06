@@ -1,16 +1,16 @@
 {
-  "name": "dmarcviewer",
+  "name": "dmarc-lighthouse",
   "version": "1.0.10",
-  "description": "Desktop DMARC report viewer — IMAP/OAuth fetch, SQLite cache, aggregate and forensic analysis",
+  "description": "DMARC Lighthouse — desktop app for IMAP/OAuth fetch, SQLite cache, aggregate and forensic DMARC analysis",
   "main": "./out/main/index.js",
   "author": "codemacher UG (haftungsbeschränkt)",
   "license": "MIT",
   "homepage": "https://codemacher.de/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/codemacherUG/dmarcviewer.git"
+    "url": "https://github.com/codemacherUG/dmarc-lighthouse.git"
   },
-  "desktopName": "dmarcviewer.desktop",
+  "desktopName": "dmarc-lighthouse.desktop",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

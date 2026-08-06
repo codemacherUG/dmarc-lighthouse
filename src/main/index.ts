@@ -85,7 +85,7 @@ function createWindow(): BrowserWindow {
     minHeight: 680,
     show: false,
     autoHideMenuBar: true,
-    title: 'DMARC Viewer',
+    title: 'DMARC Lighthouse',
     ...(appIcon.isEmpty() ? {} : { icon: appIcon }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -224,7 +224,7 @@ function updateTray(): void {
 
 function notify(body: string): void {
   if (!Notification.isSupported()) return
-  const n = new Notification({ title: 'DMARC Viewer', body })
+  const n = new Notification({ title: 'DMARC Lighthouse', body })
   n.on('click', () => showMainWindow())
   n.show()
 }
@@ -640,12 +640,20 @@ function registerIpc(): void {
   })
 }
 
-app.whenReady().then(() => {
-  // Must match linux.desktop StartupWMClass / Icon theme name so the panel
-  // associates this window with the AppImage .desktop entry (SVG icon).
-  app.setName('dmarcviewer')
-  electronApp.setAppUserModelId('de.codemacher.dmarcviewer')
+// Stable Windows/macOS update + uninstall identity (must match electron-builder appId).
+electronApp.setAppUserModelId('de.codemacher.dmarcviewer')
 
+// Must match linux.desktop StartupWMClass / Icon theme name so the panel
+// associates this window with the AppImage .desktop entry (SVG icon).
+app.setName('dmarc-lighthouse')
+
+// Pre-rename installs used userData …/dmarcviewer (package/setName). Keep it.
+const legacyUserData = join(app.getPath('appData'), 'dmarcviewer')
+if (existsSync(legacyUserData)) {
+  app.setPath('userData', legacyUserData)
+}
+
+app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })

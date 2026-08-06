@@ -18,7 +18,7 @@ import type {
   UpdateStatusPayload
 } from '../shared/types'
 
-export interface DmarcViewerApi {
+export interface DmarcLighthouseApi {
   loadSettings: () => Promise<SettingsPublic>
   saveAccount: (input: AccountSettingsInput) => Promise<SettingsPublic>
   deleteAccount: (id: string) => Promise<SettingsPublic>
@@ -58,7 +58,7 @@ export interface DmarcViewerApi {
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: DmarcViewerApi
+    api: DmarcLighthouseApi
     __dmarcScreenshot?: {
       prepareDemo: () => Promise<void>
       openSettingsDemo: () => void

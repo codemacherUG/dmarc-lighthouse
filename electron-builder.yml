@@ -1,6 +1,8 @@
+# appId must stay stable: NSIS GUID + macOS ShipIt/auto-update identity.
+# Renaming it breaks upgrades for existing installs. productName/UI may change.
 appId: de.codemacher.dmarcviewer
-productName: DMARC Viewer
-executableName: dmarcviewer
+productName: DMARC Lighthouse
+executableName: dmarc-lighthouse
 directories:
   buildResources: build
   output: release
@@ -28,7 +30,7 @@ extraResources:
 afterPack: build/hooks/afterPack.cjs
 icon: icon.png
 win:
-  executableName: dmarcviewer
+  executableName: dmarc-lighthouse
   icon: icon.ico
   target:
     - target: nsis
@@ -47,7 +49,7 @@ portable:
 mac:
   icon: icon.icns
   category: public.app-category.utilities
-  # Keep zip/dmg names as dmarcviewer-… (not productName "DMARC Viewer" → DMARC.Viewer-…)
+  # Keep zip/dmg names as dmarc-lighthouse-… (not productName → DMARC.Lighthouse-…)
   artifactName: ${name}-${version}-mac-${arch}.${ext}
   target:
     - target: dmg
@@ -70,7 +72,7 @@ linux:
   # SVG alone is not used by Electron window icons; without a window bitmap Cinnamon
   # often shows a generic gear when AppImage↔desktop association fails.
   icon: icons
-  executableName: dmarcviewer
+  executableName: dmarc-lighthouse
   syncDesktopName: true
   target:
     - target: AppImage
@@ -81,13 +83,13 @@ linux:
         - x64
   maintainer: mail@codemacher.de
   category: Utility
-  synopsis: DMARC aggregate and forensic report viewer
-  description: Fetch and analyze DMARC aggregate (RUA) and forensic (RUF) reports from an IMAP mailbox.
+  synopsis: DMARC Lighthouse — aggregate and forensic report analysis
+  description: DMARC Lighthouse fetches and analyzes DMARC aggregate (RUA) and forensic (RUF) reports from an IMAP mailbox.
   desktop:
     entry:
-      Name: DMARC Viewer
-      Icon: dmarcviewer
-      StartupWMClass: dmarcviewer
+      Name: DMARC Lighthouse
+      Icon: dmarc-lighthouse
+      StartupWMClass: dmarc-lighthouse
       Terminal: false
       Type: Application
       Categories: Utility;
@@ -99,4 +101,4 @@ npmRebuild: false
 publish:
   provider: github
   owner: codemacherUG
-  repo: dmarcviewer
+  repo: dmarc-lighthouse

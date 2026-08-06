@@ -53,7 +53,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dmarcviewer-${{ matrix.platform }}
+          name: dmarc-lighthouse-${{ matrix.platform }}
           path: |
             release/*.*
             !release/builder-*.yml
@@ -91,15 +91,15 @@ jobs:
               latest.yml|latest-linux.yml|latest-mac.yml) continue ;;
             esac
             case "$base" in
-              *' '*|DMARC*|*Viewer*)
+              *' '*|DMARC*|*Lighthouse*)
                 echo "Invalid name (productName leak / spaces): $base" >&2
                 bad=1
                 ;;
             esac
             case "$base" in
-              dmarcviewer-"$pkg_ver"-*) ;;
+              dmarc-lighthouse-"$pkg_ver"-*) ;;
               *)
-                echo "Unexpected artifact name (want dmarcviewer-$pkg_ver-…): $base" >&2
+                echo "Unexpected artifact name (want dmarc-lighthouse-$pkg_ver-…): $base" >&2
                 bad=1
                 ;;
             esac
@@ -123,7 +123,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
-          name: DMARC Viewer ${{ steps.tag.outputs.name }}
+          name: DMARC Lighthouse ${{ steps.tag.outputs.name }}
           draft: false
           generate_release_notes: true
           files: dist-release/*

@@ -5,7 +5,7 @@ export type MessageKey = keyof typeof de
 type Dict = Record<MessageKey, string>
 
 const de = {
-  'app.title': 'DMARC Viewer',
+  'app.title': 'DMARC Lighthouse',
   'app.subtitle': 'Aggregate-Reports',
   'app.noCredentials': 'Keine Zugangsdaten',
   'app.ready': 'Bereit',
@@ -298,7 +298,7 @@ const de = {
   'export.csv': 'CSV speichern',
   'export.json': 'JSON speichern',
 
-  'about.title': 'Über DMARC Viewer',
+  'about.title': 'Über DMARC Lighthouse',
   'about.version': 'Version',
   'about.description':
     'Desktop-Tool zum Abrufen und Analysieren von DMARC-Aggregate- (RUA) und Forensik-Reports (RUF) aus einem IMAP-Postfach oder lokalen Dateien.',
@@ -366,10 +366,10 @@ const de = {
     'Pass-Rate der letzten 7 Tage bei {rate}% — unter Schwelle von {threshold}%{suffix}.',
   'main.alertNewSource': 'Neue Quelle erkannt: {shown}{more}{suffix}.',
   'main.alertMore': ' und {count} weitere',
-  'main.trayShow': 'DMARC Viewer anzeigen',
+  'main.trayShow': 'DMARC Lighthouse anzeigen',
   'main.trayFetch': 'Jetzt abrufen',
   'main.trayQuit': 'Beenden',
-  'main.trayTooltipNew': 'DMARC Viewer — neue Reports',
+  'main.trayTooltipNew': 'DMARC Lighthouse — neue Reports',
 
   'imap.connectOk': 'Verbindung OK — Ordner „{mailbox}" enthält {count} Nachrichten.',
   'imap.listOk': '{count} Ordner geladen.',
@@ -405,7 +405,7 @@ const de = {
 } as const
 
 const en: Dict = {
-  'app.title': 'DMARC Viewer',
+  'app.title': 'DMARC Lighthouse',
   'app.subtitle': 'Aggregate reports',
   'app.noCredentials': 'No credentials',
   'app.ready': 'Ready',
@@ -696,7 +696,7 @@ const en: Dict = {
   'export.csv': 'Save CSV',
   'export.json': 'Save JSON',
 
-  'about.title': 'About DMARC Viewer',
+  'about.title': 'About DMARC Lighthouse',
   'about.version': 'Version',
   'about.description':
     'Desktop tool for fetching and analyzing DMARC aggregate (RUA) and forensic (RUF) reports from an IMAP mailbox or local files.',
@@ -761,10 +761,10 @@ const en: Dict = {
   'main.alertPassRate': '7-day pass rate at {rate}% — below threshold of {threshold}%{suffix}.',
   'main.alertNewSource': 'New source detected: {shown}{more}{suffix}.',
   'main.alertMore': ' and {count} more',
-  'main.trayShow': 'Show DMARC Viewer',
+  'main.trayShow': 'Show DMARC Lighthouse',
   'main.trayFetch': 'Fetch now',
   'main.trayQuit': 'Quit',
-  'main.trayTooltipNew': 'DMARC Viewer — new reports',
+  'main.trayTooltipNew': 'DMARC Lighthouse — new reports',
 
   'imap.connectOk': 'Connection OK — folder “{mailbox}" contains {count} messages.',
   'imap.listOk': 'Loaded {count} folders.',

@@ -48,7 +48,13 @@ function cacheDir(): string {
 }
 
 function dbPath(): string {
-  return join(cacheDir(), 'dmarcviewer.sqlite')
+  const dir = cacheDir()
+  const next = join(dir, 'dmarc-lighthouse.sqlite')
+  const legacy = join(dir, 'dmarcviewer.sqlite')
+  if (!existsSync(next) && existsSync(legacy)) {
+    renameSync(legacy, next)
+  }
+  return next
 }
 
 function normalizeRecord(rec: SerializedRecord): SerializedRecord {

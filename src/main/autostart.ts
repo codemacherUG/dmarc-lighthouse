@@ -3,7 +3,9 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
-const DESKTOP_FILENAME = 'dmarcviewer.desktop'
+const DESKTOP_FILENAME = 'dmarc-lighthouse.desktop'
+/** Pre-rename autostart entry — remove so only one login item remains. */
+const LEGACY_DESKTOP_FILENAME = 'dmarcviewer.desktop'
 
 /** Quote a single Exec argument per the Desktop Entry Spec. */
 export function quoteDesktopArg(value: string): string {
@@ -31,7 +33,7 @@ export function buildLinuxAutostartDesktop(opts: {
 }): string {
   const exec = quoteDesktopArg(opts.execPath)
   const args = opts.hidden ? ' --hidden' : ''
-  const name = opts.name ?? 'DMARC Viewer'
+  const name = opts.name ?? 'DMARC Lighthouse'
   return [
     '[Desktop Entry]',
     'Type=Application',
@@ -39,10 +41,10 @@ export function buildLinuxAutostartDesktop(opts: {
     `Name=${name}`,
     'Comment=DMARC aggregate and forensic report viewer',
     `Exec=${exec}${args}`,
-    'Icon=dmarcviewer',
+    'Icon=dmarc-lighthouse',
     'Terminal=false',
     'Categories=Utility;',
-    'StartupWMClass=dmarcviewer',
+    'StartupWMClass=dmarc-lighthouse',
     'X-GNOME-Autostart-enabled=true',
     ''
   ].join('\n')
@@ -57,8 +59,14 @@ function linuxAutostartDesktopPath(): string {
   return join(linuxAutostartDir(), DESKTOP_FILENAME)
 }
 
+function removeLegacyLinuxAutostart(): void {
+  const legacy = join(linuxAutostartDir(), LEGACY_DESKTOP_FILENAME)
+  if (existsSync(legacy)) unlinkSync(legacy)
+}
+
 /** Electron's login-item API is darwin/win32 only — Linux needs XDG autostart. */
 export function applyLinuxOpenAtLogin(openAtLogin: boolean, openAsHidden: boolean): void {
+  removeLegacyLinuxAutostart()
   const desktopPath = linuxAutostartDesktopPath()
 
   if (!openAtLogin) {

@@ -14,7 +14,7 @@ const outPath = join(root, 'THIRD_PARTY_NOTICES.txt')
 const header = `THIRD-PARTY NOTICES
 ===================
 
-DMARC Viewer includes open-source software and optional third-party data.
+DMARC Lighthouse includes open-source software and optional third-party data.
 This file lists production npm dependency licenses bundled with the application.
 Electron and Chromium license texts also ship beside the executable as
 LICENSE.electron.txt and LICENSES.chromium.html.
@@ -59,7 +59,7 @@ function readLicenseText(pkg) {
 
 const data = collectJson()
 const entries = Object.entries(data)
-  .filter(([name]) => !name.startsWith('dmarcviewer@'))
+  .filter(([name]) => !name.startsWith('dmarc-lighthouse@'))
   .sort(([a], [b]) => a.localeCompare(b))
 
 const lines = [header]

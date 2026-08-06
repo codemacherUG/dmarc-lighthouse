@@ -3,8 +3,8 @@ const path = require('path')
 
 /**
  * Ensure AppImage/desktop theme has both:
- * - PNG sizes under hicolor/<NxN>/apps/dmarcviewer.png (panel/WM association)
- * - SVG under hicolor/scalable/apps/dmarcviewer.svg (HiDPI / file managers)
+ * - PNG sizes under hicolor/<NxN>/apps/dmarc-lighthouse.png (panel/WM association)
+ * - SVG under hicolor/scalable/apps/dmarc-lighthouse.svg (HiDPI / file managers)
  *
  * electron-builder with linux.icon = icons should already copy PNGs; this
  * fills gaps and always installs the SVG (builder cannot mix svg+png in one icon dir).
@@ -14,7 +14,7 @@ exports.default = async function afterPack(context) {
 
   const projectDir = context.packager.projectDir
   const appOutDir = context.appOutDir
-  const iconName = 'dmarcviewer'
+  const iconName = 'dmarc-lighthouse'
   const hicolor = path.join(appOutDir, 'usr', 'share', 'icons', 'hicolor')
   const iconsSrc = path.join(projectDir, 'build', 'icons')
   const svgSrc = path.join(projectDir, 'build', 'icon.svg')

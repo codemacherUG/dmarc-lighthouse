@@ -213,7 +213,7 @@ async function downloadAndExtractEdition(
     throw new Error(`MaxMind download failed (${res.status}) for ${editionId}`)
   }
 
-  const workDir = mkdtempSync(join(tmpdir(), `dmarcviewer-${editionId}-`))
+  const workDir = mkdtempSync(join(tmpdir(), `dmarc-lighthouse-${editionId}-`))
   const archivePath = join(workDir, `${editionId}.tar.gz`)
   const nodeReadable = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
   await pipeline(nodeReadable, createWriteStream(archivePath))
