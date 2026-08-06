@@ -362,6 +362,7 @@ export function readGlobalForm(): GlobalSettings {
     enrichmentEnabled: enrichmentEnabledEl.checked,
     geoIpOnlineFallback: geoIpOnlineFallbackEl.checked,
     maxmindLicenseKey: maxmindLicenseKeyEl.value.trim(),
+    hasMaxmindLicenseKey: Boolean(state.settings?.global.hasMaxmindLicenseKey),
     dnsblEnabled: dnsblEnabledEl.checked,
     cloudRangesEnabled: cloudRangesEnabledEl.checked,
     rdapEnabled: rdapEnabledEl.checked,
@@ -453,7 +454,10 @@ export function fillGlobalForm(global: GlobalSettings): void {
   dnsblEnabledEl.checked = global.dnsblEnabled !== false
   rdapEnabledEl.checked = global.rdapEnabled !== false
   geoIpOnlineFallbackEl.checked = Boolean(global.geoIpOnlineFallback)
-  maxmindLicenseKeyEl.value = global.maxmindLicenseKey ?? ''
+  maxmindLicenseKeyEl.value = ''
+  maxmindLicenseKeyEl.placeholder = global.hasMaxmindLicenseKey
+    ? t('settings.maxmindKeySaved')
+    : t('settings.maxmindKeyPlaceholder')
   void refreshGeoLiteStatus()
 }
 

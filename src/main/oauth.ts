@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from 'crypto'
 import { createServer } from 'http'
-import { shell } from 'electron'
 import type { OAuthProvider } from '../shared/types'
 import { t } from '../shared/i18n'
+import { openExternalSafe } from './open-external'
 
 export interface OAuthTokens {
   accessToken: string
@@ -59,10 +59,20 @@ function endpoints(provider: OAuthProvider, config: OAuthClientConfig): Provider
   }
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 function htmlPage(title: string, body: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><title>${title}</title>
+  const safeTitle = escapeHtml(title)
+  const safeBody = escapeHtml(body)
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><title>${safeTitle}</title>
 <style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;line-height:1.5}
-h1{font-size:1.25rem}</style></head><body><h1>${title}</h1><p>${body}</p></body></html>`
+h1{font-size:1.25rem}</style></head><body><h1>${safeTitle}</h1><p>${safeBody}</p></body></html>`
 }
 
 async function startLoopback(): Promise<{
@@ -242,7 +252,7 @@ export async function authorizeInteractive(
       url.searchParams.set('response_mode', 'query')
     }
 
-    await shell.openExternal(url.toString())
+    await openExternalSafe(url.toString())
     const code = await loop.wait()
     const json = await exchangeToken(ep.tokenUrl, {
       client_id: ep.clientId,

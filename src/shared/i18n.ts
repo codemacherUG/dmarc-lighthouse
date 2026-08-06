@@ -200,9 +200,10 @@ const de = {
   'settings.cloudRangesEnabled': 'Cloud-IP-Ranges (AWS / Google / Cloudflare)',
   'settings.dnsblEnabled': 'DNSBL / DNSWL',
   'settings.rdapEnabled': 'RDAP / WHOIS on-demand',
-  'settings.geoIpOnlineFallback': 'Geo-IP Online-Fallback (ip-api.com)',
+  'settings.geoIpOnlineFallback': 'Geo-IP Online-Fallback (ipwho.is, HTTPS)',
   'settings.maxmindLicenseKey': 'MaxMind License-Key (GeoLite2)',
   'settings.maxmindKeyPlaceholder': 'Für lokalen GeoLite2-Download',
+  'settings.maxmindKeySaved': 'Schlüssel gespeichert — leer lassen zum Behalten',
   'settings.downloadGeoLite': 'GeoLite2 herunterladen',
   'settings.enrichmentHint':
     'Offline zuerst (GeoLite2 unter userData/enrichment). Online-Fallback und RDAP sind opt-in bzw. on-demand. Cloud-Ranges und DNSBL nutzen öffentliche Listen bzw. DNS. PTR läuft unabhängig vom Master-Schalter.',
@@ -600,9 +601,10 @@ const en: Dict = {
   'settings.cloudRangesEnabled': 'Cloud IP ranges (AWS / Google / Cloudflare)',
   'settings.dnsblEnabled': 'DNSBL / DNSWL',
   'settings.rdapEnabled': 'RDAP / WHOIS on demand',
-  'settings.geoIpOnlineFallback': 'Geo-IP online fallback (ip-api.com)',
+  'settings.geoIpOnlineFallback': 'Geo-IP online fallback (ipwho.is, HTTPS)',
   'settings.maxmindLicenseKey': 'MaxMind license key (GeoLite2)',
   'settings.maxmindKeyPlaceholder': 'For local GeoLite2 download',
+  'settings.maxmindKeySaved': 'Key saved — leave empty to keep it',
   'settings.downloadGeoLite': 'Download GeoLite2',
   'settings.enrichmentHint':
     'Offline first (GeoLite2 under userData/enrichment). Online fallback and RDAP are opt-in / on demand. Cloud ranges and DNSBL use public lists or DNS. PTR runs regardless of the master switch.',

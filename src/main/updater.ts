@@ -57,6 +57,9 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
   autoUpdater.autoInstallOnAppQuit = true
   // When isSilent=false, quitAndInstall uses this flag (not the 2nd argument).
   autoUpdater.autoRunAppAfterInstall = true
+  autoUpdater.allowDowngrade = false
+  // Checksums from latest*.yml are verified by electron-updater. Platform code-signing
+  // (CSC_LINK / Apple notarize) must be enabled in CI for signature checks to apply.
 
   // Versioned AppImage filenames: updater writes a new path and emits this event.
   autoUpdater.on('appimage-filename-updated', (newPath: string) => {

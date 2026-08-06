@@ -96,6 +96,8 @@ export interface SafeStorageSecretSnapshot {
   refreshToken?: string
   accessToken?: string
   accessTokenExpiresAt?: number
+  /** Present on the `__global__` sentinel row when a MaxMind key is stored. */
+  maxmindLicenseKey?: string
 }
 
 function writeMarker(name: string): void {
