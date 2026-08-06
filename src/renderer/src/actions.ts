@@ -235,23 +235,16 @@ export function initActions(): void {
     dropOverlay.classList.add('hidden')
     const files = [...(e.dataTransfer?.files ?? [])]
     if (!files.length || state.busy) return
-    const paths = files
-      .map((f) => {
-        try {
-          return window.api.getPathForFile(f)
-        } catch {
-          return ''
-        }
-      })
-      .filter(Boolean)
-    if (!paths.length) {
-      setStatus(t('status.filesFailed'), 'error')
-      return
-    }
     void (async () => {
       setBusy(true)
       try {
-        const result = await window.api.parsePaths(paths)
+        const buffers = await Promise.all(
+          files.map(async (f) => ({
+            name: f.name,
+            data: await f.arrayBuffer()
+          }))
+        )
+        const result = await window.api.parseBuffers(buffers)
         state.selectedReportId = null
         showResult(result, t('status.filesLoaded', { count: result.reports.length }))
       } catch (err) {

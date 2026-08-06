@@ -58,7 +58,9 @@ interface StoredGlobal {
   oauthMicrosoftClientId?: string
   enrichmentEnabled?: boolean
   geoIpOnlineFallback?: boolean
+  /** @deprecated plaintext; migrated to maxmindLicenseKeyEncrypted on load/save */
   maxmindLicenseKey?: string
+  maxmindLicenseKeyEncrypted?: string
   dnsblEnabled?: boolean
   cloudRangesEnabled?: boolean
   rdapEnabled?: boolean
@@ -101,6 +103,7 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   enrichmentEnabled: true,
   geoIpOnlineFallback: false,
   maxmindLicenseKey: '',
+  hasMaxmindLicenseKey: false,
   dnsblEnabled: true,
   cloudRangesEnabled: true,
   rdapEnabled: true,
@@ -170,7 +173,39 @@ function readStored(): StoredSettingsV2 {
 }
 
 function writeStored(stored: StoredSettingsV2): void {
-  writeFileSync(settingsPath(), JSON.stringify(stored, null, 2), 'utf8')
+  writeFileSync(settingsPath(), JSON.stringify(stored, null, 2), {
+    encoding: 'utf8',
+    mode: 0o600
+  })
+}
+
+/** Migrate plaintext MaxMind key to safeStorage; returns whether settings were rewritten. */
+function migrateMaxmindLicenseKey(stored: StoredSettingsV2): boolean {
+  const plaintext = stored.global.maxmindLicenseKey?.trim()
+  if (!plaintext || stored.global.maxmindLicenseKeyEncrypted) {
+    if (plaintext && stored.global.maxmindLicenseKeyEncrypted) {
+      delete stored.global.maxmindLicenseKey
+      return true
+    }
+    return false
+  }
+  try {
+    stored.global.maxmindLicenseKeyEncrypted = encryptSecret(plaintext)
+    delete stored.global.maxmindLicenseKey
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Decrypted MaxMind license key for main-process use only. */
+export function getMaxmindLicenseKey(): string {
+  const stored = readStored()
+  if (migrateMaxmindLicenseKey(stored)) writeStored(stored)
+  if (stored.global.maxmindLicenseKeyEncrypted) {
+    return decryptSecret(stored.global.maxmindLicenseKeyEncrypted)
+  }
+  return (stored.global.maxmindLicenseKey ?? '').trim()
 }
 
 function encryptSecret(value: string): string {
@@ -201,13 +236,23 @@ const SECRET_FIELDS = [
   'accessTokenEncrypted'
 ] as const
 
+const GLOBAL_SECRET_ACCOUNT_ID = '__global__'
+
 export function hasEncryptedSecrets(): boolean {
-  return readStored().accounts.some((a) => SECRET_FIELDS.some((f) => Boolean(a[f])))
+  const stored = readStored()
+  if (stored.global.maxmindLicenseKeyEncrypted || stored.global.maxmindLicenseKey?.trim()) {
+    return true
+  }
+  return stored.accounts.some((a) => SECRET_FIELDS.some((f) => Boolean(a[f])))
 }
 
 export function secretsDecryptable(): boolean {
   if (!safeStorage.isEncryptionAvailable()) return !hasEncryptedSecrets()
-  for (const a of readStored().accounts) {
+  const stored = readStored()
+  if (stored.global.maxmindLicenseKeyEncrypted) {
+    if (!tryDecryptSecret(stored.global.maxmindLicenseKeyEncrypted).ok) return false
+  }
+  for (const a of stored.accounts) {
     for (const field of SECRET_FIELDS) {
       const encrypted = a[field]
       if (!encrypted) continue
@@ -223,15 +268,19 @@ export function exportSecretsForMigration(): {
   refreshToken?: string
   accessToken?: string
   accessTokenExpiresAt?: number
+  maxmindLicenseKey?: string
 }[] {
+  const stored = readStored()
+  if (migrateMaxmindLicenseKey(stored)) writeStored(stored)
   const out: {
     accountId: string
     password?: string
     refreshToken?: string
     accessToken?: string
     accessTokenExpiresAt?: number
+    maxmindLicenseKey?: string
   }[] = []
-  for (const a of readStored().accounts) {
+  for (const a of stored.accounts) {
     const row: (typeof out)[number] = { accountId: a.id }
     if (a.passwordEncrypted) {
       const r = tryDecryptSecret(a.passwordEncrypted)
@@ -248,6 +297,12 @@ export function exportSecretsForMigration(): {
     if (a.accessTokenExpiresAt != null) row.accessTokenExpiresAt = a.accessTokenExpiresAt
     if (row.password || row.refreshToken || row.accessToken) out.push(row)
   }
+  if (stored.global.maxmindLicenseKeyEncrypted) {
+    const r = tryDecryptSecret(stored.global.maxmindLicenseKeyEncrypted)
+    if (r.ok && r.value) {
+      out.push({ accountId: GLOBAL_SECRET_ACCOUNT_ID, maxmindLicenseKey: r.value })
+    }
+  }
   return out
 }
 
@@ -258,6 +313,7 @@ export function importSecretsFromMigration(
     refreshToken?: string
     accessToken?: string
     accessTokenExpiresAt?: number
+    maxmindLicenseKey?: string
   }[]
 ): void {
   const stored = readStored()
@@ -277,6 +333,11 @@ export function importSecretsFromMigration(
     if (snap.accessTokenExpiresAt != null) {
       account.accessTokenExpiresAt = snap.accessTokenExpiresAt
     }
+  }
+  const globalSnap = byId.get(GLOBAL_SECRET_ACCOUNT_ID)
+  if (globalSnap?.maxmindLicenseKey) {
+    stored.global.maxmindLicenseKeyEncrypted = encryptSecret(globalSnap.maxmindLicenseKey)
+    delete stored.global.maxmindLicenseKey
   }
   writeStored(stored)
 }
@@ -339,7 +400,10 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
       g.oauthMicrosoftClientId?.trim() || process.env.DMARC_MS_CLIENT_ID?.trim() || '',
     enrichmentEnabled: g.enrichmentEnabled ?? GLOBAL_DEFAULTS.enrichmentEnabled,
     geoIpOnlineFallback: Boolean(g.geoIpOnlineFallback),
-    maxmindLicenseKey: g.maxmindLicenseKey?.trim() ?? '',
+    maxmindLicenseKey: '',
+    hasMaxmindLicenseKey: Boolean(
+      g.maxmindLicenseKeyEncrypted || g.maxmindLicenseKey?.trim()
+    ),
     dnsblEnabled: g.dnsblEnabled ?? GLOBAL_DEFAULTS.dnsblEnabled,
     cloudRangesEnabled: g.cloudRangesEnabled ?? GLOBAL_DEFAULTS.cloudRangesEnabled,
     rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled,
@@ -357,6 +421,7 @@ export function getOAuthClientConfig(global?: GlobalSettings): OAuthClientConfig
 
 export function loadSettings(): SettingsPublic {
   const stored = readStored()
+  if (migrateMaxmindLicenseKey(stored)) writeStored(stored)
   const settings = {
     accounts: stored.accounts.map(toPublicAccount),
     activeAccountId:
@@ -495,6 +560,12 @@ export function setActiveAccount(id: string): SettingsPublic {
 
 export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
   const stored = readStored()
+  migrateMaxmindLicenseKey(stored)
+  let maxmindLicenseKeyEncrypted = stored.global.maxmindLicenseKeyEncrypted
+  const newKey = String(input.maxmindLicenseKey ?? '').trim()
+  if (newKey) {
+    maxmindLicenseKeyEncrypted = encryptSecret(newKey)
+  }
   stored.global = {
     autoFetchMinutes: normalizeMinutes(input.autoFetchMinutes),
     notifyOnFail: Boolean(input.notifyOnFail),
@@ -508,7 +579,7 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     oauthMicrosoftClientId: String(input.oauthMicrosoftClientId ?? '').trim(),
     enrichmentEnabled: input.enrichmentEnabled !== false,
     geoIpOnlineFallback: Boolean(input.geoIpOnlineFallback),
-    maxmindLicenseKey: String(input.maxmindLicenseKey ?? '').trim(),
+    maxmindLicenseKeyEncrypted,
     dnsblEnabled: input.dnsblEnabled !== false,
     cloudRangesEnabled: input.cloudRangesEnabled !== false,
     rdapEnabled: input.rdapEnabled !== false,

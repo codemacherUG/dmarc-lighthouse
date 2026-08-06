@@ -126,33 +126,35 @@ function lookupMaxmind(ip: string): GeoLookupResult | null {
 
 async function lookupOnline(ip: string): Promise<GeoLookupResult | null> {
   try {
-    const res = await fetch(
-      `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,country,countryCode,city,lat,lon,as,asname`,
-      { signal: AbortSignal.timeout(5000) }
-    )
+    const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+      signal: AbortSignal.timeout(5000)
+    })
     if (!res.ok) return null
     const data = (await res.json()) as {
-      status?: string
+      success?: boolean
       country?: string
-      countryCode?: string
+      country_code?: string
       city?: string
-      lat?: number
-      lon?: number
-      as?: string
-      asname?: string
+      latitude?: number
+      longitude?: number
+      connection?: { asn?: number; org?: string }
     }
-    if (data.status !== 'success') return null
-    let asn: number | null = null
-    const asMatch = data.as?.match(/^AS(\d+)/i)
-    if (asMatch) asn = Number(asMatch[1])
+    if (data.success === false) return null
+    const asn =
+      typeof data.connection?.asn === 'number' && Number.isFinite(data.connection.asn)
+        ? data.connection.asn
+        : null
     return {
       country: data.country ?? null,
-      countryCode: data.countryCode ?? null,
+      countryCode: data.country_code ?? null,
       city: data.city ?? null,
-      lat: typeof data.lat === 'number' && Number.isFinite(data.lat) ? data.lat : null,
-      lon: typeof data.lon === 'number' && Number.isFinite(data.lon) ? data.lon : null,
+      lat: typeof data.latitude === 'number' && Number.isFinite(data.latitude) ? data.latitude : null,
+      lon:
+        typeof data.longitude === 'number' && Number.isFinite(data.longitude)
+          ? data.longitude
+          : null,
       asn,
-      asOrg: data.asname ?? null,
+      asOrg: data.connection?.org ?? null,
       geoSource: 'online'
     }
   } catch {
@@ -218,7 +220,13 @@ async function downloadAndExtractEdition(
   const nodeReadable = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
   await pipeline(nodeReadable, createWriteStream(archivePath))
 
-  await tarExtract({ file: archivePath, cwd: workDir, gzip: true })
+  await tarExtract({
+    file: archivePath,
+    cwd: workDir,
+    gzip: true,
+    // Reject path traversal / absolute paths from a compromised archive.
+    filter: (p: string) => !p.includes('..') && !p.startsWith('/') && !p.includes('\\')
+  })
   const mmdb = findMmdb(workDir)
   if (!mmdb) throw new Error(`No .mmdb found in ${editionId} archive`)
   copyFileSync(mmdb, targetFile)

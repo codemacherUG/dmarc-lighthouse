@@ -288,6 +288,7 @@ export function buildDemoSettings(): SettingsPublic {
       enrichmentEnabled: true,
       geoIpOnlineFallback: false,
       maxmindLicenseKey: '',
+      hasMaxmindLicenseKey: false,
       dnsblEnabled: true,
       cloudRangesEnabled: true,
       rdapEnabled: true,

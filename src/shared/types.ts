@@ -134,10 +134,15 @@ export interface GlobalSettings {
   oauthMicrosoftClientId: string
   /** Master switch for IP enrichment (PTR still runs when off). */
   enrichmentEnabled: boolean
-  /** Use ip-api.com when GeoLite2 DBs are missing (opt-in). */
+  /** Use HTTPS geo lookup when GeoLite2 DBs are missing (opt-in). */
   geoIpOnlineFallback: boolean
-  /** MaxMind license key for GeoLite2 download. */
+  /**
+   * MaxMind license key for GeoLite2 download.
+   * Write-only: load always returns ''; non-empty on save replaces the stored key.
+   */
   maxmindLicenseKey: string
+  /** Whether an encrypted MaxMind license key is stored. */
+  hasMaxmindLicenseKey: boolean
   /** Query DNSBLs (Spamhaus ZEN, dnswl). */
   dnsblEnabled: boolean
   /** Match source IPs against cloud provider prefix lists. */

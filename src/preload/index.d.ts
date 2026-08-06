@@ -1,4 +1,3 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   AccountSettingsInput,
   AnalyzeProgress,
@@ -39,8 +38,7 @@ export interface DmarcLighthouseApi {
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
   openFiles: () => Promise<AnalyzeResult | null>
-  parsePaths: (paths: string[]) => Promise<AnalyzeResult>
-  getPathForFile: (file: File) => string
+  parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>) => Promise<AnalyzeResult>
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'
@@ -57,7 +55,6 @@ export interface DmarcLighthouseApi {
 
 declare global {
   interface Window {
-    electron: ElectronAPI
     api: DmarcLighthouseApi
     __dmarcScreenshot?: {
       prepareDemo: () => Promise<void>

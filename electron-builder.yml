@@ -29,6 +29,8 @@ extraResources:
     to: THIRD_PARTY_NOTICES.txt
 afterPack: build/hooks/afterPack.cjs
 icon: icon.png
+# Windows Authenticode: set CSC_LINK + CSC_KEY_PASSWORD in CI.
+# Optionally set publisherName to the certificate subject for update verification.
 win:
   executableName: dmarc-lighthouse
   icon: icon.ico
@@ -64,6 +66,8 @@ mac:
   extendInfo:
     - NSDocumentsFolderUsageDescription: Application stores encrypted mailbox settings in the user data folder.
     - NSDownloadsFolderUsageDescription: Application may access downloads if you export reports later.
+  # Enable when CI has APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
+  # (and CSC_LINK / CSC_KEY_PASSWORD for Developer ID). Until then releases are unsigned.
   notarize: false
 dmg:
   artifactName: ${name}-${version}-mac-${arch}.${ext}

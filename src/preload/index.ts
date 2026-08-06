@@ -1,5 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
   AccountSettingsInput,
   AnalyzeProgress,
@@ -55,9 +54,9 @@ const api = {
   downloadGeoLite: (licenseKey?: string): Promise<GeoLiteDownloadResult> =>
     ipcRenderer.invoke('enrichment:downloadGeoLite', licenseKey),
   openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
-  parsePaths: (paths: string[]): Promise<AnalyzeResult> =>
-    ipcRenderer.invoke('files:parsePaths', paths),
-  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  parseBuffers: (
+    files: Array<{ name: string; data: ArrayBuffer }>
+  ): Promise<AnalyzeResult> => ipcRenderer.invoke('files:parseBuffers', files),
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'
@@ -102,14 +101,11 @@ const api = {
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
     console.error(error)
   }
 } else {
-  // @ts-expect-error (define in dts)
-  window.electron = electronAPI
   // @ts-expect-error (define in dts)
   window.api = api
 }

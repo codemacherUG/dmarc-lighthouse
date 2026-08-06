@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, Menu, Notification, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, Notification, Tray } from 'electron'
 import { join, basename } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -31,6 +31,7 @@ import {
   deleteAccount,
   disconnectOAuth,
   exportSecretsForMigration,
+  getMaxmindLicenseKey,
   hasEncryptedSecrets,
   importSecretsFromMigration,
   isIgnoredSource,
@@ -49,6 +50,7 @@ import { runScreenshotCapture, wantsScreenshotCapture } from './screenshots'
 import { t } from '../shared/i18n'
 import { applyAppIdentityBeforeReady, ensureSafeStorageIdentity } from './app-identity'
 import { fixPackagedExecEnv, relaunchApp } from './relaunch'
+import { openExternalSafe } from './open-external'
 
 function accountReady(account: AccountPublic): boolean {
   return Boolean(account.user && (account.hasPassword || account.hasOAuth))
@@ -95,6 +97,7 @@ function createWindow(): BrowserWindow {
     ...(appIcon.isEmpty() ? {} : { icon: appIcon }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      // sandbox:true breaks this preload (CommonJS require) and can leave a blank window.
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
@@ -136,7 +139,9 @@ function createWindow(): BrowserWindow {
   })
 
   win.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    void openExternalSafe(details.url).catch((err) => {
+      console.error(err)
+    })
     return { action: 'deny' }
   })
 
@@ -576,7 +581,8 @@ function registerIpc(): void {
   ipcMain.handle('enrichment:geoLiteStatus', () => getGeoLiteStatus())
 
   ipcMain.handle('enrichment:downloadGeoLite', async (_event, licenseKey?: string) => {
-    const key = (licenseKey ?? loadSettings().global.maxmindLicenseKey ?? '').trim()
+    const typed = typeof licenseKey === 'string' ? licenseKey.trim() : ''
+    const key = typed || getMaxmindLicenseKey()
     return downloadGeoLite(key)
   })
 
@@ -601,13 +607,21 @@ function registerIpc(): void {
     return parseLocalBuffers(buffers)
   })
 
-  ipcMain.handle('files:parsePaths', async (_event, paths: string[]) => {
-    const buffers = (paths ?? []).map((p) => ({
-      name: basename(p),
-      data: readFileSync(p)
-    }))
-    return parseLocalBuffers(buffers)
-  })
+  ipcMain.handle(
+    'files:parseBuffers',
+    async (_event, files: Array<{ name?: string; data?: ArrayBuffer | Uint8Array }>) => {
+      const buffers: Array<{ name: string; data: Buffer }> = []
+      for (const [index, f] of (Array.isArray(files) ? files : []).entries()) {
+        if (!f?.data) continue
+        const rawName = typeof f.name === 'string' && f.name.trim() ? f.name : `file-${index}`
+        buffers.push({
+          name: basename(rawName),
+          data: Buffer.from(f.data instanceof ArrayBuffer ? new Uint8Array(f.data) : f.data)
+        })
+      }
+      return parseLocalBuffers(buffers)
+    }
+  )
 
   ipcMain.handle('export:save', async (_event, result: AnalyzeResult, format: 'json' | 'csv') => {
     const defaultPath = format === 'json' ? 'dmarc-reports.json' : 'dmarc-reports.csv'
