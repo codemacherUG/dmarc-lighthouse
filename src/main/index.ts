@@ -30,6 +30,9 @@ import {
   beginOAuthLogin,
   deleteAccount,
   disconnectOAuth,
+  exportSecretsForMigration,
+  hasEncryptedSecrets,
+  importSecretsFromMigration,
   isIgnoredSource,
   loadSettings,
   parseIgnoredSources,
@@ -38,15 +41,17 @@ import {
   applyOpenAtLogin,
   saveAccount,
   saveGlobalSettings,
+  secretsDecryptable,
   setActiveAccount
 } from './settings'
+import { setupAutoUpdater } from './updater'
+import { runScreenshotCapture, wantsScreenshotCapture } from './screenshots'
+import { t } from '../shared/i18n'
+import { applyAppIdentityBeforeReady, ensureSafeStorageIdentity } from './app-identity'
 
 function accountReady(account: AccountPublic): boolean {
   return Boolean(account.user && (account.hasPassword || account.hasOAuth))
 }
-import { setupAutoUpdater } from './updater'
-import { runScreenshotCapture, wantsScreenshotCapture } from './screenshots'
-import { t } from '../shared/i18n'
 
 app.disableHardwareAcceleration()
 app.commandLine.appendSwitch('disable-gpu')
@@ -643,15 +648,8 @@ function registerIpc(): void {
 // Stable Windows/macOS update + uninstall identity (must match electron-builder appId).
 electronApp.setAppUserModelId('de.codemacher.dmarcviewer')
 
-// Must match linux.desktop StartupWMClass / Icon theme name so the panel
-// associates this window with the AppImage .desktop entry (SVG icon).
-app.setName('dmarc-lighthouse')
-
-// Pre-rename installs used userData …/dmarcviewer (package/setName). Keep it.
-const legacyUserData = join(app.getPath('appData'), 'dmarcviewer')
-if (existsSync(legacyUserData)) {
-  app.setPath('userData', legacyUserData)
-}
+// userData + safeStorage-bound app name (must stay stable — see app-identity.ts).
+applyAppIdentityBeforeReady()
 
 app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
@@ -659,6 +657,22 @@ app.whenReady().then(() => {
   })
 
   const capture = wantsScreenshotCapture()
+  if (
+    !capture &&
+    !ensureSafeStorageIdentity({
+      hasEncryptedSecrets,
+      secretsDecryptable,
+      exportSecrets: exportSecretsForMigration,
+      importSecrets: importSecretsFromMigration,
+      relaunch: () => {
+        app.relaunch()
+        app.exit(0)
+      }
+    })
+  ) {
+    return
+  }
+
   const settings = loadSettings()
   startHidden = capture ? false : shouldStartHidden()
   if (!capture) applyOpenAtLogin(settings.global)

@@ -88,8 +88,9 @@ linux:
   desktop:
     entry:
       Name: DMARC Lighthouse
-      Icon: dmarc-lighthouse
-      StartupWMClass: dmarc-lighthouse
+      # Must match SAFE_STORAGE_APP_NAME / app.setName (panel icon + safeStorage).
+      Icon: dmarcviewer
+      StartupWMClass: dmarcviewer
       Terminal: false
       Type: Application
       Categories: Utility;

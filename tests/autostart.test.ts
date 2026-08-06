@@ -43,7 +43,7 @@ describe('buildLinuxAutostartDesktop', () => {
     })
     expect(desktop).toContain('Exec=/home/u/Apps/dmarc-lighthouse.AppImage --hidden')
     expect(desktop).toContain('X-GNOME-Autostart-enabled=true')
-    expect(desktop).toContain('StartupWMClass=dmarc-lighthouse')
+    expect(desktop).toContain('StartupWMClass=dmarcviewer')
     expect(desktop).toContain('Name=DMARC Lighthouse')
   })
 

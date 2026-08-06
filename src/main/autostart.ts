@@ -41,10 +41,10 @@ export function buildLinuxAutostartDesktop(opts: {
     `Name=${name}`,
     'Comment=DMARC aggregate and forensic report viewer',
     `Exec=${exec}${args}`,
-    'Icon=dmarc-lighthouse',
+    'Icon=dmarcviewer',
     'Terminal=false',
     'Categories=Utility;',
-    'StartupWMClass=dmarc-lighthouse',
+    'StartupWMClass=dmarcviewer',
     'X-GNOME-Autostart-enabled=true',
     ''
   ].join('\n')

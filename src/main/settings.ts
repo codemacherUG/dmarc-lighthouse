@@ -180,14 +180,105 @@ function encryptSecret(value: string): string {
   return safeStorage.encryptString(value).toString('base64')
 }
 
+function tryDecryptSecret(encrypted: string): { ok: true; value: string } | { ok: false } {
+  if (!safeStorage.isEncryptionAvailable()) return { ok: false }
+  try {
+    return { ok: true, value: safeStorage.decryptString(Buffer.from(encrypted, 'base64')) }
+  } catch {
+    return { ok: false }
+  }
+}
+
 function decryptSecret(encrypted?: string): string {
   if (!encrypted) return ''
-  if (!safeStorage.isEncryptionAvailable()) return ''
-  try {
-    return safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
-  } catch {
-    return ''
+  const result = tryDecryptSecret(encrypted)
+  return result.ok ? result.value : ''
+}
+
+const SECRET_FIELDS = [
+  'passwordEncrypted',
+  'refreshTokenEncrypted',
+  'accessTokenEncrypted'
+] as const
+
+export function hasEncryptedSecrets(): boolean {
+  return readStored().accounts.some((a) => SECRET_FIELDS.some((f) => Boolean(a[f])))
+}
+
+export function secretsDecryptable(): boolean {
+  if (!safeStorage.isEncryptionAvailable()) return !hasEncryptedSecrets()
+  for (const a of readStored().accounts) {
+    for (const field of SECRET_FIELDS) {
+      const encrypted = a[field]
+      if (!encrypted) continue
+      if (!tryDecryptSecret(encrypted).ok) return false
+    }
   }
+  return true
+}
+
+export function exportSecretsForMigration(): {
+  accountId: string
+  password?: string
+  refreshToken?: string
+  accessToken?: string
+  accessTokenExpiresAt?: number
+}[] {
+  const out: {
+    accountId: string
+    password?: string
+    refreshToken?: string
+    accessToken?: string
+    accessTokenExpiresAt?: number
+  }[] = []
+  for (const a of readStored().accounts) {
+    const row: (typeof out)[number] = { accountId: a.id }
+    if (a.passwordEncrypted) {
+      const r = tryDecryptSecret(a.passwordEncrypted)
+      if (r.ok) row.password = r.value
+    }
+    if (a.refreshTokenEncrypted) {
+      const r = tryDecryptSecret(a.refreshTokenEncrypted)
+      if (r.ok) row.refreshToken = r.value
+    }
+    if (a.accessTokenEncrypted) {
+      const r = tryDecryptSecret(a.accessTokenEncrypted)
+      if (r.ok) row.accessToken = r.value
+    }
+    if (a.accessTokenExpiresAt != null) row.accessTokenExpiresAt = a.accessTokenExpiresAt
+    if (row.password || row.refreshToken || row.accessToken) out.push(row)
+  }
+  return out
+}
+
+export function importSecretsFromMigration(
+  secrets: {
+    accountId: string
+    password?: string
+    refreshToken?: string
+    accessToken?: string
+    accessTokenExpiresAt?: number
+  }[]
+): void {
+  const stored = readStored()
+  const byId = new Map(secrets.map((s) => [s.accountId, s]))
+  for (const account of stored.accounts) {
+    const snap = byId.get(account.id)
+    if (!snap) continue
+    if (snap.password != null && snap.password !== '') {
+      account.passwordEncrypted = encryptSecret(snap.password)
+    }
+    if (snap.refreshToken != null && snap.refreshToken !== '') {
+      account.refreshTokenEncrypted = encryptSecret(snap.refreshToken)
+    }
+    if (snap.accessToken != null && snap.accessToken !== '') {
+      account.accessTokenEncrypted = encryptSecret(snap.accessToken)
+    }
+    if (snap.accessTokenExpiresAt != null) {
+      account.accessTokenExpiresAt = snap.accessTokenExpiresAt
+    }
+  }
+  writeStored(stored)
 }
 
 function normalizeMinutes(value: unknown): number {
