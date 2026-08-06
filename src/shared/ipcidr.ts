@@ -1,4 +1,19 @@
-import { isIPv4, isIPv6 } from 'net'
+/** Lightweight checks so this shared module stays free of Node built-ins (web tsconfig). */
+function isIPv4(addr: string): boolean {
+  const parts = addr.split('.')
+  if (parts.length !== 4) return false
+  return parts.every((p) => {
+    if (!/^\d{1,3}$/.test(p)) return false
+    const n = Number(p)
+    return n >= 0 && n <= 255 && String(n) === p
+  })
+}
+
+function isIPv6(addr: string): boolean {
+  // Enough for CIDR matching; rejects obvious non-IPv6 strings.
+  if (!addr || addr.includes('.')) return false
+  return /^[0-9a-fA-F:]+$/.test(addr) && addr.includes(':')
+}
 
 export interface CloudPrefix {
   provider: string
