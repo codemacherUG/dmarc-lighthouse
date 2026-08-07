@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, Notification, Tray } from 'electron'
 import { join, basename } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createAppIcon, createTrayIcon } from './icon'
 import type {
@@ -60,6 +61,8 @@ app.disableHardwareAcceleration()
 app.commandLine.appendSwitch('disable-gpu')
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
+  // Avoid Chromium FATAL on /dev/shm shared-memory create (ESRCH) when spawning windows.
+  app.commandLine.appendSwitch('disable-dev-shm-usage')
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -421,6 +424,19 @@ async function openThirdPartyNoticesWindow(): Promise<{ ok: boolean; message: st
 <body>${body}</body>
 </html>`
 
+  // Temp HTML + loadFile: data: URLs fail (ERR_FAILED) for large notices; avoids .txt MIME quirks.
+  const noticesDir = mkdtempSync(join(tmpdir(), 'dmarc-lighthouse-notices-'))
+  const htmlPath = join(noticesDir, 'notices.html')
+  writeFileSync(htmlPath, html, 'utf8')
+
+  const cleanupNoticesDir = (): void => {
+    try {
+      rmSync(noticesDir, { recursive: true, force: true })
+    } catch {
+      // ignore cleanup errors
+    }
+  }
+
   const appIcon = createAppIcon()
   noticesWindow = new BrowserWindow({
     width: 780,
@@ -432,7 +448,8 @@ async function openThirdPartyNoticesWindow(): Promise<{ ok: boolean; message: st
     parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
     ...(appIcon.isEmpty() ? {} : { icon: appIcon }),
     webPreferences: {
-      sandbox: true,
+      // Match main window: sandbox:true crashes the renderer on Linux (/dev/shm FATAL → blank window).
+      sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -440,10 +457,19 @@ async function openThirdPartyNoticesWindow(): Promise<{ ok: boolean; message: st
 
   noticesWindow.on('closed', () => {
     noticesWindow = null
+    cleanupNoticesDir()
   })
 
-  // data: URL avoids file:// MIME quirks for plain .txt
-  await noticesWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  try {
+    await noticesWindow.loadFile(htmlPath)
+  } catch (error) {
+    if (noticesWindow && !noticesWindow.isDestroyed()) {
+      noticesWindow.destroy()
+    }
+    noticesWindow = null
+    cleanupNoticesDir()
+    throw error
+  }
   return { ok: true, message: '' }
 }
 
