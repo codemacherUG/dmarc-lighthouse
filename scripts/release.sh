@@ -9,12 +9,15 @@
 #   - GitHub secret UPDATE_SIGNING_PRIVATE_KEY (CI signs) OR local keys/ + UPDATE_SIGNING_PRIVATE_KEY_FILE
 #
 # Usage:
-#   ./scripts/release.sh                  # tag v$(package.json version), wait, deploy
+#   ./scripts/release.sh                  # tag → CI → deploy (auto-bump if version already released)
 #   ./scripts/release.sh 1.0.17           # require package.json version == 1.0.17
-#   ./scripts/release.sh --bump patch     # npm version patch, commit, then release
+#   ./scripts/release.sh --bump patch     # force version bump, then release
 #   ./scripts/release.sh --dry-run
 #   ./scripts/release.sh --no-deploy      # only GitHub release
 #   ./scripts/release.sh --deploy-only    # skip tag/CI; deploy existing dist-release or download
+#
+# Handles stale local tags (move to HEAD if not on origin) and already-used
+# versions (auto patch bump unless an explicit version was passed).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -92,18 +95,64 @@ bump_version() {
   git commit -m "release: $(pkg_version)"
 }
 
+# Peeled commit SHA for refs/tags/<tag> on origin, or empty if missing.
+remote_tag_commit() {
+  local tag="$1"
+  local sha
+  sha="$(git ls-remote origin "refs/tags/${tag}^{}" 2>/dev/null | awk '{print $1}' | head -n1)"
+  if [[ -z "$sha" ]]; then
+    sha="$(git ls-remote origin "refs/tags/${tag}" 2>/dev/null | awk '{print $1}' | head -n1)"
+  fi
+  printf '%s' "$sha"
+}
+
+# If package.json version is already released on origin (and not HEAD), bump patch.
+ensure_releasable_version() {
+  local ver tag remote_sha head
+  ver="$(pkg_version)"
+  tag="v${ver}"
+  head="$(git rev-parse HEAD)"
+  remote_sha="$(remote_tag_commit "$tag")"
+
+  if [[ -z "$remote_sha" ]]; then
+    return
+  fi
+  if [[ "$remote_sha" == "$head" ]]; then
+    info "Tag $tag already on origin at HEAD — will re-use release"
+    return
+  fi
+  if [[ -n "$VERSION_ARG" ]]; then
+    die "Tag $tag already on origin at ${remote_sha:0:8} (HEAD ${head:0:8}). Pass --bump or change package.json."
+  fi
+  if [[ -n "$BUMP" ]]; then
+    return
+  fi
+  info "Tag $tag already on origin — auto --bump patch"
+  bump_version patch
+}
+
 create_and_push_tag() {
   local ver="$1"
   local tag="v${ver}"
-  local head sha
+  local head local_sha remote_sha
   head="$(git rev-parse HEAD)"
+  remote_sha="$(remote_tag_commit "$tag")"
 
   if git rev-parse "$tag" >/dev/null 2>&1; then
-    sha="$(git rev-parse "${tag}^{}")"
-    if [[ "$sha" != "$head" ]]; then
-      die "Tag $tag already exists on $sha (HEAD is $head)"
+    local_sha="$(git rev-parse "${tag}^{}")"
+    if [[ "$local_sha" == "$head" ]]; then
+      info "Tag $tag already points at HEAD — reusing"
+    elif [[ -n "$remote_sha" ]]; then
+      die "Tag $tag exists locally and on origin, but not at HEAD. Use --bump."
+    else
+      info "Moving local tag $tag → HEAD (not on origin yet)"
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "dry-run: git tag -d $tag && git tag -a $tag …"
+      else
+        git tag -d "$tag" >/dev/null
+        git tag -a "$tag" -m "DMARC Lighthouse $tag"
+      fi
     fi
-    info "Tag $tag already points at HEAD — reusing"
   else
     info "Creating tag $tag"
     if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -117,11 +166,21 @@ create_and_push_tag() {
     echo "dry-run: git push origin HEAD $tag"
     return
   fi
-  # Push branch (if bump commit) and tag — triggers .github/workflows/release.yml
+
   local branch
   branch="$(git rev-parse --abbrev-ref HEAD)"
   if [[ "$branch" != "HEAD" ]]; then
     git push -u origin "HEAD"
+  fi
+
+  remote_sha="$(remote_tag_commit "$tag")"
+  if [[ -n "$remote_sha" ]]; then
+    local_sha="$(git rev-parse "${tag}^{}")"
+    if [[ "$remote_sha" == "$local_sha" ]]; then
+      info "Tag $tag already on origin"
+      return
+    fi
+    die "Tag $tag already on origin at different commit (${remote_sha:0:8}). Refusing to overwrite."
   fi
   git push origin "$tag"
 }
@@ -219,9 +278,13 @@ fi
 command -v gh >/dev/null || die "gh CLI is required (https://cli.github.com/)"
 command -v git >/dev/null || die "git is required"
 
+ensure_clean_git
+[[ "$NO_DEPLOY" -eq 1 ]] || require_keys_sh
+
 if [[ -n "$BUMP" ]]; then
-  ensure_clean_git
   bump_version "$BUMP"
+else
+  ensure_releasable_version
 fi
 
 VER="$(pkg_version)"
@@ -229,21 +292,11 @@ if [[ -n "$VERSION_ARG" && "$VERSION_ARG" != "$VER" ]]; then
   die "package.json version is $VER, but you passed $VERSION_ARG (bump first or pass --bump)"
 fi
 
+# Bump may have created a commit — tree should still be clean.
 ensure_clean_git
-[[ "$NO_DEPLOY" -eq 1 ]] || require_keys_sh
 
 TAG="v${VER}"
 info "Releasing $TAG (package.json $VER)"
-
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  create_and_push_tag "$VER" >/dev/null || true
-  wait_for_release_workflow "$TAG"
-  download_release_assets "$TAG"
-  ensure_signed_manifest "$VER"
-  [[ "$NO_DEPLOY" -eq 1 ]] || deploy_manifest "$VER"
-  info "Dry-run complete."
-  exit 0
-fi
 
 create_and_push_tag "$VER"
 wait_for_release_workflow "$TAG"
@@ -253,6 +306,11 @@ if [[ "$NO_DEPLOY" -eq 1 ]]; then
   info "Skipping deploy (--no-deploy). Manifests in $DIST_DIR"
 else
   deploy_manifest "$VER"
+fi
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  info "Dry-run complete."
+  exit 0
 fi
 
 info "Release $TAG complete."
