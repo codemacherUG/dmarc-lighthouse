@@ -447,6 +447,20 @@ body {
   align-items: stretch;
 }
 
+/* Linke Spalte: Höhe nur von .tables-side; IP füllt den Slot absolut. */
+.tables-ip-slot {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tables-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
 .table-card {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -459,7 +473,10 @@ body {
 }
 
 .table-card--ips {
-  grid-row: 1 / span 2;
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .table-scroll {
@@ -478,8 +495,13 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .tables-ip-slot {
+    position: static;
+  }
+
   .table-card--ips {
-    grid-row: auto;
+    position: static;
+    overflow: visible;
   }
 
   .table-card--ips .table-scroll {
@@ -515,11 +537,31 @@ th {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
   gap: 14px;
+  align-items: stretch;
 }
 
 .table-wrap {
   overflow: auto;
   max-height: 420px;
+}
+
+/* Wenige Reports: nicht zusammenschrumpfen; Detail-Spalte folgt über stretch. */
+.results-layout .table-wrap {
+  min-height: 280px;
+}
+
+/* Match left column height; height:0 keeps own content from growing the grid row. */
+.detail-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 0;
+  max-height: 420px;
+  overflow: hidden;
+}
+
+.detail-wrap > h2 {
+  flex: 0 0 auto;
 }
 
 #reports-table thead th {
@@ -579,8 +621,8 @@ tbody tr.empty:hover {
   border-radius: 10px;
   background: #fbfcfd;
   padding: 12px;
-  min-height: 220px;
-  max-height: 420px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -1496,6 +1538,18 @@ tr.ip-meta-row .ip-meta {
 @media (max-width: 1100px) {
   .results-layout {
     grid-template-columns: 1fr;
+  }
+
+  .detail-wrap {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .detail {
+    min-height: 220px;
+    max-height: 420px;
   }
 }
 
