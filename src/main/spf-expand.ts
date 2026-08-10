@@ -60,16 +60,25 @@ async function resolveHostCidrs(host: string): Promise<string[]> {
   return out
 }
 
+export type ExpandSpfOptions = {
+  /** When set, use this as the root SPF record instead of looking it up via DNS. */
+  record?: string | null
+}
+
 /**
  * Expand SPF for a domain into concrete IP/CIDR allowlist entries
  * (ip4/ip6/include/a/mx/redirect). Respects the RFC 10 DNS-lookup limit.
  */
-export async function expandSpf(domainRaw: string): Promise<SpfExpandResult> {
+export async function expandSpf(
+  domainRaw: string,
+  options: ExpandSpfOptions = {}
+): Promise<SpfExpandResult> {
   const domain = domainRaw.trim().toLowerCase().replace(/\.$/, '')
   if (!domain || !isDnsName(domain)) {
     throw new Error(t('main.invalidDomain'))
   }
 
+  const overrideRoot = options.record?.trim() || null
   const cidrs = new Set<string>()
   const errors: string[] = []
   const visited = new Set<string>()
@@ -84,19 +93,25 @@ export async function expandSpf(domainRaw: string): Promise<SpfExpandResult> {
     const key = name.toLowerCase().replace(/\.$/, '')
     if (!key || visited.has(key)) return
     visited.add(key)
-    if (lookups >= MAX_DNS_LOOKUPS) {
-      errors.push(`DNS lookup limit (${MAX_DNS_LOOKUPS}) reached at ${key}`)
-      return
-    }
-    lookups++
 
     let record: string | null = null
-    try {
-      const txt = flattenTxt(await dns.resolveTxt(key))
-      record = txt.find((r) => /v\s*=\s*spf1/i.test(r)) ?? null
-    } catch (err) {
-      errors.push(`${key}: ${err instanceof Error ? err.message : String(err)}`)
-      return
+    if (isRoot && overrideRoot) {
+      record = overrideRoot
+      // Draft evaluation still counts as the initial SPF retrieval.
+      lookups++
+    } else {
+      if (lookups >= MAX_DNS_LOOKUPS) {
+        errors.push(`DNS lookup limit (${MAX_DNS_LOOKUPS}) reached at ${key}`)
+        return
+      }
+      lookups++
+      try {
+        const txt = flattenTxt(await dns.resolveTxt(key))
+        record = txt.find((r) => /v\s*=\s*spf1/i.test(r)) ?? null
+      } catch (err) {
+        errors.push(`${key}: ${err instanceof Error ? err.message : String(err)}`)
+        return
+      }
     }
     if (!record) {
       errors.push(`${key}: no SPF record`)

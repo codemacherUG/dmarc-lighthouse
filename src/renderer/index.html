@@ -109,6 +109,26 @@
                     >Wizard</span
                   >
                 </button>
+                <button
+                  type="button"
+                  id="btn-spf-builder"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.spfBuilderTitle"
+                  title="SPF-Record erzeugen und auflösen"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.spfBuilder"
+                      >SPF-Record Wizard</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.spfBuilderDesc"
+                      >SPF bauen, auswerten und auflösen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-wizard" data-i18n="header.badgeWizard"
+                    >Wizard</span
+                  >
+                </button>
               </div>
             </div>
             <button
@@ -274,8 +294,8 @@
           <h2 data-i18n="health.title">Domain-Ampel</h2>
           <p class="hint" data-i18n="health.hint">
             Gesundheitsrate der letzten 14 Tage (Auth-Pass sowie korrekt reject/quarantine; local_policy
-            zählt nicht negativ) und DNS-Status. Mit erlaubten Mail-Servern am Konto nur diese Absender.
-            Unabhängig vom Zeitraum-Filter. Klick filtert auf die Domain.
+            zählt nicht negativ) und DNS-Status. Unabhängig vom Zeitraum-Filter. Klick filtert auf die
+            Domain.
           </p>
         </div>
         <div id="domain-ampel" class="domain-ampel">
@@ -287,9 +307,8 @@
         <div class="panel-heading">
           <h2 data-i18n="problems.title">Problemquellen</h2>
           <p class="hint" data-i18n="problems.hint">
-            Zugestellte Auth-Fails und erlaubte Absender ohne SPF im gewählten Zeitraum.
-            Reject/quarantine und local_policy zählen nicht. Mit erlaubten Mail-Servern am Konto nur
-            diese. Klick filtert · + übernimmt die IP.
+            Zugestellte Auth-Fails im gewählten Zeitraum. Reject/quarantine und local_policy zählen
+            nicht. Klick filtert auf die IP.
           </p>
         </div>
         <div class="table-scroll problem-sources-scroll">
@@ -301,12 +320,11 @@
                 <th data-i18n="problems.count">Msgs</th>
                 <th data-i18n="problems.spfFail">SPF fail</th>
                 <th data-i18n="problems.dkimFail">DKIM fail</th>
-                <th></th>
               </tr>
             </thead>
             <tbody id="table-problem-sources">
               <tr class="empty">
-                <td colspan="6" data-i18n="problems.empty">
+                <td colspan="5" data-i18n="problems.empty">
                   Keine problematischen Zustellungen im Zeitraum.
                 </td>
               </tr>
@@ -347,8 +365,7 @@
               <div class="table-card-heading">
                 <h2 data-i18n="table.ips">Quellen (IP)</h2>
                 <p class="hint" data-i18n="table.ipsHint">
-                  Badges: erlaubte Mail-Server und Einträge aus dem SPF-Record. Erlaubte ohne SPF
-                  sind kritisch. +/− pflegt die Konto-Liste.
+                  Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain liegen.
                 </p>
               </div>
               <div class="table-scroll">
@@ -358,12 +375,11 @@
                       <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
                       <th data-i18n="table.msgs">Msgs</th>
                       <th data-i18n="table.passPct">Pass %</th>
-                      <th></th>
                     </tr>
                   </thead>
                   <tbody id="table-ips">
                     <tr class="empty">
-                      <td colspan="4" data-i18n="table.noDataYet">Noch keine Daten</td>
+                      <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
                     </tr>
                   </tbody>
                 </table>
@@ -565,265 +581,195 @@
               </button>
             </div>
 
-            <nav
-              class="subtab-bar"
-              role="tablist"
-              data-i18n-aria="settings.accountSubtabs"
-              aria-label="Konto-Bereiche"
-            >
-              <button
-                type="button"
-                id="subtab-btn-setup"
-                class="subtab active"
-                role="tab"
-                aria-selected="true"
-                aria-controls="account-subtab-setup"
-                data-i18n="settings.accountSubtabSetup"
-              >
-                Zugang einrichten
-              </button>
-              <button
-                type="button"
-                id="subtab-btn-options"
-                class="subtab"
-                role="tab"
-                aria-selected="false"
-                aria-controls="account-subtab-options"
-                data-i18n="settings.accountSubtabOptions"
-              >
-                Weitere Einstellungen
-              </button>
-            </nav>
+            <p class="hint account-setup-intro" data-i18n="settings.accountSetupHint">
+              Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die Verbindung
+              testen.
+            </p>
 
-            <div id="account-subtab-setup" class="account-subpanel" role="tabpanel">
-              <p class="hint account-setup-intro" data-i18n="settings.accountSetupHint">
-                Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die
-                Verbindung testen.
-              </p>
-
-              <fieldset class="settings-group">
-                <legend data-i18n="settings.connection">Zugang</legend>
-                <div class="settings-grid">
-                  <label class="span-2">
-                    <span data-i18n="settings.accountName">Bezeichnung</span>
-                    <input
-                      id="accountName"
-                      name="accountName"
-                      type="text"
-                      data-i18n-title="settings.accountNameTitle"
-                      title="Leer lassen = Domain aus der E-Mail-Adresse"
-                    />
-                  </label>
-                  <p class="hint span-2" data-i18n="settings.accountNameHint">
-                    Leer lassen, um die Domain der E-Mail-Adresse als Bezeichnung zu verwenden
-                    (z.&nbsp;B. codemacher.de).
-                  </p>
-
-                  <label>
-                    <span data-i18n="settings.provider">Anbieter</span>
-                    <select id="provider" name="provider">
-                      <option value="gmail" data-i18n="settings.providerGmail">Gmail</option>
-                      <option value="outlook" data-i18n="settings.providerOutlook">
-                        Outlook / Microsoft 365
-                      </option>
-                      <option value="custom" selected data-i18n="settings.providerCustom">
-                        Eigenes IMAP
-                      </option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <span data-i18n="settings.authMode">Anmeldung</span>
-                    <select id="authMode" name="authMode">
-                      <option value="password" selected data-i18n="settings.authPassword">
-                        Passwort / App-Passwort
-                      </option>
-                      <option value="oauth" data-i18n="settings.authOAuth">
-                        OAuth (Gmail / Microsoft 365)
-                      </option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <span data-i18n="settings.host">Host</span>
-                    <input id="host" name="host" type="text" placeholder="imap.example.com" />
-                  </label>
-
-                  <label>
-                    <span data-i18n="settings.port">Port</span>
-                    <input id="port" name="port" type="number" min="1" max="65535" value="993" />
-                  </label>
-
-                  <label class="checkbox">
-                    <input id="secure" name="secure" type="checkbox" checked />
-                    <span data-i18n="settings.tls">TLS / SSL</span>
-                  </label>
-
-                  <label>
-                    <span data-i18n="settings.user">Benutzer</span>
-                    <input id="user" name="user" type="email" autocomplete="username" />
-                  </label>
-
-                  <label id="password-field">
-                    <span data-i18n="settings.password">Passwort / App-Passwort</span>
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      autocomplete="current-password"
-                      data-i18n-placeholder="settings.passwordPlaceholder"
-                      placeholder="Leer lassen, wenn gespeichert"
-                    />
-                  </label>
-
-                  <div id="oauth-actions" class="span-2 account-actions hidden">
-                    <button
-                      type="button"
-                      id="btn-oauth-login"
-                      class="btn secondary"
-                      data-i18n="settings.oauthLogin"
-                    >
-                      Mit Anbieter anmelden…
-                    </button>
-                    <button
-                      type="button"
-                      id="btn-oauth-disconnect"
-                      class="btn secondary"
-                      data-i18n="settings.oauthDisconnect"
-                    >
-                      OAuth trennen
-                    </button>
-                  </div>
-                </div>
-                <p id="password-hint" class="hint"></p>
-                <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
-                  OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
-                </p>
-              </fieldset>
-
-              <fieldset class="settings-group">
-                <legend data-i18n="settings.mailboxFetch">Abruf aus diesem Postfach</legend>
-                <div class="settings-grid">
-                  <label>
-                    <span data-i18n="settings.mailbox">Ordner</span>
-                    <div class="mailbox-combo">
-                      <input
-                        id="mailbox"
-                        name="mailbox"
-                        type="text"
-                        value="INBOX"
-                        autocomplete="off"
-                        spellcheck="false"
-                      />
-                      <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
-                    </div>
-                  </label>
-
-                  <label>
-                    <span data-i18n="settings.archiveMailbox">Nach Abruf verschieben nach</span>
-                    <div class="mailbox-combo">
-                      <input
-                        id="archiveMailbox"
-                        name="archiveMailbox"
-                        type="text"
-                        value=""
-                        autocomplete="off"
-                        spellcheck="false"
-                        data-i18n-placeholder="settings.archiveMailboxPlaceholder"
-                        placeholder="Leer = nicht verschieben"
-                      />
-                      <button
-                        type="button"
-                        id="btn-clear-archive-mailbox"
-                        class="mailbox-clear"
-                        hidden
-                        data-i18n-aria="settings.clearArchiveMailbox"
-                        aria-label="Archiv-Ordner leeren"
-                      >
-                        ✕
-                      </button>
-                      <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
-                    </div>
-                  </label>
-
-                  <p class="hint span-2" data-i18n="settings.archiveMailboxHint">
-                    Neue DMARC-Mails werden aus dem Abruf-Ordner (z. B. INBOX) gelesen und danach in
-                    diesen Ordner verschoben. Der Archiv-Ordner wird zusätzlich nach vorhandenen
-                    Reports durchsucht.
-                  </p>
-
-                  <label>
-                    <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
-                    <input
-                      id="subjectFilter"
-                      name="subjectFilter"
-                      type="text"
-                      value="Report Domain"
-                      data-i18n-placeholder="settings.subjectPlaceholder"
-                      placeholder="Leer = alle Nachrichten"
-                    />
-                  </label>
-
-                  <label class="checkbox span-2">
-                    <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
-                    <span data-i18n="settings.markSeen"
-                      >Nachrichten nach Abruf als gelesen markieren</span
-                    >
-                  </label>
-                </div>
-              </fieldset>
-
-              <div class="account-actions">
-                <button type="button" id="btn-test" class="btn secondary" data-i18n="settings.test">
-                  Verbindung testen
-                </button>
-                <button
-                  type="button"
-                  id="btn-clear-cache"
-                  class="btn secondary"
-                  data-i18n="settings.clearCache"
-                >
-                  Cache dieses Kontos leeren
-                </button>
-              </div>
-            </div>
-
-            <div id="account-subtab-options" class="account-subpanel hidden" role="tabpanel">
-              <p class="hint account-setup-intro" data-i18n="settings.accountOptionsHint">
-                Einstellungen für die Auswertung der Reports dieses Kontos — unabhängig vom
-                Zugangs-Anbieter.
-              </p>
-
-              <fieldset class="settings-group">
-                <legend data-i18n="settings.authorizedSenders">Erlaubte Mail-Server</legend>
-                <label class="stacked">
-                  <textarea
-                    id="authorizedSenders"
-                    name="authorizedSenders"
-                    rows="5"
-                    data-i18n-placeholder="settings.authorizedPlaceholder"
-                    placeholder="Eine IP oder CIDR pro Zeile, z. B. 203.0.113.5 oder 2001:db8:1::/48"
-                  ></textarea>
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.connection">Zugang</legend>
+              <div class="settings-grid">
+                <label class="span-2">
+                  <span data-i18n="settings.accountName">Bezeichnung</span>
+                  <input
+                    id="accountName"
+                    name="accountName"
+                    type="text"
+                    data-i18n-title="settings.accountNameTitle"
+                    title="Leer lassen = Domain aus der E-Mail-Adresse"
+                  />
                 </label>
-                <p class="hint" data-i18n="settings.authorizedHint">
-                  Pro Konto. Wenn gesetzt, bewerten Ampel und Problemquellen vor allem diese Absender
-                  (SPF/DKIM der erlaubten Server). Leer = gesamter Verkehr wie bisher.
+                <p class="hint span-2" data-i18n="settings.accountNameHint">
+                  Leer lassen, um die Domain der E-Mail-Adresse als Bezeichnung zu verwenden
+                  (z.&nbsp;B. codemacher.de).
                 </p>
-                <div class="inline-actions">
+
+                <label>
+                  <span data-i18n="settings.provider">Anbieter</span>
+                  <select id="provider" name="provider">
+                    <option value="gmail" data-i18n="settings.providerGmail">Gmail</option>
+                    <option value="outlook" data-i18n="settings.providerOutlook">
+                      Outlook / Microsoft 365
+                    </option>
+                    <option value="custom" selected data-i18n="settings.providerCustom">
+                      Eigenes IMAP
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  <span data-i18n="settings.authMode">Anmeldung</span>
+                  <select id="authMode" name="authMode">
+                    <option value="password" selected data-i18n="settings.authPassword">
+                      Passwort / App-Passwort
+                    </option>
+                    <option value="oauth" data-i18n="settings.authOAuth">
+                      OAuth (Gmail / Microsoft 365)
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  <span data-i18n="settings.host">Host</span>
+                  <input id="host" name="host" type="text" placeholder="imap.example.com" />
+                </label>
+
+                <label>
+                  <span data-i18n="settings.port">Port</span>
+                  <input id="port" name="port" type="number" min="1" max="65535" value="993" />
+                </label>
+
+                <label class="checkbox">
+                  <input id="secure" name="secure" type="checkbox" checked />
+                  <span data-i18n="settings.tls">TLS / SSL</span>
+                </label>
+
+                <label>
+                  <span data-i18n="settings.user">Benutzer</span>
+                  <input id="user" name="user" type="email" autocomplete="username" />
+                </label>
+
+                <label id="password-field">
+                  <span data-i18n="settings.password">Passwort / App-Passwort</span>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    data-i18n-placeholder="settings.passwordPlaceholder"
+                    placeholder="Leer lassen, wenn gespeichert"
+                  />
+                </label>
+
+                <div id="oauth-actions" class="span-2 account-actions hidden">
                   <button
                     type="button"
-                    id="btn-import-spf"
+                    id="btn-oauth-login"
                     class="btn secondary"
-                    data-i18n="settings.spfImport"
+                    data-i18n="settings.oauthLogin"
                   >
-                    Aus SPF übernehmen
+                    Mit Anbieter anmelden…
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-oauth-disconnect"
+                    class="btn secondary"
+                    data-i18n="settings.oauthDisconnect"
+                  >
+                    OAuth trennen
                   </button>
                 </div>
-                <p class="hint" data-i18n="settings.spfImportHint">
-                  Liest ip4/ip6/include/a/mx aus dem SPF der geladenen Domains (bzw. der Domain im
-                  Filter) und ergänzt die Liste.
+              </div>
+              <p id="password-hint" class="hint"></p>
+              <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
+                OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.mailboxFetch">Abruf aus diesem Postfach</legend>
+              <div class="settings-grid">
+                <label>
+                  <span data-i18n="settings.mailbox">Ordner</span>
+                  <div class="mailbox-combo">
+                    <input
+                      id="mailbox"
+                      name="mailbox"
+                      type="text"
+                      value="INBOX"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                  </div>
+                </label>
+
+                <label>
+                  <span data-i18n="settings.archiveMailbox">Nach Abruf verschieben nach</span>
+                  <div class="mailbox-combo">
+                    <input
+                      id="archiveMailbox"
+                      name="archiveMailbox"
+                      type="text"
+                      value=""
+                      autocomplete="off"
+                      spellcheck="false"
+                      data-i18n-placeholder="settings.archiveMailboxPlaceholder"
+                      placeholder="Leer = nicht verschieben"
+                    />
+                    <button
+                      type="button"
+                      id="btn-clear-archive-mailbox"
+                      class="mailbox-clear"
+                      hidden
+                      data-i18n-aria="settings.clearArchiveMailbox"
+                      aria-label="Archiv-Ordner leeren"
+                    >
+                      ✕
+                    </button>
+                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                  </div>
+                </label>
+
+                <p class="hint span-2" data-i18n="settings.archiveMailboxHint">
+                  Neue DMARC-Mails werden aus dem Abruf-Ordner (z. B. INBOX) gelesen und danach in
+                  diesen Ordner verschoben. Der Archiv-Ordner wird zusätzlich nach vorhandenen
+                  Reports durchsucht.
                 </p>
-              </fieldset>
+
+                <label>
+                  <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
+                  <input
+                    id="subjectFilter"
+                    name="subjectFilter"
+                    type="text"
+                    value="Report Domain"
+                    data-i18n-placeholder="settings.subjectPlaceholder"
+                    placeholder="Leer = alle Nachrichten"
+                  />
+                </label>
+
+                <label class="checkbox span-2">
+                  <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
+                  <span data-i18n="settings.markSeen"
+                    >Nachrichten nach Abruf als gelesen markieren</span
+                  >
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="account-actions">
+              <button type="button" id="btn-test" class="btn secondary" data-i18n="settings.test">
+                Verbindung testen
+              </button>
+              <button
+                type="button"
+                id="btn-clear-cache"
+                class="btn secondary"
+                data-i18n="settings.clearCache"
+              >
+                Cache dieses Kontos leeren
+              </button>
             </div>
           </section>
 
@@ -1408,6 +1354,162 @@
               Zurück
             </button>
             <button type="button" id="btn-builder-next" class="btn primary" data-i18n="builder.next">
+              Weiter
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog id="spf-builder-dialog">
+      <div class="settings-form builder-form">
+        <header class="dialog-header">
+          <h2 data-i18n="spfBuilder.title">SPF-Record erzeugen</h2>
+          <button
+            type="button"
+            id="btn-close-spf-builder"
+            class="btn ghost"
+            data-i18n-aria="spfBuilder.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+
+        <ol id="spf-builder-steps" class="builder-steps" aria-label="Schritte">
+          <li data-step="domain" class="active">
+            <span class="builder-step-index">1</span>
+            <span data-i18n="spfBuilder.step.domain">Domain</span>
+          </li>
+          <li data-step="mechanisms">
+            <span class="builder-step-index">2</span>
+            <span data-i18n="spfBuilder.step.mechanisms">Quellen</span>
+          </li>
+          <li data-step="result">
+            <span class="builder-step-index">3</span>
+            <span data-i18n="spfBuilder.step.result">Ergebnis</span>
+          </li>
+        </ol>
+
+        <div class="dialog-body builder-body">
+          <section class="spf-builder-panel builder-panel" data-step="domain">
+            <h3 data-i18n="spfBuilder.domain.headline">Domain festlegen</h3>
+            <p class="hint" data-i18n="spfBuilder.domain.body">
+              Für welche Domain soll der SPF-TXT-Record gebaut oder ausgewertet werden? Beim Weiter
+              wird der aktuelle DNS-Eintrag geladen.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="spfBuilder.domain.label">Domain</span>
+                <input
+                  id="spf-builder-domain"
+                  type="text"
+                  placeholder="example.com"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+            <p id="spf-builder-domain-status" class="builder-status muted" role="status"></p>
+          </section>
+
+          <section class="spf-builder-panel builder-panel hidden" data-step="mechanisms">
+            <h3 data-i18n="spfBuilder.mechanisms.headline">Erlaubte Quellen</h3>
+            <p class="hint" data-i18n="spfBuilder.mechanisms.body">
+              Include-Domains, IP-Netze und optional a:/mx: der Domain. Am Ende die all-Policy
+              wählen (empfohlen: -all).
+            </p>
+            <div class="builder-form-grid">
+              <label class="span-2">
+                <span data-i18n="spfBuilder.mechanisms.includes">Includes</span>
+                <textarea
+                  id="spf-builder-includes"
+                  rows="3"
+                  data-i18n-placeholder="spfBuilder.mechanisms.includesPlaceholder"
+                  placeholder="Eine Domain pro Zeile, z. B. _spf.google.com"
+                ></textarea>
+                <span class="field-hint" data-i18n="spfBuilder.mechanisms.includesHint"
+                  >Wird als include:… eingetragen. Jedes include kostet einen DNS-Lookup (Limit:
+                  10).</span
+                >
+              </label>
+              <label>
+                <span data-i18n="spfBuilder.mechanisms.ip4">IPv4 (ip4:)</span>
+                <textarea
+                  id="spf-builder-ip4"
+                  rows="3"
+                  data-i18n-placeholder="spfBuilder.mechanisms.ip4Placeholder"
+                  placeholder="203.0.113.5 oder 203.0.113.0/24"
+                ></textarea>
+              </label>
+              <label>
+                <span data-i18n="spfBuilder.mechanisms.ip6">IPv6 (ip6:)</span>
+                <textarea
+                  id="spf-builder-ip6"
+                  rows="3"
+                  data-i18n-placeholder="spfBuilder.mechanisms.ip6Placeholder"
+                  placeholder="2001:db8::1 oder 2001:db8::/32"
+                ></textarea>
+              </label>
+              <label class="checkbox">
+                <input id="spf-builder-use-a" type="checkbox" />
+                <span data-i18n="spfBuilder.mechanisms.useA">A/AAAA der Domain (a)</span>
+              </label>
+              <label class="checkbox">
+                <input id="spf-builder-use-mx" type="checkbox" />
+                <span data-i18n="spfBuilder.mechanisms.useMx">MX-Hosts der Domain (mx)</span>
+              </label>
+              <label>
+                <span data-i18n="spfBuilder.mechanisms.all">Abschluss (all)</span>
+                <select id="spf-builder-all">
+                  <option value="-all" selected data-i18n="spfBuilder.mechanisms.allFail">
+                    -all — ablehnen (empfohlen)
+                  </option>
+                  <option value="~all" data-i18n="spfBuilder.mechanisms.allSoftfail">
+                    ~all — Softfail
+                  </option>
+                  <option value="?all" data-i18n="spfBuilder.mechanisms.allNeutral">
+                    ?all — neutral
+                  </option>
+                  <option value="+all" data-i18n="spfBuilder.mechanisms.allPass">
+                    +all — alles erlauben (unsicher)
+                  </option>
+                </select>
+                <span class="field-hint" data-i18n="spfBuilder.mechanisms.allHint"
+                  >Was mit Absendern passiert, die von keiner Mechanismen-Regel erfasst werden.</span
+                >
+              </label>
+            </div>
+          </section>
+
+          <section class="spf-builder-panel builder-panel hidden" data-step="result">
+            <h3 data-i18n="spfBuilder.result.headline">DNS-Eintrag &amp; Auflösung</h3>
+            <p class="hint" data-i18n="spfBuilder.result.body">
+              TXT-Record am Apex (@) der Domain anlegen. Darunter die aufgelösten IPs/CIDRs aus
+              Includes, a und mx.
+            </p>
+            <div id="spf-builder-result" class="builder-result"></div>
+            <div id="spf-builder-live" class="builder-live muted"></div>
+            <div id="spf-builder-expand" class="spf-expand"></div>
+          </section>
+        </div>
+
+        <footer class="dialog-footer">
+          <p id="spf-builder-footer-hint" class="hint"></p>
+          <div class="dialog-actions">
+            <button
+              type="button"
+              id="btn-spf-builder-back"
+              class="btn ghost"
+              data-i18n="spfBuilder.back"
+            >
+              Zurück
+            </button>
+            <button
+              type="button"
+              id="btn-spf-builder-next"
+              class="btn primary"
+              data-i18n="spfBuilder.next"
+            >
               Weiter
             </button>
           </div>

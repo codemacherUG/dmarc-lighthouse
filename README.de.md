@@ -219,6 +219,24 @@ npm run screenshots
 
 GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.7` pushen oder Workflow **Release** manuell starten.
 
+### Auto-Update-Vertrauen
+
+Binaries kommen von GitHub Releases; vor der Installation verlangt die App zusätzlich ein **Ed25519-signiertes Manifest** unter `https://codemacher.de/dmarc-lighthouse/updates/{version}.json` (+ `.sig`). Ein kompromittiertes GitHub-Release allein reicht nicht.
+
+Das Release-CI signiert mit Secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8-PEM). Die Dateien `{version}.json` und `{version}.json.sig` müssen unter diesem Pfad liegen.
+
+Komplett-Release (Tag → GitHub Actions → Manifest-Deploy):
+
+```bash
+cp scripts/update-keys.sh.template scripts/update-keys.sh   # einmalig, gitignored
+# Deploy-Env in update-keys.sh eintragen
+npm run release                 # aktuelle package.json-Version
+# npm run release -- --bump patch
+# npm run release -- --deploy-only
+```
+
+Nur Manifest deployen: `bash scripts/update-keys.sh`. CI kann optional ebenfalls über Secrets `UPDATE_MANIFEST_DEPLOY_*` deployen. Schlüssel erzeugen: `npm run update:keys` — Public Key in `src/main/update-trust.ts`.
+
 ### Technik
 
 - **Electron** + **electron-vite** + **TypeScript**
@@ -226,7 +244,7 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.7` pushen oder Work
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
 - GeoIP: [`maxmind`](https://www.npmjs.com/package/maxmind) (GeoLite2) + optionaler Online-Fallback
-- Updates: [`electron-updater`](https://www.electron.build/auto-update) über GitHub Releases
+- Updates: [`electron-updater`](https://www.electron.build/auto-update) über GitHub Releases + signierte Manifeste auf codemacher.de
 - Tests: [Vitest](https://vitest.dev/)
 
 ---

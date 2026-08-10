@@ -109,6 +109,17 @@ jobs:
             exit 1
           fi
 
+      - name: Sign update manifest (Ed25519)
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "${UPDATE_SIGNING_PRIVATE_KEY}" ]; then
+            echo "Missing secret UPDATE_SIGNING_PRIVATE_KEY — auto-update manifests cannot be signed." >&2
+            exit 1
+          fi
+          node scripts/sign-update-manifest.mjs --dir dist-release --out dist-release
+          ls -lah dist-release/*.json dist-release/*.sig
+
       - name: Resolve tag
         id: tag
         shell: bash
@@ -129,3 +140,26 @@ jobs:
           files: dist-release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # App verifies manifests only from codemacher.de (not GitHub).
+      # Optional: UPDATE_MANIFEST_DEPLOY_HOST / _USER / _KEY / _PATH (+ optional _PORT).
+      - name: Deploy signed manifest to codemacher.de
+        env:
+          UPDATE_MANIFEST_DEPLOY_HOST: ${{ secrets.UPDATE_MANIFEST_DEPLOY_HOST }}
+          UPDATE_MANIFEST_DEPLOY_USER: ${{ secrets.UPDATE_MANIFEST_DEPLOY_USER }}
+          UPDATE_MANIFEST_DEPLOY_KEY: ${{ secrets.UPDATE_MANIFEST_DEPLOY_KEY }}
+          UPDATE_MANIFEST_DEPLOY_PATH: ${{ secrets.UPDATE_MANIFEST_DEPLOY_PATH }}
+          UPDATE_MANIFEST_DEPLOY_PORT: ${{ secrets.UPDATE_MANIFEST_DEPLOY_PORT }}
+        run: |
+          pkg_ver=$(node -p "require('./package.json').version")
+          if [ -z "${UPDATE_MANIFEST_DEPLOY_HOST}" ] || [ -z "${UPDATE_MANIFEST_DEPLOY_USER}" ] || \
+             [ -z "${UPDATE_MANIFEST_DEPLOY_KEY}" ] || [ -z "${UPDATE_MANIFEST_DEPLOY_PATH}" ]; then
+            echo "Skipping auto-deploy (UPDATE_MANIFEST_DEPLOY_* secrets incomplete)."
+            echo "Publish manually:"
+            echo "  npm run update:deploy -- --dir dist-release --verify"
+            echo "Or copy to the TYPO3 webroot, e.g. public/dmarc-lighthouse/updates/"
+            echo "  dist-release/${pkg_ver}.json"
+            echo "  dist-release/${pkg_ver}.json.sig"
+            exit 0
+          fi
+          node scripts/deploy-update-manifest.mjs --dir dist-release --verify

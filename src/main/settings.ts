@@ -24,7 +24,6 @@ import {
   type OAuthTokens
 } from './oauth'
 import { applyLinuxOpenAtLogin } from './autostart'
-import { normalizeAuthorizedSenderEntry } from '../shared/ipcidr'
 
 interface StoredAccount {
   id: string
@@ -44,7 +43,7 @@ interface StoredAccount {
   accessTokenEncrypted?: string
   accessTokenExpiresAt?: number
   markSeenAfterFetch?: boolean
-  /** Own mail servers (IPs/CIDRs) for Ampel / problem sources. */
+  /** @deprecated stripped on load */
   authorizedSenders?: string[]
 }
 
@@ -54,7 +53,7 @@ interface StoredGlobal {
   passRateAlertThreshold?: number
   notifyNewSource?: boolean
   ignoredSources?: string
-  /** @deprecated migrated to per-account authorizedSenders */
+  /** @deprecated stripped on load */
   authorizedSenders?: string[]
   runInTray?: boolean
   openAtLogin?: boolean
@@ -384,39 +383,24 @@ function toPublicAccount(a: StoredAccount): AccountPublic {
     subjectFilter: a.subjectFilter ?? '',
     hasPassword: Boolean(a.passwordEncrypted),
     hasOAuth: Boolean(a.refreshTokenEncrypted),
-    markSeenAfterFetch: Boolean(a.markSeenAfterFetch),
-    authorizedSenders: normalizeAuthorizedSenders(a.authorizedSenders)
+    markSeenAfterFetch: Boolean(a.markSeenAfterFetch)
   }
 }
 
-export function normalizeAuthorizedSenders(input: unknown): string[] {
-  const lines = Array.isArray(input)
-    ? input.map((v) => String(v))
-    : String(input ?? '').split(/[\n,]+/)
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const line of lines) {
-    const cidr = normalizeAuthorizedSenderEntry(line)
-    if (!cidr || seen.has(cidr)) continue
-    seen.add(cidr)
-    out.push(cidr)
+/** Strip deprecated authorizedSenders from global settings and accounts. */
+function stripLegacyAuthorizedSenders(stored: StoredSettingsV2): boolean {
+  let dirty = false
+  if ('authorizedSenders' in stored.global) {
+    delete stored.global.authorizedSenders
+    dirty = true
   }
-  return out
-}
-
-/** Move legacy global authorizedSenders onto accounts that have none yet. */
-function migrateAuthorizedSendersToAccounts(stored: StoredSettingsV2): boolean {
-  if (!('authorizedSenders' in stored.global)) return false
-  const globalList = normalizeAuthorizedSenders(stored.global.authorizedSenders)
-  delete stored.global.authorizedSenders
-  if (globalList.length) {
-    for (const account of stored.accounts) {
-      if (!account.authorizedSenders?.length) {
-        account.authorizedSenders = [...globalList]
-      }
+  for (const account of stored.accounts) {
+    if ('authorizedSenders' in account) {
+      delete account.authorizedSenders
+      dirty = true
     }
   }
-  return true
+  return dirty
 }
 
 function toPublicGlobal(g: StoredGlobal): GlobalSettings {
@@ -458,7 +442,7 @@ export function getOAuthClientConfig(global?: GlobalSettings): OAuthClientConfig
 export function loadSettings(): SettingsPublic {
   const stored = readStored()
   let dirty = migrateMaxmindLicenseKey(stored)
-  if (migrateAuthorizedSendersToAccounts(stored)) dirty = true
+  if (stripLegacyAuthorizedSenders(stored)) dirty = true
   if (dirty) writeStored(stored)
   const settings = {
     accounts: stored.accounts.map(toPublicAccount),
@@ -504,8 +488,7 @@ export function saveAccount(input: AccountSettingsInput): SettingsPublic {
     refreshTokenEncrypted: authMode === 'oauth' ? existing?.refreshTokenEncrypted : undefined,
     accessTokenEncrypted: authMode === 'oauth' ? existing?.accessTokenEncrypted : undefined,
     accessTokenExpiresAt: authMode === 'oauth' ? existing?.accessTokenExpiresAt : undefined,
-    markSeenAfterFetch: Boolean(input.markSeenAfterFetch),
-    authorizedSenders: normalizeAuthorizedSenders(input.authorizedSenders)
+    markSeenAfterFetch: Boolean(input.markSeenAfterFetch)
   }
 
   if (existing) {
@@ -719,10 +702,7 @@ export async function resolveInputConnection(
     refreshTokenEncrypted: existing?.refreshTokenEncrypted,
     accessTokenEncrypted: existing?.accessTokenEncrypted,
     accessTokenExpiresAt: existing?.accessTokenExpiresAt,
-    markSeenAfterFetch: input.markSeenAfterFetch,
-    authorizedSenders: normalizeAuthorizedSenders(
-      input.authorizedSenders ?? existing?.authorizedSenders
-    )
+    markSeenAfterFetch: input.markSeenAfterFetch
   }
   if (authMode === 'oauth') {
     if (!existing?.refreshTokenEncrypted) throw new Error(t('oauth.notConnected'))

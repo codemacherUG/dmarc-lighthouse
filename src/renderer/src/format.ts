@@ -1,14 +1,7 @@
-import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
+import { isAuthorizedSender } from '../../shared/ipcidr'
 import { getLocale, t } from '../../shared/i18n'
 import type { IpInfo } from '../../shared/types'
 import { state } from './state'
-
-function isOwnSender(ip: string): boolean {
-  const id = state.settings?.activeAccountId
-  const account = state.settings?.accounts.find((a) => a.id === id)
-  const prefixes = parseAuthorizedSenderPrefixes(account?.authorizedSenders ?? [])
-  return isAuthorizedSender(ip, prefixes)
-}
 
 function isSpfSender(ip: string): boolean {
   return isAuthorizedSender(ip, state.spfPrefixes)
@@ -50,16 +43,8 @@ export function formatIpMetaHtml(
   const provider = resolveProviderLabel(meta, fallbackProvider)
   const ptr = fallbackPtr ?? meta?.ptr
   const bits: string[] = []
-  // Role markers first (same badge row as geo/ASN/…).
-  const own = isOwnSender(ip)
-  const inSpf = isSpfSender(ip)
-  const spfKnown = state.spfPrefixes.length > 0
-  if (own && spfKnown && !inSpf) {
-    bits.push(`<span class="badge own">${escapeHtml(t('ipMark.own'))}</span>`)
-    bits.push(`<span class="badge not-in-spf">${escapeHtml(t('ipMark.notInSpf'))}</span>`)
-  } else {
-    if (own) bits.push(`<span class="badge own">${escapeHtml(t('ipMark.own'))}</span>`)
-    if (inSpf) bits.push(`<span class="badge spf">${escapeHtml(t('ipMark.spf'))}</span>`)
+  if (isSpfSender(ip)) {
+    bits.push(`<span class="badge spf">${escapeHtml(t('ipMark.spf'))}</span>`)
   }
   if (meta?.countryCode || meta?.country) {
     const geo = [meta.countryCode, meta.city].filter(Boolean).join(' · ')

@@ -46,6 +46,7 @@ export const toolsMenu = document.getElementById('tools-menu') as HTMLDivElement
 export const navDns = document.getElementById('nav-dns') as HTMLButtonElement
 export const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
 export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonElement
+export const btnSpfBuilder = document.getElementById('btn-spf-builder') as HTMLButtonElement
 export const btnInfo = document.getElementById('btn-info') as HTMLButtonElement
 export const btnFetch = document.getElementById('btn-fetch') as HTMLButtonElement
 export const btnOpenFiles = document.getElementById('btn-open-files') as HTMLButtonElement
@@ -110,12 +111,6 @@ export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
-export const subtabBtnSetup = document.getElementById('subtab-btn-setup') as HTMLButtonElement
-export const subtabBtnOptions = document.getElementById('subtab-btn-options') as HTMLButtonElement
-export const accountSubtabSetupEl = document.getElementById('account-subtab-setup') as HTMLElement
-export const accountSubtabOptionsEl = document.getElementById(
-  'account-subtab-options'
-) as HTMLElement
 
 export const providerEl = document.getElementById('provider') as HTMLSelectElement
 export const authModeEl = document.getElementById('authMode') as HTMLSelectElement
@@ -150,10 +145,6 @@ export const passRateAlertThresholdEl = document.getElementById(
   'passRateAlertThreshold'
 ) as HTMLInputElement
 export const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
-export const authorizedSendersEl = document.getElementById(
-  'authorizedSenders'
-) as HTMLTextAreaElement
-export const btnImportSpf = document.getElementById('btn-import-spf') as HTMLButtonElement
 export const languageEl = document.getElementById('language') as HTMLSelectElement
 export const oauthGoogleClientIdEl = document.getElementById(
   'oauthGoogleClientId'
@@ -198,4 +189,34 @@ export const btnBuilderBack = document.getElementById('btn-builder-back') as HTM
 export const btnBuilderNext = document.getElementById('btn-builder-next') as HTMLButtonElement
 export const btnBuilderLoadDns = document.getElementById(
   'btn-builder-load-dns'
+) as HTMLButtonElement
+
+export const spfBuilderDialog = document.getElementById('spf-builder-dialog') as HTMLDialogElement
+export const spfBuilderStepsEl = document.getElementById('spf-builder-steps') as HTMLOListElement
+export const spfBuilderDomainEl = document.getElementById('spf-builder-domain') as HTMLInputElement
+export const spfBuilderDomainStatusEl = document.getElementById(
+  'spf-builder-domain-status'
+) as HTMLParagraphElement
+export const spfBuilderIncludesEl = document.getElementById(
+  'spf-builder-includes'
+) as HTMLTextAreaElement
+export const spfBuilderIp4El = document.getElementById('spf-builder-ip4') as HTMLTextAreaElement
+export const spfBuilderIp6El = document.getElementById('spf-builder-ip6') as HTMLTextAreaElement
+export const spfBuilderUseAEl = document.getElementById('spf-builder-use-a') as HTMLInputElement
+export const spfBuilderUseMxEl = document.getElementById('spf-builder-use-mx') as HTMLInputElement
+export const spfBuilderAllEl = document.getElementById('spf-builder-all') as HTMLSelectElement
+export const spfBuilderResultEl = document.getElementById('spf-builder-result') as HTMLDivElement
+export const spfBuilderLiveEl = document.getElementById('spf-builder-live') as HTMLDivElement
+export const spfBuilderExpandEl = document.getElementById('spf-builder-expand') as HTMLDivElement
+export const spfBuilderFooterHintEl = document.getElementById(
+  'spf-builder-footer-hint'
+) as HTMLParagraphElement
+export const btnCloseSpfBuilder = document.getElementById(
+  'btn-close-spf-builder'
+) as HTMLButtonElement
+export const btnSpfBuilderBack = document.getElementById(
+  'btn-spf-builder-back'
+) as HTMLButtonElement
+export const btnSpfBuilderNext = document.getElementById(
+  'btn-spf-builder-next'
 ) as HTMLButtonElement

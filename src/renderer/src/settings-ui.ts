@@ -44,8 +44,6 @@ import {
   geoliteStatusEl,
   hostEl,
   ignoredSourcesEl,
-  authorizedSendersEl,
-  btnImportSpf,
   infoDialog,
   languageEl,
   mailboxEl,
@@ -78,20 +76,15 @@ import {
   tabBtnGeneral,
   tabEnrichmentEl,
   tabGeneralEl,
-  subtabBtnSetup,
-  subtabBtnOptions,
-  accountSubtabSetupEl,
-  accountSubtabOptionsEl,
   userEl
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
-import { applyView, importSpfAuthorizedSenders } from './view'
+import { applyView } from './view'
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
 type SettingsTab = 'account' | 'general' | 'enrichment'
-type AccountSubtab = 'setup' | 'options'
 
 /** Input that opened the create-mailbox dialog (mailbox or archive). */
 let createMailboxTarget: HTMLInputElement | null = null
@@ -155,11 +148,7 @@ export function readAccountForm(): AccountSettingsInput {
     mailbox: mailboxEl.value.trim() || 'INBOX',
     archiveMailbox: archiveMailboxEl.value.trim(),
     subjectFilter: subjectFilterEl.value,
-    markSeenAfterFetch: markSeenAfterFetchEl.checked,
-    authorizedSenders: authorizedSendersEl.value
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
+    markSeenAfterFetch: markSeenAfterFetchEl.checked
   }
 }
 
@@ -418,7 +407,6 @@ export function fillAccountForm(account: AccountPublic | null): void {
     archiveMailboxEl.value = account.archiveMailbox ?? ''
     subjectFilterEl.value = account.subjectFilter
     markSeenAfterFetchEl.checked = account.markSeenAfterFetch
-    authorizedSendersEl.value = (account.authorizedSenders ?? []).join('\n')
   } else {
     accountNameEl.value = ''
     providerEl.value = 'custom'
@@ -431,7 +419,6 @@ export function fillAccountForm(account: AccountPublic | null): void {
     archiveMailboxEl.value = ''
     subjectFilterEl.value = 'Report Domain'
     markSeenAfterFetchEl.checked = false
-    authorizedSendersEl.value = ''
   }
   passwordEl.value = ''
   updateAccountNamePlaceholder()
@@ -534,26 +521,12 @@ export function showSettingsTab(which: SettingsTab): void {
   }
 }
 
-export function showAccountSubtab(which: AccountSubtab): void {
-  const tabs: Array<{ id: AccountSubtab; btn: HTMLButtonElement; panel: HTMLElement }> = [
-    { id: 'setup', btn: subtabBtnSetup, panel: accountSubtabSetupEl },
-    { id: 'options', btn: subtabBtnOptions, panel: accountSubtabOptionsEl }
-  ]
-  for (const tab of tabs) {
-    const active = tab.id === which
-    tab.btn.classList.toggle('active', active)
-    tab.btn.setAttribute('aria-selected', String(active))
-    tab.panel.classList.toggle('hidden', !active)
-  }
-}
-
 export function openSettings(): void {
   state.dialogAccountId = state.settings?.activeAccountId ?? null
   fillSettingsAccountSelect()
   fillAccountForm(dialogAccount())
   if (state.settings) fillGlobalForm(state.settings.global)
   showSettingsTab('account')
-  showAccountSubtab('setup')
   settingsDialog.showModal()
   scheduleMailboxOptionsRefresh()
 }
@@ -577,8 +550,6 @@ export function initSettingsUi(): void {
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
-  subtabBtnSetup.addEventListener('click', () => showAccountSubtab('setup'))
-  subtabBtnOptions.addEventListener('click', () => showAccountSubtab('options'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
 
@@ -660,27 +631,11 @@ export function initSettingsUi(): void {
     scheduleMailboxOptionsRefresh()
   })
 
-  btnImportSpf?.addEventListener('click', () => {
-    void (async () => {
-      btnImportSpf.disabled = true
-      try {
-        const accountId = state.dialogAccountId ?? state.settings?.activeAccountId
-        settingsStatusEl.textContent = t('settings.spfImportLoading')
-        const message = await importSpfAuthorizedSenders({ accountId })
-        fillAccountForm(dialogAccount())
-        settingsStatusEl.textContent = message
-      } finally {
-        btnImportSpf.disabled = false
-      }
-    })()
-  })
-
   btnNewAccount.addEventListener('click', () => {
     state.dialogAccountId = null
     fillSettingsAccountSelect()
     fillAccountForm(null)
     fillMailboxOptions([])
-    showAccountSubtab('setup')
   })
 
   btnDeleteAccount.addEventListener('click', async () => {
@@ -822,7 +777,6 @@ export function initSettingsUi(): void {
       if (wantsAccountSave) {
         if (!accountInput.user || !accountInput.host) {
           showSettingsTab('account')
-          showAccountSubtab('setup')
           throw new Error(t('settings.needUserHost'))
         }
         const before = new Set((state.settings?.accounts ?? []).map((a) => a.id))

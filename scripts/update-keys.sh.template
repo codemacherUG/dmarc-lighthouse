@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Copy to scripts/update-keys.sh and fill in (gitignored — never commit).
+# Used by scripts/release.sh (sourced) or run directly to deploy manifests.
+#
+#   cp scripts/update-keys.sh.template scripts/update-keys.sh
+#   chmod 600 scripts/update-keys.sh
+
+export UPDATE_MANIFEST_DEPLOY_HOST=
+export UPDATE_MANIFEST_DEPLOY_USER=
+export UPDATE_MANIFEST_DEPLOY_PATH=
+# Path to SSH *private* key (not .pub), or leave empty to use ssh-agent
+export UPDATE_MANIFEST_DEPLOY_KEY=
+# export UPDATE_MANIFEST_DEPLOY_PORT=22
+
+# Optional: local Ed25519 signing key if CI did not attach *.json / *.json.sig
+# export UPDATE_SIGNING_PRIVATE_KEY_FILE=keys/update-ed25519-private.pem
+
+# When executed directly (not sourced), deploy manifests from dist-release:
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  set -euo pipefail
+  cd "$(dirname "$0")/.."
+  npm run update:deploy -- --dir "${1:-dist-release}" --verify
+fi

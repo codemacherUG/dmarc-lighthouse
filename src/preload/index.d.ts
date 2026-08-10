@@ -35,7 +35,7 @@ export interface DmarcLighthouseApi {
   resolveIps: (ips: string[]) => Promise<IpInfo[]>
   lookupRdap: (ip: string) => Promise<RdapInfo>
   checkDns: (domain: string, selectors?: string[]) => Promise<DnsCheckResult>
-  expandSpf: (domain: string) => Promise<SpfExpandResult>
+  expandSpf: (domain: string, record?: string | null) => Promise<SpfExpandResult>
   healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>

@@ -15,6 +15,7 @@ export type UpdateStatusPayload =
   | { status: 'available'; version: string }
   | { status: 'not-available'; version: string }
   | { status: 'downloading'; percent: number; transferred: number; total: number }
+  | { status: 'verifying'; version: string }
   | { status: 'downloaded'; version: string }
   | { status: 'error'; message: string }
 
@@ -67,11 +68,6 @@ export interface AccountSettingsInput {
   archiveMailbox: string
   subjectFilter: string
   markSeenAfterFetch: boolean
-  /**
-   * Own mail servers (IPs or CIDRs) for this account. When non-empty, Ampel and
-   * problem sources focus on these senders.
-   */
-  authorizedSenders: string[]
 }
 
 export interface AccountPublic {
@@ -95,11 +91,6 @@ export interface AccountPublic {
   /** True when a refresh token is stored for OAuth. */
   hasOAuth: boolean
   markSeenAfterFetch: boolean
-  /**
-   * Own mail servers (IPs or CIDRs) for this account. When non-empty, Ampel and
-   * problem sources focus on these senders.
-   */
-  authorizedSenders: string[]
 }
 
 /** IMAP folder entry returned by LIST. */
@@ -343,8 +334,6 @@ export interface DomainStats {
   passing: number
   failing: number
   passRate: number
-  /** Messages from allowed senders that are not covered by expanded SPF. */
-  missingSpf: number
   /** DKIM selectors seen in report auth results. */
   dkimSelectors: string[]
 }

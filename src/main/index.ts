@@ -601,7 +601,11 @@ function registerIpc(): void {
     checkDomainDns(domain, selectors ?? [])
   )
 
-  ipcMain.handle('dns:expandSpf', async (_event, domain: string) => expandSpf(domain ?? ''))
+  ipcMain.handle(
+    'dns:expandSpf',
+    async (_event, domain: string, record?: string | null) =>
+      expandSpf(domain ?? '', { record: record ?? null })
+  )
 
   ipcMain.handle('dns:healthBatch', async (_event, reports: ReportRow[]) =>
     buildDomainHealth(Array.isArray(reports) ? reports : [])
