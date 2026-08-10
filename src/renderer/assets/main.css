@@ -442,8 +442,9 @@ body {
 
 .tables-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 12px;
+  align-items: stretch;
 }
 
 .table-card {
@@ -452,11 +453,38 @@ body {
   padding: 10px 12px;
   background: #fbfcfd;
   min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.table-card--ips {
+  grid-row: 1 / span 2;
 }
 
 .table-scroll {
   max-height: 280px;
   overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.table-card--ips .table-scroll {
+  max-height: none;
+}
+
+@media (max-width: 900px) {
+  .tables-row {
+    grid-template-columns: 1fr;
+  }
+
+  .table-card--ips {
+    grid-row: auto;
+  }
+
+  .table-card--ips .table-scroll {
+    max-height: 360px;
+  }
 }
 
 table {
