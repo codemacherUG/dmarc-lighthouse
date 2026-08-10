@@ -133,13 +133,20 @@ const de = {
 
   'settings.title': 'Einstellungen',
   'settings.close': 'Schließen',
-  'settings.tabAccount': 'IMAP-Konto',
+  'settings.tabAccount': 'Konto-Verwaltung',
   'settings.tabGeneral': 'Abruf & Benachrichtigungen',
   'settings.tabEnrichment': 'Anreicherung',
+  'settings.accountSubtabs': 'Konto-Bereiche',
+  'settings.accountSubtabSetup': 'Zugang einrichten',
+  'settings.accountSubtabOptions': 'Weitere Einstellungen',
+  'settings.accountSetupHint':
+    'Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die Verbindung testen.',
+  'settings.accountOptionsHint':
+    'Einstellungen für die Auswertung der Reports dieses Kontos — unabhängig vom Zugangs-Anbieter.',
   'settings.newAccount': 'Neues Konto',
   'settings.deleteAccount': 'Löschen',
   'settings.selectAccount': 'Konto auswählen',
-  'settings.connection': 'Verbindung',
+  'settings.connection': 'Zugang',
   'settings.accountName': 'Bezeichnung',
   'settings.accountNameTitle': 'Leer lassen = Domain aus der E-Mail-Adresse',
   'settings.accountNameHint':
@@ -239,7 +246,7 @@ const de = {
   'settings.save': 'Speichern',
   'settings.providerGmail': 'Gmail',
   'settings.providerOutlook': 'Outlook / Microsoft 365',
-  'settings.providerCustom': 'Custom IMAP',
+  'settings.providerCustom': 'Eigenes IMAP',
   'settings.newAccountOption': 'Neues Konto…',
   'settings.passwordSaved':
     'Ein Passwort ist verschlüsselt gespeichert. Feld leer lassen, um es beizubehalten.',
@@ -655,13 +662,20 @@ const en: Dict = {
 
   'settings.title': 'Settings',
   'settings.close': 'Close',
-  'settings.tabAccount': 'IMAP account',
+  'settings.tabAccount': 'Accounts',
   'settings.tabGeneral': 'Fetch & notifications',
   'settings.tabEnrichment': 'Enrichment',
+  'settings.accountSubtabs': 'Account sections',
+  'settings.accountSubtabSetup': 'Set up access',
+  'settings.accountSubtabOptions': 'More settings',
+  'settings.accountSetupHint':
+    'Set up Gmail, Microsoft 365/Outlook, or a custom IMAP account and test the connection.',
+  'settings.accountOptionsHint':
+    'Settings for analyzing this account’s reports — independent of the access provider.',
   'settings.newAccount': 'New account',
   'settings.deleteAccount': 'Delete',
   'settings.selectAccount': 'Select account',
-  'settings.connection': 'Connection',
+  'settings.connection': 'Access',
   'settings.accountName': 'Display name',
   'settings.accountNameTitle': 'Leave empty = domain from the email address',
   'settings.accountNameHint':

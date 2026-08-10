@@ -78,6 +78,10 @@ import {
   tabBtnGeneral,
   tabEnrichmentEl,
   tabGeneralEl,
+  subtabBtnSetup,
+  subtabBtnOptions,
+  accountSubtabSetupEl,
+  accountSubtabOptionsEl,
   userEl
 } from './dom'
 import { escapeHtml } from './format'
@@ -87,6 +91,7 @@ import { applyView, importSpfAuthorizedSenders } from './view'
 export const NEW_ACCOUNT_VALUE = '__new__'
 
 type SettingsTab = 'account' | 'general' | 'enrichment'
+type AccountSubtab = 'setup' | 'options'
 
 /** Input that opened the create-mailbox dialog (mailbox or archive). */
 let createMailboxTarget: HTMLInputElement | null = null
@@ -529,12 +534,26 @@ export function showSettingsTab(which: SettingsTab): void {
   }
 }
 
+export function showAccountSubtab(which: AccountSubtab): void {
+  const tabs: Array<{ id: AccountSubtab; btn: HTMLButtonElement; panel: HTMLElement }> = [
+    { id: 'setup', btn: subtabBtnSetup, panel: accountSubtabSetupEl },
+    { id: 'options', btn: subtabBtnOptions, panel: accountSubtabOptionsEl }
+  ]
+  for (const tab of tabs) {
+    const active = tab.id === which
+    tab.btn.classList.toggle('active', active)
+    tab.btn.setAttribute('aria-selected', String(active))
+    tab.panel.classList.toggle('hidden', !active)
+  }
+}
+
 export function openSettings(): void {
   state.dialogAccountId = state.settings?.activeAccountId ?? null
   fillSettingsAccountSelect()
   fillAccountForm(dialogAccount())
   if (state.settings) fillGlobalForm(state.settings.global)
   showSettingsTab('account')
+  showAccountSubtab('setup')
   settingsDialog.showModal()
   scheduleMailboxOptionsRefresh()
 }
@@ -558,6 +577,8 @@ export function initSettingsUi(): void {
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
+  subtabBtnSetup.addEventListener('click', () => showAccountSubtab('setup'))
+  subtabBtnOptions.addEventListener('click', () => showAccountSubtab('options'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
 
@@ -659,6 +680,7 @@ export function initSettingsUi(): void {
     fillSettingsAccountSelect()
     fillAccountForm(null)
     fillMailboxOptions([])
+    showAccountSubtab('setup')
   })
 
   btnDeleteAccount.addEventListener('click', async () => {
@@ -800,6 +822,7 @@ export function initSettingsUi(): void {
       if (wantsAccountSave) {
         if (!accountInput.user || !accountInput.host) {
           showSettingsTab('account')
+          showAccountSubtab('setup')
           throw new Error(t('settings.needUserHost'))
         }
         const before = new Set((state.settings?.accounts ?? []).map((a) => a.id))

@@ -513,7 +513,7 @@
             aria-controls="tab-account"
             data-i18n="settings.tabAccount"
           >
-            IMAP-Konto
+            Konto-Verwaltung
           </button>
           <button
             type="button"
@@ -565,221 +565,265 @@
               </button>
             </div>
 
-            <fieldset class="settings-group">
-              <legend data-i18n="settings.connection">Verbindung</legend>
-              <div class="settings-grid">
-                <label class="span-2">
-                  <span data-i18n="settings.accountName">Bezeichnung</span>
-                  <input
-                    id="accountName"
-                    name="accountName"
-                    type="text"
-                    data-i18n-title="settings.accountNameTitle"
-                    title="Leer lassen = Domain aus der E-Mail-Adresse"
-                  />
-                </label>
-                <p class="hint span-2" data-i18n="settings.accountNameHint">
-                  Leer lassen, um die Domain der E-Mail-Adresse als Bezeichnung zu verwenden
-                  (z.&nbsp;B. codemacher.de).
-                </p>
-
-                <label>
-                  <span data-i18n="settings.provider">Anbieter</span>
-                  <select id="provider" name="provider">
-                    <option value="gmail" data-i18n="settings.providerGmail">Gmail</option>
-                    <option value="outlook" data-i18n="settings.providerOutlook">
-                      Outlook / Microsoft 365
-                    </option>
-                    <option value="custom" selected data-i18n="settings.providerCustom">
-                      Custom IMAP
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.authMode">Anmeldung</span>
-                  <select id="authMode" name="authMode">
-                    <option value="password" selected data-i18n="settings.authPassword">
-                      Passwort / App-Passwort
-                    </option>
-                    <option value="oauth" data-i18n="settings.authOAuth">
-                      OAuth (Gmail / Microsoft 365)
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.host">Host</span>
-                  <input id="host" name="host" type="text" placeholder="imap.example.com" />
-                </label>
-
-                <label>
-                  <span data-i18n="settings.port">Port</span>
-                  <input id="port" name="port" type="number" min="1" max="65535" value="993" />
-                </label>
-
-                <label class="checkbox">
-                  <input id="secure" name="secure" type="checkbox" checked />
-                  <span data-i18n="settings.tls">TLS / SSL</span>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.user">Benutzer</span>
-                  <input id="user" name="user" type="email" autocomplete="username" />
-                </label>
-
-                <label id="password-field">
-                  <span data-i18n="settings.password">Passwort / App-Passwort</span>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autocomplete="current-password"
-                    data-i18n-placeholder="settings.passwordPlaceholder"
-                    placeholder="Leer lassen, wenn gespeichert"
-                  />
-                </label>
-
-                <div id="oauth-actions" class="span-2 account-actions hidden">
-                  <button
-                    type="button"
-                    id="btn-oauth-login"
-                    class="btn secondary"
-                    data-i18n="settings.oauthLogin"
-                  >
-                    Mit Anbieter anmelden…
-                  </button>
-                  <button
-                    type="button"
-                    id="btn-oauth-disconnect"
-                    class="btn secondary"
-                    data-i18n="settings.oauthDisconnect"
-                  >
-                    OAuth trennen
-                  </button>
-                </div>
-              </div>
-              <p id="password-hint" class="hint"></p>
-              <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
-                OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
-              </p>
-            </fieldset>
-
-            <fieldset class="settings-group">
-              <legend data-i18n="settings.mailboxFetch">Abruf aus diesem Postfach</legend>
-              <div class="settings-grid">
-                <label>
-                  <span data-i18n="settings.mailbox">Ordner</span>
-                  <div class="mailbox-combo">
-                    <input
-                      id="mailbox"
-                      name="mailbox"
-                      type="text"
-                      value="INBOX"
-                      autocomplete="off"
-                      spellcheck="false"
-                    />
-                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
-                  </div>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.archiveMailbox">Nach Abruf verschieben nach</span>
-                  <div class="mailbox-combo">
-                    <input
-                      id="archiveMailbox"
-                      name="archiveMailbox"
-                      type="text"
-                      value=""
-                      autocomplete="off"
-                      spellcheck="false"
-                      data-i18n-placeholder="settings.archiveMailboxPlaceholder"
-                      placeholder="Leer = nicht verschieben"
-                    />
-                    <button
-                      type="button"
-                      id="btn-clear-archive-mailbox"
-                      class="mailbox-clear"
-                      hidden
-                      data-i18n-aria="settings.clearArchiveMailbox"
-                      aria-label="Archiv-Ordner leeren"
-                    >
-                      ✕
-                    </button>
-                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
-                  </div>
-                </label>
-
-                <p class="hint span-2" data-i18n="settings.archiveMailboxHint">
-                  Neue DMARC-Mails werden aus dem Abruf-Ordner (z. B. INBOX) gelesen und danach in
-                  diesen Ordner verschoben. Der Archiv-Ordner wird zusätzlich nach vorhandenen
-                  Reports durchsucht.
-                </p>
-
-                <label>
-                  <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
-                  <input
-                    id="subjectFilter"
-                    name="subjectFilter"
-                    type="text"
-                    value="Report Domain"
-                    data-i18n-placeholder="settings.subjectPlaceholder"
-                    placeholder="Leer = alle Nachrichten"
-                  />
-                </label>
-
-                <label class="checkbox span-2">
-                  <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
-                  <span data-i18n="settings.markSeen"
-                    >Nachrichten nach Abruf als gelesen markieren</span
-                  >
-                </label>
-              </div>
-            </fieldset>
-
-            <fieldset class="settings-group">
-              <legend data-i18n="settings.authorizedSenders">Erlaubte Mail-Server</legend>
-              <label class="stacked">
-                <textarea
-                  id="authorizedSenders"
-                  name="authorizedSenders"
-                  rows="5"
-                  data-i18n-placeholder="settings.authorizedPlaceholder"
-                  placeholder="Eine IP oder CIDR pro Zeile, z. B. 203.0.113.5 oder 2001:db8:1::/48"
-                ></textarea>
-              </label>
-              <p class="hint" data-i18n="settings.authorizedHint">
-                Pro Konto. Wenn gesetzt, bewerten Ampel und Problemquellen vor allem diese Absender
-                (SPF/DKIM der erlaubten Server). Leer = gesamter Verkehr wie bisher.
-              </p>
-              <div class="inline-actions">
-                <button
-                  type="button"
-                  id="btn-import-spf"
-                  class="btn secondary"
-                  data-i18n="settings.spfImport"
-                >
-                  Aus SPF übernehmen
-                </button>
-              </div>
-              <p class="hint" data-i18n="settings.spfImportHint">
-                Liest ip4/ip6/include/a/mx aus dem SPF der geladenen Domains (bzw. der Domain im
-                Filter) und ergänzt die Liste.
-              </p>
-            </fieldset>
-
-            <div class="account-actions">
-              <button type="button" id="btn-test" class="btn secondary" data-i18n="settings.test">
-                Verbindung testen
+            <nav
+              class="subtab-bar"
+              role="tablist"
+              data-i18n-aria="settings.accountSubtabs"
+              aria-label="Konto-Bereiche"
+            >
+              <button
+                type="button"
+                id="subtab-btn-setup"
+                class="subtab active"
+                role="tab"
+                aria-selected="true"
+                aria-controls="account-subtab-setup"
+                data-i18n="settings.accountSubtabSetup"
+              >
+                Zugang einrichten
               </button>
               <button
                 type="button"
-                id="btn-clear-cache"
-                class="btn secondary"
-                data-i18n="settings.clearCache"
+                id="subtab-btn-options"
+                class="subtab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="account-subtab-options"
+                data-i18n="settings.accountSubtabOptions"
               >
-                Cache dieses Kontos leeren
+                Weitere Einstellungen
               </button>
+            </nav>
+
+            <div id="account-subtab-setup" class="account-subpanel" role="tabpanel">
+              <p class="hint account-setup-intro" data-i18n="settings.accountSetupHint">
+                Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die
+                Verbindung testen.
+              </p>
+
+              <fieldset class="settings-group">
+                <legend data-i18n="settings.connection">Zugang</legend>
+                <div class="settings-grid">
+                  <label class="span-2">
+                    <span data-i18n="settings.accountName">Bezeichnung</span>
+                    <input
+                      id="accountName"
+                      name="accountName"
+                      type="text"
+                      data-i18n-title="settings.accountNameTitle"
+                      title="Leer lassen = Domain aus der E-Mail-Adresse"
+                    />
+                  </label>
+                  <p class="hint span-2" data-i18n="settings.accountNameHint">
+                    Leer lassen, um die Domain der E-Mail-Adresse als Bezeichnung zu verwenden
+                    (z.&nbsp;B. codemacher.de).
+                  </p>
+
+                  <label>
+                    <span data-i18n="settings.provider">Anbieter</span>
+                    <select id="provider" name="provider">
+                      <option value="gmail" data-i18n="settings.providerGmail">Gmail</option>
+                      <option value="outlook" data-i18n="settings.providerOutlook">
+                        Outlook / Microsoft 365
+                      </option>
+                      <option value="custom" selected data-i18n="settings.providerCustom">
+                        Eigenes IMAP
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.authMode">Anmeldung</span>
+                    <select id="authMode" name="authMode">
+                      <option value="password" selected data-i18n="settings.authPassword">
+                        Passwort / App-Passwort
+                      </option>
+                      <option value="oauth" data-i18n="settings.authOAuth">
+                        OAuth (Gmail / Microsoft 365)
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.host">Host</span>
+                    <input id="host" name="host" type="text" placeholder="imap.example.com" />
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.port">Port</span>
+                    <input id="port" name="port" type="number" min="1" max="65535" value="993" />
+                  </label>
+
+                  <label class="checkbox">
+                    <input id="secure" name="secure" type="checkbox" checked />
+                    <span data-i18n="settings.tls">TLS / SSL</span>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.user">Benutzer</span>
+                    <input id="user" name="user" type="email" autocomplete="username" />
+                  </label>
+
+                  <label id="password-field">
+                    <span data-i18n="settings.password">Passwort / App-Passwort</span>
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autocomplete="current-password"
+                      data-i18n-placeholder="settings.passwordPlaceholder"
+                      placeholder="Leer lassen, wenn gespeichert"
+                    />
+                  </label>
+
+                  <div id="oauth-actions" class="span-2 account-actions hidden">
+                    <button
+                      type="button"
+                      id="btn-oauth-login"
+                      class="btn secondary"
+                      data-i18n="settings.oauthLogin"
+                    >
+                      Mit Anbieter anmelden…
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-oauth-disconnect"
+                      class="btn secondary"
+                      data-i18n="settings.oauthDisconnect"
+                    >
+                      OAuth trennen
+                    </button>
+                  </div>
+                </div>
+                <p id="password-hint" class="hint"></p>
+                <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
+                  OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
+                </p>
+              </fieldset>
+
+              <fieldset class="settings-group">
+                <legend data-i18n="settings.mailboxFetch">Abruf aus diesem Postfach</legend>
+                <div class="settings-grid">
+                  <label>
+                    <span data-i18n="settings.mailbox">Ordner</span>
+                    <div class="mailbox-combo">
+                      <input
+                        id="mailbox"
+                        name="mailbox"
+                        type="text"
+                        value="INBOX"
+                        autocomplete="off"
+                        spellcheck="false"
+                      />
+                      <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                    </div>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.archiveMailbox">Nach Abruf verschieben nach</span>
+                    <div class="mailbox-combo">
+                      <input
+                        id="archiveMailbox"
+                        name="archiveMailbox"
+                        type="text"
+                        value=""
+                        autocomplete="off"
+                        spellcheck="false"
+                        data-i18n-placeholder="settings.archiveMailboxPlaceholder"
+                        placeholder="Leer = nicht verschieben"
+                      />
+                      <button
+                        type="button"
+                        id="btn-clear-archive-mailbox"
+                        class="mailbox-clear"
+                        hidden
+                        data-i18n-aria="settings.clearArchiveMailbox"
+                        aria-label="Archiv-Ordner leeren"
+                      >
+                        ✕
+                      </button>
+                      <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                    </div>
+                  </label>
+
+                  <p class="hint span-2" data-i18n="settings.archiveMailboxHint">
+                    Neue DMARC-Mails werden aus dem Abruf-Ordner (z. B. INBOX) gelesen und danach in
+                    diesen Ordner verschoben. Der Archiv-Ordner wird zusätzlich nach vorhandenen
+                    Reports durchsucht.
+                  </p>
+
+                  <label>
+                    <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
+                    <input
+                      id="subjectFilter"
+                      name="subjectFilter"
+                      type="text"
+                      value="Report Domain"
+                      data-i18n-placeholder="settings.subjectPlaceholder"
+                      placeholder="Leer = alle Nachrichten"
+                    />
+                  </label>
+
+                  <label class="checkbox span-2">
+                    <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
+                    <span data-i18n="settings.markSeen"
+                      >Nachrichten nach Abruf als gelesen markieren</span
+                    >
+                  </label>
+                </div>
+              </fieldset>
+
+              <div class="account-actions">
+                <button type="button" id="btn-test" class="btn secondary" data-i18n="settings.test">
+                  Verbindung testen
+                </button>
+                <button
+                  type="button"
+                  id="btn-clear-cache"
+                  class="btn secondary"
+                  data-i18n="settings.clearCache"
+                >
+                  Cache dieses Kontos leeren
+                </button>
+              </div>
+            </div>
+
+            <div id="account-subtab-options" class="account-subpanel hidden" role="tabpanel">
+              <p class="hint account-setup-intro" data-i18n="settings.accountOptionsHint">
+                Einstellungen für die Auswertung der Reports dieses Kontos — unabhängig vom
+                Zugangs-Anbieter.
+              </p>
+
+              <fieldset class="settings-group">
+                <legend data-i18n="settings.authorizedSenders">Erlaubte Mail-Server</legend>
+                <label class="stacked">
+                  <textarea
+                    id="authorizedSenders"
+                    name="authorizedSenders"
+                    rows="5"
+                    data-i18n-placeholder="settings.authorizedPlaceholder"
+                    placeholder="Eine IP oder CIDR pro Zeile, z. B. 203.0.113.5 oder 2001:db8:1::/48"
+                  ></textarea>
+                </label>
+                <p class="hint" data-i18n="settings.authorizedHint">
+                  Pro Konto. Wenn gesetzt, bewerten Ampel und Problemquellen vor allem diese Absender
+                  (SPF/DKIM der erlaubten Server). Leer = gesamter Verkehr wie bisher.
+                </p>
+                <div class="inline-actions">
+                  <button
+                    type="button"
+                    id="btn-import-spf"
+                    class="btn secondary"
+                    data-i18n="settings.spfImport"
+                  >
+                    Aus SPF übernehmen
+                  </button>
+                </div>
+                <p class="hint" data-i18n="settings.spfImportHint">
+                  Liest ip4/ip6/include/a/mx aus dem SPF der geladenen Domains (bzw. der Domain im
+                  Filter) und ergänzt die Liste.
+                </p>
+              </fieldset>
             </div>
           </section>
 

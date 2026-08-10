@@ -1226,7 +1226,49 @@ input[type='checkbox']:focus-visible {
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+}
+
+.subtab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f1f5f8;
+}
+
+.subtab {
+  border: none;
+  background: transparent;
+  padding: 7px 12px;
+  cursor: pointer;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.subtab:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, #fff 70%, transparent);
+}
+
+.subtab.active {
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.account-setup-intro {
+  margin: 0 0 12px;
+}
+
+.account-subpanel {
+  min-width: 0;
 }
 
 .tab-bar {

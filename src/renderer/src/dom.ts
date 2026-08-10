@@ -110,6 +110,12 @@ export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
+export const subtabBtnSetup = document.getElementById('subtab-btn-setup') as HTMLButtonElement
+export const subtabBtnOptions = document.getElementById('subtab-btn-options') as HTMLButtonElement
+export const accountSubtabSetupEl = document.getElementById('account-subtab-setup') as HTMLElement
+export const accountSubtabOptionsEl = document.getElementById(
+  'account-subtab-options'
+) as HTMLElement
 
 export const providerEl = document.getElementById('provider') as HTMLSelectElement
 export const authModeEl = document.getElementById('authMode') as HTMLSelectElement
