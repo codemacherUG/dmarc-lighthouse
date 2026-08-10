@@ -73,6 +73,7 @@ jobs:
 
       - name: Prepare release files
         run: |
+          rm -rf dist-release
           mkdir -p dist-release
           find artifacts -type f -print
           find artifacts -type f \( \
@@ -89,6 +90,7 @@ jobs:
             base=$(basename "$f")
             case "$base" in
               latest.yml|latest-linux.yml|latest-mac.yml) continue ;;
+              *.json|*.sig) continue ;; # signed update manifests added later
             esac
             case "$base" in
               *' '*|DMARC*|*Lighthouse*)
