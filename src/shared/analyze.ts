@@ -11,11 +11,17 @@ import type {
   ForensicReportRow,
   IpInfo,
   NamedBucket,
+  ProblemSourceRow,
   ReportRow,
   SerializedRecord,
   VolumePoint
 } from './types'
 import { isLikelyGoogleIp } from './google-ip'
+import {
+  isAuthorizedSender,
+  parseAuthorizedSenderPrefixes,
+  type CloudPrefix
+} from './ipcidr'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
 
 /** True when enrichment labels the IP as Google (cloud, PTR, or ASN). */
@@ -91,7 +97,119 @@ function toNamedBuckets(
     .slice(0, limit)
 }
 
-export function buildDashboard(reports: ReportRow[]): DashboardData {
+export type AuthorizedScope = {
+  /** Empty = all senders in scope (legacy behaviour). */
+  prefixes: CloudPrefix[]
+}
+
+function resolveAuthorizedScope(
+  authorizedSenders?: readonly string[] | null
+): AuthorizedScope {
+  return { prefixes: parseAuthorizedSenderPrefixes(authorizedSenders ?? []) }
+}
+
+function recordInAuthorizedScope(rec: SerializedRecord, scope: AuthorizedScope): boolean {
+  if (!scope.prefixes.length) return true
+  return isAuthorizedSender(rec.sourceIp, scope.prefixes)
+}
+
+/** Allowed sender IP that is not covered by the expanded SPF (when both lists are set). */
+export function isAllowedMissingSpf(
+  ip: string,
+  authorizedSenders?: readonly string[] | null,
+  spfCidrs?: readonly string[] | null
+): boolean {
+  const auth = parseAuthorizedSenderPrefixes(authorizedSenders ?? [])
+  const spf = parseAuthorizedSenderPrefixes(spfCidrs ?? [])
+  if (!auth.length || !spf.length) return false
+  return isAuthorizedSender(ip, auth) && !isAuthorizedSender(ip, spf)
+}
+
+function recordIsAmpelHealthy(
+  rec: SerializedRecord,
+  scope: AuthorizedScope,
+  spfPrefixes: CloudPrefix[]
+): boolean {
+  if (!isHealthyDmarcOutcome(rec)) return false
+  // Allowed senders must appear in SPF once SPF is known.
+  if (
+    scope.prefixes.length &&
+    spfPrefixes.length &&
+    !isAuthorizedSender(rec.sourceIp, spfPrefixes)
+  ) {
+    return false
+  }
+  return true
+}
+
+/**
+ * IPs with unhealthy outcomes for rollout review:
+ * delivered auth-fails, or allowed senders missing from SPF.
+ * When authorized senders are set, only those IPs are listed.
+ */
+export function buildProblemSources(
+  reports: ReportRow[],
+  limit = 40,
+  authorizedSenders?: readonly string[] | null,
+  spfCidrs?: readonly string[] | null
+): ProblemSourceRow[] {
+  const scope = resolveAuthorizedScope(authorizedSenders)
+  type Acc = {
+    count: number
+    spfFail: number
+    dkimFail: number
+    fromCounts: Map<string, number>
+  }
+  const map = new Map<string, Acc>()
+
+  for (const report of reports) {
+    for (const rec of report.records) {
+      if (!recordInAuthorizedScope(rec, scope)) continue
+      const missingSpf = isAllowedMissingSpf(rec.sourceIp, authorizedSenders, spfCidrs)
+      if (isHealthyDmarcOutcome(rec) && !missingSpf) continue
+      const ip = (rec.sourceIp || '').trim() || '(unbekannt)'
+      const n = rec.count || 0
+      const cur = map.get(ip) ?? {
+        count: 0,
+        spfFail: 0,
+        dkimFail: 0,
+        fromCounts: new Map()
+      }
+      cur.count += n
+      if ((rec.spfResult ?? '').toLowerCase() !== 'pass' || missingSpf) cur.spfFail += n
+      if ((rec.dkimResult ?? '').toLowerCase() !== 'pass') cur.dkimFail += n
+      const from = (rec.headerFrom || '').trim() || '(unbekannt)'
+      cur.fromCounts.set(from, (cur.fromCounts.get(from) ?? 0) + n)
+      map.set(ip, cur)
+    }
+  }
+
+  return [...map.entries()]
+    .map(([sourceIp, v]) => {
+      let headerFrom: string | null = null
+      let best = 0
+      for (const [from, c] of v.fromCounts) {
+        if (c > best) {
+          best = c
+          headerFrom = from
+        }
+      }
+      return {
+        sourceIp,
+        count: v.count,
+        spfFail: v.spfFail,
+        dkimFail: v.dkimFail,
+        headerFrom
+      }
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+}
+
+export function buildDashboard(
+  reports: ReportRow[],
+  authorizedSenders?: readonly string[] | null
+): DashboardData {
   if (reports.length === 0) return emptyDashboard()
 
   const dmarc: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
@@ -138,7 +256,9 @@ export function buildDashboard(reports: ReportRow[]): DashboardData {
     byOrg: toNamedBuckets(byOrg, 25),
     bySourceIp: toNamedBuckets(bySourceIp, 40),
     byHeaderFrom: toNamedBuckets(byHeaderFrom, 25),
-    volumeByDay: [...volumeMap.values()].sort((a, b) => a.date.localeCompare(b.date))
+    volumeByDay: [...volumeMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    // SPF coverage is applied later in the renderer once expandSpf has run.
+    problemSources: buildProblemSources(reports, 40, authorizedSenders)
   }
 }
 
@@ -151,6 +271,7 @@ export function analyzeFromReports(
     newReports?: number
     newForensicReports?: number
     forensicReports?: ForensicReportRow[]
+    authorizedSenders?: readonly string[] | null
   }
 ): AnalyzeResult {
   const rows = [...reports].sort((a, b) => b.dateEnd.localeCompare(a.dateEnd))
@@ -196,7 +317,7 @@ export function analyzeFromReports(
       dateEnd,
       domains: [...domains].sort()
     },
-    dashboard: buildDashboard(rows),
+    dashboard: buildDashboard(rows, extras?.authorizedSenders),
     reports: rows,
     forensicReports,
     skipped: extras?.skipped ?? 0,
@@ -341,7 +462,11 @@ export function filterForensicReports(
   })
 }
 
-export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilter): AnalyzeResult {
+export function applyDashboardFilter(
+  full: AnalyzeResult,
+  filter: DashboardFilter,
+  authorizedSenders?: readonly string[] | null
+): AnalyzeResult {
   const filtered = filterReports(full.reports, filter)
   return analyzeFromReports(filtered, {
     skipped: full.skipped,
@@ -349,15 +474,51 @@ export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilte
     fromCache: full.fromCache,
     newReports: full.newReports,
     newForensicReports: full.newForensicReports,
-    forensicReports: filterForensicReports(full.forensicReports ?? [], filter)
+    forensicReports: filterForensicReports(full.forensicReports ?? [], filter),
+    authorizedSenders
   })
 }
 
-/** Aggregate volume / selectors per report domain. */
-export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
+/**
+ * Ampel-outcome: not every DMARC auth-fail is a domain problem.
+ * - Auth pass → healthy
+ * - Auth fail + reject/quarantine → policy doing its job → healthy
+ * - Auth fail + local_policy / trusted_forwarder → receiver override (e.g. ARC) → healthy
+ * - Auth fail + disposition none (delivered) → unhealthy
+ */
+export function isHealthyDmarcOutcome(rec: SerializedRecord): boolean {
+  if (rec.passesDmarc) return true
+  const disp = (rec.disposition ?? 'none').toLowerCase()
+  if (disp === 'reject' || disp === 'quarantine') return true
+  for (const reason of rec.reasons ?? []) {
+    const type = (reason.type ?? '').toLowerCase()
+    if (type === 'local_policy' || type === 'trusted_forwarder') return true
+  }
+  return false
+}
+
+/**
+ * Aggregate per-domain Ampel stats from records (healthy-outcome rate, not raw DMARC pass rate).
+ * When `authorizedSenders` is non-empty, volume/rate only include those IPs (selectors still
+ * collected from all records for DNS checks). Allowed IPs missing from SPF count as unhealthy
+ * once `spfCidrs` is provided.
+ */
+export function buildDomainStats(
+  reports: ReportRow[],
+  authorizedSenders?: readonly string[] | null,
+  spfCidrs?: readonly string[] | null
+): DomainStats[] {
+  const scope = resolveAuthorizedScope(authorizedSenders)
+  const spfPrefixes = parseAuthorizedSenderPrefixes(spfCidrs ?? [])
   const map = new Map<
     string,
-    { total: number; passing: number; failing: number; selectors: Set<string> }
+    {
+      total: number
+      passing: number
+      failing: number
+      missingSpf: number
+      selectors: Set<string>
+    }
   >()
   for (const r of reports) {
     const domain = (r.domain || '').trim().toLowerCase()
@@ -366,15 +527,20 @@ export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
       total: 0,
       passing: 0,
       failing: 0,
+      missingSpf: 0,
       selectors: new Set<string>()
     }
-    cur.total += r.total
-    cur.passing += r.passing
-    cur.failing += r.failing
     for (const rec of r.records) {
       for (const sel of rec.dkimSelectors ?? []) {
         if (sel) cur.selectors.add(sel)
       }
+      if (!recordInAuthorizedScope(rec, scope)) continue
+      const n = rec.count || 0
+      cur.total += n
+      const missingSpf = isAllowedMissingSpf(rec.sourceIp, authorizedSenders, spfCidrs)
+      if (missingSpf) cur.missingSpf += n
+      if (recordIsAmpelHealthy(rec, scope, spfPrefixes)) cur.passing += n
+      else cur.failing += n
     }
     map.set(domain, cur)
   }
@@ -384,22 +550,33 @@ export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
       total: v.total,
       passing: v.passing,
       failing: v.failing,
-      passRate: v.total ? Math.round((v.passing / v.total) * 1000) / 10 : 0,
+      missingSpf: v.missingSpf,
+      passRate: v.total ? Math.round((v.passing / v.total) * 1000) / 10 : 100,
       dkimSelectors: [...v.selectors].sort()
     }))
     .sort((a, b) => b.total - a.total)
 }
 
 /**
- * Merge report stats with a DNS check into Ampel status.
+ * Merge Ampel stats (healthy-outcome rate) with a DNS check into status.
  * Rules:
- * - bad: no DMARC, or pass rate &lt; 90%, or no SPF
- * - warn: p=none, or pass rate 90–98%, or DKIM selectors missing in DNS
- * - ok: quarantine/reject, SPF ok, pass rate ≥ 98%
+ * - bad: no DMARC, or health rate &lt; 90%, or no SPF
+ * - warn: p=none, or health rate 90–98%, or DKIM selectors missing in DNS
+ * - ok: quarantine/reject, SPF ok, health rate ≥ 98%
  * - unknown: no DNS result yet
  */
 export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null): DomainHealth {
   if (!dns) {
+    if ((stats.missingSpf ?? 0) > 0) {
+      return {
+        ...stats,
+        dmarcPolicy: null,
+        spfOk: null,
+        dkimOk: null,
+        status: 'bad',
+        reasons: ['health.reason.allowedNotInSpf', 'health.reason.dnsPending']
+      }
+    }
     return {
       ...stats,
       dmarcPolicy: null,
@@ -427,7 +604,12 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
     status = 'bad'
     reasons.push('health.reason.noSpf')
   }
-  if (stats.passRate < 90) {
+  if ((stats.missingSpf ?? 0) > 0) {
+    status = 'bad'
+    reasons.push('health.reason.allowedNotInSpf')
+  }
+  // No volume in scope (e.g. authorized senders set but idle) → skip rate thresholds.
+  if (stats.total > 0 && stats.passRate < 90) {
     status = 'bad'
     reasons.push('health.reason.lowPassRate')
   }
@@ -437,7 +619,7 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
       status = 'warn'
       reasons.push('health.reason.policyNone')
     }
-    if (stats.passRate < 98) {
+    if (stats.total > 0 && stats.passRate < 98) {
       status = 'warn'
       reasons.push('health.reason.passRateWarn')
     }

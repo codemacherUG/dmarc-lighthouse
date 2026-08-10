@@ -67,6 +67,11 @@ export interface AccountSettingsInput {
   archiveMailbox: string
   subjectFilter: string
   markSeenAfterFetch: boolean
+  /**
+   * Own mail servers (IPs or CIDRs) for this account. When non-empty, Ampel and
+   * problem sources focus on these senders.
+   */
+  authorizedSenders: string[]
 }
 
 export interface AccountPublic {
@@ -90,6 +95,11 @@ export interface AccountPublic {
   /** True when a refresh token is stored for OAuth. */
   hasOAuth: boolean
   markSeenAfterFetch: boolean
+  /**
+   * Own mail servers (IPs or CIDRs) for this account. When non-empty, Ampel and
+   * problem sources focus on these senders.
+   */
+  authorizedSenders: string[]
 }
 
 /** IMAP folder entry returned by LIST. */
@@ -245,6 +255,16 @@ export interface VolumePoint {
   passRate: number
 }
 
+/** Source IP with delivered auth-fails — useful during DMARC rollout. */
+export interface ProblemSourceRow {
+  sourceIp: string
+  count: number
+  spfFail: number
+  dkimFail: number
+  /** Most frequent header-from among problem rows for this IP. */
+  headerFrom: string | null
+}
+
 /** Kibana-ähnliche Dashboard-Aggregationen über alle Records. */
 export interface DashboardData {
   dmarc: AlignmentBreakdown
@@ -255,6 +275,8 @@ export interface DashboardData {
   bySourceIp: NamedBucket[]
   byHeaderFrom: NamedBucket[]
   volumeByDay: VolumePoint[]
+  /** Unhealthy outcomes (delivered auth-fails) grouped by source IP. */
+  problemSources: ProblemSourceRow[]
 }
 
 export interface AnalyzeResult {
@@ -321,6 +343,8 @@ export interface DomainStats {
   passing: number
   failing: number
   passRate: number
+  /** Messages from allowed senders that are not covered by expanded SPF. */
+  missingSpf: number
   /** DKIM selectors seen in report auth results. */
   dkimSelectors: string[]
 }
@@ -383,6 +407,15 @@ export interface DnsCheckResult {
   checkedAt: string
 }
 
+/** Expanded SPF allowlist (ip4/ip6/include/a/mx/redirect → CIDRs). */
+export interface SpfExpandResult {
+  domain: string
+  record: string | null
+  cidrs: string[]
+  lookups: number
+  errors: string[]
+}
+
 export interface DashboardFilter {
   range: DateRangePreset
   /** Custom range start (YYYY-MM-DD), only used when range === 'custom'. */
@@ -415,7 +448,8 @@ export function emptyDashboard(): DashboardData {
     byOrg: [],
     bySourceIp: [],
     byHeaderFrom: [],
-    volumeByDay: []
+    volumeByDay: [],
+    problemSources: []
   }
 }
 

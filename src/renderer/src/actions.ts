@@ -29,7 +29,7 @@ import {
   setSwitchActiveAccount
 } from './settings-ui'
 import { clearDrill, state } from './state'
-import { applyView, showResult } from './view'
+import { applyView, clearSpfMarks, showResult } from './view'
 
 /** Copy the active account's domain into the DNS-check field after a switch. */
 function syncDnsDomainFromAccount(): void {
@@ -47,6 +47,7 @@ export async function switchActiveAccount(id: string): Promise<void> {
   state.selectedReportId = null
   clearDrill()
   state.fullResult = null
+  clearSpfMarks()
   const cached = await window.api.loadCache(id)
   if (cached && cached.reports.length > 0) {
     showResult(cached, t('status.cached', { count: cached.aggregate.reportCount }))

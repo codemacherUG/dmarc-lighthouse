@@ -1399,9 +1399,79 @@ tr.ip-meta-row .ip-meta {
   color: var(--bad);
 }
 
+.badge.not-in-spf {
+  background: var(--bad);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bad) 55%, #000);
+}
+
 .badge.cloud {
   background: #e8eef8;
   color: #2a4a7a;
+}
+
+.badge.own {
+  background: #d8eee0;
+  color: #176338;
+  font-weight: 600;
+}
+
+.badge.spf {
+  background: #1f7a45;
+  color: #fff;
+  font-weight: 600;
+}
+
+.table-card-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.table-card-heading h2 {
+  margin: 0;
+}
+
+.table-card-heading .hint {
+  margin: 0;
+}
+
+.sender-action-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fbfcfd;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sender-action-btn.add {
+  color: var(--accent);
+}
+
+.sender-action-btn.remove {
+  color: var(--bad);
+}
+
+.sender-action-btn.add:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.sender-action-btn.remove:hover {
+  background: var(--bad);
+  color: #fff;
+  border-color: var(--bad);
 }
 
 .ptr {
@@ -1443,11 +1513,13 @@ tr.ip-meta-row .ip-meta {
 }
 
 .domain-health-panel,
+.problem-sources-panel,
 .ip-map-panel {
   min-width: 0;
 }
 
 .domain-health-panel .panel-heading,
+.problem-sources-panel .panel-heading,
 .ip-map-panel .panel-heading {
   display: flex;
   flex-wrap: wrap;
@@ -1457,10 +1529,43 @@ tr.ip-meta-row .ip-meta {
 }
 
 .domain-health-panel h2,
+.problem-sources-panel h2,
 .ip-map-panel h2 {
   margin: 0;
   font-size: 1rem;
 }
+
+.problem-sources-scroll {
+  max-height: min(320px, 40vh);
+}
+
+.problem-sources-table th,
+.problem-sources-table td {
+  white-space: nowrap;
+}
+
+.problem-sources-table td.mono-from {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.problem-add-col {
+  width: 2.2rem;
+  text-align: center;
+}
+
+.problem-sources-table tr.problem-missing-spf td {
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+
+.problem-sources-table tr.problem-missing-spf td.problem-spf-critical {
+  color: var(--bad);
+  font-weight: 700;
+}
+
 
 .ip-map {
   height: min(420px, 55vh);

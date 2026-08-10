@@ -44,6 +44,8 @@ import {
   geoliteStatusEl,
   hostEl,
   ignoredSourcesEl,
+  authorizedSendersEl,
+  btnImportSpf,
   infoDialog,
   languageEl,
   mailboxEl,
@@ -80,7 +82,7 @@ import {
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
-import { applyView } from './view'
+import { applyView, importSpfAuthorizedSenders } from './view'
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
@@ -148,7 +150,11 @@ export function readAccountForm(): AccountSettingsInput {
     mailbox: mailboxEl.value.trim() || 'INBOX',
     archiveMailbox: archiveMailboxEl.value.trim(),
     subjectFilter: subjectFilterEl.value,
-    markSeenAfterFetch: markSeenAfterFetchEl.checked
+    markSeenAfterFetch: markSeenAfterFetchEl.checked,
+    authorizedSenders: authorizedSendersEl.value
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
   }
 }
 
@@ -407,6 +413,7 @@ export function fillAccountForm(account: AccountPublic | null): void {
     archiveMailboxEl.value = account.archiveMailbox ?? ''
     subjectFilterEl.value = account.subjectFilter
     markSeenAfterFetchEl.checked = account.markSeenAfterFetch
+    authorizedSendersEl.value = (account.authorizedSenders ?? []).join('\n')
   } else {
     accountNameEl.value = ''
     providerEl.value = 'custom'
@@ -419,6 +426,7 @@ export function fillAccountForm(account: AccountPublic | null): void {
     archiveMailboxEl.value = ''
     subjectFilterEl.value = 'Report Domain'
     markSeenAfterFetchEl.checked = false
+    authorizedSendersEl.value = ''
   }
   passwordEl.value = ''
   updateAccountNamePlaceholder()
@@ -494,6 +502,7 @@ export function applySettings(next: SettingsPublic): void {
   state.settings = next
   filterHideGoogleNoiseEl.checked = Boolean(next.global.hideGoogleNoise)
   updateAccountUi()
+  if (state.fullResult) applyView()
 }
 
 export async function loadSettings(): Promise<void> {
@@ -628,6 +637,21 @@ export function initSettingsUi(): void {
     fillSettingsAccountSelect()
     fillAccountForm(dialogAccount())
     scheduleMailboxOptionsRefresh()
+  })
+
+  btnImportSpf?.addEventListener('click', () => {
+    void (async () => {
+      btnImportSpf.disabled = true
+      try {
+        const accountId = state.dialogAccountId ?? state.settings?.activeAccountId
+        settingsStatusEl.textContent = t('settings.spfImportLoading')
+        const message = await importSpfAuthorizedSenders({ accountId })
+        fillAccountForm(dialogAccount())
+        settingsStatusEl.textContent = message
+      } finally {
+        btnImportSpf.disabled = false
+      }
+    })()
   })
 
   btnNewAccount.addEventListener('click', () => {

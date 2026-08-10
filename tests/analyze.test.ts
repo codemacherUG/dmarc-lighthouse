@@ -296,6 +296,40 @@ describe('buildDashboard', () => {
     expect(d.dkim).toEqual({ pass: 2, fail: 0, other: 1 })
     expect(d.spf).toEqual({ pass: 1, fail: 2, other: 0 })
   })
+
+  it('includes problemSources for delivered auth-fails', () => {
+    const d = buildDashboard([
+      report({
+        records: [
+          record({
+            sourceIp: '203.0.113.9',
+            count: 4,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail'
+          }),
+          record({
+            sourceIp: '203.0.113.9',
+            count: 1,
+            passesDmarc: false,
+            disposition: 'reject',
+            spfResult: 'fail',
+            dkimResult: 'fail'
+          })
+        ]
+      })
+    ])
+    expect(d.problemSources).toEqual([
+      {
+        sourceIp: '203.0.113.9',
+        count: 4,
+        spfFail: 4,
+        dkimFail: 4,
+        headerFrom: 'example.com'
+      }
+    ])
+  })
 })
 
 describe('analyzeFromReports', () => {

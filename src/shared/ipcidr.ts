@@ -90,6 +90,47 @@ function ipv6ToBits(ip: string): number[] | null {
   return bits
 }
 
+/**
+ * Normalize one authorized-sender entry (bare IP or CIDR).
+ * Returns canonical CIDR string, or null if invalid.
+ */
+export function normalizeAuthorizedSenderEntry(raw: string): string | null {
+  const s = raw.trim()
+  if (!s || s.startsWith('#')) return null
+  if (s.includes('/')) {
+    return parseCidr('authorized', s) ? s : null
+  }
+  if (isIPv4(s)) {
+    const cidr = `${s}/32`
+    return parseCidr('authorized', cidr) ? cidr : null
+  }
+  if (isIPv6(s)) {
+    const cidr = `${s}/128`
+    return parseCidr('authorized', cidr) ? cidr : null
+  }
+  return null
+}
+
+/** Parse authorized sender list (IPs/CIDRs) into matchable prefixes. */
+export function parseAuthorizedSenderPrefixes(entries: readonly string[]): CloudPrefix[] {
+  const out: CloudPrefix[] = []
+  const seen = new Set<string>()
+  for (const raw of entries) {
+    const cidr = normalizeAuthorizedSenderEntry(raw)
+    if (!cidr || seen.has(cidr)) continue
+    seen.add(cidr)
+    const prefix = parseCidr('authorized', cidr)
+    if (prefix) out.push(prefix)
+  }
+  return out
+}
+
+/** True when `ip` matches any authorized sender prefix. */
+export function isAuthorizedSender(ip: string, prefixes: CloudPrefix[]): boolean {
+  if (!prefixes.length) return false
+  return matchCloudProvider(ip, prefixes) != null
+}
+
 /** Longest-prefix match against loaded ranges. */
 export function matchCloudProvider(ip: string, prefixes: CloudPrefix[]): string | null {
   const trimmed = ip.trim()

@@ -5,6 +5,7 @@ import type {
   AnalyzeResult,
   DnsCheckResult,
   DomainHealth,
+  SpfExpandResult,
   GeoLiteDownloadResult,
   GeoLiteStatus,
   GlobalSettings,
@@ -48,6 +49,8 @@ const api = {
   lookupRdap: (ip: string): Promise<RdapInfo> => ipcRenderer.invoke('ip:rdap', ip),
   checkDns: (domain: string, selectors?: string[]): Promise<DnsCheckResult> =>
     ipcRenderer.invoke('dns:check', domain, selectors ?? []),
+  expandSpf: (domain: string): Promise<SpfExpandResult> =>
+    ipcRenderer.invoke('dns:expandSpf', domain),
   healthBatch: (reports: ReportRow[]): Promise<DomainHealth[]> =>
     ipcRenderer.invoke('dns:healthBatch', reports),
   geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),

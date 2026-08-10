@@ -29,6 +29,9 @@ export const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputEle
 export const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLInputElement
 export const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
+export const tableProblemSources = document.getElementById(
+  'table-problem-sources'
+) as HTMLTableSectionElement
 export const ipMapEl = document.getElementById('ip-map') as HTMLDivElement
 export const ipMapEmptyEl = document.getElementById('ip-map-empty') as HTMLParagraphElement
 export const ipDetailDialog = document.getElementById('ip-detail-dialog') as HTMLDialogElement
@@ -141,6 +144,10 @@ export const passRateAlertThresholdEl = document.getElementById(
   'passRateAlertThreshold'
 ) as HTMLInputElement
 export const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
+export const authorizedSendersEl = document.getElementById(
+  'authorizedSenders'
+) as HTMLTextAreaElement
+export const btnImportSpf = document.getElementById('btn-import-spf') as HTMLButtonElement
 export const languageEl = document.getElementById('language') as HTMLSelectElement
 export const oauthGoogleClientIdEl = document.getElementById(
   'oauthGoogleClientId'

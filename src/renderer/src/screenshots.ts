@@ -125,6 +125,7 @@ export function installScreenshotApi(): void {
           passing: 98,
           failing: 2,
           passRate: 98,
+          missingSpf: 0,
           dkimSelectors: ['selector1'],
           dmarcPolicy: 'reject',
           spfOk: true,

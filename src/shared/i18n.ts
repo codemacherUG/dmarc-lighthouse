@@ -200,6 +200,20 @@ const de = {
   'settings.passRateTitle': '0 = aus · bezogen auf die letzten 7 Tage',
   'settings.passRateHint':
     'Pass-Rate-Alarm: 0 = aus, bezogen auf die letzten 7 Tage nach jedem Abruf mit neuen Reports.',
+  'settings.authorizedSenders': 'Erlaubte Mail-Server',
+  'settings.authorizedPlaceholder':
+    'Eine IP oder CIDR pro Zeile, z. B. 203.0.113.5 oder 2001:db8:1::/48',
+  'settings.authorizedHint':
+    'Pro Konto. Wenn gesetzt, bewerten Ampel und Problemquellen vor allem diese Absender (SPF/DKIM der erlaubten Server). Leer = gesamter Verkehr wie bisher.',
+  'settings.spfImport': 'Aus SPF übernehmen',
+  'settings.spfImportHint':
+    'Liest ip4/ip6/include/a/mx aus dem SPF der geladenen Domains (bzw. der Domain im Filter) und ergänzt die Liste.',
+  'settings.spfImportLoading': 'SPF wird aufgelöst…',
+  'settings.spfImportDone': '{count} Einträge aus SPF übernommen.',
+  'settings.spfImportNone': 'Keine neuen SPF-Adressen gefunden.',
+  'settings.spfImportFailed': 'SPF-Import fehlgeschlagen: {detail}',
+  'settings.spfImportNoDomain': 'Keine Domain geladen — zuerst Reports abrufen oder Domain-Filter setzen.',
+  'settings.spfImportNeedRestart': 'App neu starten, damit SPF-Import verfügbar ist.',
   'settings.ignoredSources': 'Ignorierte Quellen (für Alerts)',
   'settings.ignoredPlaceholder': 'Eine IP pro Zeile, z. B. 203.0.113.5 oder 66.249.* für Präfixe',
   'settings.ignoredHint':
@@ -241,7 +255,7 @@ const de = {
 
   'health.title': 'Domain-Ampel',
   'health.hint':
-    'Pass-Rate der letzten 14 Tage und DNS-Status pro Domain (unabhängig vom Zeitraum-Filter). Klick filtert auf die Domain.',
+    'Gesundheitsrate der letzten 14 Tage (Auth-Pass sowie korrekt reject/quarantine; local_policy zählt nicht negativ) und DNS-Status. Mit erlaubten Mail-Servern am Konto nur diese Absender. Unabhängig vom Zeitraum-Filter. Klick filtert auf die Domain.',
   'health.empty': 'Noch keine Domains geladen.',
   'health.emptyWindow': 'Keine Reports in den letzten {days} Tagen.',
   'health.loading': 'Prüfe Domain-Status…',
@@ -252,16 +266,35 @@ const de = {
   'health.reason.dnsPending': 'DNS wird geprüft',
   'health.reason.noDmarc': 'Kein DMARC-Record',
   'health.reason.noSpf': 'Kein SPF-Record',
-  'health.reason.lowPassRate': 'Pass-Rate unter 90%',
+  'health.reason.lowPassRate': 'Gesundheitsrate unter 90%',
+  'health.reason.allowedNotInSpf': 'Erlaubte Absender fehlen im SPF',
   'health.reason.policyNone': 'Policy p=none',
-  'health.reason.passRateWarn': 'Pass-Rate unter 98%',
+  'health.reason.passRateWarn': 'Gesundheitsrate unter 98%',
   'health.reason.dkimMissing': 'DKIM-Selektor fehlt im DNS',
   'health.reason.policyWeak': 'Policy nicht quarantine/reject',
-  'health.reason.ok': 'Policy und Pass-Rate in Ordnung',
+  'health.reason.ok': 'Policy und Gesundheitsrate in Ordnung',
   'health.status.ok': 'OK',
   'health.status.warn': 'Warnung',
   'health.status.bad': 'Kritisch',
   'health.status.unknown': 'Unbekannt',
+
+  'problems.title': 'Problemquellen',
+  'problems.hint':
+    'Zugestellte Auth-Fails und erlaubte Absender ohne SPF im gewählten Zeitraum. Reject/quarantine und local_policy zählen nicht. Mit erlaubten Mail-Servern am Konto nur diese. Klick filtert · + übernimmt die IP.',
+  'problems.empty': 'Keine problematischen Zustellungen im Zeitraum.',
+  'problems.from': 'From',
+  'problems.count': 'Msgs',
+  'problems.spfFail': 'SPF fail',
+  'problems.dkimFail': 'DKIM fail',
+  'problems.addAuthorized': 'Als erlaubten Mail-Server speichern',
+  'problems.addAuthorizedDone': 'Zu erlaubten Mail-Servern hinzugefügt.',
+  'problems.removeAuthorized': 'Aus erlaubten Mail-Servern entfernen',
+  'problems.removeAuthorizedDone': 'Aus erlaubten Mail-Servern entfernt.',
+  'ipMark.own': 'Erlaubte',
+  'ipMark.spf': 'SPF',
+  'ipMark.notInSpf': 'nicht in SPF',
+  'table.ipsHint':
+    'Badges: erlaubte Mail-Server und Einträge aus dem SPF-Record. Erlaubte ohne SPF sind kritisch. +/− pflegt die Konto-Liste.',
 
   'ipDetail.title': 'IP-Details',
   'ipDetail.loadRdap': 'WHOIS / RDAP laden',
@@ -689,6 +722,20 @@ const en: Dict = {
   'settings.passRateTitle': '0 = off · based on the last 7 days',
   'settings.passRateHint':
     'Pass-rate alert: 0 = off, based on the last 7 days after each fetch with new reports.',
+  'settings.authorizedSenders': 'Allowed mail servers',
+  'settings.authorizedPlaceholder':
+    'One IP or CIDR per line, e.g. 203.0.113.5 or 2001:db8:1::/48',
+  'settings.authorizedHint':
+    'Per account. When set, Ampel and problem sources focus on these senders (SPF/DKIM of allowed servers). Empty = all traffic as before.',
+  'settings.spfImport': 'Import from SPF',
+  'settings.spfImportHint':
+    'Reads ip4/ip6/include/a/mx from the SPF of loaded domains (or the domain filter) and adds them to the list.',
+  'settings.spfImportLoading': 'Resolving SPF…',
+  'settings.spfImportDone': 'Imported {count} entries from SPF.',
+  'settings.spfImportNone': 'No new SPF addresses found.',
+  'settings.spfImportFailed': 'SPF import failed: {detail}',
+  'settings.spfImportNoDomain': 'No domain loaded — fetch reports first or set the domain filter.',
+  'settings.spfImportNeedRestart': 'Restart the app to enable SPF import.',
   'settings.ignoredSources': 'Ignored sources (for alerts)',
   'settings.ignoredPlaceholder': 'One IP per line, e.g. 203.0.113.5 or 66.249.* for prefixes',
   'settings.ignoredHint':
@@ -728,7 +775,7 @@ const en: Dict = {
 
   'health.title': 'Domain health',
   'health.hint':
-    'Pass rate over the last 14 days and DNS status per domain (independent of the date filter). Click to filter by domain.',
+    'Health rate over the last 14 days (auth pass plus correctly reject/quarantine; local_policy is not negative) and DNS status. With allowed mail servers on the account, only those senders. Independent of the date filter. Click to filter by domain.',
   'health.empty': 'No domains loaded yet.',
   'health.emptyWindow': 'No reports in the last {days} days.',
   'health.loading': 'Checking domain status…',
@@ -739,16 +786,35 @@ const en: Dict = {
   'health.reason.dnsPending': 'DNS pending',
   'health.reason.noDmarc': 'No DMARC record',
   'health.reason.noSpf': 'No SPF record',
-  'health.reason.lowPassRate': 'Pass rate below 90%',
+  'health.reason.lowPassRate': 'Health rate below 90%',
+  'health.reason.allowedNotInSpf': 'Allowed senders missing from SPF',
   'health.reason.policyNone': 'Policy p=none',
-  'health.reason.passRateWarn': 'Pass rate below 98%',
+  'health.reason.passRateWarn': 'Health rate below 98%',
   'health.reason.dkimMissing': 'DKIM selector missing in DNS',
   'health.reason.policyWeak': 'Policy is not quarantine/reject',
-  'health.reason.ok': 'Policy and pass rate look good',
+  'health.reason.ok': 'Policy and health rate look good',
   'health.status.ok': 'OK',
   'health.status.warn': 'Warning',
   'health.status.bad': 'Critical',
   'health.status.unknown': 'Unknown',
+
+  'problems.title': 'Problem sources',
+  'problems.hint':
+    'Delivered auth-fails and allowed senders missing from SPF in the selected range. Reject/quarantine and local_policy do not count. With allowed mail servers on the account, only those. Click filters · + adds the IP.',
+  'problems.empty': 'No problematic deliveries in this range.',
+  'problems.from': 'From',
+  'problems.count': 'Msgs',
+  'problems.spfFail': 'SPF fail',
+  'problems.dkimFail': 'DKIM fail',
+  'problems.addAuthorized': 'Save as allowed mail server',
+  'problems.addAuthorizedDone': 'Added to allowed mail servers.',
+  'problems.removeAuthorized': 'Remove from allowed mail servers',
+  'problems.removeAuthorizedDone': 'Removed from allowed mail servers.',
+  'ipMark.own': 'Allowed',
+  'ipMark.spf': 'SPF',
+  'ipMark.notInSpf': 'not in SPF',
+  'table.ipsHint':
+    'Badges: allowed mail servers and SPF record entries. Allowed without SPF is critical. +/− updates the account list.',
 
   'ipDetail.title': 'IP details',
   'ipDetail.loadRdap': 'Load WHOIS / RDAP',

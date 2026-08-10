@@ -2,6 +2,8 @@ import type { DomainHealth, DomainHealthStatus, DnsCheckResult, ReportRow } from
 import { buildDomainStats, mergeDomainHealth, reportsForDomainHealth } from '../shared/analyze'
 import { checkDomainDns } from './dnscheck'
 import { getDnsHealthCache, upsertDnsHealthCache } from './cache'
+import { loadSettings } from './settings'
+import { expandSpf } from './spf-expand'
 
 async function dnsForDomain(domain: string, selectors: string[]): Promise<DnsCheckResult> {
   const cached = getDnsHealthCache(domain)
@@ -11,9 +13,36 @@ async function dnsForDomain(domain: string, selectors: string[]): Promise<DnsChe
   return result
 }
 
+async function expandSpfCidrsForDomains(domains: string[]): Promise<string[]> {
+  const cidrs = new Set<string>()
+  const targets = [...new Set(domains.map((d) => d.trim().toLowerCase()).filter(Boolean))].slice(
+    0,
+    8
+  )
+  await Promise.all(
+    targets.map(async (domain) => {
+      try {
+        const result = await expandSpf(domain)
+        for (const c of result.cidrs) cidrs.add(c)
+      } catch {
+        // ignore per-domain failures
+      }
+    })
+  )
+  return [...cidrs]
+}
+
 /** Build multi-domain health (Ampel) for the last 14 days of the given report set. */
 export async function buildDomainHealth(reports: ReportRow[]): Promise<DomainHealth[]> {
-  const stats = buildDomainStats(reportsForDomainHealth(reports))
+  const settings = loadSettings()
+  const account = settings.accounts.find((a) => a.id === settings.activeAccountId)
+  const authorized = account?.authorizedSenders ?? []
+  const windowed = reportsForDomainHealth(reports)
+  const spfCidrs =
+    authorized.length > 0
+      ? await expandSpfCidrsForDomains(windowed.map((r) => r.domain))
+      : []
+  const stats = buildDomainStats(windowed, authorized, spfCidrs)
   const results: DomainHealth[] = []
 
   // Limit concurrent DNS lookups

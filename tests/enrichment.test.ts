@@ -4,11 +4,18 @@ import { rdapIpPathSegment } from '../src/main/rdap'
 import { matchCloudProvider, parseCidr, type CloudPrefix } from '../src/shared/ipcidr'
 import {
   buildDomainStats,
+  buildProblemSources,
   DOMAIN_HEALTH_WINDOW_DAYS,
   filterReportsLastDays,
+  isHealthyDmarcOutcome,
   mergeDomainHealth,
   reportsForDomainHealth
 } from '../src/shared/analyze'
+import {
+  isAuthorizedSender,
+  normalizeAuthorizedSenderEntry,
+  parseAuthorizedSenderPrefixes
+} from '../src/shared/ipcidr'
 import type { DnsCheckResult, ReportRow, SerializedRecord } from '../src/shared/types'
 
 function record(overrides: Partial<SerializedRecord> = {}): SerializedRecord {
@@ -226,6 +233,318 @@ describe('domain health / Ampel', () => {
     const stats = buildDomainStats(windowed)[0]!
     expect(stats.total).toBe(10)
     expect(stats.passRate).toBe(100)
+  })
+
+  it('treats reject/quarantine auth-fails as healthy (policy working)', () => {
+    expect(
+      isHealthyDmarcOutcome(
+        record({ passesDmarc: false, disposition: 'reject', dkimResult: 'fail', spfResult: 'fail' })
+      )
+    ).toBe(true)
+    expect(
+      isHealthyDmarcOutcome(
+        record({
+          passesDmarc: false,
+          disposition: 'quarantine',
+          dkimResult: 'fail',
+          spfResult: 'fail'
+        })
+      )
+    ).toBe(true)
+
+    const stats = buildDomainStats([
+      report({
+        records: [
+          record({ count: 9, passesDmarc: true }),
+          record({
+            count: 1,
+            passesDmarc: false,
+            disposition: 'reject',
+            dkimResult: 'fail',
+            spfResult: 'fail'
+          })
+        ]
+      })
+    ])[0]!
+    expect(stats.total).toBe(10)
+    expect(stats.passing).toBe(10)
+    expect(stats.passRate).toBe(100)
+    expect(mergeDomainHealth(stats, dns()).status).toBe('ok')
+  })
+
+  it('treats local_policy overrides as healthy (e.g. Google ARC)', () => {
+    const rec = record({
+      passesDmarc: false,
+      disposition: 'none',
+      dkimResult: 'fail',
+      spfResult: 'fail',
+      reasons: [{ type: 'local_policy', comment: 'arc=pass' }]
+    })
+    expect(isHealthyDmarcOutcome(rec)).toBe(true)
+
+    const stats = buildDomainStats([report({ records: [rec] })])[0]!
+    expect(stats.passRate).toBe(100)
+  })
+
+  it('still treats delivered auth-fails (disposition none) as unhealthy', () => {
+    expect(
+      isHealthyDmarcOutcome(
+        record({ passesDmarc: false, disposition: 'none', dkimResult: 'fail', spfResult: 'fail' })
+      )
+    ).toBe(false)
+  })
+})
+
+describe('problem sources (rollout)', () => {
+  it('lists delivered auth-fails with SPF/DKIM fail counts', () => {
+    const rows = buildProblemSources([
+      report({
+        records: [
+          record({
+            sourceIp: '192.0.2.10',
+            count: 5,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            headerFrom: 'mail.example.com'
+          }),
+          record({
+            sourceIp: '192.0.2.10',
+            count: 2,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'pass',
+            headerFrom: 'newsletter.example.com'
+          }),
+          record({
+            sourceIp: '198.51.100.1',
+            count: 1,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            headerFrom: 'other.example.com'
+          })
+        ]
+      })
+    ])
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({
+      sourceIp: '192.0.2.10',
+      count: 7,
+      spfFail: 7,
+      dkimFail: 5,
+      headerFrom: 'mail.example.com'
+    })
+    expect(rows[1]?.sourceIp).toBe('198.51.100.1')
+  })
+
+  it('excludes reject fails and local_policy overrides', () => {
+    const rows = buildProblemSources([
+      report({
+        records: [
+          record({
+            sourceIp: '192.0.2.50',
+            count: 3,
+            passesDmarc: false,
+            disposition: 'reject',
+            spfResult: 'fail',
+            dkimResult: 'fail'
+          }),
+          record({
+            sourceIp: '192.0.2.51',
+            count: 2,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            reasons: [{ type: 'local_policy', comment: 'arc=pass' }]
+          }),
+          record({
+            sourceIp: '192.0.2.52',
+            count: 1,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail'
+          })
+        ]
+      })
+    ])
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.sourceIp).toBe('192.0.2.52')
+    expect(rows[0]?.count).toBe(1)
+  })
+
+  it('ignores auth-pass rows', () => {
+    expect(
+      buildProblemSources([
+        report({
+          records: [record({ sourceIp: '192.0.2.1', count: 10, passesDmarc: true })]
+        })
+      ])
+    ).toEqual([])
+  })
+
+  it('when authorized senders are set, only lists those IPs', () => {
+    const rows = buildProblemSources(
+      [
+        report({
+          records: [
+            record({
+              sourceIp: '192.0.2.10',
+              count: 3,
+              passesDmarc: false,
+              disposition: 'none',
+              spfResult: 'fail',
+              dkimResult: 'fail'
+            }),
+            record({
+              sourceIp: '198.51.100.9',
+              count: 5,
+              passesDmarc: false,
+              disposition: 'none',
+              spfResult: 'fail',
+              dkimResult: 'fail'
+            })
+          ]
+        })
+      ],
+      40,
+      ['192.0.2.10']
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.sourceIp).toBe('192.0.2.10')
+  })
+})
+
+describe('authorized senders', () => {
+  it('normalizes bare IPs to CIDR', () => {
+    expect(normalizeAuthorizedSenderEntry('203.0.113.5')).toBe('203.0.113.5/32')
+    expect(normalizeAuthorizedSenderEntry('2001:db8::1')).toBe('2001:db8::1/128')
+    expect(normalizeAuthorizedSenderEntry('not-an-ip')).toBeNull()
+  })
+
+  it('matches IPs against authorized prefixes', () => {
+    const prefixes = parseAuthorizedSenderPrefixes(['192.0.2.10', '2001:db8:1::/48'])
+    expect(isAuthorizedSender('192.0.2.10', prefixes)).toBe(true)
+    expect(isAuthorizedSender('192.0.2.11', prefixes)).toBe(false)
+    expect(isAuthorizedSender('2001:db8:1::abcd', prefixes)).toBe(true)
+    expect(isAuthorizedSender('2001:db8:2::1', prefixes)).toBe(false)
+  })
+
+  it('scopes Ampel volume to authorized senders', () => {
+    const stats = buildDomainStats(
+      [
+        report({
+          records: [
+            record({
+              sourceIp: '192.0.2.10',
+              count: 9,
+              passesDmarc: true
+            }),
+            record({
+              sourceIp: '192.0.2.10',
+              count: 1,
+              passesDmarc: false,
+              disposition: 'none',
+              spfResult: 'fail',
+              dkimResult: 'fail'
+            }),
+            record({
+              sourceIp: '198.51.100.1',
+              count: 50,
+              passesDmarc: false,
+              disposition: 'none',
+              spfResult: 'fail',
+              dkimResult: 'fail'
+            })
+          ]
+        })
+      ],
+      ['192.0.2.10/32']
+    )[0]!
+    expect(stats.total).toBe(10)
+    expect(stats.passing).toBe(9)
+    expect(stats.passRate).toBe(90)
+  })
+
+  it('treats allowed senders missing from SPF as Ampel failures', () => {
+    const stats = buildDomainStats(
+      [
+        report({
+          records: [
+            record({
+              sourceIp: '192.0.2.10',
+              count: 8,
+              passesDmarc: true,
+              spfResult: 'pass',
+              dkimResult: 'pass'
+            }),
+            record({
+              sourceIp: '192.0.2.99',
+              count: 2,
+              passesDmarc: true,
+              spfResult: 'pass',
+              dkimResult: 'pass'
+            })
+          ]
+        })
+      ],
+      ['192.0.2.10/32', '192.0.2.99/32'],
+      ['192.0.2.10/32']
+    )[0]!
+    expect(stats.total).toBe(10)
+    expect(stats.passing).toBe(8)
+    expect(stats.missingSpf).toBe(2)
+    expect(stats.passRate).toBe(80)
+    const health = mergeDomainHealth(stats, dns())
+    expect(health.status).toBe('bad')
+    expect(health.reasons).toContain('health.reason.allowedNotInSpf')
+  })
+
+  it('lists allowed-missing-SPF IPs in problem sources even when DMARC passes', () => {
+    const rows = buildProblemSources(
+      [
+        report({
+          records: [
+            record({
+              sourceIp: '192.0.2.99',
+              count: 3,
+              passesDmarc: true,
+              spfResult: 'pass',
+              dkimResult: 'pass',
+              headerFrom: 'mail.example.com'
+            })
+          ]
+        })
+      ],
+      40,
+      ['192.0.2.99/32'],
+      ['192.0.2.10/32']
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.sourceIp).toBe('192.0.2.99')
+    expect(rows[0]?.spfFail).toBe(3)
+  })
+
+  it('does not flag missing SPF before SPF prefixes are known', () => {
+    const stats = buildDomainStats(
+      [
+        report({
+          records: [record({ sourceIp: '192.0.2.99', count: 5, passesDmarc: true })]
+        })
+      ],
+      ['192.0.2.99/32'],
+      []
+    )[0]!
+    expect(stats.missingSpf).toBe(0)
+    expect(stats.passing).toBe(5)
+    expect(buildProblemSources([report()], 40, ['192.0.2.99/32'], [])).toHaveLength(0)
   })
 })
 

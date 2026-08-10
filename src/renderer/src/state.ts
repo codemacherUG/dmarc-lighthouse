@@ -1,3 +1,4 @@
+import type { CloudPrefix } from '../../shared/ipcidr'
 import type { AnalyzeResult, DomainHealth, IpInfo, SettingsPublic } from '../../shared/types'
 
 export type DrillFilters = { org?: string; sourceIp?: string; headerFrom?: string }
@@ -16,7 +17,10 @@ export const state = {
   ipLabelCache: new Map<string, IpInfo>(),
   selectedDetailIp: null as string | null,
   domainHealthCache: [] as DomainHealth[],
-  domainHealthToken: 0
+  domainHealthToken: 0,
+  /** Merged SPF CIDR prefixes for report domains (for IP badges). */
+  spfPrefixes: [] as CloudPrefix[],
+  spfExpandToken: 0
 }
 
 export function clearDrill(): void {

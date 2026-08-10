@@ -273,12 +273,45 @@
         <div class="panel-heading">
           <h2 data-i18n="health.title">Domain-Ampel</h2>
           <p class="hint" data-i18n="health.hint">
-            Pass-Rate der letzten 14 Tage und DNS-Status pro Domain (unabhängig vom Zeitraum-Filter).
-            Klick filtert auf die Domain.
+            Gesundheitsrate der letzten 14 Tage (Auth-Pass sowie korrekt reject/quarantine; local_policy
+            zählt nicht negativ) und DNS-Status. Mit erlaubten Mail-Servern am Konto nur diese Absender.
+            Unabhängig vom Zeitraum-Filter. Klick filtert auf die Domain.
           </p>
         </div>
         <div id="domain-ampel" class="domain-ampel">
           <p class="muted" data-i18n="health.empty">Noch keine Domains geladen.</p>
+        </div>
+      </section>
+
+      <section class="panel problem-sources-panel">
+        <div class="panel-heading">
+          <h2 data-i18n="problems.title">Problemquellen</h2>
+          <p class="hint" data-i18n="problems.hint">
+            Zugestellte Auth-Fails und erlaubte Absender ohne SPF im gewählten Zeitraum.
+            Reject/quarantine und local_policy zählen nicht. Mit erlaubten Mail-Servern am Konto nur
+            diese. Klick filtert · + übernimmt die IP.
+          </p>
+        </div>
+        <div class="table-scroll problem-sources-scroll">
+          <table class="ip-enriched problem-sources-table">
+            <thead>
+              <tr>
+                <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
+                <th data-i18n="problems.from">From</th>
+                <th data-i18n="problems.count">Msgs</th>
+                <th data-i18n="problems.spfFail">SPF fail</th>
+                <th data-i18n="problems.dkimFail">DKIM fail</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="table-problem-sources">
+              <tr class="empty">
+                <td colspan="6" data-i18n="problems.empty">
+                  Keine problematischen Zustellungen im Zeitraum.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -311,7 +344,13 @@
         <div class="tables-row">
           <div class="tables-ip-slot">
             <div class="table-card table-card--ips">
-              <h2 data-i18n="table.ips">Quellen (IP)</h2>
+              <div class="table-card-heading">
+                <h2 data-i18n="table.ips">Quellen (IP)</h2>
+                <p class="hint" data-i18n="table.ipsHint">
+                  Badges: erlaubte Mail-Server und Einträge aus dem SPF-Record. Erlaubte ohne SPF
+                  sind kritisch. +/− pflegt die Konto-Liste.
+                </p>
+              </div>
               <div class="table-scroll">
                 <table class="ip-enriched">
                   <thead>
@@ -319,11 +358,12 @@
                       <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
                       <th data-i18n="table.msgs">Msgs</th>
                       <th data-i18n="table.passPct">Pass %</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody id="table-ips">
                     <tr class="empty">
-                      <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
+                      <td colspan="4" data-i18n="table.noDataYet">Noch keine Daten</td>
                     </tr>
                   </tbody>
                 </table>
@@ -695,6 +735,37 @@
                   >
                 </label>
               </div>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.authorizedSenders">Erlaubte Mail-Server</legend>
+              <label class="stacked">
+                <textarea
+                  id="authorizedSenders"
+                  name="authorizedSenders"
+                  rows="5"
+                  data-i18n-placeholder="settings.authorizedPlaceholder"
+                  placeholder="Eine IP oder CIDR pro Zeile, z. B. 203.0.113.5 oder 2001:db8:1::/48"
+                ></textarea>
+              </label>
+              <p class="hint" data-i18n="settings.authorizedHint">
+                Pro Konto. Wenn gesetzt, bewerten Ampel und Problemquellen vor allem diese Absender
+                (SPF/DKIM der erlaubten Server). Leer = gesamter Verkehr wie bisher.
+              </p>
+              <div class="inline-actions">
+                <button
+                  type="button"
+                  id="btn-import-spf"
+                  class="btn secondary"
+                  data-i18n="settings.spfImport"
+                >
+                  Aus SPF übernehmen
+                </button>
+              </div>
+              <p class="hint" data-i18n="settings.spfImportHint">
+                Liest ip4/ip6/include/a/mx aus dem SPF der geladenen Domains (bzw. der Domain im
+                Filter) und ergänzt die Liste.
+              </p>
             </fieldset>
 
             <div class="account-actions">
