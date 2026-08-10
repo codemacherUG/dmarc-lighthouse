@@ -83,25 +83,40 @@ bump_version() {
   local kind="$1"
   info "Bumping version ($kind)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "dry-run: npm version $kind -m 'release: %s'"
+    echo "dry-run: npm version $kind --no-git-tag-version && git commit"
     return
   fi
-  npm version "$kind" -m "release: %s"
+  # Do not let npm create the tag — release.sh owns annotated tags.
+  npm version "$kind" --no-git-tag-version
+  git add package.json package-lock.json
+  git commit -m "release: $(pkg_version)"
 }
 
 create_and_push_tag() {
   local ver="$1"
   local tag="v${ver}"
+  local head sha
+  head="$(git rev-parse HEAD)"
+
   if git rev-parse "$tag" >/dev/null 2>&1; then
-    die "Tag $tag already exists"
+    sha="$(git rev-parse "${tag}^{}")"
+    if [[ "$sha" != "$head" ]]; then
+      die "Tag $tag already exists on $sha (HEAD is $head)"
+    fi
+    info "Tag $tag already points at HEAD — reusing"
+  else
+    info "Creating tag $tag"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      echo "dry-run: git tag -a $tag -m 'DMARC Lighthouse $tag'"
+    else
+      git tag -a "$tag" -m "DMARC Lighthouse $tag"
+    fi
   fi
-  info "Creating tag $tag"
+
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "dry-run: git tag -a $tag -m 'DMARC Lighthouse $tag'"
     echo "dry-run: git push origin HEAD $tag"
     return
   fi
-  git tag -a "$tag" -m "DMARC Lighthouse $tag"
   # Push branch (if bump commit) and tag — triggers .github/workflows/release.yml
   local branch
   branch="$(git rev-parse --abbrev-ref HEAD)"
