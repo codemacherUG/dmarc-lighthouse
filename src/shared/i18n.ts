@@ -18,11 +18,13 @@ const de = {
   'header.openFiles': 'Dateien',
   'header.export': 'Export',
   'header.settings': 'Einstellungen',
+  'header.builder': 'DMARC-Record',
   'header.fetch': 'Reports abrufen',
   'header.infoTitle': 'Über die App',
   'header.openFilesTitle': 'Lokale DMARC-Dateien öffnen',
   'header.exportTitle': 'Gefilterte Daten exportieren',
   'header.settingsTitle': 'Einstellungen öffnen',
+  'header.builderTitle': 'DMARC-Record erzeugen',
   'header.fetchTitle': 'Reports per IMAP abrufen',
 
   'drop.title': 'DMARC-Dateien hier ablegen',
@@ -402,7 +404,81 @@ const de = {
   'updater.devInstall': 'Im Dev-Modus nicht verfügbar.',
   'updater.installing': 'Installiere Update…',
   'updater.releaseInfo': 'Aktuelle Release-Info: {version}',
-  'updater.started': 'Update-Prüfung gestartet.'
+  'updater.started': 'Update-Prüfung gestartet.',
+
+  'builder.title': 'DMARC-Record erzeugen',
+  'builder.close': 'Schließen',
+  'builder.back': 'Zurück',
+  'builder.next': 'Weiter',
+  'builder.finish': 'Fertig',
+  'builder.step.domain': 'Domain',
+  'builder.step.policy': 'Policy',
+  'builder.step.reporting': 'Reports',
+  'builder.step.result': 'Ergebnis',
+  'builder.domain.headline': 'Domain festlegen',
+  'builder.domain.body':
+    'Für welche Domain soll der DMARC-TXT-Record erzeugt werden? Optional kannst du den aktuellen DNS-Eintrag laden und als Vorlage nutzen.',
+  'builder.domain.label': 'Domain',
+  'builder.domain.loadDns': 'Aktuellen DNS laden',
+  'builder.domain.loading': 'Lade DNS für {domain}…',
+  'builder.domain.loaded': 'Vorhandener Record geladen und als Vorlage übernommen.',
+  'builder.domain.missing': 'Kein DMARC-Record gefunden — Formular bleibt bei den Standardwerten.',
+  'builder.domain.error': 'DNS-Lookup fehlgeschlagen: {message}',
+  'builder.policy.headline': 'Policy wählen',
+  'builder.policy.body':
+    'Diese Werte bestimmen, wie streng Empfänger nicht authentifizierte Mail behandeln. Empfohlener Start: p=none, Alignment relaxed, pct=100.',
+  'builder.policy.p': 'Policy (p=)',
+  'builder.policy.pHint':
+    'Was Empfänger tun sollen, wenn SPF und DKIM die From-Domain nicht belegen. none liefert nur Reports; quarantine/reject greifen in die Zustellung ein.',
+  'builder.policy.none': 'none — nur beobachten',
+  'builder.policy.quarantine': 'quarantine — Spam/Junk',
+  'builder.policy.reject': 'reject — ablehnen',
+  'builder.policy.sp': 'Subdomains (sp=)',
+  'builder.policy.spHint':
+    'Eigene Policy für Subdomains (z. B. mail.example.com). „wie p=” übernimmt die Organisations-Policy.',
+  'builder.policy.spSame': 'wie p=',
+  'builder.policy.pct': 'Anteil (pct=)',
+  'builder.policy.pctHint':
+    'Prozent der Mails, auf die quarantine/reject angewendet wird. Bei 100 (Standard) gelten sie für alle; niedriger ermöglicht einen schrittweisen Rollout.',
+  'builder.policy.adkim': 'DKIM-Alignment (adkim=)',
+  'builder.policy.adkimHint':
+    'relaxed: DKIM-Domain darf eine Subdomain der From-Domain sein. strict: Domains müssen exakt übereinstimmen.',
+  'builder.policy.aspf': 'SPF-Alignment (aspf=)',
+  'builder.policy.aspfHint':
+    'relaxed: Envelope-From (Return-Path) darf eine Subdomain sein. strict: muss exakt zur From-Domain passen.',
+  'builder.policy.relaxed': 'relaxed (r)',
+  'builder.policy.strict': 'strict (s)',
+  'builder.reporting.headline': 'Reporting',
+  'builder.reporting.body':
+    'RUA erhält Aggregate-Reports (XML). RUF ist optional für Failure-Reports. Für beide kannst du dieselbe Adresse nutzen (z. B. dmarc@deinedomain).',
+  'builder.reporting.rua': 'Aggregate (rua=)',
+  'builder.reporting.ruaHint': 'E-Mail oder mailto:. Mehrere Adressen kommagetrennt.',
+  'builder.reporting.ruf': 'Forensik (ruf=, optional)',
+  'builder.reporting.rufHint': 'Optional. Oft dieselbe Adresse wie bei rua=.',
+  'builder.reporting.fo': 'Failure options (fo=)',
+  'builder.reporting.foHint':
+    'Steuert, wann Failure-Reports (RUF) erzeugt werden. Nur relevant, wenn ruf= gesetzt ist.',
+  'builder.reporting.fo0': '0 — alle Fehlschläge',
+  'builder.reporting.fo1': '1 — wenn SPF und DKIM failen',
+  'builder.reporting.fod': 'd — DKIM-Fehler',
+  'builder.reporting.fos': 's — SPF-Fehler',
+  'builder.result.headline': 'DNS-Eintrag',
+  'builder.result.body':
+    'Lege diesen TXT-Record im DNS deiner Domain an. Host und Wert einzeln kopieren.',
+  'builder.result.host': 'Host / Name',
+  'builder.result.type': 'Typ',
+  'builder.result.value': 'Wert',
+  'builder.result.copy': 'Kopieren',
+  'builder.result.copied': 'Kopiert',
+  'builder.result.tags': 'Tags',
+  'builder.result.liveTitle': 'Aktuell im DNS',
+  'builder.result.liveMissing': 'Noch kein DMARC-Record im DNS.',
+  'builder.result.liveSame': 'Entspricht dem erzeugten Record.',
+  'builder.result.liveDifferent': 'Weicht vom erzeugten Record ab.',
+  'builder.error.domain': 'Bitte eine gültige Domain eingeben (z. B. example.com).',
+  'builder.error.rua': 'Bitte mindestens eine RUA-Adresse angeben.',
+  'builder.error.pct': 'pct muss zwischen 1 und 100 liegen.'
+
 } as const
 
 const en: Dict = {
@@ -419,11 +495,13 @@ const en: Dict = {
   'header.openFiles': 'Files',
   'header.export': 'Export',
   'header.settings': 'Settings',
+  'header.builder': 'DMARC record',
   'header.fetch': 'Fetch reports',
   'header.infoTitle': 'About the app',
   'header.openFilesTitle': 'Open local DMARC files',
   'header.exportTitle': 'Export filtered data',
   'header.settingsTitle': 'Open settings',
+  'header.builderTitle': 'Generate DMARC record',
   'header.fetchTitle': 'Fetch reports via IMAP',
 
   'drop.title': 'Drop DMARC files here',
@@ -798,7 +876,81 @@ const en: Dict = {
   'updater.devInstall': 'Not available in development mode.',
   'updater.installing': 'Installing update…',
   'updater.releaseInfo': 'Current release info: {version}',
-  'updater.started': 'Update check started.'
+  'updater.started': 'Update check started.',
+
+  'builder.title': 'Generate DMARC record',
+  'builder.close': 'Close',
+  'builder.back': 'Back',
+  'builder.next': 'Next',
+  'builder.finish': 'Done',
+  'builder.step.domain': 'Domain',
+  'builder.step.policy': 'Policy',
+  'builder.step.reporting': 'Reports',
+  'builder.step.result': 'Result',
+  'builder.domain.headline': 'Choose domain',
+  'builder.domain.body':
+    'Which domain should the DMARC TXT record be generated for? Optionally load the current DNS record as a template.',
+  'builder.domain.label': 'Domain',
+  'builder.domain.loadDns': 'Load current DNS',
+  'builder.domain.loading': 'Loading DNS for {domain}…',
+  'builder.domain.loaded': 'Existing record loaded as a template.',
+  'builder.domain.missing': 'No DMARC record found — form keeps the defaults.',
+  'builder.domain.error': 'DNS lookup failed: {message}',
+  'builder.policy.headline': 'Choose policy',
+  'builder.policy.body':
+    'These values control how strictly receivers treat unauthenticated mail. Recommended start: p=none, relaxed alignment, pct=100.',
+  'builder.policy.p': 'Policy (p=)',
+  'builder.policy.pHint':
+    'What receivers should do when SPF and DKIM do not authenticate the From domain. none only produces reports; quarantine/reject affect delivery.',
+  'builder.policy.none': 'none — monitor only',
+  'builder.policy.quarantine': 'quarantine — spam/junk',
+  'builder.policy.reject': 'reject — refuse',
+  'builder.policy.sp': 'Subdomains (sp=)',
+  'builder.policy.spHint':
+    'Separate policy for subdomains (e.g. mail.example.com). “same as p=” inherits the organizational policy.',
+  'builder.policy.spSame': 'same as p=',
+  'builder.policy.pct': 'Percentage (pct=)',
+  'builder.policy.pctHint':
+    'Percentage of mail to which quarantine/reject applies. At 100 (default) it applies to all; lower values allow a gradual rollout.',
+  'builder.policy.adkim': 'DKIM alignment (adkim=)',
+  'builder.policy.adkimHint':
+    'relaxed: the DKIM domain may be a subdomain of From. strict: domains must match exactly.',
+  'builder.policy.aspf': 'SPF alignment (aspf=)',
+  'builder.policy.aspfHint':
+    'relaxed: Envelope-From (Return-Path) may be a subdomain. strict: must match the From domain exactly.',
+  'builder.policy.relaxed': 'relaxed (r)',
+  'builder.policy.strict': 'strict (s)',
+  'builder.reporting.headline': 'Reporting',
+  'builder.reporting.body':
+    'RUA receives aggregate reports (XML). RUF is optional for failure reports. You can use the same address for both (e.g. dmarc@yourdomain).',
+  'builder.reporting.rua': 'Aggregate (rua=)',
+  'builder.reporting.ruaHint': 'Email or mailto:. Multiple addresses comma-separated.',
+  'builder.reporting.ruf': 'Forensic (ruf=, optional)',
+  'builder.reporting.rufHint': 'Optional. Often the same address as rua=.',
+  'builder.reporting.fo': 'Failure options (fo=)',
+  'builder.reporting.foHint':
+    'Controls when failure reports (RUF) are generated. Only relevant if ruf= is set.',
+  'builder.reporting.fo0': '0 — all failures',
+  'builder.reporting.fo1': '1 — if SPF and DKIM fail',
+  'builder.reporting.fod': 'd — DKIM failures',
+  'builder.reporting.fos': 's — SPF failures',
+  'builder.result.headline': 'DNS record',
+  'builder.result.body':
+    'Publish this TXT record in your domain DNS. Copy host and value separately.',
+  'builder.result.host': 'Host / name',
+  'builder.result.type': 'Type',
+  'builder.result.value': 'Value',
+  'builder.result.copy': 'Copy',
+  'builder.result.copied': 'Copied',
+  'builder.result.tags': 'Tags',
+  'builder.result.liveTitle': 'Currently in DNS',
+  'builder.result.liveMissing': 'No DMARC record in DNS yet.',
+  'builder.result.liveSame': 'Matches the generated record.',
+  'builder.result.liveDifferent': 'Differs from the generated record.',
+  'builder.error.domain': 'Please enter a valid domain (e.g. example.com).',
+  'builder.error.rua': 'Please provide at least one RUA address.',
+  'builder.error.pct': 'pct must be between 1 and 100.'
+
 }
 
 const catalogs: Record<AppLocale, Dict> = { de: de as Dict, en }

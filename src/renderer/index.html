@@ -98,6 +98,22 @@
             </button>
             <button
               type="button"
+              id="btn-builder"
+              class="btn tool-btn"
+              data-i18n-title="header.builderTitle"
+              data-i18n-aria="header.builder"
+              title="DMARC-Record erzeugen"
+            >
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M22 2v20h-20v-20h20zm2-2h-24v24h24v-24zm-4 7h-8v1h8v-1zm0 2h-8v1h8v-1zm0 2h-8v1h8v-1zm0 2h-8v1h8v-1zm-9-7h-3v8h3v-8z"
+                />
+              </svg>
+              <span data-i18n="header.builder">DMARC-Record</span>
+            </button>
+            <button
+              type="button"
               id="btn-settings"
               class="btn tool-btn"
               data-i18n-title="header.settingsTitle"
@@ -1013,6 +1029,229 @@
           <button type="button" id="btn-export-json" class="btn primary" data-i18n="export.json">
             JSON speichern
           </button>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog id="builder-dialog">
+      <div class="settings-form builder-form">
+        <header class="dialog-header">
+          <h2 data-i18n="builder.title">DMARC-Record erzeugen</h2>
+          <button
+            type="button"
+            id="btn-close-builder"
+            class="btn ghost"
+            data-i18n-aria="builder.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+
+        <ol id="builder-steps" class="builder-steps" aria-label="Schritte">
+          <li data-step="domain" class="active">
+            <span class="builder-step-index">1</span>
+            <span data-i18n="builder.step.domain">Domain</span>
+          </li>
+          <li data-step="policy">
+            <span class="builder-step-index">2</span>
+            <span data-i18n="builder.step.policy">Policy</span>
+          </li>
+          <li data-step="reporting">
+            <span class="builder-step-index">3</span>
+            <span data-i18n="builder.step.reporting">Reports</span>
+          </li>
+          <li data-step="result">
+            <span class="builder-step-index">4</span>
+            <span data-i18n="builder.step.result">Ergebnis</span>
+          </li>
+        </ol>
+
+        <div class="dialog-body builder-body">
+          <section id="builder-panel-domain" class="builder-panel" data-step="domain">
+            <h3 data-i18n="builder.domain.headline">Domain festlegen</h3>
+            <p class="hint" data-i18n="builder.domain.body">
+              Für welche Domain soll der DMARC-TXT-Record erzeugt werden? Optional kannst du den
+              aktuellen DNS-Eintrag laden und als Vorlage nutzen.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="builder.domain.label">Domain</span>
+                <input
+                  id="builder-domain"
+                  type="text"
+                  placeholder="example.com"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+            <div class="builder-inline-actions">
+              <button
+                type="button"
+                id="btn-builder-load-dns"
+                class="btn secondary"
+                data-i18n="builder.domain.loadDns"
+              >
+                Aktuellen DNS laden
+              </button>
+            </div>
+            <p id="builder-domain-status" class="builder-status muted" role="status"></p>
+          </section>
+
+          <section id="builder-panel-policy" class="builder-panel hidden" data-step="policy">
+            <h3 data-i18n="builder.policy.headline">Policy wählen</h3>
+            <p class="hint" data-i18n="builder.policy.body">
+              Diese Werte bestimmen, wie streng Empfänger nicht authentifizierte Mail behandeln.
+              Empfohlener Start: p=none, Alignment relaxed, pct=100.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="builder.policy.p">Policy (p=)</span>
+                <select id="builder-policy">
+                  <option value="none" data-i18n="builder.policy.none">
+                    none — nur beobachten
+                  </option>
+                  <option value="quarantine" data-i18n="builder.policy.quarantine">
+                    quarantine — Spam/Junk
+                  </option>
+                  <option value="reject" data-i18n="builder.policy.reject">
+                    reject — ablehnen
+                  </option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.pHint"
+                  >Was Empfänger tun sollen, wenn SPF und DKIM die From-Domain nicht belegen.
+                  none liefert nur Reports; quarantine/reject greifen in die Zustellung ein.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.sp">Subdomains (sp=)</span>
+                <select id="builder-sp">
+                  <option value="same" data-i18n="builder.policy.spSame">wie p=</option>
+                  <option value="none" data-i18n="builder.policy.none">
+                    none — nur beobachten
+                  </option>
+                  <option value="quarantine" data-i18n="builder.policy.quarantine">
+                    quarantine — Spam/Junk
+                  </option>
+                  <option value="reject" data-i18n="builder.policy.reject">
+                    reject — ablehnen
+                  </option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.spHint"
+                  >Eigene Policy für Subdomains (z. B. mail.example.com). „wie p=” übernimmt die
+                  Organisations-Policy.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.pct">Anteil (pct=)</span>
+                <input id="builder-pct" type="number" min="1" max="100" value="100" />
+                <span class="field-hint" data-i18n="builder.policy.pctHint"
+                  >Prozent der Mails, auf die quarantine/reject angewendet wird. Bei 100 (Standard)
+                  gelten sie für alle; niedriger ermöglicht einen schrittweisen Rollout.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.adkim">DKIM-Alignment (adkim=)</span>
+                <select id="builder-adkim">
+                  <option value="r" data-i18n="builder.policy.relaxed">relaxed (r)</option>
+                  <option value="s" data-i18n="builder.policy.strict">strict (s)</option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.adkimHint"
+                  >relaxed: DKIM-Domain darf eine Subdomain der From-Domain sein. strict: Domains
+                  müssen exakt übereinstimmen.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.aspf">SPF-Alignment (aspf=)</span>
+                <select id="builder-aspf">
+                  <option value="r" data-i18n="builder.policy.relaxed">relaxed (r)</option>
+                  <option value="s" data-i18n="builder.policy.strict">strict (s)</option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.aspfHint"
+                  >relaxed: Envelope-From (Return-Path) darf eine Subdomain sein. strict: muss exakt
+                  zur From-Domain passen.</span
+                >
+              </label>
+            </div>
+          </section>
+
+          <section id="builder-panel-reporting" class="builder-panel hidden" data-step="reporting">
+            <h3 data-i18n="builder.reporting.headline">Reporting</h3>
+            <p class="hint" data-i18n="builder.reporting.body">
+              RUA erhält Aggregate-Reports (XML). RUF ist optional für Failure-Reports. Für beide
+              kannst du dieselbe Adresse nutzen (z. B. dmarc@deinedomain).
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="builder.reporting.rua">Aggregate (rua=)</span>
+                <input
+                  id="builder-rua"
+                  type="text"
+                  placeholder="dmarc@example.com"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="builder.reporting.ruaHint"
+                  >E-Mail oder mailto:. Mehrere Adressen kommagetrennt.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.reporting.ruf">Forensik (ruf=, optional)</span>
+                <input
+                  id="builder-ruf"
+                  type="text"
+                  placeholder="dmarc@example.com"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="builder.reporting.rufHint"
+                  >Optional. Oft dieselbe Adresse wie bei rua=.</span
+                >
+              </label>
+            </div>
+            <fieldset class="builder-fo">
+              <legend data-i18n="builder.reporting.fo">Failure options (fo=)</legend>
+              <p class="field-hint" data-i18n="builder.reporting.foHint">
+                Steuert, wann Failure-Reports (RUF) erzeugt werden. Nur relevant, wenn ruf=
+                gesetzt ist.
+              </p>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="0" checked />
+                <span data-i18n="builder.reporting.fo0">0 — alle Fehlschläge</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="1" />
+                <span data-i18n="builder.reporting.fo1">1 — wenn SPF und DKIM failen</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="d" />
+                <span data-i18n="builder.reporting.fod">d — DKIM-Fehler</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="s" />
+                <span data-i18n="builder.reporting.fos">s — SPF-Fehler</span>
+              </label>
+            </fieldset>
+          </section>
+
+          <section id="builder-panel-result" class="builder-panel hidden" data-step="result">
+            <h3 data-i18n="builder.result.headline">DNS-Eintrag</h3>
+            <p class="hint" data-i18n="builder.result.body">
+              Lege diesen TXT-Record im DNS deiner Domain an. Host und Wert einzeln kopieren.
+            </p>
+            <div id="builder-result" class="builder-result"></div>
+            <div id="builder-live" class="builder-live muted"></div>
+          </section>
+        </div>
+
+        <footer class="dialog-footer">
+          <p id="builder-footer-hint" class="hint"></p>
+          <div class="dialog-actions">
+            <button type="button" id="btn-builder-back" class="btn ghost" data-i18n="builder.back">
+              Zurück
+            </button>
+            <button type="button" id="btn-builder-next" class="btn primary" data-i18n="builder.next">
+              Weiter
+            </button>
+          </div>
         </footer>
       </div>
     </dialog>

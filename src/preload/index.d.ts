@@ -62,6 +62,7 @@ declare global {
       closeSettings: () => void
       scrollTo: (selector: string) => Promise<void>
       selectFirstReport: () => Promise<void>
+      prepareFullPage: () => Promise<{ width: number; height: number }>
     }
   }
 }

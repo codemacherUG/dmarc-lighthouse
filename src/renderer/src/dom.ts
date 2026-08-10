@@ -38,12 +38,14 @@ export const btnIpRdap = document.getElementById('btn-ip-rdap') as HTMLButtonEle
 export const btnIpFilter = document.getElementById('btn-ip-filter') as HTMLButtonElement
 
 export const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
+export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonElement
 export const btnInfo = document.getElementById('btn-info') as HTMLButtonElement
 export const btnFetch = document.getElementById('btn-fetch') as HTMLButtonElement
 export const btnOpenFiles = document.getElementById('btn-open-files') as HTMLButtonElement
 export const btnExport = document.getElementById('btn-export') as HTMLButtonElement
 export const btnDns = document.getElementById('btn-dns') as HTMLButtonElement
 export const settingsDialog = document.getElementById('settings-dialog') as HTMLDialogElement
+export const builderDialog = document.getElementById('builder-dialog') as HTMLDialogElement
 export const infoDialog = document.getElementById('info-dialog') as HTMLDialogElement
 export const exportDialog = document.getElementById('export-dialog') as HTMLDialogElement
 export const createMailboxDialog = document.getElementById(
@@ -66,6 +68,7 @@ export const btnConfirmCreateMailbox = document.getElementById(
 ) as HTMLButtonElement
 export const settingsForm = document.getElementById('settings-form') as HTMLFormElement
 export const btnCloseSettings = document.getElementById('btn-close-settings') as HTMLButtonElement
+export const btnCloseBuilder = document.getElementById('btn-close-builder') as HTMLButtonElement
 export const btnCloseInfo = document.getElementById('btn-close-info') as HTMLButtonElement
 export const btnCloseExport = document.getElementById('btn-close-export') as HTMLButtonElement
 export const btnInfoOk = document.getElementById('btn-info-ok') as HTMLButtonElement
@@ -153,3 +156,26 @@ export const btnDownloadGeolite = document.getElementById(
 ) as HTMLButtonElement
 export const geoliteStatusEl = document.getElementById('geolite-status') as HTMLSpanElement
 export const forensicBody = document.getElementById('forensic-body') as HTMLTableSectionElement
+
+export const builderStepsEl = document.getElementById('builder-steps') as HTMLOListElement
+export const builderDomainEl = document.getElementById('builder-domain') as HTMLInputElement
+export const builderDomainStatusEl = document.getElementById(
+  'builder-domain-status'
+) as HTMLParagraphElement
+export const builderPolicyEl = document.getElementById('builder-policy') as HTMLSelectElement
+export const builderSpEl = document.getElementById('builder-sp') as HTMLSelectElement
+export const builderPctEl = document.getElementById('builder-pct') as HTMLInputElement
+export const builderAdkimEl = document.getElementById('builder-adkim') as HTMLSelectElement
+export const builderAspfEl = document.getElementById('builder-aspf') as HTMLSelectElement
+export const builderRuaEl = document.getElementById('builder-rua') as HTMLInputElement
+export const builderRufEl = document.getElementById('builder-ruf') as HTMLInputElement
+export const builderResultEl = document.getElementById('builder-result') as HTMLDivElement
+export const builderLiveEl = document.getElementById('builder-live') as HTMLDivElement
+export const builderFooterHintEl = document.getElementById(
+  'builder-footer-hint'
+) as HTMLParagraphElement
+export const btnBuilderBack = document.getElementById('btn-builder-back') as HTMLButtonElement
+export const btnBuilderNext = document.getElementById('btn-builder-next') as HTMLButtonElement
+export const btnBuilderLoadDns = document.getElementById(
+  'btn-builder-load-dns'
+) as HTMLButtonElement

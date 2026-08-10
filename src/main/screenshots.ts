@@ -27,11 +27,63 @@ async function api(win: BrowserWindow, body: string): Promise<void> {
   )
 }
 
+async function apiValue<T>(win: BrowserWindow, body: string): Promise<T> {
+  return (await win.webContents.executeJavaScript(
+    `(async () => {
+      const api = window.__dmarcScreenshot
+      if (!api) throw new Error('Screenshot helpers not loaded')
+      ${body}
+    })()`
+  )) as T
+}
+
 async function capture(win: BrowserWindow, filePath: string): Promise<void> {
   await wait(500)
   const image = await win.webContents.capturePage()
   writeFileSync(filePath, image.toPNG())
   console.log(`Wrote ${filePath}`)
+}
+
+/** Full-page PNG via CDP so content taller than the display still fits. */
+async function captureFullPage(win: BrowserWindow, filePath: string): Promise<void> {
+  const size = await apiValue<{ width: number; height: number }>(
+    win,
+    'return await api.prepareFullPage()'
+  )
+  const width = Math.max(1200, Math.min(size.width, 1800))
+  const height = Math.max(900, Math.min(size.height + 8, 12000))
+
+  const dbg = win.webContents.debugger
+  if (!dbg.isAttached()) dbg.attach('1.3')
+  try {
+    await dbg.sendCommand('Emulation.setDeviceMetricsOverride', {
+      mobile: false,
+      width,
+      height,
+      deviceScaleFactor: 1,
+      screenWidth: width,
+      screenHeight: height
+    })
+    await wait(600)
+    const result = (await dbg.sendCommand('Page.captureScreenshot', {
+      format: 'png',
+      fromSurface: true,
+      captureBeyondViewport: true
+    })) as { data: string }
+    writeFileSync(filePath, Buffer.from(result.data, 'base64'))
+    console.log(`Wrote ${filePath} (${width}×${height})`)
+  } finally {
+    try {
+      await dbg.sendCommand('Emulation.clearDeviceMetricsOverride')
+    } catch {
+      // ignore
+    }
+    try {
+      dbg.detach()
+    } catch {
+      // ignore
+    }
+  }
 }
 
 /** Capture anonymized README screenshots, then quit. */
@@ -45,6 +97,14 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
 
   await api(win, 'await api.prepareDemo()')
   await wait(700)
+
+  if (wantsFullAppCapture()) {
+    await captureFullPage(win, join(outDir, 'app-full.png'))
+    console.log('Full-app screenshot capture complete.')
+    app.exit(0)
+    return
+  }
+
   await capture(win, join(outDir, 'dashboard.png'))
 
   await api(
@@ -78,10 +138,20 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
   await wait(500)
   await capture(win, join(outDir, 'settings.png'))
 
+  await api(win, 'api.closeSettings()')
+  await captureFullPage(win, join(outDir, 'app-full.png'))
+
   console.log('Screenshot capture complete.')
   app.exit(0)
 }
 
 export function wantsScreenshotCapture(): boolean {
-  return process.argv.includes('--capture-screenshots')
+  return (
+    process.argv.includes('--capture-screenshots') ||
+    process.argv.includes('--capture-full-app')
+  )
+}
+
+export function wantsFullAppCapture(): boolean {
+  return process.argv.includes('--capture-full-app')
 }
