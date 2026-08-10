@@ -125,6 +125,7 @@ export function installScreenshotApi(): void {
           passing: 98,
           failing: 2,
           passRate: 98,
+          missingSpf: 0,
           dkimSelectors: ['selector1'],
           dmarcPolicy: 'reject',
           spfOk: true,
@@ -161,6 +162,25 @@ export function installScreenshotApi(): void {
       renderReports(state.viewResult)
       renderDetail(first)
       await new Promise((r) => setTimeout(r, 100))
+    },
+    async prepareFullPage(): Promise<{ width: number; height: number }> {
+      settingsDialog.close()
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      document.documentElement.classList.add('screenshot-full')
+      document.body.classList.add('screenshot-full')
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+      const app = document.getElementById('app')
+      const width = Math.ceil(
+        Math.max(document.documentElement.scrollWidth, app?.scrollWidth ?? 0, 1400)
+      )
+      const height = Math.ceil(
+        Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight,
+          app?.scrollHeight ?? 0
+        )
+      )
+      return { width, height }
     }
   }
 }

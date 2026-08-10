@@ -31,103 +31,154 @@
 
     <div id="app">
       <header class="app-header">
-        <div class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <img src="./assets/app-icon.svg" width="36" height="36" alt="" />
+        <div class="header-main">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+              <img src="./assets/app-icon.svg" width="38" height="38" alt="" />
+            </div>
+            <div class="brand-text">
+              <h1 data-i18n="app.title">DMARC Lighthouse</h1>
+              <p class="subtitle">
+                <span id="account-label" data-i18n="app.noCredentials">Keine Zugangsdaten</span>
+              </p>
+            </div>
           </div>
-          <div class="brand-text">
-            <h1 data-i18n="app.title">DMARC Lighthouse</h1>
-            <p class="subtitle">
-              <span data-i18n="app.subtitle">Aggregate-Reports</span>
-              · <span id="account-label" data-i18n="app.noCredentials">Keine Zugangsdaten</span>
-            </p>
-          </div>
-        </div>
 
-        <div class="header-actions">
-          <div class="action-group" role="toolbar">
+          <nav class="app-nav" data-i18n-aria="header.nav" aria-label="Hauptnavigation">
             <button
               type="button"
-              id="btn-info"
-              class="btn tool-btn"
-              data-i18n-title="header.infoTitle"
-              data-i18n-aria="header.info"
-              title="Über die App"
+              id="nav-dashboard"
+              class="nav-link active"
+              aria-current="page"
+              data-i18n="header.dashboard"
             >
-              <!-- Icons: iconmonstr (https://iconmonstr.com), free under iconmonstr license -->
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-.001 5.75c.69 0 1.251.56 1.251 1.25s-.561 1.25-1.251 1.25-1.249-.56-1.249-1.25.559-1.25 1.249-1.25zm2.001 12.25h-4v-1c.484-.179 1-.201 1-.735v-4.467c0-.534-.516-.618-1-.797v-1h3v6.265c0 .535.517.558 1 .735v.999z"
-                />
-              </svg>
-              <span data-i18n="header.info">Info</span>
+              Dashboard
             </button>
+            <div class="nav-dropdown">
+              <button
+                type="button"
+                id="nav-tools"
+                class="nav-link nav-link-menu"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="tools-menu"
+                data-i18n-title="header.toolsTitle"
+                title="Werkzeuge"
+              >
+                <span data-i18n="header.tools">Tools</span>
+                <span class="nav-chevron" aria-hidden="true">▾</span>
+              </button>
+              <div id="tools-menu" class="nav-menu" role="menu" hidden>
+                <p class="nav-menu-label" data-i18n="header.toolsSection">Tools</p>
+                <button
+                  type="button"
+                  id="nav-dns"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="filter.dnsHint"
+                  title="DMARC-/SPF-/DKIM-DNS einer Domain prüfen."
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="filter.dns">DNS-Check</span>
+                    <span class="nav-menu-item-desc" data-i18n="header.dnsDesc"
+                      >DMARC, SPF und DKIM live prüfen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-tool" data-i18n="header.badgeTool"
+                    >Tool</span
+                  >
+                </button>
+                <hr class="nav-menu-divider" />
+                <button
+                  type="button"
+                  id="btn-builder"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.builderTitle"
+                  title="DMARC-Record erzeugen"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.builder"
+                      >DMARC-Record Wizard</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.builderDesc"
+                      >DMARC-Record geführt erstellen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-wizard" data-i18n="header.badgeWizard"
+                    >Wizard</span
+                  >
+                </button>
+              </div>
+            </div>
             <button
               type="button"
               id="btn-open-files"
-              class="btn tool-btn"
+              class="nav-link"
+              data-i18n="header.openFiles"
               data-i18n-title="header.openFilesTitle"
               data-i18n-aria="header.openFiles"
               title="Lokale DMARC-Dateien öffnen"
             >
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M6.083 4c1.38 1.612 2.578 3 4.917 3h11v13h-20v-16h4.083zm.917-2h-7v20h24v-17h-13c-1.629 0-2.305-1.058-4-3z"
-                />
-              </svg>
-              <span data-i18n="header.openFiles">Dateien</span>
+              Dateien
             </button>
             <button
               type="button"
               id="btn-export"
-              class="btn tool-btn"
+              class="nav-link"
               disabled
+              data-i18n="header.export"
               data-i18n-title="header.exportTitle"
               data-i18n-aria="header.export"
               title="Gefilterte Daten exportieren"
             >
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M16 11h5l-9 10-9-10h5v-11h8v11zm1 11h-10v2h10v-2z"
-                />
-              </svg>
-              <span data-i18n="header.export">Export</span>
+              Export
+            </button>
+            <button
+              type="button"
+              id="btn-info"
+              class="nav-link"
+              data-i18n="header.info"
+              data-i18n-title="header.infoTitle"
+              data-i18n-aria="header.info"
+              title="Über die App"
+            >
+              Info
             </button>
             <button
               type="button"
               id="btn-settings"
-              class="btn tool-btn"
+              class="nav-link"
+              data-i18n="header.settings"
               data-i18n-title="header.settingsTitle"
               data-i18n-aria="header.settings"
               title="Einstellungen öffnen"
             >
+              Einstellungen
+            </button>
+          </nav>
+
+          <div class="header-actions">
+            <label id="account-field" class="header-account hidden">
+              <span class="sr-only" data-i18n="filter.account">Konto</span>
+              <select id="account-select"></select>
+            </label>
+            <button
+              type="button"
+              id="btn-fetch"
+              class="btn primary fetch-btn"
+              data-i18n-title="header.fetchTitle"
+              title="Reports per IMAP abrufen"
+            >
               <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="currentColor"
-                  d="M24 13.616v-3.232c-1.651-.587-2.694-.752-3.219-2.019v-.001c-.527-1.271.1-2.134.847-3.707l-2.285-2.285c-1.561.742-2.433 1.375-3.707.847h-.001c-1.269-.526-1.435-1.576-2.019-3.219h-3.232c-.582 1.635-.749 2.692-2.019 3.219h-.001c-1.271.528-2.132-.098-3.707-.847l-2.285 2.285c.745 1.568 1.375 2.434.847 3.707-.527 1.271-1.584 1.438-3.219 2.02v3.232c1.632.58 2.692.749 3.219 2.019.53 1.282-.114 2.166-.847 3.707l2.285 2.286c1.562-.743 2.434-1.375 3.707-.847h.001c1.27.526 1.436 1.579 2.019 3.219h3.232c.582-1.636.75-2.69 2.027-3.222h.001c1.262-.524 2.12.101 3.698.851l2.285-2.286c-.744-1.563-1.375-2.433-.848-3.706.527-1.271 1.588-1.44 3.221-2.021zm-12 2.384c-2.209 0-4-1.791-4-4s1.791-4 4-4 4 1.791 4 4-1.791 4-4 4z"
+                  d="M9 12l-4.463 4.969-4.537-4.969h3c0-4.97 4.03-9 9-9 2.395 0 4.565.942 6.179 2.468l-2.004 2.231c-1.081-1.05-2.553-1.699-4.175-1.699-3.309 0-6 2.691-6 6h3zm10.463-4.969l-4.463 4.969h3c0 3.309-2.691 6-6 6-1.623 0-3.094-.65-4.175-1.699l-2.004 2.231c1.613 1.526 3.784 2.468 6.179 2.468 4.97 0 9-4.03 9-9h3l-4.537-4.969z"
                 />
               </svg>
-              <span data-i18n="header.settings">Einstellungen</span>
+              <span data-i18n="header.fetch">Reports abrufen</span>
             </button>
           </div>
-          <button
-            type="button"
-            id="btn-fetch"
-            class="btn primary fetch-btn"
-            data-i18n-title="header.fetchTitle"
-            title="Reports per IMAP abrufen"
-          >
-            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M9 12l-4.463 4.969-4.537-4.969h3c0-4.97 4.03-9 9-9 2.395 0 4.565.942 6.179 2.468l-2.004 2.231c-1.081-1.05-2.553-1.699-4.175-1.699-3.309 0-6 2.691-6 6h3zm10.463-4.969l-4.463 4.969h3c0 3.309-2.691 6-6 6-1.623 0-3.094-.65-4.175-1.699l-2.004 2.231c1.613 1.526 3.784 2.468 6.179 2.468 4.97 0 9-4.03 9-9h3l-4.537-4.969z"
-              />
-            </svg>
-            <span data-i18n="header.fetch">Reports abrufen</span>
-          </button>
         </div>
       </header>
 
@@ -154,10 +205,6 @@
           <h2 data-i18n="filter.title">Filter</h2>
         </div>
         <div class="filter-row">
-          <label id="account-field" class="hidden">
-            <span data-i18n="filter.account">Konto</span>
-            <select id="account-select"></select>
-          </label>
           <label>
             <span data-i18n="filter.range">Zeitraum</span>
             <select id="filter-range">
@@ -193,38 +240,6 @@
         <div id="filter-chips" class="filter-chips hidden"></div>
       </section>
 
-      <section class="panel dns-panel">
-        <div class="panel-heading">
-          <h2 data-i18n="filter.dns">DNS-Check</h2>
-          <p class="hint" data-i18n="filter.dnsHint">
-            DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
-          </p>
-        </div>
-        <div class="dns-check-row">
-          <label>
-            <span data-i18n="filter.domain">Domain</span>
-            <input id="dns-domain" type="text" placeholder="example.com" />
-          </label>
-          <label class="dns-selectors-field">
-            <span data-i18n="filter.selectors">DKIM-Selektoren</span>
-            <input
-              id="dns-selectors"
-              type="text"
-              data-i18n-placeholder="filter.selectorsPlaceholder"
-              data-i18n-title="filter.selectorsTitle"
-              placeholder="DKIM-Selektoren (auto)"
-              title="Kommagetrennt; leer = automatisch aus den Reports"
-            />
-          </label>
-          <div class="dns-check-actions">
-            <button type="button" id="btn-dns" class="btn secondary" data-i18n="filter.dnsCheck">
-              Prüfen
-            </button>
-          </div>
-        </div>
-        <div id="dns-result" class="dns-result muted hidden"></div>
-      </section>
-
       <section class="panel kpi-panel">
         <div id="summary" class="summary-grid">
           <div class="stat">
@@ -258,11 +273,45 @@
         <div class="panel-heading">
           <h2 data-i18n="health.title">Domain-Ampel</h2>
           <p class="hint" data-i18n="health.hint">
-            Pass-Rate und DNS-Status pro Domain. Klick filtert auf die Domain.
+            Gesundheitsrate der letzten 14 Tage (Auth-Pass sowie korrekt reject/quarantine; local_policy
+            zählt nicht negativ) und DNS-Status. Mit erlaubten Mail-Servern am Konto nur diese Absender.
+            Unabhängig vom Zeitraum-Filter. Klick filtert auf die Domain.
           </p>
         </div>
         <div id="domain-ampel" class="domain-ampel">
           <p class="muted" data-i18n="health.empty">Noch keine Domains geladen.</p>
+        </div>
+      </section>
+
+      <section class="panel problem-sources-panel">
+        <div class="panel-heading">
+          <h2 data-i18n="problems.title">Problemquellen</h2>
+          <p class="hint" data-i18n="problems.hint">
+            Zugestellte Auth-Fails und erlaubte Absender ohne SPF im gewählten Zeitraum.
+            Reject/quarantine und local_policy zählen nicht. Mit erlaubten Mail-Servern am Konto nur
+            diese. Klick filtert · + übernimmt die IP.
+          </p>
+        </div>
+        <div class="table-scroll problem-sources-scroll">
+          <table class="ip-enriched problem-sources-table">
+            <thead>
+              <tr>
+                <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
+                <th data-i18n="problems.from">From</th>
+                <th data-i18n="problems.count">Msgs</th>
+                <th data-i18n="problems.spfFail">SPF fail</th>
+                <th data-i18n="problems.dkimFail">DKIM fail</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="table-problem-sources">
+              <tr class="empty">
+                <td colspan="6" data-i18n="problems.empty">
+                  Keine problematischen Zustellungen im Zeitraum.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -293,61 +342,72 @@
 
       <section class="panel tables-panel">
         <div class="tables-row">
-          <div class="table-card">
-            <h2 data-i18n="table.orgs">Reporting-Organisationen</h2>
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th data-i18n="table.org">Org</th>
-                    <th data-i18n="table.msgs">Msgs</th>
-                    <th data-i18n="table.passPct">Pass %</th>
-                  </tr>
-                </thead>
-                <tbody id="table-orgs">
-                  <tr class="empty">
-                    <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="tables-ip-slot">
+            <div class="table-card table-card--ips">
+              <div class="table-card-heading">
+                <h2 data-i18n="table.ips">Quellen (IP)</h2>
+                <p class="hint" data-i18n="table.ipsHint">
+                  Badges: erlaubte Mail-Server und Einträge aus dem SPF-Record. Erlaubte ohne SPF
+                  sind kritisch. +/− pflegt die Konto-Liste.
+                </p>
+              </div>
+              <div class="table-scroll">
+                <table class="ip-enriched">
+                  <thead>
+                    <tr>
+                      <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
+                      <th data-i18n="table.msgs">Msgs</th>
+                      <th data-i18n="table.passPct">Pass %</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-ips">
+                    <tr class="empty">
+                      <td colspan="4" data-i18n="table.noDataYet">Noch keine Daten</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div class="table-card">
-            <h2 data-i18n="table.ips">Quellen (IP)</h2>
-            <div class="table-scroll">
-              <table class="ip-enriched">
-                <thead>
-                  <tr>
-                    <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
-                    <th data-i18n="table.msgs">Msgs</th>
-                    <th data-i18n="table.passPct">Pass %</th>
-                  </tr>
-                </thead>
-                <tbody id="table-ips">
-                  <tr class="empty">
-                    <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="tables-side">
+            <div class="table-card">
+              <h2 data-i18n="table.orgs">Reporting-Organisationen</h2>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th data-i18n="table.org">Org</th>
+                      <th data-i18n="table.msgs">Msgs</th>
+                      <th data-i18n="table.passPct">Pass %</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-orgs">
+                    <tr class="empty">
+                      <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-          <div class="table-card">
-            <h2 data-i18n="table.from">From-Domains</h2>
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th data-i18n="table.domain">Domain</th>
-                    <th data-i18n="table.msgs">Msgs</th>
-                    <th data-i18n="table.passPct">Pass %</th>
-                  </tr>
-                </thead>
-                <tbody id="table-from">
-                  <tr class="empty">
-                    <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="table-card">
+              <h2 data-i18n="table.from">From-Domains</h2>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th data-i18n="table.domain">Domain</th>
+                      <th data-i18n="table.msgs">Msgs</th>
+                      <th data-i18n="table.passPct">Pass %</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-from">
+                    <tr class="empty">
+                      <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -453,7 +513,7 @@
             aria-controls="tab-account"
             data-i18n="settings.tabAccount"
           >
-            IMAP-Konto
+            Konto-Verwaltung
           </button>
           <button
             type="button"
@@ -505,190 +565,265 @@
               </button>
             </div>
 
-            <fieldset class="settings-group">
-              <legend data-i18n="settings.connection">Verbindung</legend>
-              <div class="settings-grid">
-                <label class="span-2">
-                  <span data-i18n="settings.accountName">Bezeichnung</span>
-                  <input
-                    id="accountName"
-                    name="accountName"
-                    type="text"
-                    data-i18n-title="settings.accountNameTitle"
-                    title="Leer lassen = Domain aus der E-Mail-Adresse"
-                  />
-                </label>
-                <p class="hint span-2" data-i18n="settings.accountNameHint">
-                  Leer lassen, um die Domain der E-Mail-Adresse als Bezeichnung zu verwenden
-                  (z.&nbsp;B. codemacher.de).
-                </p>
-
-                <label>
-                  <span data-i18n="settings.provider">Anbieter</span>
-                  <select id="provider" name="provider">
-                    <option value="gmail" data-i18n="settings.providerGmail">Gmail</option>
-                    <option value="outlook" data-i18n="settings.providerOutlook">
-                      Outlook / Microsoft 365
-                    </option>
-                    <option value="custom" selected data-i18n="settings.providerCustom">
-                      Custom IMAP
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.authMode">Anmeldung</span>
-                  <select id="authMode" name="authMode">
-                    <option value="password" selected data-i18n="settings.authPassword">
-                      Passwort / App-Passwort
-                    </option>
-                    <option value="oauth" data-i18n="settings.authOAuth">
-                      OAuth (Gmail / Microsoft 365)
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.host">Host</span>
-                  <input id="host" name="host" type="text" placeholder="imap.example.com" />
-                </label>
-
-                <label>
-                  <span data-i18n="settings.port">Port</span>
-                  <input id="port" name="port" type="number" min="1" max="65535" value="993" />
-                </label>
-
-                <label class="checkbox">
-                  <input id="secure" name="secure" type="checkbox" checked />
-                  <span data-i18n="settings.tls">TLS / SSL</span>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.user">Benutzer</span>
-                  <input id="user" name="user" type="email" autocomplete="username" />
-                </label>
-
-                <label id="password-field">
-                  <span data-i18n="settings.password">Passwort / App-Passwort</span>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autocomplete="current-password"
-                    data-i18n-placeholder="settings.passwordPlaceholder"
-                    placeholder="Leer lassen, wenn gespeichert"
-                  />
-                </label>
-
-                <div id="oauth-actions" class="span-2 account-actions hidden">
-                  <button
-                    type="button"
-                    id="btn-oauth-login"
-                    class="btn secondary"
-                    data-i18n="settings.oauthLogin"
-                  >
-                    Mit Anbieter anmelden…
-                  </button>
-                  <button
-                    type="button"
-                    id="btn-oauth-disconnect"
-                    class="btn secondary"
-                    data-i18n="settings.oauthDisconnect"
-                  >
-                    OAuth trennen
-                  </button>
-                </div>
-              </div>
-              <p id="password-hint" class="hint"></p>
-              <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
-                OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
-              </p>
-            </fieldset>
-
-            <fieldset class="settings-group">
-              <legend data-i18n="settings.mailboxFetch">Abruf aus diesem Postfach</legend>
-              <div class="settings-grid">
-                <label>
-                  <span data-i18n="settings.mailbox">Ordner</span>
-                  <div class="mailbox-combo">
-                    <input
-                      id="mailbox"
-                      name="mailbox"
-                      type="text"
-                      value="INBOX"
-                      autocomplete="off"
-                      spellcheck="false"
-                    />
-                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
-                  </div>
-                </label>
-
-                <label>
-                  <span data-i18n="settings.archiveMailbox">Nach Abruf verschieben nach</span>
-                  <div class="mailbox-combo">
-                    <input
-                      id="archiveMailbox"
-                      name="archiveMailbox"
-                      type="text"
-                      value=""
-                      autocomplete="off"
-                      spellcheck="false"
-                      data-i18n-placeholder="settings.archiveMailboxPlaceholder"
-                      placeholder="Leer = nicht verschieben"
-                    />
-                    <button
-                      type="button"
-                      id="btn-clear-archive-mailbox"
-                      class="mailbox-clear"
-                      hidden
-                      data-i18n-aria="settings.clearArchiveMailbox"
-                      aria-label="Archiv-Ordner leeren"
-                    >
-                      ✕
-                    </button>
-                    <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
-                  </div>
-                </label>
-
-                <p class="hint span-2" data-i18n="settings.archiveMailboxHint">
-                  Neue DMARC-Mails werden aus dem Abruf-Ordner (z. B. INBOX) gelesen und danach in
-                  diesen Ordner verschoben. Der Archiv-Ordner wird zusätzlich nach vorhandenen
-                  Reports durchsucht.
-                </p>
-
-                <label>
-                  <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
-                  <input
-                    id="subjectFilter"
-                    name="subjectFilter"
-                    type="text"
-                    value="Report Domain"
-                    data-i18n-placeholder="settings.subjectPlaceholder"
-                    placeholder="Leer = alle Nachrichten"
-                  />
-                </label>
-
-                <label class="checkbox span-2">
-                  <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
-                  <span data-i18n="settings.markSeen"
-                    >Nachrichten nach Abruf als gelesen markieren</span
-                  >
-                </label>
-              </div>
-            </fieldset>
-
-            <div class="account-actions">
-              <button type="button" id="btn-test" class="btn secondary" data-i18n="settings.test">
-                Verbindung testen
+            <nav
+              class="subtab-bar"
+              role="tablist"
+              data-i18n-aria="settings.accountSubtabs"
+              aria-label="Konto-Bereiche"
+            >
+              <button
+                type="button"
+                id="subtab-btn-setup"
+                class="subtab active"
+                role="tab"
+                aria-selected="true"
+                aria-controls="account-subtab-setup"
+                data-i18n="settings.accountSubtabSetup"
+              >
+                Zugang einrichten
               </button>
               <button
                 type="button"
-                id="btn-clear-cache"
-                class="btn secondary"
-                data-i18n="settings.clearCache"
+                id="subtab-btn-options"
+                class="subtab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="account-subtab-options"
+                data-i18n="settings.accountSubtabOptions"
               >
-                Cache dieses Kontos leeren
+                Weitere Einstellungen
               </button>
+            </nav>
+
+            <div id="account-subtab-setup" class="account-subpanel" role="tabpanel">
+              <p class="hint account-setup-intro" data-i18n="settings.accountSetupHint">
+                Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die
+                Verbindung testen.
+              </p>
+
+              <fieldset class="settings-group">
+                <legend data-i18n="settings.connection">Zugang</legend>
+                <div class="settings-grid">
+                  <label class="span-2">
+                    <span data-i18n="settings.accountName">Bezeichnung</span>
+                    <input
+                      id="accountName"
+                      name="accountName"
+                      type="text"
+                      data-i18n-title="settings.accountNameTitle"
+                      title="Leer lassen = Domain aus der E-Mail-Adresse"
+                    />
+                  </label>
+                  <p class="hint span-2" data-i18n="settings.accountNameHint">
+                    Leer lassen, um die Domain der E-Mail-Adresse als Bezeichnung zu verwenden
+                    (z.&nbsp;B. codemacher.de).
+                  </p>
+
+                  <label>
+                    <span data-i18n="settings.provider">Anbieter</span>
+                    <select id="provider" name="provider">
+                      <option value="gmail" data-i18n="settings.providerGmail">Gmail</option>
+                      <option value="outlook" data-i18n="settings.providerOutlook">
+                        Outlook / Microsoft 365
+                      </option>
+                      <option value="custom" selected data-i18n="settings.providerCustom">
+                        Eigenes IMAP
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.authMode">Anmeldung</span>
+                    <select id="authMode" name="authMode">
+                      <option value="password" selected data-i18n="settings.authPassword">
+                        Passwort / App-Passwort
+                      </option>
+                      <option value="oauth" data-i18n="settings.authOAuth">
+                        OAuth (Gmail / Microsoft 365)
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.host">Host</span>
+                    <input id="host" name="host" type="text" placeholder="imap.example.com" />
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.port">Port</span>
+                    <input id="port" name="port" type="number" min="1" max="65535" value="993" />
+                  </label>
+
+                  <label class="checkbox">
+                    <input id="secure" name="secure" type="checkbox" checked />
+                    <span data-i18n="settings.tls">TLS / SSL</span>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.user">Benutzer</span>
+                    <input id="user" name="user" type="email" autocomplete="username" />
+                  </label>
+
+                  <label id="password-field">
+                    <span data-i18n="settings.password">Passwort / App-Passwort</span>
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autocomplete="current-password"
+                      data-i18n-placeholder="settings.passwordPlaceholder"
+                      placeholder="Leer lassen, wenn gespeichert"
+                    />
+                  </label>
+
+                  <div id="oauth-actions" class="span-2 account-actions hidden">
+                    <button
+                      type="button"
+                      id="btn-oauth-login"
+                      class="btn secondary"
+                      data-i18n="settings.oauthLogin"
+                    >
+                      Mit Anbieter anmelden…
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-oauth-disconnect"
+                      class="btn secondary"
+                      data-i18n="settings.oauthDisconnect"
+                    >
+                      OAuth trennen
+                    </button>
+                  </div>
+                </div>
+                <p id="password-hint" class="hint"></p>
+                <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
+                  OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
+                </p>
+              </fieldset>
+
+              <fieldset class="settings-group">
+                <legend data-i18n="settings.mailboxFetch">Abruf aus diesem Postfach</legend>
+                <div class="settings-grid">
+                  <label>
+                    <span data-i18n="settings.mailbox">Ordner</span>
+                    <div class="mailbox-combo">
+                      <input
+                        id="mailbox"
+                        name="mailbox"
+                        type="text"
+                        value="INBOX"
+                        autocomplete="off"
+                        spellcheck="false"
+                      />
+                      <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                    </div>
+                  </label>
+
+                  <label>
+                    <span data-i18n="settings.archiveMailbox">Nach Abruf verschieben nach</span>
+                    <div class="mailbox-combo">
+                      <input
+                        id="archiveMailbox"
+                        name="archiveMailbox"
+                        type="text"
+                        value=""
+                        autocomplete="off"
+                        spellcheck="false"
+                        data-i18n-placeholder="settings.archiveMailboxPlaceholder"
+                        placeholder="Leer = nicht verschieben"
+                      />
+                      <button
+                        type="button"
+                        id="btn-clear-archive-mailbox"
+                        class="mailbox-clear"
+                        hidden
+                        data-i18n-aria="settings.clearArchiveMailbox"
+                        aria-label="Archiv-Ordner leeren"
+                      >
+                        ✕
+                      </button>
+                      <ul class="mailbox-menu" data-mailbox-menu hidden role="listbox"></ul>
+                    </div>
+                  </label>
+
+                  <p class="hint span-2" data-i18n="settings.archiveMailboxHint">
+                    Neue DMARC-Mails werden aus dem Abruf-Ordner (z. B. INBOX) gelesen und danach in
+                    diesen Ordner verschoben. Der Archiv-Ordner wird zusätzlich nach vorhandenen
+                    Reports durchsucht.
+                  </p>
+
+                  <label>
+                    <span data-i18n="settings.subjectFilter">Betreff-Filter</span>
+                    <input
+                      id="subjectFilter"
+                      name="subjectFilter"
+                      type="text"
+                      value="Report Domain"
+                      data-i18n-placeholder="settings.subjectPlaceholder"
+                      placeholder="Leer = alle Nachrichten"
+                    />
+                  </label>
+
+                  <label class="checkbox span-2">
+                    <input id="markSeenAfterFetch" name="markSeenAfterFetch" type="checkbox" />
+                    <span data-i18n="settings.markSeen"
+                      >Nachrichten nach Abruf als gelesen markieren</span
+                    >
+                  </label>
+                </div>
+              </fieldset>
+
+              <div class="account-actions">
+                <button type="button" id="btn-test" class="btn secondary" data-i18n="settings.test">
+                  Verbindung testen
+                </button>
+                <button
+                  type="button"
+                  id="btn-clear-cache"
+                  class="btn secondary"
+                  data-i18n="settings.clearCache"
+                >
+                  Cache dieses Kontos leeren
+                </button>
+              </div>
+            </div>
+
+            <div id="account-subtab-options" class="account-subpanel hidden" role="tabpanel">
+              <p class="hint account-setup-intro" data-i18n="settings.accountOptionsHint">
+                Einstellungen für die Auswertung der Reports dieses Kontos — unabhängig vom
+                Zugangs-Anbieter.
+              </p>
+
+              <fieldset class="settings-group">
+                <legend data-i18n="settings.authorizedSenders">Erlaubte Mail-Server</legend>
+                <label class="stacked">
+                  <textarea
+                    id="authorizedSenders"
+                    name="authorizedSenders"
+                    rows="5"
+                    data-i18n-placeholder="settings.authorizedPlaceholder"
+                    placeholder="Eine IP oder CIDR pro Zeile, z. B. 203.0.113.5 oder 2001:db8:1::/48"
+                  ></textarea>
+                </label>
+                <p class="hint" data-i18n="settings.authorizedHint">
+                  Pro Konto. Wenn gesetzt, bewerten Ampel und Problemquellen vor allem diese Absender
+                  (SPF/DKIM der erlaubten Server). Leer = gesamter Verkehr wie bisher.
+                </p>
+                <div class="inline-actions">
+                  <button
+                    type="button"
+                    id="btn-import-spf"
+                    class="btn secondary"
+                    data-i18n="settings.spfImport"
+                  >
+                    Aus SPF übernehmen
+                  </button>
+                </div>
+                <p class="hint" data-i18n="settings.spfImportHint">
+                  Liest ip4/ip6/include/a/mx aus dem SPF der geladenen Domains (bzw. der Domain im
+                  Filter) und ergänzt die Liste.
+                </p>
+              </fieldset>
             </div>
           </section>
 
@@ -1009,6 +1144,273 @@
           <button type="button" id="btn-export-json" class="btn primary" data-i18n="export.json">
             JSON speichern
           </button>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog id="dns-dialog">
+      <form id="dns-form" class="settings-form dns-form">
+        <header class="dialog-header">
+          <h2 data-i18n="filter.dns">DNS-Check</h2>
+          <button
+            type="button"
+            id="btn-close-dns"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <p class="hint" data-i18n="filter.dnsHint">
+          DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
+        </p>
+        <div class="dns-check-row">
+          <label>
+            <span data-i18n="filter.domain">Domain</span>
+            <input id="dns-domain" type="text" placeholder="example.com" autocomplete="off" />
+          </label>
+          <label class="dns-selectors-field">
+            <span data-i18n="filter.selectors">DKIM-Selektoren</span>
+            <input
+              id="dns-selectors"
+              type="text"
+              data-i18n-placeholder="filter.selectorsPlaceholder"
+              data-i18n-title="filter.selectorsTitle"
+              placeholder="DKIM-Selektoren (auto)"
+              title="Kommagetrennt; leer = automatisch aus den Reports"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <div id="dns-result" class="dns-result muted hidden"></div>
+        <footer class="dialog-actions">
+          <button type="submit" id="btn-dns" class="btn primary" data-i18n="filter.dnsCheck">
+            Prüfen
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="builder-dialog">
+      <div class="settings-form builder-form">
+        <header class="dialog-header">
+          <h2 data-i18n="builder.title">DMARC-Record erzeugen</h2>
+          <button
+            type="button"
+            id="btn-close-builder"
+            class="btn ghost"
+            data-i18n-aria="builder.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+
+        <ol id="builder-steps" class="builder-steps" aria-label="Schritte">
+          <li data-step="domain" class="active">
+            <span class="builder-step-index">1</span>
+            <span data-i18n="builder.step.domain">Domain</span>
+          </li>
+          <li data-step="policy">
+            <span class="builder-step-index">2</span>
+            <span data-i18n="builder.step.policy">Policy</span>
+          </li>
+          <li data-step="reporting">
+            <span class="builder-step-index">3</span>
+            <span data-i18n="builder.step.reporting">Reports</span>
+          </li>
+          <li data-step="result">
+            <span class="builder-step-index">4</span>
+            <span data-i18n="builder.step.result">Ergebnis</span>
+          </li>
+        </ol>
+
+        <div class="dialog-body builder-body">
+          <section id="builder-panel-domain" class="builder-panel" data-step="domain">
+            <h3 data-i18n="builder.domain.headline">Domain festlegen</h3>
+            <p class="hint" data-i18n="builder.domain.body">
+              Für welche Domain soll der DMARC-TXT-Record erzeugt werden? Optional kannst du den
+              aktuellen DNS-Eintrag laden und als Vorlage nutzen.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="builder.domain.label">Domain</span>
+                <input
+                  id="builder-domain"
+                  type="text"
+                  placeholder="example.com"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+            <div class="builder-inline-actions">
+              <button
+                type="button"
+                id="btn-builder-load-dns"
+                class="btn secondary"
+                data-i18n="builder.domain.loadDns"
+              >
+                Aktuellen DNS laden
+              </button>
+            </div>
+            <p id="builder-domain-status" class="builder-status muted" role="status"></p>
+          </section>
+
+          <section id="builder-panel-policy" class="builder-panel hidden" data-step="policy">
+            <h3 data-i18n="builder.policy.headline">Policy wählen</h3>
+            <p class="hint" data-i18n="builder.policy.body">
+              Diese Werte bestimmen, wie streng Empfänger nicht authentifizierte Mail behandeln.
+              Empfohlener Start: p=none, Alignment relaxed, pct=100.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="builder.policy.p">Policy (p=)</span>
+                <select id="builder-policy">
+                  <option value="none" data-i18n="builder.policy.none">
+                    none — nur beobachten
+                  </option>
+                  <option value="quarantine" data-i18n="builder.policy.quarantine">
+                    quarantine — Spam/Junk
+                  </option>
+                  <option value="reject" data-i18n="builder.policy.reject">
+                    reject — ablehnen
+                  </option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.pHint"
+                  >Was Empfänger tun sollen, wenn SPF und DKIM die From-Domain nicht belegen.
+                  none liefert nur Reports; quarantine/reject greifen in die Zustellung ein.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.sp">Subdomains (sp=)</span>
+                <select id="builder-sp">
+                  <option value="same" data-i18n="builder.policy.spSame">wie p=</option>
+                  <option value="none" data-i18n="builder.policy.none">
+                    none — nur beobachten
+                  </option>
+                  <option value="quarantine" data-i18n="builder.policy.quarantine">
+                    quarantine — Spam/Junk
+                  </option>
+                  <option value="reject" data-i18n="builder.policy.reject">
+                    reject — ablehnen
+                  </option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.spHint"
+                  >Eigene Policy für Subdomains (z. B. mail.example.com). „wie p=” übernimmt die
+                  Organisations-Policy.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.pct">Anteil (pct=)</span>
+                <input id="builder-pct" type="number" min="1" max="100" value="100" />
+                <span class="field-hint" data-i18n="builder.policy.pctHint"
+                  >Prozent der Mails, auf die quarantine/reject angewendet wird. Bei 100 (Standard)
+                  gelten sie für alle; niedriger ermöglicht einen schrittweisen Rollout.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.adkim">DKIM-Alignment (adkim=)</span>
+                <select id="builder-adkim">
+                  <option value="r" data-i18n="builder.policy.relaxed">relaxed (r)</option>
+                  <option value="s" data-i18n="builder.policy.strict">strict (s)</option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.adkimHint"
+                  >relaxed: DKIM-Domain darf eine Subdomain der From-Domain sein. strict: Domains
+                  müssen exakt übereinstimmen.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.aspf">SPF-Alignment (aspf=)</span>
+                <select id="builder-aspf">
+                  <option value="r" data-i18n="builder.policy.relaxed">relaxed (r)</option>
+                  <option value="s" data-i18n="builder.policy.strict">strict (s)</option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.aspfHint"
+                  >relaxed: Envelope-From (Return-Path) darf eine Subdomain sein. strict: muss exakt
+                  zur From-Domain passen.</span
+                >
+              </label>
+            </div>
+          </section>
+
+          <section id="builder-panel-reporting" class="builder-panel hidden" data-step="reporting">
+            <h3 data-i18n="builder.reporting.headline">Reporting</h3>
+            <p class="hint" data-i18n="builder.reporting.body">
+              RUA erhält Aggregate-Reports (XML). RUF ist optional für Failure-Reports. Für beide
+              kannst du dieselbe Adresse nutzen (z. B. dmarc@deinedomain).
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="builder.reporting.rua">Aggregate (rua=)</span>
+                <input
+                  id="builder-rua"
+                  type="text"
+                  placeholder="dmarc@example.com"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="builder.reporting.ruaHint"
+                  >E-Mail oder mailto:. Mehrere Adressen kommagetrennt.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.reporting.ruf">Forensik (ruf=, optional)</span>
+                <input
+                  id="builder-ruf"
+                  type="text"
+                  placeholder="dmarc@example.com"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="builder.reporting.rufHint"
+                  >Optional. Oft dieselbe Adresse wie bei rua=.</span
+                >
+              </label>
+            </div>
+            <fieldset class="builder-fo">
+              <legend data-i18n="builder.reporting.fo">Failure options (fo=)</legend>
+              <p class="field-hint" data-i18n="builder.reporting.foHint">
+                Steuert, wann Failure-Reports (RUF) erzeugt werden. Nur relevant, wenn ruf=
+                gesetzt ist.
+              </p>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="0" checked />
+                <span data-i18n="builder.reporting.fo0">0 — alle Fehlschläge</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="1" />
+                <span data-i18n="builder.reporting.fo1">1 — wenn SPF und DKIM failen</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="d" />
+                <span data-i18n="builder.reporting.fod">d — DKIM-Fehler</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="builder-fo" value="s" />
+                <span data-i18n="builder.reporting.fos">s — SPF-Fehler</span>
+              </label>
+            </fieldset>
+          </section>
+
+          <section id="builder-panel-result" class="builder-panel hidden" data-step="result">
+            <h3 data-i18n="builder.result.headline">DNS-Eintrag</h3>
+            <p class="hint" data-i18n="builder.result.body">
+              Lege diesen TXT-Record im DNS deiner Domain an. Host und Wert einzeln kopieren.
+            </p>
+            <div id="builder-result" class="builder-result"></div>
+            <div id="builder-live" class="builder-live muted"></div>
+          </section>
+        </div>
+
+        <footer class="dialog-footer">
+          <p id="builder-footer-hint" class="hint"></p>
+          <div class="dialog-actions">
+            <button type="button" id="btn-builder-back" class="btn ghost" data-i18n="builder.back">
+              Zurück
+            </button>
+            <button type="button" id="btn-builder-next" class="btn primary" data-i18n="builder.next">
+              Weiter
+            </button>
+          </div>
         </footer>
       </div>
     </dialog>

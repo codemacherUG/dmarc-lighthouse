@@ -253,7 +253,8 @@ export function buildDemoSettings(): SettingsPublic {
         subjectFilter: 'Report Domain',
         hasPassword: true,
         hasOAuth: false,
-        markSeenAfterFetch: false
+        markSeenAfterFetch: false,
+        authorizedSenders: ['192.0.2.10/32', '2001:db8:1::/48']
       },
       {
         id: 'demo-account-2',
@@ -271,7 +272,8 @@ export function buildDemoSettings(): SettingsPublic {
         subjectFilter: 'Report Domain',
         hasPassword: false,
         hasOAuth: true,
-        markSeenAfterFetch: false
+        markSeenAfterFetch: false,
+        authorizedSenders: []
       }
     ],
     global: {

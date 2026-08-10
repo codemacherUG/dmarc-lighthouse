@@ -14,6 +14,7 @@ import type {
 import { parseLocalBuffers } from './analyze'
 import { accountKeyFor, clearCache } from './cache'
 import { checkDomainDns } from './dnscheck'
+import { expandSpf } from './spf-expand'
 import { exportReportZip, exportReportsCsv, exportReportsJson } from './export'
 import {
   createMailbox,
@@ -599,6 +600,8 @@ function registerIpc(): void {
   ipcMain.handle('dns:check', async (_event, domain: string, selectors?: string[]) =>
     checkDomainDns(domain, selectors ?? [])
   )
+
+  ipcMain.handle('dns:expandSpf', async (_event, domain: string) => expandSpf(domain ?? ''))
 
   ipcMain.handle('dns:healthBatch', async (_event, reports: ReportRow[]) =>
     buildDomainHealth(Array.isArray(reports) ? reports : [])

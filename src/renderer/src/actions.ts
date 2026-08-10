@@ -11,6 +11,7 @@ import {
   btnFetch,
   btnOpenFiles,
   dnsDomainEl,
+  dnsForm,
   dnsResultEl,
   dnsSelectorsEl,
   dropOverlay,
@@ -28,7 +29,7 @@ import {
   setSwitchActiveAccount
 } from './settings-ui'
 import { clearDrill, state } from './state'
-import { applyView, showResult } from './view'
+import { applyView, clearSpfMarks, showResult } from './view'
 
 /** Copy the active account's domain into the DNS-check field after a switch. */
 function syncDnsDomainFromAccount(): void {
@@ -46,6 +47,7 @@ export async function switchActiveAccount(id: string): Promise<void> {
   state.selectedReportId = null
   clearDrill()
   state.fullResult = null
+  clearSpfMarks()
   const cached = await window.api.loadCache(id)
   if (cached && cached.reports.length > 0) {
     showResult(cached, t('status.cached', { count: cached.aggregate.reportCount }))
@@ -161,7 +163,7 @@ export function initActions(): void {
     }
   })
 
-  btnDns.addEventListener('click', async () => {
+  const runDnsCheck = async (): Promise<void> => {
     const domain = dnsDomainEl.value.trim() || filterDomainEl.value
     if (!domain) {
       dnsResultEl.textContent = t('dns.needDomain')
@@ -174,6 +176,7 @@ export function initActions(): void {
       .filter(Boolean)
     const selectors = manualSelectors.length > 0 ? manualSelectors : collectDkimSelectors(domain)
 
+    btnDns.disabled = true
     dnsResultEl.textContent = t('dns.checking', { domain })
     dnsResultEl.className = 'dns-result'
     try {
@@ -211,7 +214,14 @@ export function initActions(): void {
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)
       dnsResultEl.className = 'dns-result error'
+    } finally {
+      btnDns.disabled = false
     }
+  }
+
+  dnsForm.addEventListener('submit', (event) => {
+    event.preventDefault()
+    void runDnsCheck()
   })
 
   // Drag & Drop

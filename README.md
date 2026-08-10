@@ -70,7 +70,7 @@ Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
 
 Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, and UI language:
 
-![Settings dialog with IMAP configuration](docs/screenshots/settings.png)
+![Settings dialog with account management](docs/screenshots/settings.png)
 
 ---
 
@@ -137,13 +137,13 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
    - Google Cloud Console → OAuth client type “Desktop”
    - Microsoft Entra ID → App registration → public client, redirect URI `http://127.0.0.1:17893/oauth/callback`
 2. Paste the client IDs under **Settings → Fetch & notifications**, or set `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID`.
-3. On the IMAP account, choose **OAuth**, save the account, then **Sign in with provider**.
+3. Under **Accounts** → **Set up access**, choose **OAuth**, save the account, then **Sign in with provider**.
 
 ---
 
 ## Usage
 
-1. Open **Settings** → **IMAP account**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
+1. Open **Settings** → **Accounts**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure OAuth client IDs, auto-fetch, alerts, system tray, autostart, and language. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
 4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide Google noise** to drop Google report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
@@ -236,7 +236,7 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.7` or start th
 - Forensic/RUF rows show sanitized headers only — message bodies are never stored or displayed.
 - Messages without a valid DMARC attachment are skipped and counted.
 - Settings and report caches live under the Electron `userData` path (not in the repo); each IMAP account has its own cache.
-- Clear cache: Settings → IMAP account → **Clear this account’s cache** (the next fetch will retrieve everything again for that account).
+- Clear cache: Settings → Accounts → **Clear this account’s cache** (the next fetch will retrieve everything again for that account).
 - Optionally, fetched messages can be marked as read (`\Seen`) and/or moved to an archive folder after import.
 - With system tray enabled, closing the window hides the app instead of quitting — use **Quit** from the tray menu to exit fully. The tray icon shows a marker when new reports arrived while the window was hidden; opening the window clears it.
 - Existing single-account settings from older versions are migrated automatically to the multi-account format.

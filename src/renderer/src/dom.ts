@@ -29,6 +29,9 @@ export const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputEle
 export const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLInputElement
 export const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
+export const tableProblemSources = document.getElementById(
+  'table-problem-sources'
+) as HTMLTableSectionElement
 export const ipMapEl = document.getElementById('ip-map') as HTMLDivElement
 export const ipMapEmptyEl = document.getElementById('ip-map-empty') as HTMLParagraphElement
 export const ipDetailDialog = document.getElementById('ip-detail-dialog') as HTMLDialogElement
@@ -37,15 +40,24 @@ export const btnCloseIpDetail = document.getElementById('btn-close-ip-detail') a
 export const btnIpRdap = document.getElementById('btn-ip-rdap') as HTMLButtonElement
 export const btnIpFilter = document.getElementById('btn-ip-filter') as HTMLButtonElement
 
+export const navDashboard = document.getElementById('nav-dashboard') as HTMLButtonElement
+export const navTools = document.getElementById('nav-tools') as HTMLButtonElement
+export const toolsMenu = document.getElementById('tools-menu') as HTMLDivElement
+export const navDns = document.getElementById('nav-dns') as HTMLButtonElement
 export const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
+export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonElement
 export const btnInfo = document.getElementById('btn-info') as HTMLButtonElement
 export const btnFetch = document.getElementById('btn-fetch') as HTMLButtonElement
 export const btnOpenFiles = document.getElementById('btn-open-files') as HTMLButtonElement
 export const btnExport = document.getElementById('btn-export') as HTMLButtonElement
 export const btnDns = document.getElementById('btn-dns') as HTMLButtonElement
+export const btnCloseDns = document.getElementById('btn-close-dns') as HTMLButtonElement
 export const settingsDialog = document.getElementById('settings-dialog') as HTMLDialogElement
+export const builderDialog = document.getElementById('builder-dialog') as HTMLDialogElement
 export const infoDialog = document.getElementById('info-dialog') as HTMLDialogElement
 export const exportDialog = document.getElementById('export-dialog') as HTMLDialogElement
+export const dnsDialog = document.getElementById('dns-dialog') as HTMLDialogElement
+export const dnsForm = document.getElementById('dns-form') as HTMLFormElement
 export const createMailboxDialog = document.getElementById(
   'create-mailbox-dialog'
 ) as HTMLDialogElement
@@ -66,6 +78,7 @@ export const btnConfirmCreateMailbox = document.getElementById(
 ) as HTMLButtonElement
 export const settingsForm = document.getElementById('settings-form') as HTMLFormElement
 export const btnCloseSettings = document.getElementById('btn-close-settings') as HTMLButtonElement
+export const btnCloseBuilder = document.getElementById('btn-close-builder') as HTMLButtonElement
 export const btnCloseInfo = document.getElementById('btn-close-info') as HTMLButtonElement
 export const btnCloseExport = document.getElementById('btn-close-export') as HTMLButtonElement
 export const btnInfoOk = document.getElementById('btn-info-ok') as HTMLButtonElement
@@ -97,6 +110,12 @@ export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
+export const subtabBtnSetup = document.getElementById('subtab-btn-setup') as HTMLButtonElement
+export const subtabBtnOptions = document.getElementById('subtab-btn-options') as HTMLButtonElement
+export const accountSubtabSetupEl = document.getElementById('account-subtab-setup') as HTMLElement
+export const accountSubtabOptionsEl = document.getElementById(
+  'account-subtab-options'
+) as HTMLElement
 
 export const providerEl = document.getElementById('provider') as HTMLSelectElement
 export const authModeEl = document.getElementById('authMode') as HTMLSelectElement
@@ -131,6 +150,10 @@ export const passRateAlertThresholdEl = document.getElementById(
   'passRateAlertThreshold'
 ) as HTMLInputElement
 export const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
+export const authorizedSendersEl = document.getElementById(
+  'authorizedSenders'
+) as HTMLTextAreaElement
+export const btnImportSpf = document.getElementById('btn-import-spf') as HTMLButtonElement
 export const languageEl = document.getElementById('language') as HTMLSelectElement
 export const oauthGoogleClientIdEl = document.getElementById(
   'oauthGoogleClientId'
@@ -153,3 +176,26 @@ export const btnDownloadGeolite = document.getElementById(
 ) as HTMLButtonElement
 export const geoliteStatusEl = document.getElementById('geolite-status') as HTMLSpanElement
 export const forensicBody = document.getElementById('forensic-body') as HTMLTableSectionElement
+
+export const builderStepsEl = document.getElementById('builder-steps') as HTMLOListElement
+export const builderDomainEl = document.getElementById('builder-domain') as HTMLInputElement
+export const builderDomainStatusEl = document.getElementById(
+  'builder-domain-status'
+) as HTMLParagraphElement
+export const builderPolicyEl = document.getElementById('builder-policy') as HTMLSelectElement
+export const builderSpEl = document.getElementById('builder-sp') as HTMLSelectElement
+export const builderPctEl = document.getElementById('builder-pct') as HTMLInputElement
+export const builderAdkimEl = document.getElementById('builder-adkim') as HTMLSelectElement
+export const builderAspfEl = document.getElementById('builder-aspf') as HTMLSelectElement
+export const builderRuaEl = document.getElementById('builder-rua') as HTMLInputElement
+export const builderRufEl = document.getElementById('builder-ruf') as HTMLInputElement
+export const builderResultEl = document.getElementById('builder-result') as HTMLDivElement
+export const builderLiveEl = document.getElementById('builder-live') as HTMLDivElement
+export const builderFooterHintEl = document.getElementById(
+  'builder-footer-hint'
+) as HTMLParagraphElement
+export const btnBuilderBack = document.getElementById('btn-builder-back') as HTMLButtonElement
+export const btnBuilderNext = document.getElementById('btn-builder-next') as HTMLButtonElement
+export const btnBuilderLoadDns = document.getElementById(
+  'btn-builder-load-dns'
+) as HTMLButtonElement

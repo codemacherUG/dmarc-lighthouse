@@ -6,9 +6,11 @@ import { installScreenshotApi } from './screenshots'
 import { initSettingsUi, loadSettings, refreshSettingsLocale } from './settings-ui'
 import { state } from './state'
 import { applyView, initView, showResult } from './view'
+import { initWizardUi, refreshBuilderLocale } from './wizard-ui'
 
 setAfterLocaleChange(() => {
   refreshSettingsLocale()
+  refreshBuilderLocale()
   if (state.fullResult) {
     showResult(state.fullResult)
   } else {
@@ -19,6 +21,7 @@ setAfterLocaleChange(() => {
 initChrome()
 initView()
 initSettingsUi()
+initWizardUi()
 initActions()
 installScreenshotApi()
 
