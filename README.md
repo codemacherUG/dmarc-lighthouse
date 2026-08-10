@@ -225,17 +225,15 @@ Binaries are fetched from GitHub Releases; before install the app also requires 
 
 Release CI signs the manifest with secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8 PEM). Publish `{version}.json` and `{version}.json.sig` to that URL path.
 
-Full release (tag → GitHub Actions → manifest deploy):
+Full release (one step: tag → CI → manifest on codemacher.de):
 
 ```bash
 cp scripts/update-keys.sh.template scripts/update-keys.sh   # once, gitignored
 # fill deploy env in update-keys.sh
-npm run release                 # current package.json version
-# npm run release -- --bump patch
-# npm run release -- --deploy-only
+npm run release
 ```
 
-Deploy manifests only: `bash scripts/update-keys.sh`. CI can also deploy via `UPDATE_MANIFEST_DEPLOY_*` secrets. Keygen: `npm run update:keys` — paste the public key into `src/main/update-trust.ts`.
+`update-keys.sh` only holds SSH/path credentials; `scripts/release.sh` does the rest. Optional CI deploy via `UPDATE_MANIFEST_DEPLOY_*` secrets. Keygen: `npm run update:keys` → public key in `src/main/update-trust.ts`.
 
 ### Stack
 

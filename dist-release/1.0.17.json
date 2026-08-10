@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "product": "dmarc-lighthouse",
+  "version": "1.0.17",
+  "files": [
+    {
+      "name": "dmarc-lighthouse-1.0.17-linux.AppImage",
+      "sha512": "d8357ic+QhSzto+iCyWp3YLSF4oa+pkKe1GM8ahmnLVmtccQ5c6IsVaDoaCAKOt1awrdfmdQlqKJTleWVf8d+g=="
+    },
+    {
+      "name": "dmarc-lighthouse-1.0.17-linux.deb",
+      "sha512": "l9e41YWSyIBAO7OjEv9K6Di/hELANrHFb3DpT//mv4c+LUt2CUbgIlxUiYDm0rpa3Pqj0xggxjfFGDkvKGEhgg=="
+    },
+    {
+      "name": "dmarc-lighthouse-1.0.17-mac-arm64.dmg",
+      "sha512": "kY8gJq4vwQ64al8CfVkN1i3H4I/15uiywoEVcmi6c8fXDi283R1QvOHl/lGXEPAqZJ1Y47jib+EjU56jcH9v/g=="
+    },
+    {
+      "name": "dmarc-lighthouse-1.0.17-mac-arm64.zip",
+      "sha512": "DILilGMzPWgxAMhwGXsg92AbYfXjWXsww/sYSAkDXr+aejKPVeK6SrayLMV5sDnis+ot8ofUj40koyJjiZonag=="
+    },
+    {
+      "name": "dmarc-lighthouse-1.0.17-mac-x64.dmg",
+      "sha512": "GZiBbGeY78MHV7q4VJQWW/3j1Z5OWhTKqalXaTEFHYBTXzjRO7oXwp/0DaNtTMZWQXKxY0dMh2V/ZHKqRUvTbA=="
+    },
+    {
+      "name": "dmarc-lighthouse-1.0.17-mac-x64.zip",
+      "sha512": "TibXiyi+B2gmclcG+5FPqwhRQFhLSEjnTPjAzou//zA1Qu+zAoB4gxOnJ0artr8LWQdjwP+PI4evUtpe4cHweA=="
+    },
+    {
+      "name": "dmarc-lighthouse-1.0.17-win-portable.exe",
+      "sha512": "d9s7Sg93nGUMWz1XDnMd63oUEofRs/wgp2JXPSYZrtS9Z0yoUmoVKangyq04DiBeNt70eSrFFeY5kbe6vVis6A=="
+    },
+    {
+      "name": "dmarc-lighthouse-1.0.17-win-setup.exe",
+      "sha512": "foyYovZ/vsXRo+Df2BJm1KvMc23k1PwKEg/r7wVY8VVi0m1euiA9GWS0PbRwaClTcJX20EKP3r9y8elmkln0cg=="
+    }
+  ]
+}

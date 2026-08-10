@@ -225,17 +225,15 @@ Binaries kommen von GitHub Releases; vor der Installation verlangt die App zusä
 
 Das Release-CI signiert mit Secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8-PEM). Die Dateien `{version}.json` und `{version}.json.sig` müssen unter diesem Pfad liegen.
 
-Komplett-Release (Tag → GitHub Actions → Manifest-Deploy):
+Komplett-Release (ein Schritt: Tag → CI → Manifest auf codemacher.de):
 
 ```bash
 cp scripts/update-keys.sh.template scripts/update-keys.sh   # einmalig, gitignored
 # Deploy-Env in update-keys.sh eintragen
-npm run release                 # aktuelle package.json-Version
-# npm run release -- --bump patch
-# npm run release -- --deploy-only
+npm run release
 ```
 
-Nur Manifest deployen: `bash scripts/update-keys.sh`. CI kann optional ebenfalls über Secrets `UPDATE_MANIFEST_DEPLOY_*` deployen. Schlüssel erzeugen: `npm run update:keys` — Public Key in `src/main/update-trust.ts`.
+`update-keys.sh` liefert nur die SSH-/Pfad-Daten; alles andere macht `scripts/release.sh`. Optional: CI-Deploy über Secrets `UPDATE_MANIFEST_DEPLOY_*`. Schlüssel: `npm run update:keys` → Public Key in `src/main/update-trust.ts`.
 
 ### Technik
 

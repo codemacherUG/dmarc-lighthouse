@@ -8,16 +8,18 @@
 #   - scripts/update-keys.sh present (from update-keys.sh.template)
 #   - GitHub secret UPDATE_SIGNING_PRIVATE_KEY (CI signs) OR local keys/ + UPDATE_SIGNING_PRIVATE_KEY_FILE
 #
-# Usage:
-#   ./scripts/release.sh                  # tag → CI → deploy (auto-bump if version already released)
-#   ./scripts/release.sh 1.0.17           # require package.json version == 1.0.17
+# Single entry point — normally just:
+#   npm run release
+#
+# That will: bump if needed → tag → wait for GitHub Actions → download signed
+# manifests → deploy to codemacher.de (via scripts/update-keys.sh env).
+#
+# Options:
+#   ./scripts/release.sh 1.0.18           # require package.json version == 1.0.18
 #   ./scripts/release.sh --bump patch     # force version bump, then release
 #   ./scripts/release.sh --dry-run
-#   ./scripts/release.sh --no-deploy      # only GitHub release
-#   ./scripts/release.sh --deploy-only    # skip tag/CI; deploy existing dist-release or download
-#
-# Handles stale local tags (move to HEAD if not on origin) and already-used
-# versions (auto patch bump unless an explicit version was passed).
+#   ./scripts/release.sh --no-deploy      # GitHub release only (no trust-host upload)
+#   ./scripts/release.sh --deploy-only    # only fetch manifests + deploy (no new tag)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -106,19 +108,22 @@ remote_tag_commit() {
   printf '%s' "$sha"
 }
 
-# If package.json version is already released on origin (and not HEAD), bump patch.
+# Sets REUSE_REMOTE_RELEASE=1 when tag is already on origin at HEAD (deploy only).
+# Otherwise bumps patch when that version was already shipped from another commit.
 ensure_releasable_version() {
   local ver tag remote_sha head
   ver="$(pkg_version)"
   tag="v${ver}"
   head="$(git rev-parse HEAD)"
   remote_sha="$(remote_tag_commit "$tag")"
+  REUSE_REMOTE_RELEASE=0
 
   if [[ -z "$remote_sha" ]]; then
     return
   fi
   if [[ "$remote_sha" == "$head" ]]; then
-    info "Tag $tag already on origin at HEAD — will re-use release"
+    info "Tag $tag already on origin at HEAD — skip CI, only deploy manifests"
+    REUSE_REMOTE_RELEASE=1
     return
   fi
   if [[ -n "$VERSION_ARG" ]]; then
@@ -213,17 +218,34 @@ wait_for_release_workflow() {
   gh run watch "$run_id" --exit-status
 }
 
-download_release_assets() {
+# Only the signed manifest pair (not the multi‑100 MB installers).
+download_manifest_assets() {
   local tag="$1"
-  info "Downloading release assets → $DIST_DIR"
+  local ver="${tag#v}"
+  info "Downloading signed manifests → $DIST_DIR"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "dry-run: gh release download $tag --dir $DIST_DIR"
+    echo "dry-run: gh release download $tag --pattern ${ver}.json[.sig]"
     return
   fi
-  rm -rf "$DIST_DIR"
   mkdir -p "$DIST_DIR"
-  gh release download "$tag" --dir "$DIST_DIR"
-  ls -lah "$DIST_DIR"
+  gh release download "$tag" --dir "$DIST_DIR" --clobber \
+    --pattern "${ver}.json" \
+    --pattern "${ver}.json.sig"
+  ls -lah "$DIST_DIR/${ver}.json" "$DIST_DIR/${ver}.json.sig"
+}
+
+finish_deploy() {
+  local ver="$1"
+  local tag="v${ver}"
+  if [[ ! -f "$DIST_DIR/${ver}.json" || ! -f "$DIST_DIR/${ver}.json.sig" ]]; then
+    download_manifest_assets "$tag"
+  fi
+  ensure_signed_manifest "$ver"
+  if [[ "$NO_DEPLOY" -eq 1 ]]; then
+    info "Skipping deploy (--no-deploy). Manifests in $DIST_DIR"
+    return
+  fi
+  deploy_manifest "$ver"
 }
 
 ensure_signed_manifest() {
@@ -261,22 +283,22 @@ deploy_manifest() {
 
 # --- main ---
 
-if [[ "$DEPLOY_ONLY" -eq 1 ]]; then
-  require_keys_sh
-  VER="$(pkg_version)"
-  [[ -z "$VERSION_ARG" ]] || VER="$VERSION_ARG"
-  if [[ ! -f "$DIST_DIR/${VER}.json" ]]; then
-    command -v gh >/dev/null || die "gh CLI required to download release"
-    download_release_assets "v${VER}"
-  fi
-  ensure_signed_manifest "$VER"
-  deploy_manifest "$VER"
-  info "Done (deploy-only)."
-  exit 0
-fi
+REUSE_REMOTE_RELEASE=0
 
 command -v gh >/dev/null || die "gh CLI is required (https://cli.github.com/)"
 command -v git >/dev/null || die "git is required"
+
+if [[ "$DEPLOY_ONLY" -eq 1 ]]; then
+  [[ "$NO_DEPLOY" -eq 1 ]] && die "--deploy-only and --no-deploy cannot be combined"
+  require_keys_sh
+  VER="$(pkg_version)"
+  [[ -z "$VERSION_ARG" ]] || VER="$VERSION_ARG"
+  info "Deploy-only for v${VER}"
+  finish_deploy "$VER"
+  info "Done (deploy-only)."
+  echo "  Manifest: https://codemacher.de/dmarc-lighthouse/updates/${VER}.json"
+  exit 0
+fi
 
 ensure_clean_git
 [[ "$NO_DEPLOY" -eq 1 ]] || require_keys_sh
@@ -292,20 +314,17 @@ if [[ -n "$VERSION_ARG" && "$VERSION_ARG" != "$VER" ]]; then
   die "package.json version is $VER, but you passed $VERSION_ARG (bump first or pass --bump)"
 fi
 
-# Bump may have created a commit — tree should still be clean.
 ensure_clean_git
 
 TAG="v${VER}"
 info "Releasing $TAG (package.json $VER)"
 
-create_and_push_tag "$VER"
-wait_for_release_workflow "$TAG"
-download_release_assets "$TAG"
-ensure_signed_manifest "$VER"
-if [[ "$NO_DEPLOY" -eq 1 ]]; then
-  info "Skipping deploy (--no-deploy). Manifests in $DIST_DIR"
+if [[ "$REUSE_REMOTE_RELEASE" -eq 1 ]]; then
+  finish_deploy "$VER"
 else
-  deploy_manifest "$VER"
+  create_and_push_tag "$VER"
+  wait_for_release_workflow "$TAG"
+  finish_deploy "$VER"
 fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
