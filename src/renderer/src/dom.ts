@@ -37,6 +37,10 @@ export const btnCloseIpDetail = document.getElementById('btn-close-ip-detail') a
 export const btnIpRdap = document.getElementById('btn-ip-rdap') as HTMLButtonElement
 export const btnIpFilter = document.getElementById('btn-ip-filter') as HTMLButtonElement
 
+export const navDashboard = document.getElementById('nav-dashboard') as HTMLButtonElement
+export const navTools = document.getElementById('nav-tools') as HTMLButtonElement
+export const toolsMenu = document.getElementById('tools-menu') as HTMLDivElement
+export const navDns = document.getElementById('nav-dns') as HTMLButtonElement
 export const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
 export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonElement
 export const btnInfo = document.getElementById('btn-info') as HTMLButtonElement
@@ -44,10 +48,13 @@ export const btnFetch = document.getElementById('btn-fetch') as HTMLButtonElemen
 export const btnOpenFiles = document.getElementById('btn-open-files') as HTMLButtonElement
 export const btnExport = document.getElementById('btn-export') as HTMLButtonElement
 export const btnDns = document.getElementById('btn-dns') as HTMLButtonElement
+export const btnCloseDns = document.getElementById('btn-close-dns') as HTMLButtonElement
 export const settingsDialog = document.getElementById('settings-dialog') as HTMLDialogElement
 export const builderDialog = document.getElementById('builder-dialog') as HTMLDialogElement
 export const infoDialog = document.getElementById('info-dialog') as HTMLDialogElement
 export const exportDialog = document.getElementById('export-dialog') as HTMLDialogElement
+export const dnsDialog = document.getElementById('dns-dialog') as HTMLDialogElement
+export const dnsForm = document.getElementById('dns-form') as HTMLFormElement
 export const createMailboxDialog = document.getElementById(
   'create-mailbox-dialog'
 ) as HTMLDialogElement

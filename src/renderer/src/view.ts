@@ -1,9 +1,11 @@
 import {
   applyDashboardFilter,
   buildDomainStats,
+  DOMAIN_HEALTH_WINDOW_DAYS,
   isGoogleIpInfo,
   isGoogleNoiseAuthPattern,
-  mergeDomainHealth
+  mergeDomainHealth,
+  reportsForDomainHealth
 } from '../../shared/analyze'
 import { t, type MessageKey } from '../../shared/i18n'
 import type {
@@ -180,6 +182,7 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
           <span>${escapeHtml(statusLabel)}</span>
           <span>${escapeHtml(t('health.passRate', { rate: h.passRate.toFixed(1) }))}</span>
           <span>${escapeHtml(t('health.msgs', { count: String(h.total) }))}</span>
+          <span>${escapeHtml(t('health.window', { days: String(DOMAIN_HEALTH_WINDOW_DAYS) }))}</span>
           <span>${policy}</span>
         </div>
         ${reasons ? `<div class="ampel-reasons">${escapeHtml(reasons)}</div>` : ''}
@@ -205,30 +208,52 @@ function selectDomainFilter(domain: string): void {
 }
 
 function domainHealthFallback(reports: ReportRow[]): DomainHealth[] {
-  return buildDomainStats(reports).map((stats) => mergeDomainHealth(stats, null))
+  return buildDomainStats(reportsForDomainHealth(reports)).map((stats) =>
+    mergeDomainHealth(stats, null)
+  )
 }
 
-/** Immediate Ampel numbers from filtered reports; keep prior DNS/status until batch returns. */
+/** Immediate Ampel numbers from the 14-day window; keep prior DNS/status until batch returns. */
 function domainHealthQuickStats(reports: ReportRow[]): DomainHealth[] {
   const prevByDomain = new Map(state.domainHealthCache.map((h) => [h.domain, h]))
-  return buildDomainStats(reports).map((stats) => {
+  return buildDomainStats(reportsForDomainHealth(reports)).map((stats) => {
     const prev = prevByDomain.get(stats.domain)
     return prev ? { ...prev, ...stats } : mergeDomainHealth(stats, null)
   })
 }
 
-async function refreshDomainHealth(result: AnalyzeResult | null): Promise<void> {
-  const token = ++state.domainHealthToken
+/** Last AnalyzeResult used for Ampel — skip re-fetch when only dashboard filters change. */
+let domainHealthSource: AnalyzeResult | null = null
+
+/**
+ * Ampel always uses the full loaded report set, windowed to the last
+ * {@link DOMAIN_HEALTH_WINDOW_DAYS} days — not the dashboard date filter.
+ */
+async function refreshDomainHealth(full: AnalyzeResult | null): Promise<void> {
   if (!domainAmpelEl) return
-  if (!result || result.reports.length === 0) {
+  if (full && full === domainHealthSource) return
+  domainHealthSource = full
+
+  const token = ++state.domainHealthToken
+  const source = full?.reports ?? []
+  if (!source.length) {
     state.domainHealthCache = []
     renderDomainAmpel([])
     return
   }
 
-  // Update volume/pass-rate immediately from the filtered view (no loading flash).
+  const windowed = reportsForDomainHealth(source)
+  if (!windowed.length) {
+    state.domainHealthCache = []
+    domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(
+      t('health.emptyWindow', { days: String(DOMAIN_HEALTH_WINDOW_DAYS) })
+    )}</p>`
+    return
+  }
+
+  // Update volume/pass-rate immediately (no loading flash when cache exists).
   if (state.domainHealthCache.length) {
-    const quick = domainHealthQuickStats(result.reports)
+    const quick = domainHealthQuickStats(source)
     state.domainHealthCache = quick
     renderDomainAmpel(quick)
   } else {
@@ -238,17 +263,17 @@ async function refreshDomainHealth(result: AnalyzeResult | null): Promise<void> 
   try {
     let health: DomainHealth[]
     if (typeof window.api.healthBatch === 'function') {
-      health = await window.api.healthBatch(result.reports)
+      health = await window.api.healthBatch(source)
     } else {
       // Preload not yet reloaded — still show Ampel from local stats.
-      health = domainHealthFallback(result.reports)
+      health = domainHealthFallback(source)
     }
     if (token !== state.domainHealthToken) return
     state.domainHealthCache = health
     renderDomainAmpel(health)
   } catch {
     if (token !== state.domainHealthToken) return
-    state.domainHealthCache = domainHealthFallback(result.reports)
+    state.domainHealthCache = domainHealthFallback(source)
     renderDomainAmpel(state.domainHealthCache)
   }
 }
@@ -340,7 +365,8 @@ function renderDashboard(result: AnalyzeResult | null): void {
   }
   for (const row of d.bySourceIp) pushIp(row.name)
   void enrichIpLabels(enrichIps)
-  void refreshDomainHealth(result)
+  // Ampel ignores the dashboard date filter — always last N days of fullResult.
+  void refreshDomainHealth(state.fullResult)
 }
 
 function collectGoogleIps(): Set<string> {

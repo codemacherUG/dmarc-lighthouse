@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { isListedDnsblAnswer, reverseIpForDnsbl } from '../src/main/dnsbl'
 import { rdapIpPathSegment } from '../src/main/rdap'
 import { matchCloudProvider, parseCidr, type CloudPrefix } from '../src/shared/ipcidr'
-import { buildDomainStats, mergeDomainHealth } from '../src/shared/analyze'
+import {
+  buildDomainStats,
+  DOMAIN_HEALTH_WINDOW_DAYS,
+  filterReportsLastDays,
+  mergeDomainHealth,
+  reportsForDomainHealth
+} from '../src/shared/analyze'
 import type { DnsCheckResult, ReportRow, SerializedRecord } from '../src/shared/types'
 
 function record(overrides: Partial<SerializedRecord> = {}): SerializedRecord {
@@ -189,6 +195,37 @@ describe('domain health / Ampel', () => {
   it('returns unknown without DNS', () => {
     const stats = buildDomainStats([report()])[0]!
     expect(mergeDomainHealth(stats, null).status).toBe('unknown')
+  })
+
+  it(`uses only the last ${DOMAIN_HEALTH_WINDOW_DAYS} days for Ampel volume`, () => {
+    const now = new Date()
+    const recent = new Date(now)
+    recent.setDate(recent.getDate() - 3)
+    const old = new Date(now)
+    old.setDate(old.getDate() - (DOMAIN_HEALTH_WINDOW_DAYS + 5))
+
+    const rows = [
+      report({
+        reportId: 'recent',
+        dateBegin: recent.toISOString(),
+        dateEnd: recent.toISOString(),
+        records: [record({ count: 10, passesDmarc: true })]
+      }),
+      report({
+        reportId: 'old',
+        dateBegin: old.toISOString(),
+        dateEnd: old.toISOString(),
+        records: [record({ count: 90, passesDmarc: false })]
+      })
+    ]
+
+    const windowed = reportsForDomainHealth(rows)
+    expect(windowed.map((r) => r.reportId)).toEqual(['recent'])
+    expect(filterReportsLastDays(rows, DOMAIN_HEALTH_WINDOW_DAYS)).toHaveLength(1)
+
+    const stats = buildDomainStats(windowed)[0]!
+    expect(stats.total).toBe(10)
+    expect(stats.passRate).toBe(100)
   })
 })
 

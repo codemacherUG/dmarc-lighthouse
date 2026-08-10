@@ -31,119 +31,154 @@
 
     <div id="app">
       <header class="app-header">
-        <div class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <img src="./assets/app-icon.svg" width="36" height="36" alt="" />
+        <div class="header-main">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+              <img src="./assets/app-icon.svg" width="38" height="38" alt="" />
+            </div>
+            <div class="brand-text">
+              <h1 data-i18n="app.title">DMARC Lighthouse</h1>
+              <p class="subtitle">
+                <span id="account-label" data-i18n="app.noCredentials">Keine Zugangsdaten</span>
+              </p>
+            </div>
           </div>
-          <div class="brand-text">
-            <h1 data-i18n="app.title">DMARC Lighthouse</h1>
-            <p class="subtitle">
-              <span data-i18n="app.subtitle">Aggregate-Reports</span>
-              · <span id="account-label" data-i18n="app.noCredentials">Keine Zugangsdaten</span>
-            </p>
-          </div>
-        </div>
 
-        <div class="header-actions">
-          <div class="action-group" role="toolbar">
+          <nav class="app-nav" data-i18n-aria="header.nav" aria-label="Hauptnavigation">
             <button
               type="button"
-              id="btn-info"
-              class="btn tool-btn"
-              data-i18n-title="header.infoTitle"
-              data-i18n-aria="header.info"
-              title="Über die App"
+              id="nav-dashboard"
+              class="nav-link active"
+              aria-current="page"
+              data-i18n="header.dashboard"
             >
-              <!-- Icons: iconmonstr (https://iconmonstr.com), free under iconmonstr license -->
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-.001 5.75c.69 0 1.251.56 1.251 1.25s-.561 1.25-1.251 1.25-1.249-.56-1.249-1.25.559-1.25 1.249-1.25zm2.001 12.25h-4v-1c.484-.179 1-.201 1-.735v-4.467c0-.534-.516-.618-1-.797v-1h3v6.265c0 .535.517.558 1 .735v.999z"
-                />
-              </svg>
-              <span data-i18n="header.info">Info</span>
+              Dashboard
             </button>
+            <div class="nav-dropdown">
+              <button
+                type="button"
+                id="nav-tools"
+                class="nav-link nav-link-menu"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="tools-menu"
+                data-i18n-title="header.toolsTitle"
+                title="Werkzeuge"
+              >
+                <span data-i18n="header.tools">Tools</span>
+                <span class="nav-chevron" aria-hidden="true">▾</span>
+              </button>
+              <div id="tools-menu" class="nav-menu" role="menu" hidden>
+                <p class="nav-menu-label" data-i18n="header.toolsSection">Tools</p>
+                <button
+                  type="button"
+                  id="nav-dns"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="filter.dnsHint"
+                  title="DMARC-/SPF-/DKIM-DNS einer Domain prüfen."
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="filter.dns">DNS-Check</span>
+                    <span class="nav-menu-item-desc" data-i18n="header.dnsDesc"
+                      >DMARC, SPF und DKIM live prüfen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-tool" data-i18n="header.badgeTool"
+                    >Tool</span
+                  >
+                </button>
+                <hr class="nav-menu-divider" />
+                <button
+                  type="button"
+                  id="btn-builder"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.builderTitle"
+                  title="DMARC-Record erzeugen"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.builder"
+                      >DMARC-Record Wizard</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.builderDesc"
+                      >DMARC-Record geführt erstellen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-wizard" data-i18n="header.badgeWizard"
+                    >Wizard</span
+                  >
+                </button>
+              </div>
+            </div>
             <button
               type="button"
               id="btn-open-files"
-              class="btn tool-btn"
+              class="nav-link"
+              data-i18n="header.openFiles"
               data-i18n-title="header.openFilesTitle"
               data-i18n-aria="header.openFiles"
               title="Lokale DMARC-Dateien öffnen"
             >
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M6.083 4c1.38 1.612 2.578 3 4.917 3h11v13h-20v-16h4.083zm.917-2h-7v20h24v-17h-13c-1.629 0-2.305-1.058-4-3z"
-                />
-              </svg>
-              <span data-i18n="header.openFiles">Dateien</span>
+              Dateien
             </button>
             <button
               type="button"
               id="btn-export"
-              class="btn tool-btn"
+              class="nav-link"
               disabled
+              data-i18n="header.export"
               data-i18n-title="header.exportTitle"
               data-i18n-aria="header.export"
               title="Gefilterte Daten exportieren"
             >
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M16 11h5l-9 10-9-10h5v-11h8v11zm1 11h-10v2h10v-2z"
-                />
-              </svg>
-              <span data-i18n="header.export">Export</span>
+              Export
             </button>
             <button
               type="button"
-              id="btn-builder"
-              class="btn tool-btn"
-              data-i18n-title="header.builderTitle"
-              data-i18n-aria="header.builder"
-              title="DMARC-Record erzeugen"
+              id="btn-info"
+              class="nav-link"
+              data-i18n="header.info"
+              data-i18n-title="header.infoTitle"
+              data-i18n-aria="header.info"
+              title="Über die App"
             >
-              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M22 2v20h-20v-20h20zm2-2h-24v24h24v-24zm-4 7h-8v1h8v-1zm0 2h-8v1h8v-1zm0 2h-8v1h8v-1zm0 2h-8v1h8v-1zm-9-7h-3v8h3v-8z"
-                />
-              </svg>
-              <span data-i18n="header.builder">DMARC-Record</span>
+              Info
             </button>
             <button
               type="button"
               id="btn-settings"
-              class="btn tool-btn"
+              class="nav-link"
+              data-i18n="header.settings"
               data-i18n-title="header.settingsTitle"
               data-i18n-aria="header.settings"
               title="Einstellungen öffnen"
             >
+              Einstellungen
+            </button>
+          </nav>
+
+          <div class="header-actions">
+            <label id="account-field" class="header-account hidden">
+              <span class="sr-only" data-i18n="filter.account">Konto</span>
+              <select id="account-select"></select>
+            </label>
+            <button
+              type="button"
+              id="btn-fetch"
+              class="btn primary fetch-btn"
+              data-i18n-title="header.fetchTitle"
+              title="Reports per IMAP abrufen"
+            >
               <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="currentColor"
-                  d="M24 13.616v-3.232c-1.651-.587-2.694-.752-3.219-2.019v-.001c-.527-1.271.1-2.134.847-3.707l-2.285-2.285c-1.561.742-2.433 1.375-3.707.847h-.001c-1.269-.526-1.435-1.576-2.019-3.219h-3.232c-.582 1.635-.749 2.692-2.019 3.219h-.001c-1.271.528-2.132-.098-3.707-.847l-2.285 2.285c.745 1.568 1.375 2.434.847 3.707-.527 1.271-1.584 1.438-3.219 2.02v3.232c1.632.58 2.692.749 3.219 2.019.53 1.282-.114 2.166-.847 3.707l2.285 2.286c1.562-.743 2.434-1.375 3.707-.847h.001c1.27.526 1.436 1.579 2.019 3.219h3.232c.582-1.636.75-2.69 2.027-3.222h.001c1.262-.524 2.12.101 3.698.851l2.285-2.286c-.744-1.563-1.375-2.433-.848-3.706.527-1.271 1.588-1.44 3.221-2.021zm-12 2.384c-2.209 0-4-1.791-4-4s1.791-4 4-4 4 1.791 4 4-1.791 4-4 4z"
+                  d="M9 12l-4.463 4.969-4.537-4.969h3c0-4.97 4.03-9 9-9 2.395 0 4.565.942 6.179 2.468l-2.004 2.231c-1.081-1.05-2.553-1.699-4.175-1.699-3.309 0-6 2.691-6 6h3zm10.463-4.969l-4.463 4.969h3c0 3.309-2.691 6-6 6-1.623 0-3.094-.65-4.175-1.699l-2.004 2.231c1.613 1.526 3.784 2.468 6.179 2.468 4.97 0 9-4.03 9-9h3l-4.537-4.969z"
                 />
               </svg>
-              <span data-i18n="header.settings">Einstellungen</span>
+              <span data-i18n="header.fetch">Reports abrufen</span>
             </button>
           </div>
-          <button
-            type="button"
-            id="btn-fetch"
-            class="btn primary fetch-btn"
-            data-i18n-title="header.fetchTitle"
-            title="Reports per IMAP abrufen"
-          >
-            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M9 12l-4.463 4.969-4.537-4.969h3c0-4.97 4.03-9 9-9 2.395 0 4.565.942 6.179 2.468l-2.004 2.231c-1.081-1.05-2.553-1.699-4.175-1.699-3.309 0-6 2.691-6 6h3zm10.463-4.969l-4.463 4.969h3c0 3.309-2.691 6-6 6-1.623 0-3.094-.65-4.175-1.699l-2.004 2.231c1.613 1.526 3.784 2.468 6.179 2.468 4.97 0 9-4.03 9-9h3l-4.537-4.969z"
-              />
-            </svg>
-            <span data-i18n="header.fetch">Reports abrufen</span>
-          </button>
         </div>
       </header>
 
@@ -170,10 +205,6 @@
           <h2 data-i18n="filter.title">Filter</h2>
         </div>
         <div class="filter-row">
-          <label id="account-field" class="hidden">
-            <span data-i18n="filter.account">Konto</span>
-            <select id="account-select"></select>
-          </label>
           <label>
             <span data-i18n="filter.range">Zeitraum</span>
             <select id="filter-range">
@@ -209,38 +240,6 @@
         <div id="filter-chips" class="filter-chips hidden"></div>
       </section>
 
-      <section class="panel dns-panel">
-        <div class="panel-heading">
-          <h2 data-i18n="filter.dns">DNS-Check</h2>
-          <p class="hint" data-i18n="filter.dnsHint">
-            DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
-          </p>
-        </div>
-        <div class="dns-check-row">
-          <label>
-            <span data-i18n="filter.domain">Domain</span>
-            <input id="dns-domain" type="text" placeholder="example.com" />
-          </label>
-          <label class="dns-selectors-field">
-            <span data-i18n="filter.selectors">DKIM-Selektoren</span>
-            <input
-              id="dns-selectors"
-              type="text"
-              data-i18n-placeholder="filter.selectorsPlaceholder"
-              data-i18n-title="filter.selectorsTitle"
-              placeholder="DKIM-Selektoren (auto)"
-              title="Kommagetrennt; leer = automatisch aus den Reports"
-            />
-          </label>
-          <div class="dns-check-actions">
-            <button type="button" id="btn-dns" class="btn secondary" data-i18n="filter.dnsCheck">
-              Prüfen
-            </button>
-          </div>
-        </div>
-        <div id="dns-result" class="dns-result muted hidden"></div>
-      </section>
-
       <section class="panel kpi-panel">
         <div id="summary" class="summary-grid">
           <div class="stat">
@@ -274,7 +273,8 @@
         <div class="panel-heading">
           <h2 data-i18n="health.title">Domain-Ampel</h2>
           <p class="hint" data-i18n="health.hint">
-            Pass-Rate und DNS-Status pro Domain. Klick filtert auf die Domain.
+            Pass-Rate der letzten 14 Tage und DNS-Status pro Domain (unabhängig vom Zeitraum-Filter).
+            Klick filtert auf die Domain.
           </p>
         </div>
         <div id="domain-ampel" class="domain-ampel">
@@ -1031,6 +1031,50 @@
           </button>
         </footer>
       </div>
+    </dialog>
+
+    <dialog id="dns-dialog">
+      <form id="dns-form" class="settings-form dns-form">
+        <header class="dialog-header">
+          <h2 data-i18n="filter.dns">DNS-Check</h2>
+          <button
+            type="button"
+            id="btn-close-dns"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <p class="hint" data-i18n="filter.dnsHint">
+          DMARC-/SPF-/DKIM-DNS einer Domain prüfen.
+        </p>
+        <div class="dns-check-row">
+          <label>
+            <span data-i18n="filter.domain">Domain</span>
+            <input id="dns-domain" type="text" placeholder="example.com" autocomplete="off" />
+          </label>
+          <label class="dns-selectors-field">
+            <span data-i18n="filter.selectors">DKIM-Selektoren</span>
+            <input
+              id="dns-selectors"
+              type="text"
+              data-i18n-placeholder="filter.selectorsPlaceholder"
+              data-i18n-title="filter.selectorsTitle"
+              placeholder="DKIM-Selektoren (auto)"
+              title="Kommagetrennt; leer = automatisch aus den Reports"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <div id="dns-result" class="dns-result muted hidden"></div>
+        <footer class="dialog-actions">
+          <button type="submit" id="btn-dns" class="btn primary" data-i18n="filter.dnsCheck">
+            Prüfen
+          </button>
+        </footer>
+      </form>
     </dialog>
 
     <dialog id="builder-dialog">

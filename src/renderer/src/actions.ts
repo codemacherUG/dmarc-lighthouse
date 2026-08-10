@@ -11,6 +11,7 @@ import {
   btnFetch,
   btnOpenFiles,
   dnsDomainEl,
+  dnsForm,
   dnsResultEl,
   dnsSelectorsEl,
   dropOverlay,
@@ -161,7 +162,7 @@ export function initActions(): void {
     }
   })
 
-  btnDns.addEventListener('click', async () => {
+  const runDnsCheck = async (): Promise<void> => {
     const domain = dnsDomainEl.value.trim() || filterDomainEl.value
     if (!domain) {
       dnsResultEl.textContent = t('dns.needDomain')
@@ -174,6 +175,7 @@ export function initActions(): void {
       .filter(Boolean)
     const selectors = manualSelectors.length > 0 ? manualSelectors : collectDkimSelectors(domain)
 
+    btnDns.disabled = true
     dnsResultEl.textContent = t('dns.checking', { domain })
     dnsResultEl.className = 'dns-result'
     try {
@@ -211,7 +213,14 @@ export function initActions(): void {
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)
       dnsResultEl.className = 'dns-result error'
+    } finally {
+      btnDns.disabled = false
     }
+  }
+
+  dnsForm.addEventListener('submit', (event) => {
+    event.preventDefault()
+    void runDnsCheck()
   })
 
   // Drag & Drop

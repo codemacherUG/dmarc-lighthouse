@@ -16,13 +16,20 @@ import {
   btnTest,
   btnUpdateDismiss,
   btnUpdateInstall,
+  btnCloseDns,
+  dnsDialog,
+  dnsDomainEl,
   infoDialog,
   languageEl,
+  navDashboard,
+  navDns,
+  navTools,
   progressEl,
   progressLabelEl,
   statusEl,
   statusLogDialog,
   statusLogListEl,
+  toolsMenu,
   topProgressEl,
   updateBanner,
   updateBannerText,
@@ -245,4 +252,43 @@ export function initChrome(): void {
     updateCheckStatusEl.textContent = ''
     infoDialog.showModal()
   })
+
+  const setToolsMenuOpen = (open: boolean): void => {
+    toolsMenu.hidden = !open
+    navTools.setAttribute('aria-expanded', String(open))
+  }
+
+  navTools.addEventListener('click', (event) => {
+    event.stopPropagation()
+    setToolsMenuOpen(toolsMenu.hasAttribute('hidden'))
+  })
+
+  toolsMenu.addEventListener('click', () => setToolsMenuOpen(false))
+
+  document.addEventListener('click', (event) => {
+    if (toolsMenu.hasAttribute('hidden')) return
+    const target = event.target
+    if (!(target instanceof Node)) return
+    if (navTools.contains(target) || toolsMenu.contains(target)) return
+    setToolsMenuOpen(false)
+  })
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !toolsMenu.hasAttribute('hidden')) setToolsMenuOpen(false)
+  })
+
+  navDashboard.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  })
+
+  const openDnsDialog = (): void => {
+    if (!dnsDialog.open) dnsDialog.showModal()
+    queueMicrotask(() => {
+      dnsDomainEl.focus()
+      dnsDomainEl.select()
+    })
+  }
+
+  navDns.addEventListener('click', () => openDnsDialog())
+  btnCloseDns.addEventListener('click', () => dnsDialog.close())
 }

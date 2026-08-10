@@ -1,5 +1,5 @@
 import type { DomainHealth, DomainHealthStatus, DnsCheckResult, ReportRow } from '../shared/types'
-import { buildDomainStats, mergeDomainHealth } from '../shared/analyze'
+import { buildDomainStats, mergeDomainHealth, reportsForDomainHealth } from '../shared/analyze'
 import { checkDomainDns } from './dnscheck'
 import { getDnsHealthCache, upsertDnsHealthCache } from './cache'
 
@@ -11,9 +11,9 @@ async function dnsForDomain(domain: string, selectors: string[]): Promise<DnsChe
   return result
 }
 
-/** Build multi-domain health (Ampel) for the given report set. */
+/** Build multi-domain health (Ampel) for the last 14 days of the given report set. */
 export async function buildDomainHealth(reports: ReportRow[]): Promise<DomainHealth[]> {
-  const stats = buildDomainStats(reports)
+  const stats = buildDomainStats(reportsForDomainHealth(reports))
   const results: DomainHealth[] = []
 
   // Limit concurrent DNS lookups

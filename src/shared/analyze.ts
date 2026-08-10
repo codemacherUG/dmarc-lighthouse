@@ -211,10 +211,35 @@ function rangeCutoff(range: DateRangePreset): Date | null {
   if (range === 'all' || range === 'custom') return null
   const days = Number(range)
   if (!Number.isFinite(days) || days <= 0) return null
+  return daysAgoCutoff(days)
+}
+
+/** Midnight-local cutoff for "last N days" windows (dashboard presets & Ampel). */
+export function daysAgoCutoff(days: number): Date {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() - days)
   return d
+}
+
+/** Fixed window for Domain-Ampel pass-rate / status (independent of dashboard range). */
+export const DOMAIN_HEALTH_WINDOW_DAYS = 14
+
+/** Reports whose window ends within the last `days` days (dateEnd, fallback dateBegin). */
+export function filterReportsLastDays(reports: ReportRow[], days: number): ReportRow[] {
+  if (days <= 0) return reports
+  const cutoffMs = daysAgoCutoff(days).getTime()
+  return reports.filter((r) => {
+    const end = r.dateEnd || r.dateBegin
+    if (!end) return false
+    const t = new Date(end).getTime()
+    return !Number.isNaN(t) && t >= cutoffMs
+  })
+}
+
+/** Report slice used for Domain-Ampel volume and pass-rate. */
+export function reportsForDomainHealth(reports: ReportRow[]): ReportRow[] {
+  return filterReportsLastDays(reports, DOMAIN_HEALTH_WINDOW_DAYS)
 }
 
 function parseDay(value: string | undefined, endOfDay: boolean): number | null {
