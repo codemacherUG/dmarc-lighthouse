@@ -70,7 +70,7 @@ Quell-IPs auf OpenStreetMap (GeoIP-Koordinaten); Klick auf einen Marker filtert 
 
 Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray und Sprache:
 
-![Einstellungen-Dialog mit IMAP-Konfiguration](docs/screenshots/settings.png)
+![Einstellungen-Dialog mit Konto-Verwaltung](docs/screenshots/settings.png)
 
 ---
 
@@ -137,13 +137,13 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
    - Google Cloud Console → OAuth-Client-Typ „Desktop“
    - Microsoft Entra ID → App-Registrierung → öffentlicher Client, Redirect-URI `http://127.0.0.1:17893/oauth/callback`
 2. Client-IDs unter **Einstellungen → Abruf & Benachrichtigungen** eintragen oder `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID` setzen.
-3. Beim IMAP-Konto **OAuth** wählen, speichern, dann **Mit Anbieter anmelden**.
+3. Unter **Konto-Verwaltung** → **Zugang einrichten** **OAuth** wählen, speichern, dann **Mit Anbieter anmelden**.
 
 ---
 
 ## Nutzung
 
-1. **Einstellungen** → **IMAP-Konto** öffnen, Anbieter/Host sowie App-Passwort oder OAuth setzen und speichern. Bei Bedarf weitere Konten anlegen.
+1. **Einstellungen** → **Konto-Verwaltung** öffnen, Anbieter/Host sowie App-Passwort oder OAuth setzen und speichern. Bei Bedarf weitere Konten anlegen.
 2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** OAuth-Client-IDs, Auto-Abruf, Alerts, System-Tray, Autostart und Sprache konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
 4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Google-Rauschen ausblenden**, um Google-Report-Echo-Hops zu entfernen. Charts, Aggregate-Tabellen, Forensik-/RUF-Tabelle und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Reports als ZIP laden.
@@ -236,7 +236,7 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.7` pushen oder Work
 - Forensik-/RUF-Zeilen zeigen nur bereinigte Header — Nachrichteninhalte werden weder gespeichert noch angezeigt.
 - Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
 - Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
-- Cache leeren: Einstellungen → IMAP-Konto → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).
+- Cache leeren: Einstellungen → Konto-Verwaltung → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).
 - Optional können abgerufene Nachrichten als gelesen markiert (`\Seen`) und/oder nach dem Import in einen Archiv-Ordner verschoben werden.
 - Mit aktivem System-Tray blendet das Schließen des Fensters die App nur aus — vollständig beenden über **Beenden** im Tray-Menü. Das Tray-Icon zeigt eine Markierung, wenn neue Reports eingegangen sind, während das Fenster verborgen war; beim Öffnen verschwindet sie wieder.
 - Bestehende Einzelkonto-Einstellungen älterer Versionen werden automatisch ins Multi-Konto-Format migriert.
