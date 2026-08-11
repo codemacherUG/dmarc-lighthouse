@@ -223,7 +223,7 @@ GitHub Release (alle Plattformen via Actions): Tag wie `v1.0.7` pushen oder Work
 
 Binaries kommen von GitHub Releases; vor der Installation verlangt die App zusätzlich ein **Ed25519-signiertes Manifest** unter `https://codemacher.de/dmarc-lighthouse/updates/{version}.json` (+ `.sig`). Ein kompromittiertes GitHub-Release allein reicht nicht.
 
-Das Release-CI signiert mit Secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8-PEM). Die Dateien `{version}.json` und `{version}.json.sig` müssen unter diesem Pfad liegen.
+Das Release-CI signiert mit Secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8-PEM). Die Manifeste liegen **nicht** im GitHub-Release, sondern nur auf dem Trust-Host (bzw. kurz als Actions-Artifact `update-manifests` für den lokalen Deploy).
 
 Komplett-Release (ein Schritt: Tag → CI → Manifest auf codemacher.de):
 

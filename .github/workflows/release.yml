@@ -132,6 +132,17 @@ jobs:
             echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
+      # Signed manifests stay off the GitHub Release (trust host only).
+      # Kept as a workflow artifact so `npm run release` can deploy them locally.
+      - name: Upload signed manifests artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-manifests
+          path: |
+            dist-release/*.json
+            dist-release/*.sig
+          if-no-files-found: error
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -139,7 +150,10 @@ jobs:
           name: DMARC Lighthouse ${{ steps.tag.outputs.name }}
           draft: false
           generate_release_notes: true
-          files: dist-release/*
+          # Installers + latest*.yml only — no *.json / *.sig
+          files: |
+            dist-release/dmarc-lighthouse-*
+            dist-release/latest*.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -157,11 +171,9 @@ jobs:
           if [ -z "${UPDATE_MANIFEST_DEPLOY_HOST}" ] || [ -z "${UPDATE_MANIFEST_DEPLOY_USER}" ] || \
              [ -z "${UPDATE_MANIFEST_DEPLOY_KEY}" ] || [ -z "${UPDATE_MANIFEST_DEPLOY_PATH}" ]; then
             echo "Skipping auto-deploy (UPDATE_MANIFEST_DEPLOY_* secrets incomplete)."
-            echo "Publish manually:"
-            echo "  npm run update:deploy -- --dir dist-release --verify"
-            echo "Or copy to the TYPO3 webroot, e.g. public/dmarc-lighthouse/updates/"
-            echo "  dist-release/${pkg_ver}.json"
-            echo "  dist-release/${pkg_ver}.json.sig"
+            echo "Local deploy after CI:"
+            echo "  npm run release -- --deploy-only"
+            echo "Manifests are in the workflow artifact update-manifests (not the GitHub Release)."
             exit 0
           fi
           node scripts/deploy-update-manifest.mjs --dir dist-release --verify

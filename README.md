@@ -223,7 +223,7 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.7` or start th
 
 Binaries are fetched from GitHub Releases; before install the app also requires an **Ed25519-signed manifest** from `https://codemacher.de/dmarc-lighthouse/updates/{version}.json` (+ `.sig`). A compromised GitHub release alone is not enough.
 
-Release CI signs the manifest with secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8 PEM). Publish `{version}.json` and `{version}.json.sig` to that URL path.
+Release CI signs with secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8 PEM). Manifests are **not** attached to the GitHub Release — only published to the trust host (and briefly as the Actions artifact `update-manifests` for local deploy).
 
 Full release (one step: tag → CI → manifest on codemacher.de):
 

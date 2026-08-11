@@ -190,9 +190,11 @@ create_and_push_tag() {
   git push origin "$tag"
 }
 
+# Sets RELEASE_RUN_ID for later artifact download.
 wait_for_release_workflow() {
   local tag="$1"
   info "Waiting for GitHub Actions release workflow for $tag"
+  RELEASE_RUN_ID=""
   if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "dry-run: gh run watch …"
     return
@@ -216,21 +218,43 @@ wait_for_release_workflow() {
   [[ -n "$run_id" ]] || die "Could not find release workflow run for $tag (sha $sha)"
   info "Watching run $run_id"
   gh run watch "$run_id" --exit-status
+  RELEASE_RUN_ID="$run_id"
 }
 
-# Only the signed manifest pair (not the multi‑100 MB installers).
+find_release_run_id() {
+  local tag="$1"
+  gh run list --workflow=release.yml --limit=40 \
+    --json databaseId,headBranch,conclusion \
+    --jq ".[] | select(.headBranch == \"${tag}\" and .conclusion == \"success\") | .databaseId" \
+    | head -n1
+}
+
+# Manifests are workflow artifacts (not GitHub Release assets).
 download_manifest_assets() {
   local tag="$1"
   local ver="${tag#v}"
-  info "Downloading signed manifests → $DIST_DIR"
+  local run_id="${2:-${RELEASE_RUN_ID:-}}"
+  info "Downloading signed manifests (workflow artifact) → $DIST_DIR"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "dry-run: gh release download $tag --pattern ${ver}.json[.sig]"
+    echo "dry-run: gh run download … -n update-manifests"
     return
   fi
+  if [[ -z "$run_id" ]]; then
+    run_id="$(find_release_run_id "$tag")"
+  fi
+  [[ -n "$run_id" ]] || die "No successful release workflow run found for $tag (need artifact update-manifests)"
   mkdir -p "$DIST_DIR"
-  gh release download "$tag" --dir "$DIST_DIR" --clobber \
-    --pattern "${ver}.json" \
-    --pattern "${ver}.json.sig"
+  # Artifact may unpack into a subfolder — download into a temp dir and flatten.
+  local tmp
+  tmp="$(mktemp -d)"
+  gh run download "$run_id" -n update-manifests -D "$tmp"
+  local json sig
+  json="$(find "$tmp" -type f -name "${ver}.json" | head -n1)"
+  sig="$(find "$tmp" -type f -name "${ver}.json.sig" | head -n1)"
+  [[ -n "$json" && -n "$sig" ]] || die "Artifact update-manifests from run $run_id missing ${ver}.json[.sig]"
+  cp -f "$json" "$DIST_DIR/${ver}.json"
+  cp -f "$sig" "$DIST_DIR/${ver}.json.sig"
+  rm -rf "$tmp"
   ls -lah "$DIST_DIR/${ver}.json" "$DIST_DIR/${ver}.json.sig"
 }
 
@@ -284,6 +308,7 @@ deploy_manifest() {
 # --- main ---
 
 REUSE_REMOTE_RELEASE=0
+RELEASE_RUN_ID=""
 
 command -v gh >/dev/null || die "gh CLI is required (https://cli.github.com/)"
 command -v git >/dev/null || die "git is required"
