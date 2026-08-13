@@ -143,6 +143,7 @@ const de = {
   'settings.title': 'Einstellungen',
   'settings.close': 'Schließen',
   'settings.tabAccount': 'Konto-Verwaltung',
+  'settings.tabAppearance': 'Erscheinungsbild',
   'settings.tabGeneral': 'Abruf & Benachrichtigungen',
   'settings.tabEnrichment': 'Anreicherung',
   'settings.accountSetupHint':
@@ -233,6 +234,12 @@ const de = {
   'settings.geoLiteDownloading': 'Lade GeoLite2…',
   'settings.language': 'Sprache',
   'settings.languageHint': 'Sprache der Benutzeroberfläche. Änderungen werden sofort übernommen.',
+  'settings.theme': 'Erscheinungsbild',
+  'settings.themeLight': 'Hell',
+  'settings.themeDark': 'Dunkel',
+  'settings.themeAuto': 'System',
+  'settings.themeHint':
+    'Farbschema der Oberfläche. „System“ folgt der Einstellung des Betriebssystems. Änderungen werden sofort übernommen.',
   'settings.save': 'Speichern',
   'settings.providerGmail': 'Gmail',
   'settings.providerOutlook': 'Outlook / Microsoft 365',
@@ -720,6 +727,7 @@ const en: Dict = {
   'settings.title': 'Settings',
   'settings.close': 'Close',
   'settings.tabAccount': 'Accounts',
+  'settings.tabAppearance': 'Appearance',
   'settings.tabGeneral': 'Fetch & notifications',
   'settings.tabEnrichment': 'Enrichment',
   'settings.accountSetupHint':
@@ -810,6 +818,12 @@ const en: Dict = {
   'settings.geoLiteDownloading': 'Downloading GeoLite2…',
   'settings.language': 'Language',
   'settings.languageHint': 'User interface language. Changes apply immediately.',
+  'settings.theme': 'Appearance',
+  'settings.themeLight': 'Light',
+  'settings.themeDark': 'Dark',
+  'settings.themeAuto': 'System',
+  'settings.themeHint':
+    'User interface color scheme. “System” follows your operating system. Changes apply immediately.',
   'settings.save': 'Save',
   'settings.providerGmail': 'Gmail',
   'settings.providerOutlook': 'Outlook / Microsoft 365',

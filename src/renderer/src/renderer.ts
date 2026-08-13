@@ -1,6 +1,7 @@
 import { t } from '../../shared/i18n'
 import { initActions } from './actions'
 import { initChrome, setAfterLocaleChange, setStatus } from './chrome'
+import { initTheme } from './theme'
 import { aboutVersionEl } from './dom'
 import { installScreenshotApi } from './screenshots'
 import { initSettingsUi, loadSettings, refreshSettingsLocale } from './settings-ui'
@@ -21,6 +22,7 @@ setAfterLocaleChange(() => {
 })
 
 initChrome()
+initTheme()
 initView()
 initSettingsUi()
 initWizardUi()

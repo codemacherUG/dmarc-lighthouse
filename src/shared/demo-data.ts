@@ -283,6 +283,7 @@ export function buildDemoSettings(): SettingsPublic {
       runInTray: true,
       openAtLogin: false,
       language: 'de',
+      theme: 'auto',
       oauthGoogleClientId: '',
       oauthMicrosoftClientId: '',
       enrichmentEnabled: true,

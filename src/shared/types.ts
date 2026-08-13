@@ -1,6 +1,7 @@
 import type { AppLocale } from './i18n'
+import type { AppTheme } from './theme'
 
-export type { AppLocale }
+export type { AppLocale, AppTheme }
 
 export type ProviderPreset = 'gmail' | 'outlook' | 'microsoft' | 'custom'
 
@@ -129,6 +130,8 @@ export interface GlobalSettings {
   openAtLogin: boolean
   /** UI language. */
   language: AppLocale
+  /** UI color scheme. `auto` follows the operating system. */
+  theme: AppTheme
   /** Optional Google OAuth client ID (desktop/public PKCE client). */
   oauthGoogleClientId: string
   /** Optional Microsoft Entra / Azure AD application (client) ID. */

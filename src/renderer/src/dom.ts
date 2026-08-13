@@ -108,9 +108,11 @@ export const settingsAccountSelectEl = document.getElementById(
 export const btnNewAccount = document.getElementById('btn-new-account') as HTMLButtonElement
 export const btnDeleteAccount = document.getElementById('btn-delete-account') as HTMLButtonElement
 export const tabBtnAccount = document.getElementById('tab-btn-account') as HTMLButtonElement
+export const tabBtnAppearance = document.getElementById('tab-btn-appearance') as HTMLButtonElement
 export const tabBtnGeneral = document.getElementById('tab-btn-general') as HTMLButtonElement
 export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as HTMLButtonElement
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
+export const tabAppearanceEl = document.getElementById('tab-appearance') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
 
@@ -148,6 +150,7 @@ export const passRateAlertThresholdEl = document.getElementById(
 ) as HTMLInputElement
 export const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
 export const languageEl = document.getElementById('language') as HTMLSelectElement
+export const themeEl = document.getElementById('theme') as HTMLSelectElement
 export const oauthGoogleClientIdEl = document.getElementById(
   'oauthGoogleClientId'
 ) as HTMLInputElement

@@ -1,5 +1,6 @@
 import { suggestAccountName } from '../../shared/account'
 import { normalizeLocale, t } from '../../shared/i18n'
+import { normalizeTheme } from '../../shared/theme'
 import type {
   AccountPublic,
   AccountSettingsInput,
@@ -10,6 +11,7 @@ import type {
 } from '../../shared/types'
 import { PROVIDER_PRESETS } from '../../shared/types'
 import { applyUiLocale, setBusy, setStatus } from './chrome'
+import { applyTheme } from './theme'
 import {
   accountLabelEl,
   accountFieldEl,
@@ -46,6 +48,7 @@ import {
   ignoredSourcesEl,
   infoDialog,
   languageEl,
+  themeEl,
   mailboxEl,
   markSeenAfterFetchEl,
   maxmindLicenseKeyEl,
@@ -71,7 +74,9 @@ import {
   settingsStatusEl,
   subjectFilterEl,
   tabAccountEl,
+  tabAppearanceEl,
   tabBtnAccount,
+  tabBtnAppearance,
   tabBtnEnrichment,
   tabBtnGeneral,
   tabEnrichmentEl,
@@ -84,7 +89,7 @@ import { applyView } from './view'
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
-type SettingsTab = 'account' | 'general' | 'enrichment'
+type SettingsTab = 'account' | 'appearance' | 'general' | 'enrichment'
 
 /** Input that opened the create-mailbox dialog (mailbox or archive). */
 let createMailboxTarget: HTMLInputElement | null = null
@@ -357,6 +362,7 @@ export function readGlobalForm(): GlobalSettings {
     runInTray: runInTrayEl.checked,
     openAtLogin: openAtLoginEl.checked,
     language: normalizeLocale(languageEl.value),
+    theme: normalizeTheme(themeEl.value),
     oauthGoogleClientId: oauthGoogleClientIdEl.value.trim(),
     oauthMicrosoftClientId: oauthMicrosoftClientIdEl.value.trim(),
     enrichmentEnabled: enrichmentEnabledEl.checked,
@@ -447,6 +453,8 @@ export function fillGlobalForm(global: GlobalSettings): void {
   runInTrayEl.checked = Boolean(global.runInTray)
   openAtLoginEl.checked = Boolean(global.openAtLogin)
   languageEl.value = normalizeLocale(global.language)
+  themeEl.value = normalizeTheme(global.theme)
+  applyTheme(normalizeTheme(global.theme))
   oauthGoogleClientIdEl.value = global.oauthGoogleClientId ?? ''
   oauthMicrosoftClientIdEl.value = global.oauthMicrosoftClientId ?? ''
   enrichmentEnabledEl.checked = global.enrichmentEnabled !== false
@@ -501,6 +509,7 @@ export async function loadSettings(): Promise<void> {
   applySettings(await window.api.loadSettings())
   fillGlobalForm(state.settings!.global)
   applyUiLocale(state.settings!.global.language)
+  applyTheme(state.settings!.global.theme)
   const account = activeAccount()
   if (!accountHasAuth(account)) {
     setStatus(t('status.needSettings'))
@@ -510,6 +519,7 @@ export async function loadSettings(): Promise<void> {
 export function showSettingsTab(which: SettingsTab): void {
   const tabs: Array<{ id: SettingsTab; btn: HTMLButtonElement; panel: HTMLElement }> = [
     { id: 'account', btn: tabBtnAccount, panel: tabAccountEl },
+    { id: 'appearance', btn: tabBtnAppearance, panel: tabAppearanceEl },
     { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
     { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
   ]
@@ -548,6 +558,7 @@ export function initSettingsUi(): void {
   btnSettings.addEventListener('click', () => openSettings())
   btnCloseSettings.addEventListener('click', () => settingsDialog.close())
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
+  tabBtnAppearance.addEventListener('click', () => showSettingsTab('appearance'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
@@ -792,6 +803,7 @@ export function initSettingsUi(): void {
       fillAccountForm(dialogAccount())
       fillGlobalForm(state.settings!.global)
       applyUiLocale(state.settings!.global.language)
+      applyTheme(state.settings!.global.theme)
       settingsStatusEl.textContent = t('settings.saved')
       setStatus(t('status.settingsSaved'), 'ok')
       settingsDialog.close()

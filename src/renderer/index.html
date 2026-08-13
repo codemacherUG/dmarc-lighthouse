@@ -7,6 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org"
     />
+    <meta name="color-scheme" content="light dark" />
     <link href="./assets/main.css" type="text/css" rel="stylesheet" />
   </head>
   <body>
@@ -548,6 +549,17 @@
           </button>
           <button
             type="button"
+            id="tab-btn-appearance"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-appearance"
+            data-i18n="settings.tabAppearance"
+          >
+            Erscheinungsbild
+          </button>
+          <button
+            type="button"
             id="tab-btn-general"
             class="tab"
             role="tab"
@@ -788,7 +800,25 @@
             </div>
           </section>
 
-          <section id="tab-general" class="tab-panel hidden" role="tabpanel">
+          <section id="tab-appearance" class="tab-panel hidden" role="tabpanel">
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.theme">Erscheinungsbild</legend>
+              <div class="settings-grid">
+                <label>
+                  <span data-i18n="settings.theme">Erscheinungsbild</span>
+                  <select id="theme" name="theme">
+                    <option value="light" data-i18n="settings.themeLight">Hell</option>
+                    <option value="dark" data-i18n="settings.themeDark">Dunkel</option>
+                    <option value="auto" data-i18n="settings.themeAuto">System</option>
+                  </select>
+                </label>
+              </div>
+              <p class="hint" data-i18n="settings.themeHint">
+                Farbschema der Oberfläche. „System“ folgt der Einstellung des Betriebssystems.
+                Änderungen werden sofort übernommen.
+              </p>
+            </fieldset>
+
             <fieldset class="settings-group">
               <legend data-i18n="settings.language">Sprache</legend>
               <div class="settings-grid">
@@ -804,7 +834,9 @@
                 Sprache der Benutzeroberfläche. Änderungen werden sofort übernommen.
               </p>
             </fieldset>
+          </section>
 
+          <section id="tab-general" class="tab-panel hidden" role="tabpanel">
             <fieldset class="settings-group">
               <legend data-i18n="settings.oauthClientIds">OAuth-Client-IDs</legend>
               <div class="settings-grid">

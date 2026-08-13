@@ -1,4 +1,13 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, Notification, Tray } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  Menu,
+  nativeTheme,
+  Notification,
+  Tray
+} from 'electron'
 import { join, basename } from 'path'
 import { tmpdir } from 'os'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
@@ -8,9 +17,11 @@ import type {
   AccountPublic,
   AccountSettingsInput,
   AnalyzeResult,
+  AppTheme,
   GlobalSettings,
   ReportRow
 } from '../shared/types'
+import { normalizeTheme } from '../shared/theme'
 import { parseLocalBuffers } from './analyze'
 import { accountKeyFor, clearCache } from './cache'
 import { checkDomainDns } from './dnscheck'
@@ -42,6 +53,7 @@ import {
   resolveAccountConnection,
   resolveInputConnection,
   applyOpenAtLogin,
+  applyNativeTheme,
   saveAccount,
   saveGlobalSettings,
   secretsDecryptable,
@@ -98,6 +110,7 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'DMARC Lighthouse',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#121820' : '#eef1f4',
     ...(appIcon.isEmpty() ? {} : { icon: appIcon }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -410,7 +423,7 @@ async function openThirdPartyNoticesWindow(): Promise<{ ok: boolean; message: st
   <meta charset="utf-8" />
   <title>${title}</title>
   <style>
-    :root { color-scheme: light; }
+    :root { color-scheme: light dark; }
     body {
       margin: 0;
       padding: 16px 18px 24px;
@@ -419,6 +432,12 @@ async function openThirdPartyNoticesWindow(): Promise<{ ok: boolean; message: st
       background: #f7f9fb;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        color: #e8eef3;
+        background: #121820;
+      }
     }
   </style>
 </head>
@@ -514,9 +533,14 @@ function registerIpc(): void {
     const saved = saveGlobalSettings(input)
     clearIpInfoMemoryCache()
     applyOpenAtLogin(saved.global)
+    applyNativeTheme(saved.global.theme)
     scheduleAutoFetch()
     updateTray()
     return saved
+  })
+
+  ipcMain.handle('settings:previewTheme', (_event, theme: AppTheme) => {
+    applyNativeTheme(normalizeTheme(theme))
   })
 
   ipcMain.handle('imap:test', async (_event, input: AccountSettingsInput) => {
@@ -724,6 +748,7 @@ app.whenReady().then(() => {
   const settings = loadSettings()
   startHidden = capture ? false : shouldStartHidden()
   if (!capture) applyOpenAtLogin(settings.global)
+  applyNativeTheme(settings.global.theme)
 
   registerIpc()
   if (!capture) setupAutoUpdater(() => mainWindow)

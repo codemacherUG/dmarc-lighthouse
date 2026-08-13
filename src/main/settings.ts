@@ -1,4 +1,4 @@
-import { app, safeStorage } from 'electron'
+import { app, nativeTheme, safeStorage } from 'electron'
 import { randomUUID } from 'crypto'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -16,6 +16,7 @@ import { PROVIDER_PRESETS } from '../shared/types'
 import { resolveAccountLabel, suggestAccountName } from '../shared/account'
 import { detectSystemLocale, normalizeLocale, setLocale, t } from '../shared/i18n'
 import type { AppLocale } from '../shared/i18n'
+import { normalizeTheme, type AppTheme } from '../shared/theme'
 import {
   authorizeInteractive,
   oauthProviderForAccount,
@@ -58,6 +59,7 @@ interface StoredGlobal {
   runInTray?: boolean
   openAtLogin?: boolean
   language?: AppLocale
+  theme?: AppTheme
   oauthGoogleClientId?: string
   oauthMicrosoftClientId?: string
   enrichmentEnabled?: boolean
@@ -102,6 +104,7 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   runInTray: false,
   openAtLogin: false,
   language: 'de',
+  theme: 'auto',
   oauthGoogleClientId: '',
   oauthMicrosoftClientId: '',
   enrichmentEnabled: true,
@@ -414,6 +417,7 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     runInTray: Boolean(g.runInTray),
     openAtLogin: Boolean(g.openAtLogin),
     language,
+    theme: normalizeTheme(g.theme),
     oauthGoogleClientId:
       g.oauthGoogleClientId?.trim() || process.env.DMARC_GOOGLE_CLIENT_ID?.trim() || '',
     oauthMicrosoftClientId:
@@ -597,6 +601,7 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     runInTray: Boolean(input.runInTray),
     openAtLogin: Boolean(input.openAtLogin),
     language: normalizeLocale(input.language),
+    theme: normalizeTheme(input.theme),
     oauthGoogleClientId: String(input.oauthGoogleClientId ?? '').trim(),
     oauthMicrosoftClientId: String(input.oauthMicrosoftClientId ?? '').trim(),
     enrichmentEnabled: input.enrichmentEnabled !== false,
@@ -709,6 +714,12 @@ export async function resolveInputConnection(
     return toConnection(account)
   }
   return toConnection(account, input.password)
+}
+
+/** Apply Electron/Chromium color scheme so `prefers-color-scheme` matches the setting. */
+export function applyNativeTheme(theme?: AppTheme): void {
+  const value = theme ?? loadSettings().global.theme
+  nativeTheme.themeSource = value === 'light' || value === 'dark' ? value : 'system'
 }
 
 /** Apply / clear OS login-item (autostart) based on global settings. */

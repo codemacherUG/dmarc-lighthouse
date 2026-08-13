@@ -9,6 +9,7 @@ import type {
   GeoLiteDownloadResult,
   GeoLiteStatus,
   GlobalSettings,
+  AppTheme,
   IpInfo,
   CreateMailboxResult,
   ListMailboxesResult,
@@ -29,6 +30,8 @@ const api = {
     ipcRenderer.invoke('settings:setActiveAccount', id),
   saveGlobalSettings: (input: GlobalSettings): Promise<SettingsPublic> =>
     ipcRenderer.invoke('settings:saveGlobal', input),
+  previewTheme: (theme: AppTheme): Promise<void> =>
+    ipcRenderer.invoke('settings:previewTheme', theme),
   oauthLogin: (accountId: string): Promise<SettingsPublic> =>
     ipcRenderer.invoke('oauth:login', accountId),
   oauthDisconnect: (accountId: string): Promise<SettingsPublic> =>

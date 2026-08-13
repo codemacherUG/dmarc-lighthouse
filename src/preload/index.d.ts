@@ -8,6 +8,7 @@ import type {
   GeoLiteDownloadResult,
   GeoLiteStatus,
   GlobalSettings,
+  AppTheme,
   IpInfo,
   CreateMailboxResult,
   ListMailboxesResult,
@@ -24,6 +25,7 @@ export interface DmarcLighthouseApi {
   deleteAccount: (id: string) => Promise<SettingsPublic>
   setActiveAccount: (id: string) => Promise<SettingsPublic>
   saveGlobalSettings: (input: GlobalSettings) => Promise<SettingsPublic>
+  previewTheme: (theme: AppTheme) => Promise<void>
   oauthLogin: (accountId: string) => Promise<SettingsPublic>
   oauthDisconnect: (accountId: string) => Promise<SettingsPublic>
   testConnection: (input: AccountSettingsInput) => Promise<TestConnectionResult>

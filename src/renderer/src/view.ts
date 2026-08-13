@@ -869,11 +869,11 @@ function initStickyFilter(): void {
 
   const update = (): void => {
     ticking = false
-    const top = slot.getBoundingClientRect().top
+    const rect = slot.getBoundingClientRect()
     if (stuck) {
-      if (top > 8) setStuck(false)
+      if (rect.bottom > 8) setStuck(false)
       else syncFixedBox()
-    } else if (top <= 0) {
+    } else if (rect.bottom <= 0) {
       setStuck(true)
     }
   }

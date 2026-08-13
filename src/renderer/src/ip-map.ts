@@ -21,10 +21,20 @@ let map: L.Map | null = null
 let layer: L.LayerGroup | null = null
 let onFilterIp: ((ip: string) => void) | null = null
 
+function cssVar(name: string, fallback: string): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return value || fallback
+}
+
 function statusColor(passRate: number, failing: number): string {
-  if (failing === 0 && passRate >= 98) return '#1f7a45'
-  if (passRate >= 90) return '#b57b12'
-  return '#b33a2b'
+  if (failing === 0 && passRate >= 98) return cssVar('--ok', '#1f7a45')
+  if (passRate >= 90) return cssVar('--warn', '#b57b12')
+  return cssVar('--bad', '#b33a2b')
+}
+
+export function invalidateIpMapSize(): void {
+  if (!map) return
+  requestAnimationFrame(() => map?.invalidateSize())
 }
 
 function ensureMap(): L.Map | null {

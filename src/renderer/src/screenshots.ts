@@ -2,6 +2,7 @@ import { buildDemoAnalyzeResult, buildDemoSettings, DEMO_DNS_HTML } from '../../
 import { t } from '../../shared/i18n'
 import type { IpInfo } from '../../shared/types'
 import { applyUiLocale } from './chrome'
+import { applyTheme } from './theme'
 import { dnsDomainEl, dnsResultEl, settingsDialog } from './dom'
 import { applySettings, fillGlobalForm, openSettings, showSettingsTab } from './settings-ui'
 import { clearDrill, state } from './state'
@@ -14,6 +15,7 @@ export function installScreenshotApi(): void {
       applyUiLocale('de')
       applySettings(buildDemoSettings())
       fillGlobalForm(state.settings!.global)
+      applyTheme(state.settings!.global.theme)
       state.selectedReportId = null
       clearDrill()
       showResult(buildDemoAnalyzeResult(), t('status.cached', { count: 12 }))
