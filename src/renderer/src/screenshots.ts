@@ -188,12 +188,19 @@ export function installScreenshotApi(): void {
     closeRollout(): void {
       rolloutDialog.close()
     },
-    openEmailInspectDemo(): void {
+    openEmailInspectDemo(): { width: number; height: number } {
+      document.getElementById('email-inspect-paste')?.removeAttribute('open')
+      document.documentElement.classList.add('screenshot-dialog')
       seedEmailInspect(buildDemoEmailInspect())
       openEmailInspect()
+      return {
+        width: Math.ceil(emailInspectDialog.scrollWidth),
+        height: Math.ceil(emailInspectDialog.scrollHeight)
+      }
     },
     closeEmailInspect(): void {
       emailInspectDialog.close()
+      document.documentElement.classList.remove('screenshot-dialog')
     },
     setTheme(theme: AppTheme): void {
       applyTheme(theme)

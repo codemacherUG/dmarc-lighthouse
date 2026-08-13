@@ -83,7 +83,7 @@ declare global {
       closeRollout: () => void
       openDnsDemo: () => void
       closeDns: () => void
-      openEmailInspectDemo: () => void
+      openEmailInspectDemo: () => { width: number; height: number }
       closeEmailInspect: () => void
       setTheme: (theme: AppTheme) => void
       scrollTo: (selector: string) => Promise<void>

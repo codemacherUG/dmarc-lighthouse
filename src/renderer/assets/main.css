@@ -3041,6 +3041,30 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   }
 }
 
+/* Email-inspect screenshot: let the dialog grow to its content instead of scrolling. */
+html.screenshot-dialog,
+html.screenshot-dialog body {
+  overflow: hidden !important;
+}
+
+html.screenshot-dialog #email-inspect-dialog {
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+html.screenshot-dialog #email-inspect-dialog .email-inspect-form,
+html.screenshot-dialog #email-inspect-dialog .email-inspect-body {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+html.screenshot-dialog #email-inspect-dialog::-webkit-scrollbar,
+html.screenshot-dialog #email-inspect-dialog *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
 /* Full-page screenshot: no scrollbars, content can extend beyond the window. */
 html.screenshot-full,
 html.screenshot-full body {
