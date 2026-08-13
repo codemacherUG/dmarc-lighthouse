@@ -22,6 +22,20 @@ function parseDmarcPolicy(records: string[]): {
   }
 }
 
+/**
+ * Accept selector, `selector._domainkey`, or a full DKIM hostname.
+ * Lookup always uses `{selector}._domainkey.{domain}`.
+ */
+export function normalizeDkimSelector(raw: string): string | null {
+  let s = raw.trim().toLowerCase().replace(/\.+$/, '')
+  if (!s) return null
+  const marker = '._domainkey'
+  const idx = s.indexOf(marker)
+  if (idx >= 0) s = s.slice(0, idx)
+  if (!s || !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(s)) return null
+  return s
+}
+
 async function checkDkimSelector(domain: string, selector: string): Promise<DkimSelectorCheck> {
   try {
     const txt = flattenTxt(await dns.resolveTxt(`${selector}._domainkey.${domain}`))
@@ -47,11 +61,7 @@ export async function checkDomainDns(
   }
 
   const selectors = [
-    ...new Set(
-      (selectorsRaw ?? [])
-        .map((s) => s.trim().toLowerCase())
-        .filter((s) => s && /^[a-z0-9._-]+$/.test(s))
-    )
+    ...new Set((selectorsRaw ?? []).map(normalizeDkimSelector).filter((s): s is string => Boolean(s)))
   ].slice(0, 10)
 
   const checkedAt = new Date().toISOString()

@@ -85,6 +85,16 @@ function fillForm(input: Partial<DmarcBuilderInput>): void {
   if (input.aspf != null) builderAspfEl.value = input.aspf
 }
 
+function centerActiveStep(list: HTMLElement): void {
+  const active = list.querySelector<HTMLElement>('li.active')
+  if (!active) return
+  const listRect = list.getBoundingClientRect()
+  const activeRect = active.getBoundingClientRect()
+  const left =
+    list.scrollLeft + (activeRect.left - listRect.left) - (list.clientWidth - activeRect.width) / 2
+  list.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+}
+
 function showStep(step: DmarcBuilderStep): void {
   currentStep = step
   const idx = stepIndex(step)
@@ -95,6 +105,7 @@ function showStep(step: DmarcBuilderStep): void {
     li.classList.toggle('active', s === step)
     li.classList.toggle('done', si >= 0 && si < idx)
   }
+  centerActiveStep(builderStepsEl)
   for (const panel of document.querySelectorAll<HTMLElement>('.builder-panel')) {
     panel.classList.toggle('hidden', panel.getAttribute('data-step') !== step)
   }

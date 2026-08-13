@@ -198,6 +198,8 @@ body {
 }
 
 .app-header {
+  position: relative;
+  z-index: 60;
   margin: -16px -20px 0;
   padding: 0 22px;
   background: #fff;
@@ -322,7 +324,7 @@ body {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 40;
+  z-index: 1;
   width: 300px;
   padding: 14px 12px 12px;
   border: 1px solid #dbe3ed;
@@ -1719,6 +1721,25 @@ tr.ip-meta-row .ip-meta {
   margin: 0;
   padding: 0 18px 12px;
   border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 720px) {
+  .builder-steps {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 50%;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .builder-steps::-webkit-scrollbar {
+    display: none;
+  }
+
+  .builder-steps li {
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+  }
 }
 
 .builder-steps li {

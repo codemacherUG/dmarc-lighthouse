@@ -72,8 +72,9 @@ const de = {
   'filter.dnsCheck': 'Prüfen',
   'filter.dnsHint': 'DMARC-/SPF-/DKIM-DNS einer Domain prüfen.',
   'filter.selectors': 'DKIM-Selektoren',
-  'filter.selectorsPlaceholder': 'DKIM-Selektoren (auto)',
-  'filter.selectorsTitle': 'Kommagetrennt; leer = automatisch aus den Reports',
+  'filter.selectorsPlaceholder': 'z. B. default, google',
+  'filter.selectorsTitle':
+    'Nur den Selektor, z. B. default — nicht default._domainkey. Kommagetrennt; leer = aus den Reports',
   'filter.clickToFilter': 'Klicken zum Filtern',
   'filter.removeChip': 'Filter entfernen',
   'filter.hideGoogleNoise': 'Google-Rauschen ausblenden',
@@ -645,8 +646,9 @@ const en: Dict = {
   'filter.dnsCheck': 'Check',
   'filter.dnsHint': 'Check DMARC / SPF / DKIM DNS for a domain.',
   'filter.selectors': 'DKIM selectors',
-  'filter.selectorsPlaceholder': 'DKIM selectors (auto)',
-  'filter.selectorsTitle': 'Comma-separated; leave empty to use selectors from reports',
+  'filter.selectorsPlaceholder': 'e.g. default, google',
+  'filter.selectorsTitle':
+    'Selector only, e.g. default — not default._domainkey. Comma-separated; empty = from reports',
   'filter.clickToFilter': 'Click to filter',
   'filter.removeChip': 'Remove filter',
   'filter.hideGoogleNoise': 'Hide Google noise',

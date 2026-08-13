@@ -69,6 +69,16 @@ function fillForm(input: Partial<SpfBuilderInput>): void {
   if (input.all != null) spfBuilderAllEl.value = input.all
 }
 
+function centerActiveStep(list: HTMLElement): void {
+  const active = list.querySelector<HTMLElement>('li.active')
+  if (!active) return
+  const listRect = list.getBoundingClientRect()
+  const activeRect = active.getBoundingClientRect()
+  const left =
+    list.scrollLeft + (activeRect.left - listRect.left) - (list.clientWidth - activeRect.width) / 2
+  list.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+}
+
 function showStep(step: SpfBuilderStep): void {
   currentStep = step
   const idx = spfStepIndex(step)
@@ -79,6 +89,7 @@ function showStep(step: SpfBuilderStep): void {
     li.classList.toggle('active', s === step)
     li.classList.toggle('done', si >= 0 && si < idx)
   }
+  centerActiveStep(spfBuilderStepsEl)
   for (const panel of document.querySelectorAll<HTMLElement>('.spf-builder-panel')) {
     panel.classList.toggle('hidden', panel.getAttribute('data-step') !== step)
   }
