@@ -1,6 +1,7 @@
 import {
   applyDashboardFilter,
   buildDomainStats,
+  categorizeFailure,
   DOMAIN_HEALTH_WINDOW_DAYS,
   groupProblemSources,
   isGoogleIpInfo,
@@ -9,12 +10,13 @@ import {
   parseSourceIpFilter,
   reportsForDomainHealth
 } from '../../shared/analyze'
-import { parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
+import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
 import { t, type MessageKey } from '../../shared/i18n'
 import type {
   AnalyzeResult,
   DateRangePreset,
   DomainHealth,
+  FailCategory,
   ForensicReportRow,
   NamedBucket,
   ProblemSourceRow,
@@ -60,6 +62,18 @@ import {
 import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
 import { renderIpMap, setIpMapFilterHandler } from './ip-map'
 import { clearDrill, state, type DrillFilters } from './state'
+import {
+  compareIp,
+  compareNumber,
+  compareText,
+  createWindowedTable,
+  enableRowKeyboardNav,
+  initSortableHeader,
+  sortRows,
+  type SortColumn,
+  type SortState,
+  type WindowedTable
+} from './table'
 
 function updateSummary(result: AnalyzeResult | null): void {
   const map: Record<string, string> = {
@@ -94,10 +108,7 @@ export function clearSpfMarks(): void {
 /** Re-render views that embed SPF badges after prefixes change. */
 function renderAfterSpfMarksUpdate(): void {
   if (state.viewResult) {
-    renderBucketTable(tableIps, state.viewResult.dashboard.bySourceIp, {
-      withIpMeta: true,
-      onRowClick: (name) => setDrillFilter('sourceIp', name)
-    })
+    renderIpTable(state.viewResult.dashboard.bySourceIp)
     renderProblemSources(state.viewResult.dashboard.problemSources ?? [])
   }
   if (state.selectedReportId && state.viewResult) {
@@ -139,11 +150,36 @@ async function refreshSpfMarks(): Promise<void> {
   renderAfterSpfMarksUpdate()
 }
 
+/** Sort keys shared by the three aggregate tables (org, IP, from-domain). */
+type BucketSortKey = 'name' | 'count' | 'rate'
+
+const BUCKET_COLUMNS: Array<SortColumn<BucketSortKey>> = [
+  { key: 'name' },
+  { key: 'count', firstDir: 'desc' },
+  { key: 'rate', firstDir: 'desc' }
+]
+
+const sortOrgs: SortState<BucketSortKey> = { key: 'count', dir: 'desc' }
+const sortIps: SortState<BucketSortKey> = { key: 'count', dir: 'desc' }
+const sortFrom: SortState<BucketSortKey> = { key: 'count', dir: 'desc' }
+
+function compareBucket(
+  a: NamedBucket,
+  b: NamedBucket,
+  key: BucketSortKey,
+  ipAware: boolean
+): number {
+  if (key === 'count') return compareNumber(a.count, b.count)
+  if (key === 'rate') return compareNumber(a.passRate, b.passRate)
+  return ipAware ? compareIp(a.name, b.name) : compareText(a.name, b.name)
+}
+
 function renderBucketTable(
   tbody: HTMLTableSectionElement,
   rows: NamedBucket[],
   options: {
     withIpMeta?: boolean
+    sort?: SortState<BucketSortKey>
     onRowClick?: (name: string) => void
   } = {}
 ): void {
@@ -152,12 +188,24 @@ function renderBucketTable(
     tbody.innerHTML = `<tr class="empty"><td colspan="${cols}">${escapeHtml(t('table.noData'))}</td></tr>`
     return
   }
-  tbody.innerHTML = rows
+  const sorted = options.sort
+    ? sortRows(rows, options.sort, (a, b, key) =>
+        compareBucket(a, b, key, Boolean(options.withIpMeta))
+      )
+    : rows
+  // Only the primary row is focusable; the meta row stays clickable but out of the tab order.
+  const clickAttrs = options.onRowClick
+    ? ` tabindex="0" title="${escapeHtml(t('filter.clickToFilter'))}"`
+    : ''
+  const metaClickAttrs = options.onRowClick
+    ? ` title="${escapeHtml(t('filter.clickToFilter'))}"`
+    : ''
+  tbody.innerHTML = sorted
     .map((r) => {
       if (options.withIpMeta) {
         const ipMeta = formatIpMetaHtml(r.name, r.provider, r.label)
         return `
-      <tr data-name="${escapeHtml(r.name)}"${ipMeta ? ' class="has-ip-meta"' : ''}${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
+      <tr data-name="${escapeHtml(r.name)}"${ipMeta ? ' class="has-ip-meta"' : ''}${clickAttrs}>
         <td class="ip-col">${formatIpCellHtml(r.name, r.provider, r.label, { includeMeta: false })}</td>
         <td>${r.count}</td>
         <td>
@@ -165,10 +213,10 @@ function renderBucketTable(
           ${r.passRate.toFixed(1)}%
         </td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}><td colspan="${cols}">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(r.name)}"${metaClickAttrs}><td colspan="${cols}">${ipMeta}</td></tr>` : ''}`
       }
       return `
-      <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
+      <tr data-name="${escapeHtml(r.name)}"${clickAttrs}>
         <td><span class="mono">${escapeHtml(r.name)}</span></td>
         <td>${r.count}</td>
         <td>
@@ -193,6 +241,15 @@ function renderBucketTable(
   bindIpDetailButtons(tbody)
 }
 
+/** Render the source-IP table with its current sort and drill-down handler. */
+function renderIpTable(rows: NamedBucket[]): void {
+  renderBucketTable(tableIps, rows, {
+    withIpMeta: true,
+    sort: sortIps,
+    onRowClick: (name) => setDrillFilter('sourceIp', name)
+  })
+}
+
 function problemSourceFilterValue(row: ProblemSourceRow): string {
   return [row.sourceIp, ...(row.extraIps ?? [])].sort().join(',')
 }
@@ -206,28 +263,102 @@ function formatSourceIpChip(value: string): string {
   return t('problems.ipGroupChip', { label, count: ips.length })
 }
 
+type ProblemSortKey = 'ip' | 'from' | 'category' | 'count' | 'spf' | 'dkim'
+
+const PROBLEM_COLUMNS: Array<SortColumn<ProblemSortKey>> = [
+  { key: 'ip' },
+  { key: 'from' },
+  { key: 'category' },
+  { key: 'count', firstDir: 'desc' },
+  { key: 'spf', firstDir: 'desc' },
+  { key: 'dkim', firstDir: 'desc' }
+]
+
+const sortProblems: SortState<ProblemSortKey> = { key: 'count', dir: 'desc' }
+
+function compareProblemSource(
+  a: ProblemSourceRow,
+  b: ProblemSourceRow,
+  key: ProblemSortKey
+): number {
+  switch (key) {
+    case 'ip':
+      return compareIp(a.sourceIp, b.sourceIp)
+    case 'from':
+      return compareText(a.headerFrom, b.headerFrom)
+    case 'spf':
+      return compareNumber(a.spfFail, b.spfFail)
+    case 'dkim':
+      return compareNumber(a.dkimFail, b.dkimFail)
+    case 'category':
+      return compareText(problemCategoryLabel(a), problemCategoryLabel(b))
+    default:
+      return compareNumber(a.count, b.count)
+  }
+}
+
+type DisplayCategory = FailCategory | 'ownSender'
+
+/**
+ * An IP that our own SPF authorizes is never a stranger: whatever the record
+ * looks like, the fix is alignment on a sender we already permitted.
+ */
+function refineCategory(base: FailCategory, ips: string[]): DisplayCategory {
+  if (base === 'forwarder') return base
+  if (ips.some((ip) => isAuthorizedSender(ip, state.spfPrefixes))) return 'ownSender'
+  return base
+}
+
+function problemCategory(row: ProblemSourceRow): DisplayCategory {
+  return refineCategory(row.category ?? 'unauthenticated', [row.sourceIp, ...(row.extraIps ?? [])])
+}
+
+function problemCategoryLabel(row: ProblemSourceRow): string {
+  return t(`problems.cat.${problemCategory(row)}`)
+}
+
+const CATEGORY_BADGE_CLASS: Record<DisplayCategory, string> = {
+  forwarder: 'badge',
+  thirdParty: 'badge cloud',
+  broken: 'badge warn',
+  ownSender: 'badge warn',
+  unauthenticated: 'badge bad'
+}
+
+function categoryBadgeHtml(category: DisplayCategory): string {
+  const hint = t(`problems.catHint.${category}`)
+  return `<span class="${CATEGORY_BADGE_CLASS[category]}" title="${escapeHtml(hint)}">${escapeHtml(
+    t(`problems.cat.${category}`)
+  )}</span>`
+}
+
+function problemCategoryHtml(row: ProblemSourceRow): string {
+  return categoryBadgeHtml(problemCategory(row))
+}
+
 function renderProblemSources(rows: ProblemSourceRow[]): void {
   if (!tableProblemSources) return
   const grouped = groupProblemSources(rows, (ip) => state.ipLabelCache.get(ip)).slice(0, 40)
   if (!grouped.length) {
-    tableProblemSources.innerHTML = `<tr class="empty"><td colspan="5">${escapeHtml(t('problems.empty'))}</td></tr>`
+    tableProblemSources.innerHTML = `<tr class="empty"><td colspan="6">${escapeHtml(t('problems.empty'))}</td></tr>`
     return
   }
-  tableProblemSources.innerHTML = grouped
+  tableProblemSources.innerHTML = sortRows(grouped, sortProblems, compareProblemSource)
     .map((r) => {
       const groupCount = 1 + (r.extraIps?.length ?? 0)
       const filterValue = problemSourceFilterValue(r)
       const ipMeta = formatIpMetaHtml(r.sourceIp, null, null, { groupedIpCount: groupCount })
       const rowClass = ipMeta ? 'has-ip-meta' : ''
       return `
-      <tr data-name="${escapeHtml(filterValue)}" class="${rowClass}" title="${escapeHtml(t('filter.clickToFilter'))}">
+      <tr data-name="${escapeHtml(filterValue)}" class="${rowClass}" tabindex="0" title="${escapeHtml(t('filter.clickToFilter'))}">
         <td class="ip-col">${formatIpCellHtml(r.sourceIp, null, null, { includeMeta: false })}</td>
         <td class="mono-from" title="${escapeHtml(r.headerFrom ?? '')}">${escapeHtml(r.headerFrom ?? '—')}</td>
+        <td class="cat-col">${problemCategoryHtml(r)}</td>
         <td>${r.count}</td>
         <td>${r.spfFail}</td>
         <td>${r.dkimFail}</td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(filterValue)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="5">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(filterValue)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="6">${ipMeta}</td></tr>` : ''}`
     })
     .join('')
 
@@ -523,13 +654,12 @@ function renderDashboard(result: AnalyzeResult | null): void {
   )
 
   renderBucketTable(tableOrgs, d.byOrg, {
+    sort: sortOrgs,
     onRowClick: (name) => setDrillFilter('org', name)
   })
-  renderBucketTable(tableIps, d.bySourceIp, {
-    withIpMeta: true,
-    onRowClick: (name) => setDrillFilter('sourceIp', name)
-  })
+  renderIpTable(d.bySourceIp)
   renderBucketTable(tableFrom, d.byHeaderFrom, {
+    sort: sortFrom,
     onRowClick: (name) => setDrillFilter('headerFrom', name)
   })
   renderProblemSources(d.problemSources ?? [])
@@ -584,10 +714,7 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
       return
     }
     if (state.viewResult) {
-      renderBucketTable(tableIps, state.viewResult.dashboard.bySourceIp, {
-        withIpMeta: true,
-        onRowClick: (name) => setDrillFilter('sourceIp', name)
-      })
+      renderIpTable(state.viewResult.dashboard.bySourceIp)
       renderProblemSources(state.viewResult.dashboard.problemSources ?? [])
       renderIpMap(state.viewResult.dashboard.bySourceIp)
     }
@@ -615,7 +742,13 @@ export function renderDetail(report: ReportRow | null): void {
           ? r.reasons
               .map((x) => escapeHtml([x.type, x.comment].filter(Boolean).join(': ')))
               .join('<br />')
-          : '—'
+          : ''
+      const cause = r.passesDmarc
+        ? ''
+        : categoryBadgeHtml(
+            refineCategory(categorizeFailure(r, report.domain), [r.sourceIp].filter(Boolean))
+          )
+      const reasonCell = [cause, reasons].filter(Boolean).join('<br />') || '—'
       const ipMeta = formatIpMetaHtml(r.sourceIp)
       return `
       <tr${ipMeta ? ' class="has-ip-meta"' : ''}>
@@ -626,13 +759,9 @@ export function renderDetail(report: ReportRow | null): void {
         <td class="${r.spfResult === 'pass' ? 'pass' : 'fail'}">${escapeHtml(r.spfResult ?? '—')}</td>
         <td class="${r.passesDmarc ? 'pass' : 'fail'}">${r.passesDmarc ? 'pass' : 'fail'}</td>
         <td>${escapeHtml(r.headerFrom ?? '—')}</td>
-        <td class="reasons">${reasons}</td>
+        <td class="reasons">${reasonCell}</td>
       </tr>
-      ${
-        ipMeta
-          ? `<tr class="ip-meta-row"><td colspan="8">${ipMeta}</td></tr>`
-          : ''
-      }`
+      ${ipMeta ? `<tr class="ip-meta-row"><td colspan="8">${ipMeta}</td></tr>` : ''}`
     })
     .join('')
 
@@ -664,26 +793,58 @@ export function renderDetail(report: ReportRow | null): void {
   void enrichIpLabels(report.records.map((r) => r.sourceIp).filter(Boolean))
 }
 
+type ForensicSortKey =
+  'arrival' | 'domain' | 'ip' | 'authFailure' | 'envelopeFrom' | 'headerFrom' | 'type'
+
+const FORENSIC_COLUMNS: Array<SortColumn<ForensicSortKey>> = [
+  { key: 'arrival', firstDir: 'desc' },
+  { key: 'domain' },
+  { key: 'ip' },
+  { key: 'authFailure' },
+  { key: 'envelopeFrom' },
+  { key: 'headerFrom' },
+  { key: 'type' }
+]
+
+const sortForensic: SortState<ForensicSortKey> = { key: 'arrival', dir: 'desc' }
+
+function compareForensic(a: ForensicReportRow, b: ForensicReportRow, key: ForensicSortKey): number {
+  switch (key) {
+    case 'domain':
+      return compareText(a.reportedDomain, b.reportedDomain)
+    case 'ip':
+      return compareIp(a.sourceIp ?? '', b.sourceIp ?? '')
+    case 'authFailure':
+      return compareText(a.authFailure, b.authFailure)
+    case 'envelopeFrom':
+      return compareText(a.envelopeFrom, b.envelopeFrom)
+    case 'headerFrom':
+      return compareText(a.headerFrom, b.headerFrom)
+    case 'type':
+      return compareText(a.feedbackType, b.feedbackType)
+    default:
+      return compareText(a.arrivalDate, b.arrivalDate)
+  }
+}
+
+function forensicRowElement(r: ForensicReportRow): HTMLTableRowElement {
+  const tr = document.createElement('tr')
+  tr.innerHTML = `
+    <td>${escapeHtml(r.arrivalDate ? r.arrivalDate.slice(0, 19).replace('T', ' ') : '—')}</td>
+    <td>${escapeHtml(r.reportedDomain ?? '—')}</td>
+    <td class="mono">${escapeHtml(r.sourceIp ?? '—')}</td>
+    <td>${escapeHtml(r.authFailure ?? '—')}</td>
+    <td>${escapeHtml(r.envelopeFrom ?? '—')}</td>
+    <td>${escapeHtml(r.headerFrom ?? '—')}</td>
+    <td>${escapeHtml(r.feedbackType ?? '—')}</td>`
+  return tr
+}
+
+let forensicTable: WindowedTable<ForensicReportRow> | null = null
+
 function renderForensic(result: AnalyzeResult | null): void {
   const rows = result?.forensicReports ?? []
-  if (rows.length === 0) {
-    forensicBody.innerHTML = `<tr class="empty"><td colspan="7">${escapeHtml(t('table.forensicEmpty'))}</td></tr>`
-    return
-  }
-  forensicBody.innerHTML = rows
-    .map(
-      (r: ForensicReportRow) => `
-      <tr>
-        <td>${escapeHtml(r.arrivalDate ? r.arrivalDate.slice(0, 19).replace('T', ' ') : '—')}</td>
-        <td>${escapeHtml(r.reportedDomain ?? '—')}</td>
-        <td class="mono">${escapeHtml(r.sourceIp ?? '—')}</td>
-        <td>${escapeHtml(r.authFailure ?? '—')}</td>
-        <td>${escapeHtml(r.envelopeFrom ?? '—')}</td>
-        <td>${escapeHtml(r.headerFrom ?? '—')}</td>
-        <td>${escapeHtml(r.feedbackType ?? '—')}</td>
-      </tr>`
-    )
-    .join('')
+  forensicTable?.setRows(rows.length ? sortRows(rows, sortForensic, compareForensic) : [])
 }
 
 async function downloadReportZip(report: ReportRow): Promise<void> {
@@ -699,19 +860,50 @@ async function downloadReportZip(report: ReportRow): Promise<void> {
   }
 }
 
-export function renderReports(result: AnalyzeResult | null): void {
-  reportsBody.innerHTML = ''
-  if (!result || result.reports.length === 0) {
-    reportsBody.innerHTML = `<tr class="empty"><td colspan="9">${escapeHtml(t('table.noReports'))}</td></tr>`
-    renderDetail(null)
-    return
-  }
+type ReportSortKey =
+  'org' | 'domain' | 'period' | 'total' | 'passing' | 'failing' | 'rate' | 'policy'
 
-  for (const report of result.reports) {
-    const tr = document.createElement('tr')
-    tr.dataset.reportId = report.reportId
-    if (report.reportId === state.selectedReportId) tr.classList.add('selected')
-    tr.innerHTML = `
+const REPORT_COLUMNS: Array<SortColumn<ReportSortKey>> = [
+  { key: 'org' },
+  { key: 'domain' },
+  { key: 'period', firstDir: 'desc' },
+  { key: 'total', firstDir: 'desc' },
+  { key: 'passing', firstDir: 'desc' },
+  { key: 'failing', firstDir: 'desc' },
+  { key: 'rate', firstDir: 'desc' },
+  { key: 'policy' },
+  { key: null }
+]
+
+const sortReports: SortState<ReportSortKey> = { key: 'period', dir: 'desc' }
+
+function compareReport(a: ReportRow, b: ReportRow, key: ReportSortKey): number {
+  switch (key) {
+    case 'org':
+      return compareText(a.orgName, b.orgName)
+    case 'domain':
+      return compareText(a.domain, b.domain)
+    case 'total':
+      return compareNumber(a.total, b.total)
+    case 'passing':
+      return compareNumber(a.passing, b.passing)
+    case 'failing':
+      return compareNumber(a.failing, b.failing)
+    case 'rate':
+      return compareNumber(a.passRate, b.passRate)
+    case 'policy':
+      return compareText(a.policyP, b.policyP)
+    default:
+      return compareText(a.dateEnd || a.dateBegin, b.dateEnd || b.dateBegin)
+  }
+}
+
+function reportRowElement(report: ReportRow): HTMLTableRowElement {
+  const tr = document.createElement('tr')
+  tr.dataset.reportId = report.reportId
+  tr.tabIndex = 0
+  if (report.reportId === state.selectedReportId) tr.classList.add('selected')
+  tr.innerHTML = `
       <td>${escapeHtml(report.orgName)}</td>
       <td>${escapeHtml(report.domain)}</td>
       <td>${escapeHtml(formatRange(report.dateBegin, report.dateEnd))}</td>
@@ -734,29 +926,36 @@ export function renderReports(result: AnalyzeResult | null): void {
         </button>
       </td>
     `
-    tr.addEventListener('click', (ev) => {
-      const target = ev.target as HTMLElement
-      if (target.closest('[data-report-download]')) return
-      state.selectedReportId = report.reportId
-      for (const row of reportsBody.querySelectorAll('tr')) row.classList.remove('selected')
-      tr.classList.add('selected')
-      renderDetail(report)
-    })
-    const downloadBtn = tr.querySelector<HTMLButtonElement>('[data-report-download]')
-    downloadBtn?.addEventListener('click', (ev) => {
-      ev.stopPropagation()
-      void downloadReportZip(report)
-    })
-    reportsBody.appendChild(tr)
-  }
+  tr.addEventListener('click', (ev) => {
+    const target = ev.target as HTMLElement
+    if (target.closest('[data-report-download]')) return
+    state.selectedReportId = report.reportId
+    for (const row of reportsBody.querySelectorAll('tr.selected')) row.classList.remove('selected')
+    tr.classList.add('selected')
+    renderDetail(report)
+  })
+  const downloadBtn = tr.querySelector<HTMLButtonElement>('[data-report-download]')
+  downloadBtn?.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    void downloadReportZip(report)
+  })
+  return tr
+}
 
-  const selected =
-    result.reports.find((r) => r.reportId === state.selectedReportId) ?? result.reports[0] ?? null
-  state.selectedReportId = selected?.reportId ?? null
-  if (selected) {
-    const row = reportsBody.querySelector(`tr[data-report-id="${CSS.escape(selected.reportId)}"]`)
-    row?.classList.add('selected')
+let reportsTable: WindowedTable<ReportRow> | null = null
+
+export function renderReports(result: AnalyzeResult | null): void {
+  const rows = result ? sortRows(result.reports, sortReports, compareReport) : []
+  if (rows.length === 0) {
+    state.selectedReportId = null
+    reportsTable?.setRows([])
+    renderDetail(null)
+    return
   }
+  // Keep the selection when it survives the filter, otherwise take the first row.
+  const selected = rows.find((r) => r.reportId === state.selectedReportId) ?? rows[0]!
+  state.selectedReportId = selected.reportId
+  reportsTable?.setRows(rows)
   renderDetail(selected)
 }
 
@@ -888,8 +1087,76 @@ function initStickyFilter(): void {
   window.addEventListener('resize', onScrollOrResize)
 }
 
+/** Wire up column sorting, keyboard row navigation and windowed row rendering. */
+function initTables(): void {
+  reportsTable = createWindowedTable<ReportRow>({
+    body: reportsBody,
+    columns: 9,
+    renderRow: reportRowElement,
+    renderEmpty: () =>
+      `<tr class="empty"><td colspan="9">${escapeHtml(t('table.noReports'))}</td></tr>`
+  })
+  forensicTable = createWindowedTable<ForensicReportRow>({
+    body: forensicBody,
+    columns: 7,
+    renderRow: forensicRowElement,
+    renderEmpty: () =>
+      `<tr class="empty"><td colspan="7">${escapeHtml(t('table.forensicEmpty'))}</td></tr>`
+  })
+
+  initSortableHeader({
+    table: reportsBody.closest('table'),
+    columns: REPORT_COLUMNS,
+    state: sortReports,
+    onSort: () => renderReports(state.viewResult)
+  })
+  initSortableHeader({
+    table: forensicBody.closest('table'),
+    columns: FORENSIC_COLUMNS,
+    state: sortForensic,
+    onSort: () => renderForensic(state.viewResult)
+  })
+  initSortableHeader({
+    table: tableProblemSources?.closest('table'),
+    columns: PROBLEM_COLUMNS,
+    state: sortProblems,
+    onSort: () => renderProblemSources(state.viewResult?.dashboard.problemSources ?? [])
+  })
+  initSortableHeader({
+    table: tableOrgs.closest('table'),
+    columns: BUCKET_COLUMNS,
+    state: sortOrgs,
+    onSort: () =>
+      renderBucketTable(tableOrgs, state.viewResult?.dashboard.byOrg ?? [], {
+        sort: sortOrgs,
+        onRowClick: (name) => setDrillFilter('org', name)
+      })
+  })
+  initSortableHeader({
+    table: tableIps.closest('table'),
+    columns: BUCKET_COLUMNS,
+    state: sortIps,
+    onSort: () => renderIpTable(state.viewResult?.dashboard.bySourceIp ?? [])
+  })
+  initSortableHeader({
+    table: tableFrom.closest('table'),
+    columns: BUCKET_COLUMNS,
+    state: sortFrom,
+    onSort: () =>
+      renderBucketTable(tableFrom, state.viewResult?.dashboard.byHeaderFrom ?? [], {
+        sort: sortFrom,
+        onRowClick: (name) => setDrillFilter('headerFrom', name)
+      })
+  })
+
+  for (const body of [reportsBody, tableOrgs, tableIps, tableFrom, tableProblemSources]) {
+    enableRowKeyboardNav(body)
+  }
+}
+
 export function initView(): void {
   initStickyFilter()
+  initTables()
   setIpMapFilterHandler((ip) => setDrillFilter('sourceIp', ip))
   setVolumeDayClickHandler(filterVolumeByDay)
 

@@ -71,6 +71,10 @@ interface StoredGlobal {
   cloudRangesEnabled?: boolean
   rdapEnabled?: boolean
   hideGoogleNoise?: boolean
+  pdfMonthlyEnabled?: boolean
+  pdfMonthlyDir?: string
+  /** Written by the scheduler, never by the settings form. */
+  pdfMonthlyLastRun?: string
 }
 
 interface StoredSettingsV2 {
@@ -101,8 +105,8 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   passRateAlertThreshold: 0,
   notifyNewSource: false,
   ignoredSources: '',
-  runInTray: false,
-  openAtLogin: false,
+  runInTray: true,
+  openAtLogin: true,
   language: 'de',
   theme: 'auto',
   oauthGoogleClientId: '',
@@ -114,7 +118,10 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   dnsblEnabled: true,
   cloudRangesEnabled: true,
   rdapEnabled: true,
-  hideGoogleNoise: false
+  hideGoogleNoise: false,
+  pdfMonthlyEnabled: false,
+  pdfMonthlyDir: '',
+  pdfMonthlyLastRun: ''
 }
 
 function settingsPath(): string {
@@ -414,8 +421,8 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     passRateAlertThreshold: normalizeThreshold(g.passRateAlertThreshold),
     notifyNewSource: Boolean(g.notifyNewSource),
     ignoredSources: g.ignoredSources ?? '',
-    runInTray: Boolean(g.runInTray),
-    openAtLogin: Boolean(g.openAtLogin),
+    runInTray: g.runInTray ?? GLOBAL_DEFAULTS.runInTray,
+    openAtLogin: g.openAtLogin ?? GLOBAL_DEFAULTS.openAtLogin,
     language,
     theme: normalizeTheme(g.theme),
     oauthGoogleClientId:
@@ -425,13 +432,14 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     enrichmentEnabled: g.enrichmentEnabled ?? GLOBAL_DEFAULTS.enrichmentEnabled,
     geoIpOnlineFallback: Boolean(g.geoIpOnlineFallback),
     maxmindLicenseKey: '',
-    hasMaxmindLicenseKey: Boolean(
-      g.maxmindLicenseKeyEncrypted || g.maxmindLicenseKey?.trim()
-    ),
+    hasMaxmindLicenseKey: Boolean(g.maxmindLicenseKeyEncrypted || g.maxmindLicenseKey?.trim()),
     dnsblEnabled: g.dnsblEnabled ?? GLOBAL_DEFAULTS.dnsblEnabled,
     cloudRangesEnabled: g.cloudRangesEnabled ?? GLOBAL_DEFAULTS.cloudRangesEnabled,
     rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled,
-    hideGoogleNoise: Boolean(g.hideGoogleNoise)
+    hideGoogleNoise: Boolean(g.hideGoogleNoise),
+    pdfMonthlyEnabled: Boolean(g.pdfMonthlyEnabled),
+    pdfMonthlyDir: (g.pdfMonthlyDir ?? '').trim(),
+    pdfMonthlyLastRun: g.pdfMonthlyLastRun ?? ''
   }
 }
 
@@ -610,10 +618,21 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     dnsblEnabled: input.dnsblEnabled !== false,
     cloudRangesEnabled: input.cloudRangesEnabled !== false,
     rdapEnabled: input.rdapEnabled !== false,
-    hideGoogleNoise: Boolean(input.hideGoogleNoise)
+    hideGoogleNoise: Boolean(input.hideGoogleNoise),
+    pdfMonthlyEnabled: Boolean(input.pdfMonthlyEnabled),
+    pdfMonthlyDir: String(input.pdfMonthlyDir ?? '').trim(),
+    // Owned by the scheduler: the form round-trips a display value only.
+    pdfMonthlyLastRun: stored.global.pdfMonthlyLastRun ?? ''
   }
   writeStored(stored)
   return loadSettings()
+}
+
+/** Remember that the monthly report ran, so it happens once per month. */
+export function setMonthlyReportRun(iso: string): void {
+  const stored = readStored()
+  stored.global.pdfMonthlyLastRun = iso
+  writeStored(stored)
 }
 
 function baseConnection(

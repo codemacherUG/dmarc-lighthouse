@@ -13,7 +13,6 @@ import { PROVIDER_PRESETS } from '../../shared/types'
 import { applyUiLocale, setBusy, setStatus } from './chrome'
 import { applyTheme } from './theme'
 import {
-  accountLabelEl,
   accountFieldEl,
   accountNameEl,
   accountSelectEl,
@@ -33,6 +32,8 @@ import {
   btnNewAccount,
   btnOauthDisconnect,
   btnOauthLogin,
+  btnPdfDir,
+  btnPdfNow,
   btnSettings,
   btnTest,
   cloudRangesEnabledEl,
@@ -55,14 +56,21 @@ import {
   notifyNewSourceEl,
   notifyOnFailEl,
   oauthActionsEl,
+  oauthClientIdsEl,
   oauthGoogleClientIdEl,
-  oauthHintEl,
+  oauthGoogleFieldEl,
   oauthMicrosoftClientIdEl,
+  oauthMicrosoftFieldEl,
+  oauthSetupGoogleEl,
+  oauthSetupMicrosoftEl,
   openAtLoginEl,
   passRateAlertThresholdEl,
   passwordEl,
   passwordFieldEl,
   passwordHintEl,
+  pdfMonthlyDirEl,
+  pdfMonthlyEnabledEl,
+  pdfMonthlyLastEl,
   portEl,
   providerEl,
   rdapEnabledEl,
@@ -83,7 +91,7 @@ import {
   tabGeneralEl,
   userEl
 } from './dom'
-import { escapeHtml } from './format'
+import { escapeHtml, formatDate } from './format'
 import { state } from './state'
 import { applyView } from './view'
 
@@ -127,10 +135,16 @@ export function accountHasAuth(account: AccountPublic | null | undefined): boole
 export function syncAuthModeUi(): void {
   const oauth = authModeEl.value === 'oauth'
   const provider = providerEl.value
-  const oauthSupported = provider === 'gmail' || provider === 'outlook' || provider === 'microsoft'
+  const google = provider === 'gmail'
+  const microsoft = provider === 'outlook' || provider === 'microsoft'
+  const oauthSupported = google || microsoft
   passwordFieldEl.classList.toggle('hidden', oauth)
   oauthActionsEl.classList.toggle('hidden', !oauth)
-  oauthHintEl.classList.toggle('hidden', !oauth)
+  oauthClientIdsEl.classList.toggle('hidden', !oauth)
+  oauthGoogleFieldEl.classList.toggle('hidden', oauth && !google && microsoft)
+  oauthMicrosoftFieldEl.classList.toggle('hidden', oauth && !microsoft && google)
+  oauthSetupGoogleEl.classList.toggle('hidden', oauth && !google && microsoft)
+  oauthSetupMicrosoftEl.classList.toggle('hidden', oauth && !microsoft && google)
   btnOauthLogin.disabled = !oauth || !oauthSupported || state.dialogAccountId == null
   btnOauthDisconnect.disabled =
     !oauth || state.dialogAccountId == null || !dialogAccount()?.hasOAuth
@@ -372,7 +386,11 @@ export function readGlobalForm(): GlobalSettings {
     dnsblEnabled: dnsblEnabledEl.checked,
     cloudRangesEnabled: cloudRangesEnabledEl.checked,
     rdapEnabled: rdapEnabledEl.checked,
-    hideGoogleNoise: filterHideGoogleNoiseEl.checked
+    hideGoogleNoise: filterHideGoogleNoiseEl.checked,
+    pdfMonthlyEnabled: pdfMonthlyEnabledEl.checked,
+    pdfMonthlyDir: pdfMonthlyDirEl.value.trim(),
+    // Owned by the scheduler in the main process; sent back unchanged.
+    pdfMonthlyLastRun: state.settings?.global.pdfMonthlyLastRun ?? ''
   }
 }
 
@@ -386,9 +404,6 @@ function applyProviderPreset(provider: ProviderPreset): void {
 }
 
 export function updateAccountUi(): void {
-  const account = activeAccount()
-  accountLabelEl.textContent = account ? account.label : t('app.noCredentials')
-
   const accounts = state.settings?.accounts ?? []
   accountFieldEl.classList.toggle('hidden', accounts.length <= 1)
   accountSelectEl.innerHTML = accounts
@@ -466,6 +481,11 @@ export function fillGlobalForm(global: GlobalSettings): void {
   maxmindLicenseKeyEl.placeholder = global.hasMaxmindLicenseKey
     ? t('settings.maxmindKeySaved')
     : t('settings.maxmindKeyPlaceholder')
+  pdfMonthlyEnabledEl.checked = Boolean(global.pdfMonthlyEnabled)
+  pdfMonthlyDirEl.value = global.pdfMonthlyDir ?? ''
+  pdfMonthlyLastEl.textContent = global.pdfMonthlyLastRun
+    ? t('settings.pdfMonthlyLast', { date: formatDate(global.pdfMonthlyLastRun) })
+    : t('settings.pdfMonthlyNever')
   void refreshGeoLiteStatus()
 }
 
@@ -587,6 +607,30 @@ export function initSettingsUi(): void {
     }
   })
 
+  btnPdfDir.addEventListener('click', async () => {
+    try {
+      const picked = await window.api.chooseReportDir()
+      if (picked.ok) pdfMonthlyDirEl.value = picked.dir
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    }
+  })
+
+  btnPdfNow.addEventListener('click', async () => {
+    btnPdfNow.disabled = true
+    settingsStatusEl.textContent = t('settings.pdfMonthlyRunning')
+    try {
+      // Persist the target folder first so the run writes where the form points.
+      applySettings(await window.api.saveGlobalSettings(readGlobalForm()))
+      const result = await window.api.runMonthlyReport()
+      settingsStatusEl.textContent = result.message
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      btnPdfNow.disabled = false
+    }
+  })
+
   providerEl.addEventListener('change', () => {
     applyProviderPreset(providerEl.value as ProviderPreset)
     updateAccountNamePlaceholder()
@@ -600,9 +644,10 @@ export function initSettingsUi(): void {
       settingsStatusEl.textContent = t('settings.saveAccountFirst')
       return
     }
-    // Persist current form (provider/auth mode) before starting the browser flow.
+    // Persist client IDs and the account before starting the browser flow.
     setBusy(true)
     try {
+      applySettings(await window.api.saveGlobalSettings(readGlobalForm()))
       applySettings(await window.api.saveAccount(readAccountForm()))
       state.dialogAccountId = state.dialogAccountId ?? state.settings?.activeAccountId ?? null
       applySettings(await window.api.oauthLogin(state.dialogAccountId!))

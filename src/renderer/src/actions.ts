@@ -1,5 +1,5 @@
-import { analyzeFromReports } from '../../shared/analyze'
 import { t } from '../../shared/i18n'
+import type { AnalyzeResult } from '../../shared/types'
 import { applyProgress, setBusy, setStatus, setTopProgress } from './chrome'
 import {
   accountSelectEl,
@@ -8,6 +8,7 @@ import {
   btnExport,
   btnExportCsv,
   btnExportJson,
+  btnExportPdf,
   btnFetch,
   btnOpenFiles,
   dnsDomainEl,
@@ -29,7 +30,30 @@ import {
   setSwitchActiveAccount
 } from './settings-ui'
 import { clearDrill, state } from './state'
+import { runTransportCheck } from './transport-view'
 import { applyView, clearSpfMarks, showResult } from './view'
+
+/** Show an import result and report how much of it was written to the cache. */
+function showImportResult(result: AnalyzeResult): void {
+  state.selectedReportId = null
+  const summary = result.imported
+  if (!summary?.persisted) {
+    showResult(result, t('status.importNotStored', { count: result.reports.length }))
+    setStatus(t('status.importNotStored', { count: result.reports.length }), 'error')
+    return
+  }
+  const replacedNote = summary.updated
+    ? t('status.importReplacedPart', { count: summary.updated })
+    : ''
+  showResult(
+    result,
+    t('status.imported', {
+      count: summary.added,
+      total: result.aggregate.reportCount,
+      replacedNote
+    })
+  )
+}
 
 /** Copy the active account's domain into the DNS-check field after a switch. */
 function syncDnsDomainFromAccount(): void {
@@ -88,6 +112,23 @@ async function doExport(format: 'json' | 'csv'): Promise<void> {
   }
 }
 
+/** Management PDF of the current view; rendering happens in the main process. */
+async function doPdfExport(): Promise<void> {
+  if (!state.viewResult) return
+  setStatus(t('status.pdfBuilding'))
+  btnExportPdf.disabled = true
+  try {
+    const domain = filterDomainEl.value.trim() || null
+    const res = await window.api.exportPdfReport(state.viewResult, { domain })
+    setStatus(res.message, res.ok ? 'ok' : '')
+    if (res.ok) exportDialog.close()
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : String(err), 'error')
+  } finally {
+    btnExportPdf.disabled = false
+  }
+}
+
 export function initActions(): void {
   setSwitchActiveAccount(switchActiveAccount)
 
@@ -100,6 +141,7 @@ export function initActions(): void {
   btnCloseExport.addEventListener('click', () => exportDialog.close())
   btnExportCsv.addEventListener('click', () => void doExport('csv'))
   btnExportJson.addEventListener('click', () => void doExport('json'))
+  btnExportPdf.addEventListener('click', () => void doPdfExport())
 
   btnFetch.addEventListener('click', async () => {
     if (state.busy) return
@@ -133,29 +175,7 @@ export function initActions(): void {
     try {
       const result = await window.api.openFiles()
       if (!result) return
-      state.selectedReportId = null
-      if (state.fullResult) {
-        const map = new Map(state.fullResult.reports.map((r) => [r.reportId, r]))
-        for (const r of result.reports) {
-          map.set(r.reportId || `${r.orgName}|${r.domain}|${r.dateEnd}`, r)
-        }
-        const forensicMap = new Map(
-          (state.fullResult.forensicReports ?? []).map((r) => [r.id, r] as const)
-        )
-        for (const r of result.forensicReports ?? []) forensicMap.set(r.id, r)
-        showResult(
-          analyzeFromReports([...map.values()], {
-            skipped: state.fullResult.skipped + result.skipped,
-            errors: [...state.fullResult.errors, ...result.errors].slice(0, 50),
-            newReports: result.reports.length,
-            newForensicReports: result.forensicReports?.length ?? 0,
-            forensicReports: [...forensicMap.values()]
-          }),
-          t('status.localLoaded', { count: result.reports.length })
-        )
-      } else {
-        showResult(result, t('status.localLoaded', { count: result.reports.length }))
-      }
+      showImportResult(result)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err), 'error')
     } finally {
@@ -179,6 +199,7 @@ export function initActions(): void {
     btnDns.disabled = true
     dnsResultEl.textContent = t('dns.checking', { domain })
     dnsResultEl.className = 'dns-result'
+    const transport = runTransportCheck(domain)
     try {
       const result = await window.api.checkDns(domain, selectors)
       const dmarcLine = result.dmarc.found
@@ -222,6 +243,7 @@ export function initActions(): void {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)
       dnsResultEl.className = 'dns-result error'
     } finally {
+      await transport
       btnDns.disabled = false
     }
   }
@@ -262,8 +284,7 @@ export function initActions(): void {
           }))
         )
         const result = await window.api.parseBuffers(buffers)
-        state.selectedReportId = null
-        showResult(result, t('status.filesLoaded', { count: result.reports.length }))
+        showImportResult(result)
       } catch (err) {
         setStatus(err instanceof Error ? err.message : String(err), 'error')
       } finally {

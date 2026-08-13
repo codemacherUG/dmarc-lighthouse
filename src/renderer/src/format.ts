@@ -59,7 +59,17 @@ export function formatIpMetaHtml(
   if (meta?.asn != null) {
     bits.push(`<span class="badge">AS${meta.asn}</span>`)
   }
-  if (meta?.cloudProvider) {
+  // The identified service ("SendGrid") is more actionable than the network it
+  // runs on ("AWS"), so it leads and the cloud label only follows if it adds info.
+  const senderName = meta?.provider ?? null
+  if (senderName) {
+    const kind = meta?.senderKind ? t(`sender.kind.${meta.senderKind}`) : ''
+    const title = kind ? ` title="${escapeHtml(kind)}"` : ''
+    bits.push(`<span class="badge"${title}>${escapeHtml(senderName)}</span>`)
+    if (meta?.cloudProvider && meta.cloudProvider !== senderName) {
+      bits.push(`<span class="badge cloud">${escapeHtml(meta.cloudProvider)}</span>`)
+    }
+  } else if (meta?.cloudProvider) {
     bits.push(`<span class="badge cloud">${escapeHtml(meta.cloudProvider)}</span>`)
   } else if (provider) {
     bits.push(`<span class="badge">${escapeHtml(provider)}</span>`)

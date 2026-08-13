@@ -1,7 +1,8 @@
 import type { AppLocale } from './i18n'
+import type { SenderKind } from './sender'
 import type { AppTheme } from './theme'
 
-export type { AppLocale, AppTheme }
+export type { AppLocale, AppTheme, SenderKind }
 
 export type ProviderPreset = 'gmail' | 'outlook' | 'microsoft' | 'custom'
 
@@ -155,6 +156,12 @@ export interface GlobalSettings {
   rdapEnabled: boolean
   /** Persist dashboard filter: hide Google SPF-fail / DKIM-pass noise. */
   hideGoogleNoise: boolean
+  /** Write a PDF management report for the finished month, once per month. */
+  pdfMonthlyEnabled: boolean
+  /** Output folder for monthly reports; empty = Documents/DMARC Lighthouse. */
+  pdfMonthlyDir: string
+  /** Read-only: when the last monthly report was written (ISO), '' if never. */
+  pdfMonthlyLastRun: string
 }
 
 export interface SettingsPublic {
@@ -249,6 +256,18 @@ export interface VolumePoint {
   passRate: number
 }
 
+/**
+ * Why delivered messages failed DMARC — the answer decides what to do next.
+ * - `forwarder`: receiver flagged forwarding / mailing list, usually not actionable
+ * - `thirdParty`: signed or sent under a foreign domain — an ESP without alignment
+ * - `broken`: own domain authenticated but alignment or the signature failed
+ * - `unauthenticated`: no SPF and no DKIM at all — the spoofing candidate
+ */
+export type FailCategory = 'forwarder' | 'thirdParty' | 'broken' | 'unauthenticated'
+
+/** Message counts per failure category. */
+export type FailCategoryCounts = Partial<Record<FailCategory, number>>
+
 /** Source IP with delivered auth-fails — useful during DMARC rollout. */
 export interface ProblemSourceRow {
   sourceIp: string
@@ -259,6 +278,10 @@ export interface ProblemSourceRow {
   headerFrom: string | null
   /** Other IPs in the same ASN/provider + From group (after enrichment). */
   extraIps?: string[]
+  /** Messages per failure category. */
+  categories?: FailCategoryCounts
+  /** Dominant failure category by message count. */
+  category?: FailCategory | null
 }
 
 /** Kibana-ähnliche Dashboard-Aggregationen über alle Records. */
@@ -273,6 +296,18 @@ export interface DashboardData {
   volumeByDay: VolumePoint[]
   /** Unhealthy outcomes (delivered auth-fails) grouped by source IP. */
   problemSources: ProblemSourceRow[]
+}
+
+/** Outcome of a local file import. */
+export interface ImportSummary {
+  /** Reports newly stored in the cache. */
+  added: number
+  /** Reports that replaced an already cached report with the same ID. */
+  updated: number
+  /** Forensic reports newly stored. */
+  addedForensic: number
+  /** False when the cache write failed and the data only exists for this session. */
+  persisted: boolean
 }
 
 export interface AnalyzeResult {
@@ -302,6 +337,8 @@ export interface AnalyzeResult {
   newSourceIps?: string[]
   /** Account this result belongs to (set for IMAP fetches). */
   accountId?: string
+  /** Set for local file imports. */
+  imported?: ImportSummary
 }
 
 export interface TestConnectionResult {
@@ -315,7 +352,10 @@ export type GeoSource = 'maxmind' | 'online' | 'none'
 export interface IpInfo {
   ip: string
   ptr: string | null
+  /** Sending service (e.g. "Amazon SES") or the network label as fallback. */
   provider: string | null
+  /** What kind of service `provider` is, when it was recognized. */
+  senderKind: SenderKind | null
   country: string | null
   countryCode: string | null
   city: string | null
@@ -409,6 +449,64 @@ export interface DnsCheckResult {
     selectors: DkimSelectorCheck[]
   }
   resolver?: DnsResolverInfo
+  checkedAt: string
+}
+
+export interface TlsRptCheck {
+  found: boolean
+  records: string[]
+  /** Report targets from `rua=` (mailto: or https:). */
+  rua: string[]
+  error?: string
+}
+
+export interface MtaStsPolicy {
+  version: string | null
+  mode: 'enforce' | 'testing' | 'none' | null
+  mx: string[]
+  maxAgeSeconds: number | null
+}
+
+export interface MtaStsCheck {
+  found: boolean
+  id: string | null
+  records: string[]
+  policyUrl: string
+  policy: MtaStsPolicy | null
+  error?: string
+  policyError?: string
+}
+
+export interface DaneMxCheck {
+  host: string
+  preference: number
+  /** Rendered TLSA records, e.g. `3 1 1 a1b2…`. */
+  tlsa: string[]
+  found: boolean
+  error?: string
+}
+
+export interface DaneCheck {
+  mx: DaneMxCheck[]
+  error?: string
+}
+
+export type TransportSecurityStatus = 'ok' | 'warn' | 'bad' | 'unknown'
+
+/** One finding from the transport check; `level` is why the badge is not OK. */
+export interface TransportReason {
+  key: string
+  level: Exclude<TransportSecurityStatus, 'unknown'>
+}
+
+/** SMTP transport hardening: TLS-RPT reporting, MTA-STS policy, DANE/TLSA. */
+export interface TransportSecurityResult {
+  domain: string
+  tlsrpt: TlsRptCheck
+  mtaSts: MtaStsCheck
+  dane: DaneCheck
+  status: TransportSecurityStatus
+  reasons: TransportReason[]
   checkedAt: string
 }
 

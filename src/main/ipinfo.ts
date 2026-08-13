@@ -1,4 +1,5 @@
 import { promises as dns } from 'dns'
+import { identifySender } from '../shared/sender'
 import type { IpInfo } from '../shared/types'
 import { getIpEnrichment, upsertIpEnrichment } from './cache'
 import { lookupCloudProvider } from './cloudranges'
@@ -8,39 +9,12 @@ import { loadSettings } from './settings'
 
 const ptrCache = new Map<string, IpInfo>()
 
-/** Bekannte Absender anhand PTR-/Hostname-Mustern. */
-const PROVIDER_PATTERNS: Array<{ provider: string; pattern: RegExp }> = [
-  { provider: 'Google', pattern: /\.(google|googlemail|gmail)\./i },
-  { provider: 'Microsoft', pattern: /\.(outlook|protection\.outlook|microsoft|office365)\./i },
-  { provider: 'Amazon SES', pattern: /\.(amazonaws|amazonses)\./i },
-  { provider: 'Mailchimp', pattern: /\.(mailchimp|mandrillapp)\./i },
-  { provider: 'SendGrid', pattern: /\.sendgrid\./i },
-  { provider: 'Mailgun', pattern: /\.mailgun\./i },
-  { provider: 'Postmark', pattern: /\.postmarkapp\./i },
-  { provider: 'SparkPost', pattern: /\.sparkpost(mail)?\./i },
-  { provider: 'Zoho', pattern: /\.zoho\./i },
-  { provider: 'Yahoo', pattern: /\.yahoo\./i },
-  { provider: 'Proton', pattern: /\.proton(mail)?\./i },
-  { provider: 'Brevo', pattern: /\.(brevo|sendinblue)\./i },
-  { provider: 'Cloudflare', pattern: /\.cloudflare\./i },
-  { provider: 'OVH', pattern: /\.ovh\./i },
-  { provider: 'Hetzner', pattern: /\.hetzner\./i },
-  { provider: 'DigitalOcean', pattern: /\.digitalocean\./i }
-]
-
-function classifyProvider(ptr: string | null): string | null {
-  if (!ptr) return null
-  for (const entry of PROVIDER_PATTERNS) {
-    if (entry.pattern.test(ptr)) return entry.provider
-  }
-  return null
-}
-
 function emptyInfo(ip: string): IpInfo {
   return {
     ip,
     ptr: null,
     provider: null,
+    senderKind: null,
     country: null,
     countryCode: null,
     city: null,
@@ -71,13 +45,14 @@ async function resolveOne(ip: string): Promise<IpInfo> {
   const enrichmentOn = settings.enrichmentEnabled !== false
 
   const ptr = await resolvePtr(ip)
-  const ptrProvider = classifyProvider(ptr)
 
   if (!enrichmentOn) {
+    const fromPtr = identifySender({ ptr })
     const info: IpInfo = {
       ...emptyInfo(ip),
       ptr,
-      provider: ptrProvider
+      provider: fromPtr?.name ?? null,
+      senderKind: fromPtr?.kind ?? null
     }
     ptrCache.set(ip, info)
     return info
@@ -89,11 +64,13 @@ async function resolveOne(ip: string): Promise<IpInfo> {
     settings.dnsblEnabled !== false ? lookupDnsbl(ip) : Promise.resolve([] as string[])
   ])
 
-  const provider = cloudProvider || ptrProvider
+  // The service name beats the network label: "Amazon SES" over "AWS".
+  const sender = identifySender({ ptr, asOrg: geo.asOrg })
   const info: IpInfo = {
     ip,
     ptr,
-    provider,
+    provider: sender?.name ?? cloudProvider,
+    senderKind: sender?.kind ?? null,
     country: geo.country,
     countryCode: geo.countryCode,
     city: geo.city,

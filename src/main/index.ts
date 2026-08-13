@@ -22,9 +22,32 @@ import type {
   ReportRow
 } from '../shared/types'
 import { normalizeTheme } from '../shared/theme'
-import { parseLocalBuffers } from './analyze'
-import { accountKeyFor, clearCache } from './cache'
+import {
+  LOCAL_IMPORT_ACCOUNT_KEY,
+  accountKeyFor,
+  clearCache,
+  getDnsHealthCache,
+  loadCachedReports
+} from './cache'
+import { analyzeFromReports } from '../shared/analyze'
+import {
+  isMonthlyReportDue,
+  monthlyReportFilename,
+  periodForReports,
+  previousMonthRange
+} from '../shared/report-period'
+import {
+  buildPdfReport,
+  defaultReportDir,
+  domainHealthFromReports,
+  forensicInPeriod,
+  groupReportsByDomain,
+  reportsInPeriod,
+  writeReportFile
+} from './pdf-report'
+import { importLocalFiles, loadLocalImportResult, type ImportTargetAccount } from './import'
 import { checkDomainDns } from './dnscheck'
+import { checkTransportSecurity } from './transport'
 import { expandSpf } from './spf-expand'
 import { exportReportZip, exportReportsCsv, exportReportsJson } from './export'
 import {
@@ -57,7 +80,8 @@ import {
   saveAccount,
   saveGlobalSettings,
   secretsDecryptable,
-  setActiveAccount
+  setActiveAccount,
+  setMonthlyReportRun
 } from './settings'
 import { setupAutoUpdater } from './updater'
 import { runScreenshotCapture, wantsScreenshotCapture } from './screenshots'
@@ -68,6 +92,18 @@ import { openExternalSafe } from './open-external'
 
 function accountReady(account: AccountPublic): boolean {
   return Boolean(account.user && (account.hasPassword || account.hasOAuth))
+}
+
+/** Cache owner for file imports: the active account, or the local slot without one. */
+function importTargetAccount(): ImportTargetAccount | null {
+  try {
+    const settingsPub = loadSettings()
+    const account = settingsPub.accounts.find((a) => a.id === settingsPub.activeAccountId)
+    if (!account?.user || !account.host) return null
+    return { user: account.user, host: account.host, mailbox: account.mailbox }
+  } catch {
+    return null
+  }
 }
 
 app.disableHardwareAcceleration()
@@ -83,6 +119,8 @@ let noticesWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
 let autoFetchTimer: ReturnType<typeof setInterval> | null = null
+let monthlyReportTimer: ReturnType<typeof setInterval> | null = null
+let monthlyReportInFlight = false
 let fetchInFlight = false
 /** True when the app was launched at login as a hidden background instance. */
 let startHidden = false
@@ -388,6 +426,105 @@ function scheduleAutoFetch(): void {
   }, minutes * 60_000)
 }
 
+/** Cache slots a monthly report can be built from: IMAP accounts plus local imports. */
+function reportSources(): Array<{ key: string; label: string | null }> {
+  const settingsPub = loadSettings()
+  const sources: Array<{ key: string; label: string | null }> = settingsPub.accounts
+    .filter((a) => a.user && a.host)
+    .map((a) => ({ key: accountKeyFor(a.user, a.host, a.mailbox), label: a.label }))
+  if (sources.length === 0) {
+    sources.push({ key: LOCAL_IMPORT_ACCOUNT_KEY, label: null })
+  }
+  return sources
+}
+
+/**
+ * Write one PDF per domain. An IMAP account is only the mailbox.
+ * `scheduled` covers the finished calendar month; `now` also includes domains
+ * that only have data in a later month (their latest month).
+ */
+async function runMonthlyReport(mode: 'scheduled' | 'now' = 'scheduled'): Promise<string[]> {
+  if (monthlyReportInFlight) return []
+  monthlyReportInFlight = true
+  try {
+    return await writeMonthlyReports(mode)
+  } finally {
+    monthlyReportInFlight = false
+  }
+}
+
+async function writeMonthlyReports(mode: 'scheduled' | 'now'): Promise<string[]> {
+  const global = loadSettings().global
+  const dir = global.pdfMonthlyDir.trim() || defaultReportDir()
+  const scheduledPeriod = previousMonthRange()
+
+  const sources = reportSources().map((source) => {
+    const cached = loadCachedReports(source.key)
+    return {
+      label: source.label,
+      reports: cached.reports,
+      forensicReports: cached.forensicReports
+    }
+  })
+
+  const written: string[] = []
+  for (const slice of groupReportsByDomain(sources)) {
+    const stamps = [
+      ...slice.reports.flatMap((r) => [r.dateBegin, r.dateEnd]),
+      ...slice.forensicReports.map((f) => f.arrivalDate ?? '')
+    ].filter(Boolean)
+    const period = mode === 'scheduled' ? scheduledPeriod : periodForReports(stamps)
+    if (!period) continue
+    const reports = reportsInPeriod(slice.reports, period)
+    const forensicReports = forensicInPeriod(slice.forensicReports, period)
+    if (reports.length === 0 && forensicReports.length === 0) continue
+
+    const result = analyzeFromReports(reports, { fromCache: true, forensicReports })
+    const pdf = await buildPdfReport(result, {
+      month: period.month,
+      domain: slice.domain,
+      account: slice.accountLabels.length === 1 ? slice.accountLabels[0] : null,
+      domains: domainHealthFromReports(reports, (domain) => getDnsHealthCache(domain)),
+      host: mainWindow
+    })
+    written.push(writeReportFile(dir, monthlyReportFilename(slice.domain, period.month), pdf))
+  }
+
+  setMonthlyReportRun(new Date().toISOString())
+  if (written.length > 0) {
+    notify(t('main.pdfMonthlyDone', { count: written.length, dir }))
+  }
+  return written
+}
+
+function stopMonthlyReport(): void {
+  if (monthlyReportTimer) {
+    clearInterval(monthlyReportTimer)
+    monthlyReportTimer = null
+  }
+}
+
+/**
+ * Check hourly whether the finished month still needs its report. An interval is
+ * enough because the run is idempotent per month and survives a sleeping laptop.
+ */
+function scheduleMonthlyReport(): void {
+  stopMonthlyReport()
+  if (!loadSettings().global.pdfMonthlyEnabled) return
+  const tick = (): void => {
+    const global = loadSettings().global
+    if (!global.pdfMonthlyEnabled) return
+    if (!isMonthlyReportDue(global.pdfMonthlyLastRun || null)) return
+    void runMonthlyReport().catch((err) => {
+      notify(
+        t('main.pdfMonthlyFailed', { message: err instanceof Error ? err.message : String(err) })
+      )
+    })
+  }
+  monthlyReportTimer = setInterval(tick, 60 * 60_000)
+  setTimeout(tick, 30_000)
+}
+
 function thirdPartyNoticesPath(): string {
   if (app.isPackaged) {
     return join(process.resourcesPath, 'THIRD_PARTY_NOTICES.txt')
@@ -535,6 +672,7 @@ function registerIpc(): void {
     applyOpenAtLogin(saved.global)
     applyNativeTheme(saved.global.theme)
     scheduleAutoFetch()
+    scheduleMonthlyReport()
     updateTray()
     return saved
   })
@@ -574,7 +712,8 @@ function registerIpc(): void {
       const settingsPub = loadSettings()
       const id = accountId ?? settingsPub.activeAccountId
       const account = settingsPub.accounts.find((a) => a.id === id)
-      if (!account?.user || !account.host) return null
+      // No usable account yet: show reports that were imported from files.
+      if (!account?.user || !account.host) return loadLocalImportResult()
       const result = loadCachedAnalyzeResult({
         provider: account.provider,
         host: account.host,
@@ -598,7 +737,11 @@ function registerIpc(): void {
     const settingsPub = loadSettings()
     const id = accountId ?? settingsPub.activeAccountId
     const account = settingsPub.accounts.find((a) => a.id === id)
-    if (!account) return { ok: false, message: t('main.noAccountSelected') }
+    if (!account) {
+      // Without an account the only cached data can come from file imports.
+      clearCache(LOCAL_IMPORT_ACCOUNT_KEY)
+      return { ok: true, message: t('main.cacheCleared') }
+    }
     clearCache(accountKeyFor(account.user, account.host, account.mailbox))
     return { ok: true, message: t('main.cacheCleared') }
   })
@@ -625,10 +768,12 @@ function registerIpc(): void {
     checkDomainDns(domain, selectors ?? [])
   )
 
-  ipcMain.handle(
-    'dns:expandSpf',
-    async (_event, domain: string, record?: string | null) =>
-      expandSpf(domain ?? '', { record: record ?? null })
+  ipcMain.handle('dns:expandSpf', async (_event, domain: string, record?: string | null) =>
+    expandSpf(domain ?? '', { record: record ?? null })
+  )
+
+  ipcMain.handle('dns:transport', async (_event, domain: string) =>
+    checkTransportSecurity(domain ?? '')
   )
 
   ipcMain.handle('dns:healthBatch', async (_event, reports: ReportRow[]) =>
@@ -661,7 +806,7 @@ function registerIpc(): void {
       name: basename(p),
       data: readFileSync(p)
     }))
-    return parseLocalBuffers(buffers)
+    return importLocalFiles(buffers, importTargetAccount())
   })
 
   ipcMain.handle(
@@ -676,7 +821,7 @@ function registerIpc(): void {
           data: Buffer.from(f.data instanceof ArrayBuffer ? new Uint8Array(f.data) : f.data)
         })
       }
-      return parseLocalBuffers(buffers)
+      return importLocalFiles(buffers, importTargetAccount())
     }
   )
 
@@ -714,6 +859,44 @@ function registerIpc(): void {
     if (save.canceled || !save.filePath) return { ok: false, message: t('main.cancelled') }
     writeFileSync(save.filePath, data)
     return { ok: true, message: t('main.saved', { path: save.filePath }) }
+  })
+
+  ipcMain.handle(
+    'report:pdf',
+    async (_event, result: AnalyzeResult, options: { domain?: string | null } = {}) => {
+      const domain = options.domain?.trim() || null
+      const pdf = await buildPdfReport(result, {
+        domain,
+        domains: domainHealthFromReports(result.reports, (d) => getDnsHealthCache(d)),
+        host: mainWindow
+      })
+      const saveOptions = {
+        title: t('main.savePdf'),
+        defaultPath: monthlyReportFilename(domain, new Date().toISOString().slice(0, 10)),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }]
+      }
+      const save = mainWindow
+        ? await dialog.showSaveDialog(mainWindow, saveOptions)
+        : await dialog.showSaveDialog(saveOptions)
+      if (save.canceled || !save.filePath) return { ok: false, message: t('main.cancelled') }
+      writeFileSync(save.filePath, pdf)
+      return { ok: true, message: t('main.saved', { path: save.filePath }) }
+    }
+  )
+
+  ipcMain.handle('report:chooseDir', async () => {
+    const options = { properties: ['openDirectory' as const, 'createDirectory' as const] }
+    const picked = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options)
+    if (picked.canceled || picked.filePaths.length === 0) return { ok: false, dir: '' }
+    return { ok: true, dir: picked.filePaths[0] }
+  })
+
+  ipcMain.handle('report:monthlyNow', async () => {
+    const written = await runMonthlyReport('now')
+    if (written.length === 0) return { ok: false, message: t('main.pdfMonthlyEmpty') }
+    return { ok: true, message: t('main.saved', { path: written.join(', ') }) }
   })
 }
 
@@ -755,6 +938,7 @@ app.whenReady().then(() => {
   mainWindow = createWindow()
   if (!capture) {
     scheduleAutoFetch()
+    scheduleMonthlyReport()
     updateTray()
   }
 
@@ -776,6 +960,7 @@ app.on('window-all-closed', () => {
   // With an active tray the app keeps running in the background.
   if (tray) return
   stopAutoFetch()
+  stopMonthlyReport()
   if (process.platform !== 'darwin') {
     app.quit()
   }
