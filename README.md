@@ -53,47 +53,47 @@ Everything runs locally on your machine: credentials and OAuth tokens stay in th
 
 KPIs, alignment charts (including disposition), time series, filters (including optional Google-noise filter), and domain-health tiles:
 
-![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/dashboard.png)
+![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/en/dashboard.png)
 
 Same dashboard in dark mode (Settings → Appearance; follows the OS when set to System):
 
-![Dashboard in dark mode](docs/screenshots/dashboard-dark.png)
+![Dashboard in dark mode](docs/screenshots/en/dashboard-dark.png)
 
 ### Aggregation & details
 
 Reporting organizations, source IPs (including reverse DNS), From domains, individual reports and record details — click a table row to drill down; download a report as ZIP:
 
-![Tables with organizations, IPs, domains, and report details](docs/screenshots/tables.png)
+![Tables with organizations, IPs, domains, and report details](docs/screenshots/en/tables.png)
 
 ### Source map
 
 Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
 
-![Source IPs on an OpenStreetMap](docs/screenshots/map.png)
+![Source IPs on an OpenStreetMap](docs/screenshots/en/map.png)
 
 ### DNS check & transport security
 
 DMARC, SPF, and DKIM selectors straight from the authoritative nameserver — plus TLS-RPT, MTA-STS (including the policy file and MX coverage), and DANE/TLSA of the MX hosts:
 
-![DNS check with transport security](docs/screenshots/dns.png)
+![DNS check with transport security](docs/screenshots/en/dns.png)
 
 ### Policy rollout
 
 Reviews the last 30 days of a domain, recommends the next step towards `p=reject`, and lays out the staging plan with ready-to-copy records:
 
-![Policy rollout assistant with recommendation and staging plan](docs/screenshots/rollout.png)
+![Policy rollout assistant with recommendation and staging plan](docs/screenshots/en/rollout.png)
 
 ### Email inspection
 
 Under **Tools → Inspect email**, open a saved `.eml` (or paste headers, e.g. Gmail “Show original”). The app shows the hop path, SPF/DKIM/DMARC, TLS per hop, ARC, and an overall verdict. Only headers are read — the body is not. Internal hops (LMTP, Docker/private IPs) are marked **local**, not as missing TLS. Outlook `.msg` is not supported (save as `.eml`).
 
-![Email inspection with path and authentication verdict](docs/screenshots/email.png)
+![Email inspection with path and authentication verdict](docs/screenshots/en/email.png)
 
 ### Settings
 
 Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, UI language, and appearance (light / dark / system):
 
-![Settings dialog with account management](docs/screenshots/settings.png)
+![Settings dialog with account management](docs/screenshots/en/settings.png)
 
 ---
 
@@ -245,7 +245,7 @@ npm run build:win     # NSIS + portable
 npm run build:mac     # DMG/ZIP (macOS only)
 ```
 
-Refresh README screenshots (demo data, no real credentials):
+Refresh README screenshots (demo data, German + English, no real credentials):
 
 ```bash
 npm run screenshots

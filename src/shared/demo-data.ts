@@ -1,5 +1,6 @@
 import { inspectEmail } from './email-inspect'
 import { analyzeFromReports } from './analyze'
+import type { AppLocale } from './i18n'
 import type {
   AnalyzeResult,
   DnsCheckResult,
@@ -248,7 +249,7 @@ export function buildDemoAnalyzeResult(): AnalyzeResult {
   })
 }
 
-export function buildDemoSettings(): SettingsPublic {
+export function buildDemoSettings(language: AppLocale = 'de'): SettingsPublic {
   return {
     activeAccountId: 'demo-account-1',
     accounts: [
@@ -297,7 +298,7 @@ export function buildDemoSettings(): SettingsPublic {
       ignoredSources: '192.0.2.*\n198.51.100.1',
       runInTray: true,
       openAtLogin: true,
-      language: 'de',
+      language,
       theme: 'auto',
       oauthGoogleClientId: '',
       oauthMicrosoftClientId: '',
@@ -315,8 +316,6 @@ export function buildDemoSettings(): SettingsPublic {
     }
   }
 }
-
-export const DEMO_DNS_HTML = `<strong>example.com</strong><br />DMARC: p=reject · rua=mailto:dmarc@example.com · ruf=mailto:dmarc@example.com<br /><span class="mono">SPF: v=spf1 include:_spf.example.net -all</span><br />DKIM selector1: gefunden`
 
 /** Transport check for the DNS screenshot: MTA-STS enforced, DANE only on one MX. */
 export const DEMO_TRANSPORT: TransportSecurityResult = {

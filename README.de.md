@@ -53,47 +53,47 @@ Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Ele
 
 Kennzahlen, Alignment-Charts (inkl. Disposition), Zeitreihe, Filter (inkl. optionalem Google-Rauschen-Filter) sowie Domain-Ampel:
 
-![Dashboard mit KPIs, Alignment-Charts und DNS-Check](docs/screenshots/dashboard.png)
+![Dashboard mit KPIs, Alignment-Charts und DNS-Check](docs/screenshots/de/dashboard.png)
 
 Dasselbe Dashboard im Dark Mode (Einstellungen → Erscheinungsbild; bei „System“ folgt es dem Betriebssystem):
 
-![Dashboard im Dark Mode](docs/screenshots/dashboard-dark.png)
+![Dashboard im Dark Mode](docs/screenshots/de/dashboard-dark.png)
 
 ### Aggregation & Details
 
 Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne Reports und Record-Details — Klick auf eine Tabellenzeile filtert weiter; Report als ZIP herunterladen:
 
-![Tabellen mit Organisationen, IPs, Domains und Report-Details](docs/screenshots/tables.png)
+![Tabellen mit Organisationen, IPs, Domains und Report-Details](docs/screenshots/de/tables.png)
 
 ### Quellenkarte
 
 Quell-IPs auf OpenStreetMap (GeoIP-Koordinaten); Klick auf einen Marker filtert nach IP:
 
-![Quell-IPs auf OpenStreetMap](docs/screenshots/map.png)
+![Quell-IPs auf OpenStreetMap](docs/screenshots/de/map.png)
 
 ### DNS-Check & Transport-Sicherheit
 
 DMARC, SPF und DKIM-Selektoren direkt beim autoritativen Nameserver — dazu TLS-RPT, MTA-STS (inkl. Policy-Datei und MX-Abdeckung) und DANE/TLSA der MX-Hosts:
 
-![DNS-Check mit Transport-Sicherheit](docs/screenshots/dns.png)
+![DNS-Check mit Transport-Sicherheit](docs/screenshots/de/dns.png)
 
 ### Policy-Rollout
 
 Bewertet die letzten 30 Tage einer Domain, empfiehlt den nächsten Schritt auf dem Weg zu `p=reject` und liefert den Staging-Plan mit fertigen Records zum Kopieren:
 
-![Policy-Rollout-Assistent mit Empfehlung und Staging-Plan](docs/screenshots/rollout.png)
+![Policy-Rollout-Assistent mit Empfehlung und Staging-Plan](docs/screenshots/de/rollout.png)
 
 ### E-Mail prüfen
 
 Unter **Tools → E-Mail prüfen** eine gespeicherte `.eml` öffnen (oder Header einfügen, z. B. Gmail „Original anzeigen“). Gezeigt werden Transportweg, SPF/DKIM/DMARC, TLS je Station, ARC und Gesamturteil. Es werden nur Header gelesen — der Inhalt nicht. Interne Stationen (LMTP, Docker-/Privat-IPs) sind als **lokal** markiert, nicht als fehlendes TLS. Outlook-`.msg` wird nicht unterstützt (als `.eml` speichern).
 
-![E-Mail-Prüfung mit Weg und Authentifizierungsurteil](docs/screenshots/email.png)
+![E-Mail-Prüfung mit Weg und Authentifizierungsurteil](docs/screenshots/de/email.png)
 
 ### Einstellungen
 
 Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray, Sprache und Erscheinungsbild (Hell / Dunkel / System):
 
-![Einstellungen-Dialog mit Konto-Verwaltung](docs/screenshots/settings.png)
+![Einstellungen-Dialog mit Konto-Verwaltung](docs/screenshots/de/settings.png)
 
 ---
 
@@ -245,7 +245,7 @@ npm run build:win     # NSIS + portable
 npm run build:mac     # DMG/ZIP (nur auf macOS)
 ```
 
-README-Screenshots neu erzeugen (Demo-Daten, ohne echte Zugangsdaten):
+README-Screenshots neu erzeugen (Demo-Daten, Deutsch und Englisch, ohne echte Zugangsdaten):
 
 ```bash
 npm run screenshots

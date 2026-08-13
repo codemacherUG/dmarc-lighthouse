@@ -76,7 +76,7 @@ declare global {
   interface Window {
     api: DmarcLighthouseApi
     __dmarcScreenshot?: {
-      prepareDemo: () => Promise<void>
+      prepareDemo: (locale: 'de' | 'en') => Promise<void>
       openSettingsDemo: () => void
       closeSettings: () => void
       openRolloutDemo: () => void

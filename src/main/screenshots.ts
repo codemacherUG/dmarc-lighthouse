@@ -137,22 +137,18 @@ async function captureViewport(
   }
 }
 
-/** Capture anonymized README screenshots, then quit. */
-export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
-  const outDir = join(process.cwd(), 'docs', 'screenshots')
+async function captureLocaleSet(
+  win: BrowserWindow,
+  locale: 'de' | 'en',
+  outDir: string
+): Promise<void> {
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true })
 
-  await ready(win)
-  // Let the normal settings/cache bootstrap finish, then overwrite with demo data.
-  await wait(800)
-
-  await api(win, 'await api.prepareDemo()')
+  await api(win, `await api.prepareDemo(${JSON.stringify(locale)})`)
   await wait(700)
 
   if (wantsFullAppCapture()) {
     await captureFullPage(win, join(outDir, 'app-full.png'))
-    console.log('Full-app screenshot capture complete.')
-    app.exit(0)
     return
   }
 
@@ -225,8 +221,25 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
   await api(win, 'api.closeEmailInspect()')
 
   await captureFullPage(win, join(outDir, 'app-full.png'))
+}
 
-  console.log('Screenshot capture complete.')
+/** Capture anonymized README screenshots, then quit. */
+export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
+  await ready(win)
+  // Let the normal settings/cache bootstrap finish, then overwrite with demo data.
+  await wait(800)
+
+  const root = join(process.cwd(), 'docs', 'screenshots')
+  const locales = ['en', 'de'] as const
+  for (const locale of locales) {
+    await captureLocaleSet(win, locale, join(root, locale))
+  }
+
+  console.log(
+    wantsFullAppCapture()
+      ? 'Full-app screenshot capture complete.'
+      : 'Screenshot capture complete.'
+  )
   app.exit(0)
 }
 

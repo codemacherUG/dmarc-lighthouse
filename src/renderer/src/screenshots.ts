@@ -2,14 +2,14 @@ import {
   buildDemoAnalyzeResult,
   buildDemoEmailInspect,
   buildDemoSettings,
-  DEMO_DNS_HTML,
   DEMO_ROLLOUT_DNS,
   DEMO_TRANSPORT
 } from '../../shared/demo-data'
-import { t } from '../../shared/i18n'
+import { t, type AppLocale } from '../../shared/i18n'
 import type { AppTheme } from '../../shared/theme'
 import type { IpInfo } from '../../shared/types'
 import { applyUiLocale } from './chrome'
+import { escapeHtml } from './format'
 import {
   dnsDialog,
   dnsDomainEl,
@@ -26,20 +26,41 @@ import { clearDrill, state } from './state'
 import { applyTheme } from './theme'
 import { applyView, renderDetail, renderDomainAmpel, renderReports, showResult } from './view'
 
+function fillDnsDemo(): void {
+  dnsDomainEl.value = 'example.com'
+  const dmarcLine = t('dns.dmarcFound', {
+    policy: 'reject',
+    rua: 'mailto:dmarc@example.com',
+    ruf: 'mailto:dmarc@example.com'
+  })
+  const spfLine = t('dns.spfFound', { record: 'v=spf1 include:_spf.example.net -all' })
+  const dkimHtml = t('dns.dkimLine', {
+    selector: '<span class="mono">selector1</span>',
+    state: `<span class="pass">${escapeHtml(t('dns.dkimFound'))}</span>`
+  })
+  dnsResultEl.innerHTML = `<strong>example.com</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}`
+  dnsResultEl.className = 'dns-result ok'
+}
+
 /** Helpers used by `npm run screenshots` (Electron capture script). */
 export function installScreenshotApi(): void {
   window.__dmarcScreenshot = {
-    async prepareDemo(): Promise<void> {
-      applyUiLocale('de')
-      applySettings(buildDemoSettings())
+    async prepareDemo(locale: AppLocale = 'de'): Promise<void> {
+      if (settingsDialog.open) settingsDialog.close()
+      if (dnsDialog.open) dnsDialog.close()
+      if (rolloutDialog.open) rolloutDialog.close()
+      if (emailInspectDialog.open) emailInspectDialog.close()
+      document.documentElement.classList.remove('screenshot-full', 'screenshot-dialog')
+      document.body.classList.remove('screenshot-full')
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      applyUiLocale(locale)
+      applySettings(buildDemoSettings(locale))
       fillGlobalForm(state.settings!.global)
       applyTheme('light')
       state.selectedReportId = null
       clearDrill()
       showResult(buildDemoAnalyzeResult(), t('status.cached', { count: 12 }))
-      dnsDomainEl.value = 'example.com'
-      dnsResultEl.innerHTML = DEMO_DNS_HTML
-      dnsResultEl.className = 'dns-result ok'
+      fillDnsDemo()
       // Seed PTR / Geo labels without calling the network.
       const seedDemoIps = (): void => {
         const demoIp = (
@@ -171,9 +192,7 @@ export function installScreenshotApi(): void {
       settingsDialog.close()
     },
     openDnsDemo(): void {
-      dnsDomainEl.value = 'example.com'
-      dnsResultEl.innerHTML = DEMO_DNS_HTML
-      dnsResultEl.className = 'dns-result ok'
+      fillDnsDemo()
       dnsResultEl.classList.remove('hidden')
       renderTransportSecurity(DEMO_TRANSPORT)
       dnsDialog.showModal()
