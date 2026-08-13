@@ -1,11 +1,12 @@
 import { buildDemoAnalyzeResult, buildDemoSettings, DEMO_DNS_HTML } from '../../shared/demo-data'
 import { t } from '../../shared/i18n'
+import type { AppTheme } from '../../shared/theme'
 import type { IpInfo } from '../../shared/types'
 import { applyUiLocale } from './chrome'
-import { applyTheme } from './theme'
 import { dnsDomainEl, dnsResultEl, settingsDialog } from './dom'
 import { applySettings, fillGlobalForm, openSettings, showSettingsTab } from './settings-ui'
 import { clearDrill, state } from './state'
+import { applyTheme } from './theme'
 import { applyView, renderDetail, renderDomainAmpel, renderReports, showResult } from './view'
 
 /** Helpers used by `npm run screenshots` (Electron capture script). */
@@ -15,7 +16,7 @@ export function installScreenshotApi(): void {
       applyUiLocale('de')
       applySettings(buildDemoSettings())
       fillGlobalForm(state.settings!.global)
-      applyTheme(state.settings!.global.theme)
+      applyTheme('light')
       state.selectedReportId = null
       clearDrill()
       showResult(buildDemoAnalyzeResult(), t('status.cached', { count: 12 }))
@@ -150,6 +151,9 @@ export function installScreenshotApi(): void {
     },
     closeSettings(): void {
       settingsDialog.close()
+    },
+    setTheme(theme: AppTheme): void {
+      applyTheme(theme)
     },
     async scrollTo(selector: string): Promise<void> {
       const el = document.querySelector(selector)

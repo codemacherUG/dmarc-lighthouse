@@ -7,8 +7,8 @@ import type {
   SpfExpandResult,
   GeoLiteDownloadResult,
   GeoLiteStatus,
-  GlobalSettings,
   AppTheme,
+  GlobalSettings,
   IpInfo,
   CreateMailboxResult,
   ListMailboxesResult,
@@ -64,6 +64,7 @@ declare global {
       prepareDemo: () => Promise<void>
       openSettingsDemo: () => void
       closeSettings: () => void
+      setTheme: (theme: AppTheme) => void
       scrollTo: (selector: string) => Promise<void>
       selectFirstReport: () => Promise<void>
       prepareFullPage: () => Promise<{ width: number; height: number }>

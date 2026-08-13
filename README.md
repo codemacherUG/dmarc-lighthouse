@@ -54,6 +54,10 @@ KPIs, alignment charts (including disposition), time series, filters (including 
 
 ![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/dashboard.png)
 
+Same dashboard in dark mode (Settings → Appearance; follows the OS when set to System):
+
+![Dashboard in dark mode](docs/screenshots/dashboard-dark.png)
+
 ### Aggregation & details
 
 Reporting organizations, source IPs (including reverse DNS), From domains, individual reports and record details — click a table row to drill down; download a report as ZIP:
@@ -68,7 +72,7 @@ Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
 
 ### Settings
 
-Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, and UI language:
+Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, UI language, and appearance (light / dark / system):
 
 ![Settings dialog with account management](docs/screenshots/settings.png)
 
@@ -99,7 +103,8 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Alerts** | Pass-rate threshold (7 days) and "new source detected" with an ignore list for known IPs |
 | **System tray** | Optionally keep running in the background; fetching and notifications continue with the window closed |
 | **Autostart** | Optional launch at system login; with tray enabled the app can start hidden in the background |
-| **Language** | Switchable German and English UI (Settings) |
+| **Language** | Switchable German and English UI (Settings → Appearance) |
+| **Appearance** | Light, dark, or follow the operating system |
 | **Auto-update** | Checks GitHub Releases (NSIS, AppImage, macOS ZIP) |
 
 ---

@@ -54,6 +54,10 @@ Kennzahlen, Alignment-Charts (inkl. Disposition), Zeitreihe, Filter (inkl. optio
 
 ![Dashboard mit KPIs, Alignment-Charts und DNS-Check](docs/screenshots/dashboard.png)
 
+Dasselbe Dashboard im Dark Mode (Einstellungen → Erscheinungsbild; bei „System“ folgt es dem Betriebssystem):
+
+![Dashboard im Dark Mode](docs/screenshots/dashboard-dark.png)
+
 ### Aggregation & Details
 
 Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne Reports und Record-Details — Klick auf eine Tabellenzeile filtert weiter; Report als ZIP herunterladen:
@@ -68,7 +72,7 @@ Quell-IPs auf OpenStreetMap (GeoIP-Koordinaten); Klick auf einen Marker filtert 
 
 ### Einstellungen
 
-Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray und Sprache:
+Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray, Sprache und Erscheinungsbild (Hell / Dunkel / System):
 
 ![Einstellungen-Dialog mit Konto-Verwaltung](docs/screenshots/settings.png)
 
@@ -99,7 +103,8 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Alerts** | Pass-Rate-Schwelle (7 Tage) und „neue Quelle erkannt“ mit Ignorieren-Liste für bekannte IPs |
 | **System-Tray** | Optional im Hintergrund weiterlaufen; Abruf und Benachrichtigungen auch bei geschlossenem Fenster |
 | **Autostart** | Optionaler Start beim System-Login; mit Tray kann die App versteckt im Hintergrund starten |
-| **Sprache** | Deutsch und Englisch umschaltbar (Einstellungen) |
+| **Sprache** | Deutsch und Englisch umschaltbar (Einstellungen → Erscheinungsbild) |
+| **Erscheinungsbild** | Hell, Dunkel oder System (folgt dem Betriebssystem) |
 | **Auto-Update** | Prüfung auf GitHub Releases (NSIS, AppImage, macOS-ZIP) |
 
 ---

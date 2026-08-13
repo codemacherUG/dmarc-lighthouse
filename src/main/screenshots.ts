@@ -109,6 +109,16 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
 
   await api(
     win,
+    `api.setTheme('dark')
+     await new Promise((r) => setTimeout(r, 400))`
+  )
+  await wait(500)
+  await capture(win, join(outDir, 'dashboard-dark.png'))
+  await api(win, `api.setTheme('light')`)
+  await wait(400)
+
+  await api(
+    win,
     `await api.selectFirstReport()
      const target = document.querySelector('.tables-panel')
      if (target) {
