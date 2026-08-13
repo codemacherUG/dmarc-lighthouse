@@ -160,7 +160,7 @@ function renderBucketTable(
           ${r.passRate.toFixed(1)}%
         </td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row"><td colspan="${cols}">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}><td colspan="${cols}">${ipMeta}</td></tr>` : ''}`
       }
       return `
       <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
@@ -206,7 +206,7 @@ function renderProblemSources(rows: ProblemSourceRow[]): void {
         <td>${r.spfFail}</td>
         <td>${r.dkimFail}</td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row"><td colspan="5">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(r.sourceIp)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="5">${ipMeta}</td></tr>` : ''}`
     })
     .join('')
 

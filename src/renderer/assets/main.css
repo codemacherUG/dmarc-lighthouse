@@ -771,7 +771,9 @@ tbody tr {
   cursor: pointer;
 }
 
-tbody tr:hover {
+tbody tr:hover,
+tbody tr.has-ip-meta:hover + tr.ip-meta-row,
+tbody tr.has-ip-meta:has(+ tr.ip-meta-row:hover) {
   background: #f3f7fa;
 }
 
@@ -1373,10 +1375,6 @@ tr.ip-meta-row td {
   padding-bottom: 10px;
   border-top: none;
   color: var(--muted);
-}
-
-tr.ip-meta-row:hover {
-  background: transparent;
 }
 
 tr.ip-meta-row .ip-meta {
