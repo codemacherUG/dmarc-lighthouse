@@ -377,6 +377,16 @@ export interface DkimSelectorCheck {
   error?: string
 }
 
+export type DnsResolverMode = 'authoritative' | 'recursive'
+
+export interface DnsResolverInfo {
+  mode: DnsResolverMode
+  /** Zone whose NS were used (authoritative only). */
+  zone: string | null
+  /** NS hostnames (authoritative only). */
+  nameservers: string[]
+}
+
 export interface DnsCheckResult {
   domain: string
   dmarc: {
@@ -395,6 +405,7 @@ export interface DnsCheckResult {
   dkim: {
     selectors: DkimSelectorCheck[]
   }
+  resolver?: DnsResolverInfo
   checkedAt: string
 }
 

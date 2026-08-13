@@ -70,7 +70,8 @@ const de = {
   'filter.allDomains': 'Alle Domains',
   'filter.dns': 'DNS-Check',
   'filter.dnsCheck': 'Prüfen',
-  'filter.dnsHint': 'DMARC-/SPF-/DKIM-DNS einer Domain prüfen.',
+  'filter.dnsHint':
+    'DMARC-/SPF-/DKIM-DNS einer Domain prüfen — direkt beim autoritativen Nameserver.',
   'filter.selectors': 'DKIM-Selektoren',
   'filter.selectorsPlaceholder': 'z. B. default, google',
   'filter.selectorsTitle':
@@ -384,6 +385,8 @@ const de = {
   'dns.dkimNone':
     'DKIM: keine Selektoren bekannt — Selektoren eingeben oder Reports (neu) abrufen.',
   'dns.dkimLine': 'DKIM {selector}: {state}',
+  'dns.resolverAuth': 'Direkt bei {ns} (Zone {zone})',
+  'dns.resolverRecursive': 'System-Resolver (kein autoritativer NS gefunden)',
 
   'main.fetchInFlight': 'Abruf läuft bereits.',
   'main.noAccount': 'Kein IMAP-Konto konfiguriert.',
@@ -644,7 +647,8 @@ const en: Dict = {
   'filter.allDomains': 'All domains',
   'filter.dns': 'DNS check',
   'filter.dnsCheck': 'Check',
-  'filter.dnsHint': 'Check DMARC / SPF / DKIM DNS for a domain.',
+  'filter.dnsHint':
+    'Check DMARC / SPF / DKIM DNS for a domain — queried at the authoritative nameserver.',
   'filter.selectors': 'DKIM selectors',
   'filter.selectorsPlaceholder': 'e.g. default, google',
   'filter.selectorsTitle':
@@ -954,6 +958,8 @@ const en: Dict = {
   'dns.dkimMissing': 'not found',
   'dns.dkimNone': 'DKIM: no selectors known — enter selectors or fetch reports again.',
   'dns.dkimLine': 'DKIM {selector}: {state}',
+  'dns.resolverAuth': 'Authoritative via {ns} (zone {zone})',
+  'dns.resolverRecursive': 'System resolver (no authoritative NS found)',
 
   'main.fetchInFlight': 'A fetch is already running.',
   'main.noAccount': 'No IMAP account configured.',

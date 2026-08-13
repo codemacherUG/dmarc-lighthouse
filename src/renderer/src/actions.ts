@@ -209,7 +209,14 @@ export function initActions(): void {
         dkimHtml = escapeHtml(t('dns.dkimNone'))
       }
 
-      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}`
+      const resolverLine =
+        result.resolver?.mode === 'authoritative'
+          ? t('dns.resolverAuth', {
+              ns: (result.resolver.nameservers ?? []).slice(0, 2).join(', ') || '—',
+              zone: result.resolver.zone ?? result.domain
+            })
+          : t('dns.resolverRecursive')
+      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}`
       dnsResultEl.className = 'dns-result ok'
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)
