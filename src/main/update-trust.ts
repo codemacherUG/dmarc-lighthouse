@@ -7,7 +7,7 @@ export const UPDATE_MANIFEST_PRODUCT = 'dmarc-lighthouse'
 
 /** Base URL without trailing slash. Override via DMARC_UPDATE_MANIFEST_BASE_URL for tests. */
 export const UPDATE_MANIFEST_BASE_URL_DEFAULT =
-  'https://codemacher.de/dmarc-lighthouse/updates'
+  'https://apps.codemacher.de/dmarc-lighthouse/updates'
 
 /** Ed25519 public key (SPKI DER, base64). */
 export const UPDATE_MANIFEST_PUBLIC_KEY_SPKI_B64 =

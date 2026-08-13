@@ -12,7 +12,7 @@
 #   npm run release
 #
 # That will: bump if needed → tag → wait for GitHub Actions → download signed
-# manifests → deploy to codemacher.de (via scripts/update-keys.sh env).
+# manifests → deploy to apps.codemacher.de (via scripts/update-keys.sh env).
 #
 # Options:
 #   ./scripts/release.sh 1.0.18           # require package.json version == 1.0.18
@@ -321,7 +321,7 @@ if [[ "$DEPLOY_ONLY" -eq 1 ]]; then
   info "Deploy-only for v${VER}"
   finish_deploy "$VER"
   info "Done (deploy-only)."
-  echo "  Manifest: https://codemacher.de/dmarc-lighthouse/updates/${VER}.json"
+  echo "  Manifest: https://apps.codemacher.de/dmarc-lighthouse/updates/${VER}.json"
   exit 0
 fi
 
@@ -359,4 +359,4 @@ fi
 
 info "Release $TAG complete."
 echo "  GitHub:  https://github.com/codemacherUG/dmarc-lighthouse/releases/tag/${TAG}"
-echo "  Manifest: https://codemacher.de/dmarc-lighthouse/updates/${VER}.json"
+echo "  Manifest: https://apps.codemacher.de/dmarc-lighthouse/updates/${VER}.json"

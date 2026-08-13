@@ -221,11 +221,11 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.7` or start th
 
 ### Auto-update trust
 
-Binaries are fetched from GitHub Releases; before install the app also requires an **Ed25519-signed manifest** from `https://codemacher.de/dmarc-lighthouse/updates/{version}.json` (+ `.sig`). A compromised GitHub release alone is not enough.
+Binaries are fetched from GitHub Releases; before install the app also requires an **Ed25519-signed manifest** from `https://apps.codemacher.de/dmarc-lighthouse/updates/{version}.json` (+ `.sig`). A compromised GitHub release alone is not enough.
 
 Release CI signs with secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8 PEM). Manifests are **not** attached to the GitHub Release — only published to the trust host (and briefly as the Actions artifact `update-manifests` for local deploy).
 
-Full release (one step: tag → CI → manifest on codemacher.de):
+Full release (one step: tag → CI → manifest on apps.codemacher.de):
 
 ```bash
 cp scripts/update-keys.sh.template scripts/update-keys.sh   # once, gitignored
@@ -242,7 +242,7 @@ npm run release
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
 - GeoIP: [`maxmind`](https://www.npmjs.com/package/maxmind) (GeoLite2) + optional online fallback
-- Updates: [`electron-updater`](https://www.electron.build/auto-update) via GitHub Releases + signed manifests on codemacher.de
+- Updates: [`electron-updater`](https://www.electron.build/auto-update) via GitHub Releases + signed manifests on apps.codemacher.de
 - Tests: [Vitest](https://vitest.dev/)
 
 ---

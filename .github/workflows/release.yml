@@ -157,9 +157,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # App verifies manifests only from codemacher.de (not GitHub).
+      # App verifies manifests only from apps.codemacher.de (not GitHub).
       # Optional: UPDATE_MANIFEST_DEPLOY_HOST / _USER / _KEY / _PATH (+ optional _PORT).
-      - name: Deploy signed manifest to codemacher.de
+      - name: Deploy signed manifest to apps.codemacher.de
         env:
           UPDATE_MANIFEST_DEPLOY_HOST: ${{ secrets.UPDATE_MANIFEST_DEPLOY_HOST }}
           UPDATE_MANIFEST_DEPLOY_USER: ${{ secrets.UPDATE_MANIFEST_DEPLOY_USER }}

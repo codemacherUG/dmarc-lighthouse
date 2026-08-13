@@ -81,7 +81,7 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
   autoUpdater.autoRunAppAfterInstall = true
   autoUpdater.allowDowngrade = false
   autoUpdater.disableWebInstaller = true
-  // GitHub latest*.yml checksums + Ed25519 manifest on codemacher.de (see update-manifest.ts).
+  // GitHub latest*.yml checksums + Ed25519 manifest on apps.codemacher.de (see update-manifest.ts).
   // Platform code-signing (CSC_LINK / Apple notarize) remains optional hardening.
 
   // Versioned AppImage filenames: updater writes a new path and emits this event.

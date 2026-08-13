@@ -1,0 +1,15 @@
+# One-time retirement of https://codemacher.de/dmarc-lighthouse/updates/
+# Redirect shipped apps to https://apps.codemacher.de/dmarc-lighthouse/updates/
+# (the Electron fetch follows 301). Place as .htaccess in the old webroot, then
+# delete leftover *.json / *.json.sig.
+
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(.*)$ https://apps.codemacher.de/dmarc-lighthouse/updates/$1 [R=301,L]
+</IfModule>

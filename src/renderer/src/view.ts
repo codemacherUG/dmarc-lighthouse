@@ -45,6 +45,7 @@ import {
   filterDomainEl,
   filterFromEl,
   filterHideGoogleNoiseEl,
+  filterPanelEl,
   filterRangeEl,
   filterToEl,
   filterCustomWrap,
@@ -834,7 +835,61 @@ export function showResult(result: AnalyzeResult, statusMessage?: string): void 
   }
 }
 
+function initStickyFilter(): void {
+  const panel = filterPanelEl
+  const slot = panel?.closest('.filter-slot')
+  const placeholder = slot?.querySelector<HTMLElement>('.filter-slot-ph')
+  if (!panel || !slot || !placeholder) return
+
+  let stuck = false
+  let ticking = false
+
+  const syncFixedBox = (): void => {
+    const rect = slot.getBoundingClientRect()
+    panel.style.left = `${rect.left}px`
+    panel.style.width = `${rect.width}px`
+  }
+
+  const setStuck = (next: boolean): void => {
+    if (next === stuck) return
+    if (next) {
+      placeholder.style.height = `${panel.offsetHeight}px`
+      placeholder.hidden = false
+      panel.classList.add('is-stuck')
+      syncFixedBox()
+    } else {
+      panel.classList.remove('is-stuck')
+      panel.style.left = ''
+      panel.style.width = ''
+      placeholder.hidden = true
+      placeholder.style.height = ''
+    }
+    stuck = next
+  }
+
+  const update = (): void => {
+    ticking = false
+    const top = slot.getBoundingClientRect().top
+    if (stuck) {
+      if (top > 8) setStuck(false)
+      else syncFixedBox()
+    } else if (top <= 0) {
+      setStuck(true)
+    }
+  }
+
+  const onScrollOrResize = (): void => {
+    if (ticking) return
+    ticking = true
+    requestAnimationFrame(update)
+  }
+
+  window.addEventListener('scroll', onScrollOrResize, { passive: true })
+  window.addEventListener('resize', onScrollOrResize)
+}
+
 export function initView(): void {
+  initStickyFilter()
   setIpMapFilterHandler((ip) => setDrillFilter('sourceIp', ip))
   setVolumeDayClickHandler(filterVolumeByDay)
 

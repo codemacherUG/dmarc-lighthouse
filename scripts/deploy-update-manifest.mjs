@@ -5,14 +5,16 @@
  * Env (or flags):
  *   UPDATE_MANIFEST_DEPLOY_HOST   e.g. codemacher.de or SSH host alias
  *   UPDATE_MANIFEST_DEPLOY_USER   SSH user
- *   UPDATE_MANIFEST_DEPLOY_PATH   remote dir, e.g. /var/www/codemacher.de/public/dmarc-lighthouse/updates
+ *   UPDATE_MANIFEST_DEPLOY_PATH   remote dir for apps.codemacher.de/dmarc-lighthouse/updates
  *   UPDATE_MANIFEST_DEPLOY_KEY    optional path to private key (default: ssh-agent / ~/.ssh)
  *   UPDATE_MANIFEST_DEPLOY_PORT   optional SSH port (default 22)
- *   DMARC_UPDATE_MANIFEST_BASE_URL  public base URL for --verify (default from update-trust)
+ *   UPDATE_MANIFEST_LEGACY_DEPLOY_PATH  old TYPO3 dir (only for --retire-legacy)
+ *   DMARC_UPDATE_MANIFEST_BASE_URL  public base URL for --verify (default from update-manifest-url)
  *
  * Usage:
  *   node scripts/deploy-update-manifest.mjs --dir dist-release [--version 1.0.16] [--verify]
  *   node scripts/deploy-update-manifest.mjs --dir dist-release --dry-run
+ *   node scripts/deploy-update-manifest.mjs --retire-legacy
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs'
@@ -20,10 +22,12 @@ import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { UPDATE_MANIFEST_BASE_URL } from './update-manifest-url.mjs'
 
 const require = createRequire(import.meta.url)
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const htaccessSrc = join(root, 'scripts', 'update-manifest.htaccess')
+const htaccessLegacySrc = join(root, 'scripts', 'update-manifest-legacy.htaccess')
 
 function arg(name, fallback = undefined) {
   const i = process.argv.indexOf(name)
@@ -48,13 +52,12 @@ function run(cmd, args, opts = {}) {
   if (res.status !== 0) die(`${cmd} failed with exit ${res.status}`)
 }
 
-function sshTarget() {
+function sshCreds() {
   const host = process.env.UPDATE_MANIFEST_DEPLOY_HOST?.trim() || arg('--host')
   const user = process.env.UPDATE_MANIFEST_DEPLOY_USER?.trim() || arg('--user')
-  const path = process.env.UPDATE_MANIFEST_DEPLOY_PATH?.trim() || arg('--path')
   const key = process.env.UPDATE_MANIFEST_DEPLOY_KEY?.trim() || arg('--key')
   const port = process.env.UPDATE_MANIFEST_DEPLOY_PORT?.trim() || arg('--port', '22')
-  if (!host || !user || !path) {
+  if (!host || !user) {
     die(`Missing deploy config.
 
 Set:
@@ -64,12 +67,22 @@ Set:
 Optional:
   UPDATE_MANIFEST_DEPLOY_KEY    # SSH private key file (or PEM via CI secret written to a file)
   UPDATE_MANIFEST_DEPLOY_PORT
+  UPDATE_MANIFEST_LEGACY_DEPLOY_PATH  # old dir for --retire-legacy
 
-Example path on TYPO3/Apache:
-  /var/www/codemacher.de/public/dmarc-lighthouse/updates
-→ https://codemacher.de/dmarc-lighthouse/updates/{version}.json`)
+Example path:
+  /var/docker/apps-php/www/dmarc-lighthouse/updates
+→ https://apps.codemacher.de/dmarc-lighthouse/updates/{version}.json`)
   }
-  return { host, user, path: path.replace(/\/+$/, ''), key, port }
+  return { host, user, key, port }
+}
+
+function sshTarget() {
+  const creds = sshCreds()
+  const path = process.env.UPDATE_MANIFEST_DEPLOY_PATH?.trim() || arg('--path')
+  if (!path) {
+    die('Missing UPDATE_MANIFEST_DEPLOY_PATH (remote absolute dir for manifests).')
+  }
+  return { ...creds, path: path.replace(/\/+$/, '') }
 }
 
 function sshArgs(cfg) {
@@ -78,15 +91,93 @@ function sshArgs(cfg) {
   return args
 }
 
+const dryRun = hasFlag('--dry-run')
+const doVerify = hasFlag('--verify')
+const retireLegacy = hasFlag('--retire-legacy')
 const dir = arg('--dir')
-if (!dir) {
-  die('Usage: deploy-update-manifest.mjs --dir <dir> [--version x.y.z] [--verify] [--dry-run]')
+
+if (!dir && !retireLegacy) {
+  die(
+    'Usage: deploy-update-manifest.mjs --dir <dir> [--version x.y.z] [--verify] [--dry-run]\n' +
+      '       deploy-update-manifest.mjs --retire-legacy'
+  )
+}
+
+function scpArgs(c) {
+  const args = ['-P', String(c.port), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new']
+  if (c.key) args.push('-i', c.key)
+  return args
+}
+
+function prepareKey(cfg) {
+  if (cfg.key && cfg.key.includes('BEGIN')) {
+    const tmp = mkdtempSync(join(tmpdir(), 'dmarc-deploy-'))
+    const keyFile = join(tmp, 'key')
+    writeFileSync(keyFile, cfg.key.endsWith('\n') ? cfg.key : `${cfg.key}\n`, { mode: 0o600 })
+    chmodSync(keyFile, 0o600)
+    cfg.key = keyFile
+    return () => rmSync(tmp, { recursive: true, force: true })
+  }
+  if (cfg.key && !existsSync(cfg.key)) {
+    die(`SSH key file not found: ${cfg.key}`)
+  }
+  return null
+}
+
+function retireLegacyDir(cfg) {
+  const legacyPath = (
+    process.env.UPDATE_MANIFEST_LEGACY_DEPLOY_PATH?.trim() ||
+    arg('--legacy-path') ||
+    ''
+  ).replace(/\/+$/, '')
+  if (!legacyPath) {
+    die('Set UPDATE_MANIFEST_LEGACY_DEPLOY_PATH or --legacy-path for --retire-legacy.')
+  }
+  const deployPath = (process.env.UPDATE_MANIFEST_DEPLOY_PATH?.trim() || arg('--path') || '').replace(
+    /\/+$/,
+    ''
+  )
+  if (deployPath && deployPath === legacyPath) {
+    die(
+      'Refusing --retire-legacy: UPDATE_MANIFEST_LEGACY_DEPLOY_PATH equals UPDATE_MANIFEST_DEPLOY_PATH.\n' +
+        'Set DEPLOY_PATH to the new apps.codemacher.de webroot first.'
+    )
+  }
+  if (!existsSync(htaccessLegacySrc)) {
+    die(`Missing ${htaccessLegacySrc}`)
+  }
+  const remoteDirShell = legacyPath.replace(/'/g, `'\\''`)
+  const remote = `${cfg.user}@${cfg.host}:${legacyPath}/`
+  console.log(`Retire legacy update URL`)
+  console.log(`  remote: ${remote}`)
+  console.log(`  action: install 301 .htaccess, delete *.json / *.json.sig`)
+  if (dryRun) {
+    console.log('Dry-run: no remote changes.')
+    return
+  }
+  run('ssh', [...sshArgs(cfg), `${cfg.user}@${cfg.host}`, `mkdir -p '${remoteDirShell}'`])
+  run('scp', [...scpArgs(cfg), htaccessLegacySrc, `${remote}.htaccess`])
+  run('ssh', [
+    ...sshArgs(cfg),
+    `${cfg.user}@${cfg.host}`,
+    `find '${remoteDirShell}' -maxdepth 1 -type f \\( -name '*.json' -o -name '*.json.sig' \\) -delete`
+  ])
+  console.log('Legacy path now redirects to apps.codemacher.de.')
+}
+
+if (retireLegacy && !dir) {
+  const cfg = sshCreds()
+  const keyCleanup = prepareKey(cfg)
+  try {
+    retireLegacyDir(cfg)
+  } finally {
+    keyCleanup?.()
+  }
+  process.exit(0)
 }
 
 const pkg = require(join(root, 'package.json'))
 const version = arg('--version', pkg.version)
-const dryRun = hasFlag('--dry-run')
-const doVerify = hasFlag('--verify')
 
 const jsonPath = join(dir, `${version}.json`)
 const sigPath = join(dir, `${version}.json.sig`)
@@ -96,10 +187,10 @@ if (!existsSync(jsonPath) || !existsSync(sigPath)) {
 
 const cfg = sshTarget()
 const remote = `${cfg.user}@${cfg.host}:${cfg.path}/`
-const baseUrl = (
-  process.env.DMARC_UPDATE_MANIFEST_BASE_URL?.trim() ||
-  'https://codemacher.de/dmarc-lighthouse/updates'
-).replace(/\/+$/, '')
+const baseUrl = (process.env.DMARC_UPDATE_MANIFEST_BASE_URL?.trim() || UPDATE_MANIFEST_BASE_URL).replace(
+  /\/+$/,
+  ''
+)
 
 console.log(`Deploy update manifest ${version}`)
 console.log(`  local:  ${jsonPath}`)
@@ -109,27 +200,11 @@ console.log(`  public: ${baseUrl}/${version}.json`)
 
 if (dryRun) {
   console.log('Dry-run: no files uploaded.')
+  if (retireLegacy) retireLegacyDir(cfg)
   process.exit(0)
 }
 
-// If KEY is a PEM body (CI secret) rather than a path, write a temp key file.
-let keyCleanup = null
-if (cfg.key && cfg.key.includes('BEGIN')) {
-  const tmp = mkdtempSync(join(tmpdir(), 'dmarc-deploy-'))
-  const keyFile = join(tmp, 'key')
-  writeFileSync(keyFile, cfg.key.endsWith('\n') ? cfg.key : `${cfg.key}\n`, { mode: 0o600 })
-  chmodSync(keyFile, 0o600)
-  cfg.key = keyFile
-  keyCleanup = () => rmSync(tmp, { recursive: true, force: true })
-} else if (cfg.key && !existsSync(cfg.key)) {
-  die(`SSH key file not found: ${cfg.key}`)
-}
-
-function scpArgs(c) {
-  const args = ['-P', String(c.port), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new']
-  if (c.key) args.push('-i', c.key)
-  return args
-}
+const keyCleanup = prepareKey(cfg)
 
 try {
   const remoteDirShell = cfg.path.replace(/'/g, `'\\''`)
@@ -139,6 +214,7 @@ try {
     run('scp', [...scpArgs(cfg), htaccessSrc, `${remote}.htaccess`])
   }
   console.log('Upload complete.')
+  if (retireLegacy) retireLegacyDir(cfg)
 } finally {
   keyCleanup?.()
 }

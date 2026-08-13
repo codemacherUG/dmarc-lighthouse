@@ -12,6 +12,7 @@ import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from '
 import { join, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { UPDATE_MANIFEST_BASE_URL } from './update-manifest-url.mjs'
 
 const require = createRequire(import.meta.url)
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -111,5 +112,5 @@ console.log(`  ${sigPath}`)
 console.log(`  files: ${files.map((f) => f.name).join(', ')}`)
 console.log('')
 console.log(`Deploy to trust host (not GitHub Release):`)
-console.log(`  https://codemacher.de/dmarc-lighthouse/updates/${basename(jsonPath)}`)
-console.log(`  https://codemacher.de/dmarc-lighthouse/updates/${basename(sigPath)}`)
+console.log(`  ${UPDATE_MANIFEST_BASE_URL}/${basename(jsonPath)}`)
+console.log(`  ${UPDATE_MANIFEST_BASE_URL}/${basename(sigPath)}`)
