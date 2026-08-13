@@ -253,8 +253,7 @@ export function buildDemoSettings(): SettingsPublic {
         subjectFilter: 'Report Domain',
         hasPassword: true,
         hasOAuth: false,
-        markSeenAfterFetch: false,
-        authorizedSenders: ['192.0.2.10/32', '2001:db8:1::/48']
+        markSeenAfterFetch: false
       },
       {
         id: 'demo-account-2',
@@ -272,8 +271,7 @@ export function buildDemoSettings(): SettingsPublic {
         subjectFilter: 'Report Domain',
         hasPassword: false,
         hasOAuth: true,
-        markSeenAfterFetch: false,
-        authorizedSenders: []
+        markSeenAfterFetch: false
       }
     ],
     global: {
@@ -285,6 +283,7 @@ export function buildDemoSettings(): SettingsPublic {
       runInTray: true,
       openAtLogin: false,
       language: 'de',
+      theme: 'auto',
       oauthGoogleClientId: '',
       oauthMicrosoftClientId: '',
       enrichmentEnabled: true,

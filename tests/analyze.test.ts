@@ -3,8 +3,10 @@ import {
   analyzeFromReports,
   buildDashboard,
   filterReports,
+  groupProblemSources,
   isGoogleIpInfo,
-  isGoogleNoiseRecord
+  isGoogleNoiseRecord,
+  recordMatchesSourceIp
 } from '../src/shared/analyze'
 import type { ReportRow, SerializedRecord } from '../src/shared/types'
 
@@ -71,6 +73,21 @@ describe('filterReports', () => {
     expect(out.map((r) => r.reportId)).toEqual(['in'])
   })
 
+  it('filters a single custom day by the UTC date key used in the volume chart', () => {
+    const rows = [
+      report({ reportId: 'prev', dateEnd: '2026-07-12T23:00:00.000Z' }),
+      report({ reportId: 'hit', dateEnd: '2026-07-13T22:30:00.000Z' }),
+      report({ reportId: 'next', dateEnd: '2026-07-14T01:00:00.000Z' })
+    ]
+    const out = filterReports(rows, {
+      range: 'custom',
+      from: '2026-07-13',
+      to: '2026-07-13',
+      domain: ''
+    })
+    expect(out.map((r) => r.reportId)).toEqual(['hit'])
+  })
+
   it('ignores custom bounds when range is a preset', () => {
     const rows = [report({ reportId: 'a', dateEnd: '2026-06-01T00:00:00.000Z' })]
     const out = filterReports(rows, { range: 'all', from: '2026-07-01', domain: '' })
@@ -103,6 +120,26 @@ describe('filterReports', () => {
     expect(out[0].passing).toBe(0)
     expect(out[0].failing).toBe(3)
     expect(out[0].passRate).toBe(0)
+  })
+
+  it('filters records by a comma-separated source IP group', () => {
+    const rows = [
+      report({
+        records: [
+          record({ sourceIp: '40.93.64.65', count: 2, passesDmarc: false }),
+          record({ sourceIp: '40.93.64.95', count: 1, passesDmarc: false }),
+          record({ sourceIp: '192.0.2.1', count: 4, passesDmarc: true })
+        ]
+      })
+    ]
+    const out = filterReports(rows, {
+      range: 'all',
+      domain: '',
+      sourceIp: '40.93.64.65,40.93.64.95'
+    })
+    expect(out).toHaveLength(1)
+    expect(out[0].records.map((r) => r.sourceIp)).toEqual(['40.93.64.65', '40.93.64.95'])
+    expect(out[0].total).toBe(3)
   })
 
   it('drops reports without matching records', () => {
@@ -329,6 +366,102 @@ describe('buildDashboard', () => {
         headerFrom: 'example.com'
       }
     ])
+  })
+})
+
+describe('groupProblemSources', () => {
+  const ms = { asn: 8075, provider: 'Microsoft', cloudProvider: 'Microsoft' as string | null }
+
+  it('merges IPs that share ASN and From', () => {
+    const grouped = groupProblemSources(
+      [
+        {
+          sourceIp: '40.93.64.65',
+          count: 2,
+          spfFail: 2,
+          dkimFail: 2,
+          headerFrom: 'mgne-hamburg.de'
+        },
+        {
+          sourceIp: '40.93.64.95',
+          count: 1,
+          spfFail: 1,
+          dkimFail: 1,
+          headerFrom: 'mgne-hamburg.de'
+        },
+        {
+          sourceIp: '40.93.214.96',
+          count: 1,
+          spfFail: 1,
+          dkimFail: 1,
+          headerFrom: 'mgne-hamburg.de'
+        }
+      ],
+      () => ms
+    )
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      sourceIp: '40.93.64.65',
+      count: 4,
+      spfFail: 4,
+      dkimFail: 4,
+      headerFrom: 'mgne-hamburg.de'
+    })
+    expect(grouped[0]?.extraIps?.sort()).toEqual(['40.93.214.96', '40.93.64.95'])
+  })
+
+  it('keeps the same ASN separate when From differs', () => {
+    const grouped = groupProblemSources(
+      [
+        {
+          sourceIp: '40.93.64.65',
+          count: 2,
+          spfFail: 2,
+          dkimFail: 2,
+          headerFrom: 'a.example'
+        },
+        {
+          sourceIp: '40.93.64.95',
+          count: 1,
+          spfFail: 1,
+          dkimFail: 1,
+          headerFrom: 'b.example'
+        }
+      ],
+      () => ms
+    )
+    expect(grouped).toHaveLength(2)
+  })
+
+  it('leaves unenriched IPs ungrouped', () => {
+    const grouped = groupProblemSources(
+      [
+        {
+          sourceIp: '40.93.64.65',
+          count: 2,
+          spfFail: 2,
+          dkimFail: 2,
+          headerFrom: 'mgne-hamburg.de'
+        },
+        {
+          sourceIp: '40.93.64.95',
+          count: 1,
+          spfFail: 1,
+          dkimFail: 1,
+          headerFrom: 'mgne-hamburg.de'
+        }
+      ],
+      () => null
+    )
+    expect(grouped).toHaveLength(2)
+    expect(grouped.every((r) => !r.extraIps?.length)).toBe(true)
+  })
+
+  it('matches a single IP or a group in the source-IP filter', () => {
+    expect(recordMatchesSourceIp('40.93.64.65', '40.93.64.65')).toBe(true)
+    expect(recordMatchesSourceIp('40.93.64.95', '40.93.64.65,40.93.64.95')).toBe(true)
+    expect(recordMatchesSourceIp('192.0.2.1', '40.93.64.65,40.93.64.95')).toBe(false)
+    expect(recordMatchesSourceIp('192.0.2.1', undefined)).toBe(true)
   })
 })
 

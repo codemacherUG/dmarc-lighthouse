@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-release/
 out
 release
 .DS_Store
@@ -8,6 +9,10 @@ release
 *.log*
 .env
 .env.*
+keys/
+*.pem
+# Local deploy credentials (copy from update-keys.sh.template)
+scripts/update-keys.sh
 *.AppImage
 *.deb
 *.exe

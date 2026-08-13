@@ -17,11 +17,6 @@ import type {
   VolumePoint
 } from './types'
 import { isLikelyGoogleIp } from './google-ip'
-import {
-  isAuthorizedSender,
-  parseAuthorizedSenderPrefixes,
-  type CloudPrefix
-} from './ipcidr'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
 
 /** True when enrichment labels the IP as Google (cloud, PTR, or ASN). */
@@ -97,63 +92,11 @@ function toNamedBuckets(
     .slice(0, limit)
 }
 
-export type AuthorizedScope = {
-  /** Empty = all senders in scope (legacy behaviour). */
-  prefixes: CloudPrefix[]
-}
-
-function resolveAuthorizedScope(
-  authorizedSenders?: readonly string[] | null
-): AuthorizedScope {
-  return { prefixes: parseAuthorizedSenderPrefixes(authorizedSenders ?? []) }
-}
-
-function recordInAuthorizedScope(rec: SerializedRecord, scope: AuthorizedScope): boolean {
-  if (!scope.prefixes.length) return true
-  return isAuthorizedSender(rec.sourceIp, scope.prefixes)
-}
-
-/** Allowed sender IP that is not covered by the expanded SPF (when both lists are set). */
-export function isAllowedMissingSpf(
-  ip: string,
-  authorizedSenders?: readonly string[] | null,
-  spfCidrs?: readonly string[] | null
-): boolean {
-  const auth = parseAuthorizedSenderPrefixes(authorizedSenders ?? [])
-  const spf = parseAuthorizedSenderPrefixes(spfCidrs ?? [])
-  if (!auth.length || !spf.length) return false
-  return isAuthorizedSender(ip, auth) && !isAuthorizedSender(ip, spf)
-}
-
-function recordIsAmpelHealthy(
-  rec: SerializedRecord,
-  scope: AuthorizedScope,
-  spfPrefixes: CloudPrefix[]
-): boolean {
-  if (!isHealthyDmarcOutcome(rec)) return false
-  // Allowed senders must appear in SPF once SPF is known.
-  if (
-    scope.prefixes.length &&
-    spfPrefixes.length &&
-    !isAuthorizedSender(rec.sourceIp, spfPrefixes)
-  ) {
-    return false
-  }
-  return true
-}
-
 /**
- * IPs with unhealthy outcomes for rollout review:
- * delivered auth-fails, or allowed senders missing from SPF.
- * When authorized senders are set, only those IPs are listed.
+ * IPs with unhealthy DMARC outcomes for rollout review
+ * (delivered auth-fails; reject/quarantine / local_policy excluded).
  */
-export function buildProblemSources(
-  reports: ReportRow[],
-  limit = 40,
-  authorizedSenders?: readonly string[] | null,
-  spfCidrs?: readonly string[] | null
-): ProblemSourceRow[] {
-  const scope = resolveAuthorizedScope(authorizedSenders)
+export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemSourceRow[] {
   type Acc = {
     count: number
     spfFail: number
@@ -164,9 +107,7 @@ export function buildProblemSources(
 
   for (const report of reports) {
     for (const rec of report.records) {
-      if (!recordInAuthorizedScope(rec, scope)) continue
-      const missingSpf = isAllowedMissingSpf(rec.sourceIp, authorizedSenders, spfCidrs)
-      if (isHealthyDmarcOutcome(rec) && !missingSpf) continue
+      if (isHealthyDmarcOutcome(rec)) continue
       const ip = (rec.sourceIp || '').trim() || '(unbekannt)'
       const n = rec.count || 0
       const cur = map.get(ip) ?? {
@@ -176,7 +117,7 @@ export function buildProblemSources(
         fromCounts: new Map()
       }
       cur.count += n
-      if ((rec.spfResult ?? '').toLowerCase() !== 'pass' || missingSpf) cur.spfFail += n
+      if ((rec.spfResult ?? '').toLowerCase() !== 'pass') cur.spfFail += n
       if ((rec.dkimResult ?? '').toLowerCase() !== 'pass') cur.dkimFail += n
       const from = (rec.headerFrom || '').trim() || '(unbekannt)'
       cur.fromCounts.set(from, (cur.fromCounts.get(from) ?? 0) + n)
@@ -206,10 +147,93 @@ export function buildProblemSources(
     .slice(0, limit)
 }
 
-export function buildDashboard(
-  reports: ReportRow[],
-  authorizedSenders?: readonly string[] | null
-): DashboardData {
+export type ProblemSourceIpInfo = Pick<IpInfo, 'asn' | 'provider' | 'cloudProvider'>
+
+function problemSourceNetworkKey(info: ProblemSourceIpInfo | null | undefined): string | null {
+  if (info?.asn != null) return `as:${info.asn}`
+  const cloud = info?.cloudProvider?.trim()
+  if (cloud) return `cloud:${cloud.toLowerCase()}`
+  const provider = info?.provider?.trim()
+  if (provider) return `prov:${provider.toLowerCase()}`
+  return null
+}
+
+/**
+ * Collapse problem IPs that share a network (ASN / cloud / provider) and the same From.
+ * Unenriched IPs stay separate so the table can regroup after lookup.
+ */
+export function groupProblemSources(
+  rows: ProblemSourceRow[],
+  infoFor: (ip: string) => ProblemSourceIpInfo | null | undefined
+): ProblemSourceRow[] {
+  type Acc = {
+    sourceIp: string
+    count: number
+    spfFail: number
+    dkimFail: number
+    headerFrom: string | null
+    ips: string[]
+    topCount: number
+  }
+  const map = new Map<string, Acc>()
+  for (const row of rows) {
+    const net = problemSourceNetworkKey(infoFor(row.sourceIp))
+    const key = `${net ?? `ip:${row.sourceIp}`}|${row.headerFrom ?? ''}`
+    const cur = map.get(key)
+    if (!cur) {
+      map.set(key, {
+        sourceIp: row.sourceIp,
+        count: row.count,
+        spfFail: row.spfFail,
+        dkimFail: row.dkimFail,
+        headerFrom: row.headerFrom,
+        ips: [row.sourceIp],
+        topCount: row.count
+      })
+      continue
+    }
+    cur.count += row.count
+    cur.spfFail += row.spfFail
+    cur.dkimFail += row.dkimFail
+    cur.ips.push(row.sourceIp)
+    if (row.count > cur.topCount) {
+      cur.sourceIp = row.sourceIp
+      cur.topCount = row.count
+    }
+  }
+  return [...map.values()]
+    .map((v) => {
+      const extraIps = v.ips.filter((ip) => ip !== v.sourceIp)
+      return {
+        sourceIp: v.sourceIp,
+        count: v.count,
+        spfFail: v.spfFail,
+        dkimFail: v.dkimFail,
+        headerFrom: v.headerFrom,
+        ...(extraIps.length ? { extraIps } : {})
+      }
+    })
+    .sort((a, b) => b.count - a.count)
+}
+
+/** Parse a single IP or a comma-separated group used as drill-down filter. */
+export function parseSourceIpFilter(sourceIp: string | undefined): string[] | null {
+  if (!sourceIp?.trim()) return null
+  const ips = sourceIp
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return ips.length ? ips : null
+}
+
+export function recordMatchesSourceIp(recIp: string, filter: string | undefined): boolean {
+  const ips = parseSourceIpFilter(filter)
+  if (!ips) return true
+  if (ips.length === 1) return recIp === ips[0]
+  return ips.includes(recIp)
+}
+
+export function buildDashboard(reports: ReportRow[]): DashboardData {
   if (reports.length === 0) return emptyDashboard()
 
   const dmarc: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
@@ -257,8 +281,7 @@ export function buildDashboard(
     bySourceIp: toNamedBuckets(bySourceIp, 40),
     byHeaderFrom: toNamedBuckets(byHeaderFrom, 25),
     volumeByDay: [...volumeMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
-    // SPF coverage is applied later in the renderer once expandSpf has run.
-    problemSources: buildProblemSources(reports, 40, authorizedSenders)
+    problemSources: buildProblemSources(reports, 40)
   }
 }
 
@@ -271,7 +294,6 @@ export function analyzeFromReports(
     newReports?: number
     newForensicReports?: number
     forensicReports?: ForensicReportRow[]
-    authorizedSenders?: readonly string[] | null
   }
 ): AnalyzeResult {
   const rows = [...reports].sort((a, b) => b.dateEnd.localeCompare(a.dateEnd))
@@ -317,7 +339,7 @@ export function analyzeFromReports(
       dateEnd,
       domains: [...domains].sort()
     },
-    dashboard: buildDashboard(rows, extras?.authorizedSenders),
+    dashboard: buildDashboard(rows),
     reports: rows,
     forensicReports,
     skipped: extras?.skipped ?? 0,
@@ -363,13 +385,17 @@ export function reportsForDomainHealth(reports: ReportRow[]): ReportRow[] {
   return filterReportsLastDays(reports, DOMAIN_HEALTH_WINDOW_DAYS)
 }
 
-function parseDay(value: string | undefined, endOfDay: boolean): number | null {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return null
-  if (endOfDay) d.setHours(23, 59, 59, 999)
-  else d.setHours(0, 0, 0, 0)
-  return d.getTime()
+function inCustomDayRange(
+  iso: string | null | undefined,
+  from: string | undefined,
+  to: string | undefined
+): boolean {
+  if (!iso) return false
+  const day = dayKey(iso)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false
+  if (from && day < from) return false
+  if (to && day > to) return false
+  return true
 }
 
 const UNKNOWN = '(unbekannt)'
@@ -394,8 +420,7 @@ function withRecords(report: ReportRow, records: ReportRow['records']): ReportRo
 
 export function filterReports(reports: ReportRow[], filter: DashboardFilter): ReportRow[] {
   const cutoff = rangeCutoff(filter.range)
-  const customFrom = filter.range === 'custom' ? parseDay(filter.from, false) : null
-  const customTo = filter.range === 'custom' ? parseDay(filter.to, true) : null
+  const customRange = filter.range === 'custom'
   const domain = filter.domain.trim().toLowerCase()
   const org = filter.org?.trim()
   const sourceIp = filter.sourceIp?.trim()
@@ -409,18 +434,17 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
     if (org && (r.orgName || UNKNOWN) !== org) continue
 
     const end = r.dateEnd || r.dateBegin
-    if (cutoff || customFrom != null || customTo != null) {
+    if (customRange && (filter.from || filter.to)) {
+      if (!inCustomDayRange(end, filter.from, filter.to)) continue
+    } else if (cutoff) {
       if (!end) continue
       const t = new Date(end).getTime()
-      if (Number.isNaN(t)) continue
-      if (cutoff && t < cutoff.getTime()) continue
-      if (customFrom != null && t < customFrom) continue
-      if (customTo != null && t > customTo) continue
+      if (Number.isNaN(t) || t < cutoff.getTime()) continue
     }
 
     if (sourceIp || headerFrom || hideGoogleNoise) {
       const records = r.records.filter((rec) => {
-        if (sourceIp && rec.sourceIp !== sourceIp) return false
+        if (sourceIp && !recordMatchesSourceIp(rec.sourceIp, sourceIp)) return false
         if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
         if (hideGoogleNoise && isGoogleNoiseRecord(rec, googleIps)) return false
         return true
@@ -439,34 +463,28 @@ export function filterForensicReports(
   filter: DashboardFilter
 ): ForensicReportRow[] {
   const cutoff = rangeCutoff(filter.range)
-  const customFrom = filter.range === 'custom' ? parseDay(filter.from, false) : null
-  const customTo = filter.range === 'custom' ? parseDay(filter.to, true) : null
+  const customRange = filter.range === 'custom'
   const domain = filter.domain.trim().toLowerCase()
   const sourceIp = filter.sourceIp?.trim()
   const headerFrom = filter.headerFrom?.trim()
 
   return reports.filter((r) => {
     if (domain && (r.reportedDomain ?? '').toLowerCase() !== domain) return false
-    if (sourceIp && r.sourceIp !== sourceIp) return false
+    if (sourceIp && !recordMatchesSourceIp(r.sourceIp ?? '', sourceIp)) return false
     if (headerFrom && (r.headerFrom ?? UNKNOWN) !== headerFrom) return false
     const end = r.arrivalDate
-    if (cutoff || customFrom != null || customTo != null) {
+    if (customRange && (filter.from || filter.to)) {
+      if (!inCustomDayRange(end, filter.from, filter.to)) return false
+    } else if (cutoff) {
       if (!end) return false
       const t = new Date(end).getTime()
-      if (Number.isNaN(t)) return false
-      if (cutoff && t < cutoff.getTime()) return false
-      if (customFrom != null && t < customFrom) return false
-      if (customTo != null && t > customTo) return false
+      if (Number.isNaN(t) || t < cutoff.getTime()) return false
     }
     return true
   })
 }
 
-export function applyDashboardFilter(
-  full: AnalyzeResult,
-  filter: DashboardFilter,
-  authorizedSenders?: readonly string[] | null
-): AnalyzeResult {
+export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilter): AnalyzeResult {
   const filtered = filterReports(full.reports, filter)
   return analyzeFromReports(filtered, {
     skipped: full.skipped,
@@ -474,8 +492,7 @@ export function applyDashboardFilter(
     fromCache: full.fromCache,
     newReports: full.newReports,
     newForensicReports: full.newForensicReports,
-    forensicReports: filterForensicReports(full.forensicReports ?? [], filter),
-    authorizedSenders
+    forensicReports: filterForensicReports(full.forensicReports ?? [], filter)
   })
 }
 
@@ -497,26 +514,14 @@ export function isHealthyDmarcOutcome(rec: SerializedRecord): boolean {
   return false
 }
 
-/**
- * Aggregate per-domain Ampel stats from records (healthy-outcome rate, not raw DMARC pass rate).
- * When `authorizedSenders` is non-empty, volume/rate only include those IPs (selectors still
- * collected from all records for DNS checks). Allowed IPs missing from SPF count as unhealthy
- * once `spfCidrs` is provided.
- */
-export function buildDomainStats(
-  reports: ReportRow[],
-  authorizedSenders?: readonly string[] | null,
-  spfCidrs?: readonly string[] | null
-): DomainStats[] {
-  const scope = resolveAuthorizedScope(authorizedSenders)
-  const spfPrefixes = parseAuthorizedSenderPrefixes(spfCidrs ?? [])
+/** Aggregate per-domain Ampel stats from records (healthy-outcome rate, not raw DMARC pass rate). */
+export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
   const map = new Map<
     string,
     {
       total: number
       passing: number
       failing: number
-      missingSpf: number
       selectors: Set<string>
     }
   >()
@@ -527,19 +532,15 @@ export function buildDomainStats(
       total: 0,
       passing: 0,
       failing: 0,
-      missingSpf: 0,
       selectors: new Set<string>()
     }
     for (const rec of r.records) {
       for (const sel of rec.dkimSelectors ?? []) {
         if (sel) cur.selectors.add(sel)
       }
-      if (!recordInAuthorizedScope(rec, scope)) continue
       const n = rec.count || 0
       cur.total += n
-      const missingSpf = isAllowedMissingSpf(rec.sourceIp, authorizedSenders, spfCidrs)
-      if (missingSpf) cur.missingSpf += n
-      if (recordIsAmpelHealthy(rec, scope, spfPrefixes)) cur.passing += n
+      if (isHealthyDmarcOutcome(rec)) cur.passing += n
       else cur.failing += n
     }
     map.set(domain, cur)
@@ -550,7 +551,6 @@ export function buildDomainStats(
       total: v.total,
       passing: v.passing,
       failing: v.failing,
-      missingSpf: v.missingSpf,
       passRate: v.total ? Math.round((v.passing / v.total) * 1000) / 10 : 100,
       dkimSelectors: [...v.selectors].sort()
     }))
@@ -567,16 +567,6 @@ export function buildDomainStats(
  */
 export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null): DomainHealth {
   if (!dns) {
-    if ((stats.missingSpf ?? 0) > 0) {
-      return {
-        ...stats,
-        dmarcPolicy: null,
-        spfOk: null,
-        dkimOk: null,
-        status: 'bad',
-        reasons: ['health.reason.allowedNotInSpf', 'health.reason.dnsPending']
-      }
-    }
     return {
       ...stats,
       dmarcPolicy: null,
@@ -604,11 +594,6 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
     status = 'bad'
     reasons.push('health.reason.noSpf')
   }
-  if ((stats.missingSpf ?? 0) > 0) {
-    status = 'bad'
-    reasons.push('health.reason.allowedNotInSpf')
-  }
-  // No volume in scope (e.g. authorized senders set but idle) → skip rate thresholds.
   if (stats.total > 0 && stats.passRate < 90) {
     status = 'bad'
     reasons.push('health.reason.lowPassRate')

@@ -1,5 +1,6 @@
 import { suggestAccountName } from '../../shared/account'
 import { normalizeLocale, t } from '../../shared/i18n'
+import { normalizeTheme } from '../../shared/theme'
 import type {
   AccountPublic,
   AccountSettingsInput,
@@ -10,6 +11,7 @@ import type {
 } from '../../shared/types'
 import { PROVIDER_PRESETS } from '../../shared/types'
 import { applyUiLocale, setBusy, setStatus } from './chrome'
+import { applyTheme } from './theme'
 import {
   accountLabelEl,
   accountFieldEl,
@@ -44,10 +46,9 @@ import {
   geoliteStatusEl,
   hostEl,
   ignoredSourcesEl,
-  authorizedSendersEl,
-  btnImportSpf,
   infoDialog,
   languageEl,
+  themeEl,
   mailboxEl,
   markSeenAfterFetchEl,
   maxmindLicenseKeyEl,
@@ -73,25 +74,22 @@ import {
   settingsStatusEl,
   subjectFilterEl,
   tabAccountEl,
+  tabAppearanceEl,
   tabBtnAccount,
+  tabBtnAppearance,
   tabBtnEnrichment,
   tabBtnGeneral,
   tabEnrichmentEl,
   tabGeneralEl,
-  subtabBtnSetup,
-  subtabBtnOptions,
-  accountSubtabSetupEl,
-  accountSubtabOptionsEl,
   userEl
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
-import { applyView, importSpfAuthorizedSenders } from './view'
+import { applyView } from './view'
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
-type SettingsTab = 'account' | 'general' | 'enrichment'
-type AccountSubtab = 'setup' | 'options'
+type SettingsTab = 'account' | 'appearance' | 'general' | 'enrichment'
 
 /** Input that opened the create-mailbox dialog (mailbox or archive). */
 let createMailboxTarget: HTMLInputElement | null = null
@@ -155,11 +153,7 @@ export function readAccountForm(): AccountSettingsInput {
     mailbox: mailboxEl.value.trim() || 'INBOX',
     archiveMailbox: archiveMailboxEl.value.trim(),
     subjectFilter: subjectFilterEl.value,
-    markSeenAfterFetch: markSeenAfterFetchEl.checked,
-    authorizedSenders: authorizedSendersEl.value
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
+    markSeenAfterFetch: markSeenAfterFetchEl.checked
   }
 }
 
@@ -368,6 +362,7 @@ export function readGlobalForm(): GlobalSettings {
     runInTray: runInTrayEl.checked,
     openAtLogin: openAtLoginEl.checked,
     language: normalizeLocale(languageEl.value),
+    theme: normalizeTheme(themeEl.value),
     oauthGoogleClientId: oauthGoogleClientIdEl.value.trim(),
     oauthMicrosoftClientId: oauthMicrosoftClientIdEl.value.trim(),
     enrichmentEnabled: enrichmentEnabledEl.checked,
@@ -418,7 +413,6 @@ export function fillAccountForm(account: AccountPublic | null): void {
     archiveMailboxEl.value = account.archiveMailbox ?? ''
     subjectFilterEl.value = account.subjectFilter
     markSeenAfterFetchEl.checked = account.markSeenAfterFetch
-    authorizedSendersEl.value = (account.authorizedSenders ?? []).join('\n')
   } else {
     accountNameEl.value = ''
     providerEl.value = 'custom'
@@ -431,7 +425,6 @@ export function fillAccountForm(account: AccountPublic | null): void {
     archiveMailboxEl.value = ''
     subjectFilterEl.value = 'Report Domain'
     markSeenAfterFetchEl.checked = false
-    authorizedSendersEl.value = ''
   }
   passwordEl.value = ''
   updateAccountNamePlaceholder()
@@ -460,6 +453,8 @@ export function fillGlobalForm(global: GlobalSettings): void {
   runInTrayEl.checked = Boolean(global.runInTray)
   openAtLoginEl.checked = Boolean(global.openAtLogin)
   languageEl.value = normalizeLocale(global.language)
+  themeEl.value = normalizeTheme(global.theme)
+  applyTheme(normalizeTheme(global.theme))
   oauthGoogleClientIdEl.value = global.oauthGoogleClientId ?? ''
   oauthMicrosoftClientIdEl.value = global.oauthMicrosoftClientId ?? ''
   enrichmentEnabledEl.checked = global.enrichmentEnabled !== false
@@ -514,6 +509,7 @@ export async function loadSettings(): Promise<void> {
   applySettings(await window.api.loadSettings())
   fillGlobalForm(state.settings!.global)
   applyUiLocale(state.settings!.global.language)
+  applyTheme(state.settings!.global.theme)
   const account = activeAccount()
   if (!accountHasAuth(account)) {
     setStatus(t('status.needSettings'))
@@ -523,21 +519,9 @@ export async function loadSettings(): Promise<void> {
 export function showSettingsTab(which: SettingsTab): void {
   const tabs: Array<{ id: SettingsTab; btn: HTMLButtonElement; panel: HTMLElement }> = [
     { id: 'account', btn: tabBtnAccount, panel: tabAccountEl },
+    { id: 'appearance', btn: tabBtnAppearance, panel: tabAppearanceEl },
     { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
     { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
-  ]
-  for (const tab of tabs) {
-    const active = tab.id === which
-    tab.btn.classList.toggle('active', active)
-    tab.btn.setAttribute('aria-selected', String(active))
-    tab.panel.classList.toggle('hidden', !active)
-  }
-}
-
-export function showAccountSubtab(which: AccountSubtab): void {
-  const tabs: Array<{ id: AccountSubtab; btn: HTMLButtonElement; panel: HTMLElement }> = [
-    { id: 'setup', btn: subtabBtnSetup, panel: accountSubtabSetupEl },
-    { id: 'options', btn: subtabBtnOptions, panel: accountSubtabOptionsEl }
   ]
   for (const tab of tabs) {
     const active = tab.id === which
@@ -553,7 +537,6 @@ export function openSettings(): void {
   fillAccountForm(dialogAccount())
   if (state.settings) fillGlobalForm(state.settings.global)
   showSettingsTab('account')
-  showAccountSubtab('setup')
   settingsDialog.showModal()
   scheduleMailboxOptionsRefresh()
 }
@@ -575,10 +558,9 @@ export function initSettingsUi(): void {
   btnSettings.addEventListener('click', () => openSettings())
   btnCloseSettings.addEventListener('click', () => settingsDialog.close())
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
+  tabBtnAppearance.addEventListener('click', () => showSettingsTab('appearance'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
-  subtabBtnSetup.addEventListener('click', () => showAccountSubtab('setup'))
-  subtabBtnOptions.addEventListener('click', () => showAccountSubtab('options'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
 
@@ -660,27 +642,11 @@ export function initSettingsUi(): void {
     scheduleMailboxOptionsRefresh()
   })
 
-  btnImportSpf?.addEventListener('click', () => {
-    void (async () => {
-      btnImportSpf.disabled = true
-      try {
-        const accountId = state.dialogAccountId ?? state.settings?.activeAccountId
-        settingsStatusEl.textContent = t('settings.spfImportLoading')
-        const message = await importSpfAuthorizedSenders({ accountId })
-        fillAccountForm(dialogAccount())
-        settingsStatusEl.textContent = message
-      } finally {
-        btnImportSpf.disabled = false
-      }
-    })()
-  })
-
   btnNewAccount.addEventListener('click', () => {
     state.dialogAccountId = null
     fillSettingsAccountSelect()
     fillAccountForm(null)
     fillMailboxOptions([])
-    showAccountSubtab('setup')
   })
 
   btnDeleteAccount.addEventListener('click', async () => {
@@ -822,7 +788,6 @@ export function initSettingsUi(): void {
       if (wantsAccountSave) {
         if (!accountInput.user || !accountInput.host) {
           showSettingsTab('account')
-          showAccountSubtab('setup')
           throw new Error(t('settings.needUserHost'))
         }
         const before = new Set((state.settings?.accounts ?? []).map((a) => a.id))
@@ -838,6 +803,7 @@ export function initSettingsUi(): void {
       fillAccountForm(dialogAccount())
       fillGlobalForm(state.settings!.global)
       applyUiLocale(state.settings!.global.language)
+      applyTheme(state.settings!.global.theme)
       settingsStatusEl.textContent = t('settings.saved')
       setStatus(t('status.settingsSaved'), 'ok')
       settingsDialog.close()

@@ -11,7 +11,9 @@ import {
   LineElement,
   PointElement,
   Tooltip,
-  Filler
+  Filler,
+  type ActiveElement,
+  type ChartEvent
 } from 'chart.js'
 import { t } from '../../shared/i18n'
 import type { AlignmentBreakdown, NamedBucket } from '../../shared/types'
@@ -31,17 +33,52 @@ Chart.register(
   Filler
 )
 
-const PASS = '#1f7a45'
-const FAIL = '#b33a2b'
-const OTHER = '#8a93a3'
-const VOLUME_PASS = 'rgba(31, 122, 69, 0.85)'
-const VOLUME_FAIL = 'rgba(179, 58, 43, 0.8)'
-const RATE_LINE = '#1f6f8b'
+function cssVar(name: string, fallback: string): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return value || fallback
+}
 
-const DISPOSITION_COLORS: Record<string, string> = {
-  none: '#1f6f8b',
-  quarantine: '#b57b12',
-  reject: '#b33a2b'
+function hexToRgba(hex: string, alpha: number): string {
+  const raw = hex.replace('#', '')
+  if (raw.length !== 6) return hex
+  const n = Number.parseInt(raw, 16)
+  if (!Number.isFinite(n)) return hex
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
+}
+
+type ThemeColors = {
+  ok: string
+  bad: string
+  other: string
+  warn: string
+  accent: string
+  muted: string
+  line: string
+}
+
+function themeColors(): ThemeColors {
+  return {
+    ok: cssVar('--ok', '#1f7a45'),
+    bad: cssVar('--bad', '#b33a2b'),
+    other: cssVar('--other', '#8a93a3'),
+    warn: cssVar('--warn', '#b57b12'),
+    accent: cssVar('--accent', '#1f6f8b'),
+    muted: cssVar('--muted', '#5b6778'),
+    line: cssVar('--line', '#d5dbe3')
+  }
+}
+
+function dispositionColor(name: string, colors: ThemeColors): string {
+  switch (name.toLowerCase()) {
+    case 'none':
+      return colors.accent
+    case 'quarantine':
+      return colors.warn
+    case 'reject':
+      return colors.bad
+    default:
+      return colors.other
+  }
 }
 
 function createDoughnut(id: string): Chart<'doughnut'> {
@@ -52,7 +89,7 @@ function createDoughnut(id: string): Chart<'doughnut'> {
       datasets: [
         {
           data: [0, 0, 0],
-          backgroundColor: [PASS, FAIL, OTHER],
+          backgroundColor: [themeColors().ok, themeColors().bad, themeColors().other],
           borderWidth: 0
         }
       ]
@@ -85,6 +122,13 @@ export const chartDisposition = new Chart(
     }
   }
 )
+
+let onVolumeDayClick: ((date: string) => void) | null = null
+
+export function setVolumeDayClickHandler(fn: (date: string) => void): void {
+  onVolumeDayClick = fn
+}
+
 export const chartVolume = new Chart(document.getElementById('chart-volume') as HTMLCanvasElement, {
   data: {
     labels: [] as string[],
@@ -93,7 +137,7 @@ export const chartVolume = new Chart(document.getElementById('chart-volume') as 
         type: 'bar',
         label: 'Pass',
         data: [] as number[],
-        backgroundColor: VOLUME_PASS,
+        backgroundColor: hexToRgba(themeColors().ok, 0.85),
         stack: 'v',
         yAxisID: 'y'
       },
@@ -101,7 +145,7 @@ export const chartVolume = new Chart(document.getElementById('chart-volume') as 
         type: 'bar',
         label: 'Fail',
         data: [] as number[],
-        backgroundColor: VOLUME_FAIL,
+        backgroundColor: hexToRgba(themeColors().bad, 0.8),
         stack: 'v',
         yAxisID: 'y'
       },
@@ -109,8 +153,8 @@ export const chartVolume = new Chart(document.getElementById('chart-volume') as 
         type: 'line',
         label: 'Pass-Rate %',
         data: [] as number[],
-        borderColor: RATE_LINE,
-        backgroundColor: 'rgba(31, 111, 139, 0.12)',
+        borderColor: themeColors().accent,
+        backgroundColor: hexToRgba(themeColors().accent, 0.12),
         tension: 0.25,
         fill: false,
         yAxisID: 'y1',
@@ -136,6 +180,15 @@ export const chartVolume = new Chart(document.getElementById('chart-volume') as 
     },
     plugins: {
       legend: { position: 'bottom' }
+    },
+    onClick: (_event: ChartEvent, elements: ActiveElement[], chart) => {
+      if (!elements.length) return
+      const label = chart.data.labels?.[elements[0].index]
+      if (typeof label === 'string') onVolumeDayClick?.(label)
+    },
+    onHover: (event: ChartEvent, elements: ActiveElement[]) => {
+      const el = event.native?.target
+      if (el instanceof HTMLElement) el.style.cursor = elements.length ? 'pointer' : 'default'
     }
   }
 })
@@ -148,10 +201,52 @@ export function setAlignmentChart(chart: Chart<'doughnut'>, data: AlignmentBreak
 export function setDispositionChart(buckets: NamedBucket[]): void {
   chartDisposition.data.labels = buckets.map((b) => b.name)
   chartDisposition.data.datasets[0].data = buckets.map((b) => b.count)
-  ;(chartDisposition.data.datasets[0].backgroundColor as string[]) = buckets.map(
-    (b) => DISPOSITION_COLORS[b.name.toLowerCase()] ?? OTHER
+  const colors = themeColors()
+  ;(chartDisposition.data.datasets[0].backgroundColor as string[]) = buckets.map((b) =>
+    dispositionColor(b.name, colors)
   )
   chartDisposition.update()
+}
+
+export function applyChartTheme(): void {
+  const colors = themeColors()
+  Chart.defaults.color = colors.muted
+  Chart.defaults.borderColor = colors.line
+  const doughnut = [colors.ok, colors.bad, colors.other]
+  for (const chart of [chartDmarc, chartSpf, chartDkim]) {
+    chart.data.datasets[0].backgroundColor = doughnut
+    if (chart.options.plugins?.legend?.labels) {
+      chart.options.plugins.legend.labels.color = colors.muted
+    }
+    chart.update('none')
+  }
+  const labels = (chartDisposition.data.labels ?? []) as string[]
+  chartDisposition.data.datasets[0].backgroundColor = labels.map((name) =>
+    dispositionColor(name, colors)
+  )
+  if (chartDisposition.options.plugins?.legend?.labels) {
+    chartDisposition.options.plugins.legend.labels.color = colors.muted
+  }
+  chartDisposition.update('none')
+  chartVolume.data.datasets[0].backgroundColor = hexToRgba(colors.ok, 0.85)
+  chartVolume.data.datasets[1].backgroundColor = hexToRgba(colors.bad, 0.8)
+  chartVolume.data.datasets[2].borderColor = colors.accent
+  chartVolume.data.datasets[2].backgroundColor = hexToRgba(colors.accent, 0.12)
+  const scales = chartVolume.options.scales
+  if (scales) {
+    for (const key of ['x', 'y', 'y1'] as const) {
+      const scale = scales[key]
+      if (!scale || typeof scale !== 'object') continue
+      if (scale.ticks) scale.ticks.color = colors.muted
+      if (scale.grid && 'color' in scale.grid) {
+        scale.grid.color = hexToRgba(colors.line, 0.55)
+      }
+    }
+  }
+  if (chartVolume.options.plugins?.legend?.labels) {
+    chartVolume.options.plugins.legend.labels.color = colors.muted
+  }
+  chartVolume.update('none')
 }
 
 export function updateChartLocaleLabels(): void {
@@ -163,6 +258,8 @@ export function updateChartLocaleLabels(): void {
   chartVolume.data.datasets[0].label = t('chart.pass')
   chartVolume.data.datasets[1].label = t('chart.fail')
   chartVolume.data.datasets[2].label = t('chart.passRate')
+  const volumeCanvas = document.getElementById('chart-volume')
+  if (volumeCanvas) volumeCanvas.title = t('filter.clickToFilter')
   chartVolume.update()
 }
 

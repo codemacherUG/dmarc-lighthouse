@@ -1,6 +1,7 @@
 import type { AppLocale } from './i18n'
+import type { AppTheme } from './theme'
 
-export type { AppLocale }
+export type { AppLocale, AppTheme }
 
 export type ProviderPreset = 'gmail' | 'outlook' | 'microsoft' | 'custom'
 
@@ -15,6 +16,7 @@ export type UpdateStatusPayload =
   | { status: 'available'; version: string }
   | { status: 'not-available'; version: string }
   | { status: 'downloading'; percent: number; transferred: number; total: number }
+  | { status: 'verifying'; version: string }
   | { status: 'downloaded'; version: string }
   | { status: 'error'; message: string }
 
@@ -67,11 +69,6 @@ export interface AccountSettingsInput {
   archiveMailbox: string
   subjectFilter: string
   markSeenAfterFetch: boolean
-  /**
-   * Own mail servers (IPs or CIDRs) for this account. When non-empty, Ampel and
-   * problem sources focus on these senders.
-   */
-  authorizedSenders: string[]
 }
 
 export interface AccountPublic {
@@ -95,11 +92,6 @@ export interface AccountPublic {
   /** True when a refresh token is stored for OAuth. */
   hasOAuth: boolean
   markSeenAfterFetch: boolean
-  /**
-   * Own mail servers (IPs or CIDRs) for this account. When non-empty, Ampel and
-   * problem sources focus on these senders.
-   */
-  authorizedSenders: string[]
 }
 
 /** IMAP folder entry returned by LIST. */
@@ -138,6 +130,8 @@ export interface GlobalSettings {
   openAtLogin: boolean
   /** UI language. */
   language: AppLocale
+  /** UI color scheme. `auto` follows the operating system. */
+  theme: AppTheme
   /** Optional Google OAuth client ID (desktop/public PKCE client). */
   oauthGoogleClientId: string
   /** Optional Microsoft Entra / Azure AD application (client) ID. */
@@ -263,6 +257,8 @@ export interface ProblemSourceRow {
   dkimFail: number
   /** Most frequent header-from among problem rows for this IP. */
   headerFrom: string | null
+  /** Other IPs in the same ASN/provider + From group (after enrichment). */
+  extraIps?: string[]
 }
 
 /** Kibana-ähnliche Dashboard-Aggregationen über alle Records. */
@@ -343,8 +339,6 @@ export interface DomainStats {
   passing: number
   failing: number
   passRate: number
-  /** Messages from allowed senders that are not covered by expanded SPF. */
-  missingSpf: number
   /** DKIM selectors seen in report auth results. */
   dkimSelectors: string[]
 }
@@ -386,6 +380,16 @@ export interface DkimSelectorCheck {
   error?: string
 }
 
+export type DnsResolverMode = 'authoritative' | 'recursive'
+
+export interface DnsResolverInfo {
+  mode: DnsResolverMode
+  /** Zone whose NS were used (authoritative only). */
+  zone: string | null
+  /** NS hostnames (authoritative only). */
+  nameservers: string[]
+}
+
 export interface DnsCheckResult {
   domain: string
   dmarc: {
@@ -404,6 +408,7 @@ export interface DnsCheckResult {
   dkim: {
     selectors: DkimSelectorCheck[]
   }
+  resolver?: DnsResolverInfo
   checkedAt: string
 }
 
@@ -425,7 +430,7 @@ export interface DashboardFilter {
   domain: string
   /** Drill-down: only reports from this reporting organization. */
   org?: string
-  /** Drill-down: only records from this source IP. */
+  /** Drill-down: only records from this source IP (comma-separated for a group). */
   sourceIp?: string
   /** Drill-down: only records with this header-from domain. */
   headerFrom?: string

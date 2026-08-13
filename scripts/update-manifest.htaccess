@@ -1,0 +1,19 @@
+# Static update manifests for DMARC Lighthouse (Ed25519-signed JSON).
+# Place this file next to {version}.json / {version}.json.sig in the webroot.
+# TYPO3 only rewrites missing paths — existing files are served by Apache.
+
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+
+Options -Indexes
+
+<IfModule mod_mime.c>
+  AddType application/json .json
+  AddType text/plain .sig
+</IfModule>
+
+# No caching of manifests (clients always need the current signature).
+<IfModule mod_headers.c>
+  Header set Cache-Control "no-cache, must-revalidate"
+</IfModule>

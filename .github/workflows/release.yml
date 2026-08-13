@@ -73,6 +73,7 @@ jobs:
 
       - name: Prepare release files
         run: |
+          rm -rf dist-release
           mkdir -p dist-release
           find artifacts -type f -print
           find artifacts -type f \( \
@@ -89,6 +90,7 @@ jobs:
             base=$(basename "$f")
             case "$base" in
               latest.yml|latest-linux.yml|latest-mac.yml) continue ;;
+              *.json|*.sig) continue ;; # signed update manifests added later
             esac
             case "$base" in
               *' '*|DMARC*|*Lighthouse*)
@@ -109,6 +111,17 @@ jobs:
             exit 1
           fi
 
+      - name: Sign update manifest (Ed25519)
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "${UPDATE_SIGNING_PRIVATE_KEY}" ]; then
+            echo "Missing secret UPDATE_SIGNING_PRIVATE_KEY — auto-update manifests cannot be signed." >&2
+            exit 1
+          fi
+          node scripts/sign-update-manifest.mjs --dir dist-release --out dist-release
+          ls -lah dist-release/*.json dist-release/*.sig
+
       - name: Resolve tag
         id: tag
         shell: bash
@@ -119,6 +132,17 @@ jobs:
             echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
+      # Signed manifests stay off the GitHub Release (trust host only).
+      # Kept as a workflow artifact so `npm run release` can deploy them locally.
+      - name: Upload signed manifests artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-manifests
+          path: |
+            dist-release/*.json
+            dist-release/*.sig
+          if-no-files-found: error
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -126,6 +150,30 @@ jobs:
           name: DMARC Lighthouse ${{ steps.tag.outputs.name }}
           draft: false
           generate_release_notes: true
-          files: dist-release/*
+          # Installers + latest*.yml only — no *.json / *.sig
+          files: |
+            dist-release/dmarc-lighthouse-*
+            dist-release/latest*.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # App verifies manifests only from apps.codemacher.de (not GitHub).
+      # Optional: UPDATE_MANIFEST_DEPLOY_HOST / _USER / _KEY / _PATH (+ optional _PORT).
+      - name: Deploy signed manifest to apps.codemacher.de
+        env:
+          UPDATE_MANIFEST_DEPLOY_HOST: ${{ secrets.UPDATE_MANIFEST_DEPLOY_HOST }}
+          UPDATE_MANIFEST_DEPLOY_USER: ${{ secrets.UPDATE_MANIFEST_DEPLOY_USER }}
+          UPDATE_MANIFEST_DEPLOY_KEY: ${{ secrets.UPDATE_MANIFEST_DEPLOY_KEY }}
+          UPDATE_MANIFEST_DEPLOY_PATH: ${{ secrets.UPDATE_MANIFEST_DEPLOY_PATH }}
+          UPDATE_MANIFEST_DEPLOY_PORT: ${{ secrets.UPDATE_MANIFEST_DEPLOY_PORT }}
+        run: |
+          pkg_ver=$(node -p "require('./package.json').version")
+          if [ -z "${UPDATE_MANIFEST_DEPLOY_HOST}" ] || [ -z "${UPDATE_MANIFEST_DEPLOY_USER}" ] || \
+             [ -z "${UPDATE_MANIFEST_DEPLOY_KEY}" ] || [ -z "${UPDATE_MANIFEST_DEPLOY_PATH}" ]; then
+            echo "Skipping auto-deploy (UPDATE_MANIFEST_DEPLOY_* secrets incomplete)."
+            echo "Local deploy after CI:"
+            echo "  npm run release -- --deploy-only"
+            echo "Manifests are in the workflow artifact update-manifests (not the GitHub Release)."
+            exit 0
+          fi
+          node scripts/deploy-update-manifest.mjs --dir dist-release --verify

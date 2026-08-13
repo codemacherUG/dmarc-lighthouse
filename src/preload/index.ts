@@ -9,6 +9,7 @@ import type {
   GeoLiteDownloadResult,
   GeoLiteStatus,
   GlobalSettings,
+  AppTheme,
   IpInfo,
   CreateMailboxResult,
   ListMailboxesResult,
@@ -29,6 +30,8 @@ const api = {
     ipcRenderer.invoke('settings:setActiveAccount', id),
   saveGlobalSettings: (input: GlobalSettings): Promise<SettingsPublic> =>
     ipcRenderer.invoke('settings:saveGlobal', input),
+  previewTheme: (theme: AppTheme): Promise<void> =>
+    ipcRenderer.invoke('settings:previewTheme', theme),
   oauthLogin: (accountId: string): Promise<SettingsPublic> =>
     ipcRenderer.invoke('oauth:login', accountId),
   oauthDisconnect: (accountId: string): Promise<SettingsPublic> =>
@@ -49,8 +52,8 @@ const api = {
   lookupRdap: (ip: string): Promise<RdapInfo> => ipcRenderer.invoke('ip:rdap', ip),
   checkDns: (domain: string, selectors?: string[]): Promise<DnsCheckResult> =>
     ipcRenderer.invoke('dns:check', domain, selectors ?? []),
-  expandSpf: (domain: string): Promise<SpfExpandResult> =>
-    ipcRenderer.invoke('dns:expandSpf', domain),
+  expandSpf: (domain: string, record?: string | null): Promise<SpfExpandResult> =>
+    ipcRenderer.invoke('dns:expandSpf', domain, record ?? null),
   healthBatch: (reports: ReportRow[]): Promise<DomainHealth[]> =>
     ipcRenderer.invoke('dns:healthBatch', reports),
   geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),

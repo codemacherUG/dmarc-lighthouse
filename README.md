@@ -54,6 +54,10 @@ KPIs, alignment charts (including disposition), time series, filters (including 
 
 ![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/dashboard.png)
 
+Same dashboard in dark mode (Settings → Appearance; follows the OS when set to System):
+
+![Dashboard in dark mode](docs/screenshots/dashboard-dark.png)
+
 ### Aggregation & details
 
 Reporting organizations, source IPs (including reverse DNS), From domains, individual reports and record details — click a table row to drill down; download a report as ZIP:
@@ -68,7 +72,7 @@ Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
 
 ### Settings
 
-Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, and UI language:
+Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, UI language, and appearance (light / dark / system):
 
 ![Settings dialog with account management](docs/screenshots/settings.png)
 
@@ -99,7 +103,8 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Alerts** | Pass-rate threshold (7 days) and "new source detected" with an ignore list for known IPs |
 | **System tray** | Optionally keep running in the background; fetching and notifications continue with the window closed |
 | **Autostart** | Optional launch at system login; with tray enabled the app can start hidden in the background |
-| **Language** | Switchable German and English UI (Settings) |
+| **Language** | Switchable German and English UI (Settings → Appearance) |
+| **Appearance** | Light, dark, or follow the operating system |
 | **Auto-update** | Checks GitHub Releases (NSIS, AppImage, macOS ZIP) |
 
 ---
@@ -219,6 +224,22 @@ npm run screenshots
 
 GitHub release (all platforms via Actions): push a tag like `v1.0.7` or start the **Release** workflow manually.
 
+### Auto-update trust
+
+Binaries are fetched from GitHub Releases; before install the app also requires an **Ed25519-signed manifest** from `https://apps.codemacher.de/dmarc-lighthouse/updates/{version}.json` (+ `.sig`). A compromised GitHub release alone is not enough.
+
+Release CI signs with secret `UPDATE_SIGNING_PRIVATE_KEY` (PKCS#8 PEM). Manifests are **not** attached to the GitHub Release — only published to the trust host (and briefly as the Actions artifact `update-manifests` for local deploy).
+
+Full release (one step: tag → CI → manifest on apps.codemacher.de):
+
+```bash
+cp scripts/update-keys.sh.template scripts/update-keys.sh   # once, gitignored
+# fill deploy env in update-keys.sh
+npm run release
+```
+
+`update-keys.sh` only holds SSH/path credentials; `scripts/release.sh` does the rest. Optional CI deploy via `UPDATE_MANIFEST_DEPLOY_*` secrets. Keygen: `npm run update:keys` → public key in `src/main/update-trust.ts`.
+
 ### Stack
 
 - **Electron** + **electron-vite** + **TypeScript**
@@ -226,7 +247,7 @@ GitHub release (all platforms via Actions): push a tag like `v1.0.7` or start th
 - Parsing: [`@koduhai/dmarc-parser`](https://www.npmjs.com/package/@koduhai/dmarc-parser)
 - Charts: [Chart.js](https://www.chartjs.org/)
 - GeoIP: [`maxmind`](https://www.npmjs.com/package/maxmind) (GeoLite2) + optional online fallback
-- Updates: [`electron-updater`](https://www.electron.build/auto-update) via GitHub Releases
+- Updates: [`electron-updater`](https://www.electron.build/auto-update) via GitHub Releases + signed manifests on apps.codemacher.de
 - Tests: [Vitest](https://vitest.dev/)
 
 ---

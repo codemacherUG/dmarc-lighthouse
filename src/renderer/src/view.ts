@@ -1,15 +1,15 @@
 import {
   applyDashboardFilter,
   buildDomainStats,
-  buildProblemSources,
   DOMAIN_HEALTH_WINDOW_DAYS,
-  isAllowedMissingSpf,
+  groupProblemSources,
   isGoogleIpInfo,
   isGoogleNoiseAuthPattern,
   mergeDomainHealth,
+  parseSourceIpFilter,
   reportsForDomainHealth
 } from '../../shared/analyze'
-import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
+import { parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
 import { t, type MessageKey } from '../../shared/i18n'
 import type {
   AnalyzeResult,
@@ -27,23 +27,25 @@ import {
   clearVolumeChart,
   setAlignmentChart,
   setDispositionChart,
-  setVolumeChart
+  setVolumeChart,
+  setVolumeDayClickHandler
 } from './charts'
 import { setBusy, setStatus } from './chrome'
 import {
   btnCloseIpDetail,
   btnExport,
+  btnFilterReset,
   btnIpFilter,
   btnIpRdap,
   detailEl,
   dnsDomainEl,
   domainAmpelEl,
   tableProblemSources,
-  authorizedSendersEl,
   filterChipsEl,
   filterDomainEl,
   filterFromEl,
   filterHideGoogleNoiseEl,
+  filterPanelEl,
   filterRangeEl,
   filterToEl,
   filterCustomWrap,
@@ -57,7 +59,7 @@ import {
 } from './dom'
 import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
 import { renderIpMap, setIpMapFilterHandler } from './ip-map'
-import { state, type DrillFilters } from './state'
+import { clearDrill, state, type DrillFilters } from './state'
 
 function updateSummary(result: AnalyzeResult | null): void {
   const map: Record<string, string> = {
@@ -83,132 +85,20 @@ function bindIpDetailButtons(root: ParentNode): void {
   }
 }
 
-function activeAccount() {
-  const id = state.settings?.activeAccountId
-  return state.settings?.accounts.find((a) => a.id === id) ?? null
-}
-
-function authorizedSenders(): string[] {
-  return activeAccount()?.authorizedSenders ?? []
-}
-
-function authorizedSendersKey(): string {
-  const id = state.settings?.activeAccountId ?? ''
-  return `${id}\n${authorizedSenders().join('\n')}`
-}
-
-function isListedAuthorized(ip: string): boolean {
-  const prefixes = parseAuthorizedSenderPrefixes(authorizedSenders())
-  return isAuthorizedSender(ip, prefixes)
-}
-
-function authorizedActionButtonsHtml(ip: string): string {
-  if (isListedAuthorized(ip)) {
-    return `<button type="button" class="sender-action-btn remove" data-remove-authorized="${escapeHtml(ip)}" title="${escapeHtml(t('problems.removeAuthorized'))}" aria-label="${escapeHtml(t('problems.removeAuthorized'))}">−</button>`
-  }
-  return `<button type="button" class="sender-action-btn add" data-add-authorized="${escapeHtml(ip)}" title="${escapeHtml(t('problems.addAuthorized'))}" aria-label="${escapeHtml(t('problems.addAuthorized'))}">+</button>`
-}
-
-function bindAuthorizedActionButtons(root: ParentNode): void {
-  for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-add-authorized]')) {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation()
-      void addAuthorizedSender(btn.dataset.addAuthorized ?? '')
-    })
-  }
-  for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-remove-authorized]')) {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation()
-      void removeAuthorizedSender(btn.dataset.removeAuthorized ?? '')
-    })
-  }
-}
-
-async function saveAuthorizedList(
-  nextList: string[],
-  okMessage: MessageKey,
-  accountId?: string | null
-): Promise<void> {
-  const id = accountId ?? state.settings?.activeAccountId
-  const account = state.settings?.accounts.find((a) => a.id === id) ?? null
-  if (!account) {
-    setStatus(t('main.noAccountSelected'), 'error')
-    return
-  }
-  try {
-    const next = await window.api.saveAccount({
-      id: account.id,
-      name: account.name,
-      provider: account.provider,
-      authMode: account.authMode,
-      host: account.host,
-      port: account.port,
-      secure: account.secure,
-      user: account.user,
-      password: '',
-      mailbox: account.mailbox,
-      archiveMailbox: account.archiveMailbox,
-      subjectFilter: account.subjectFilter,
-      markSeenAfterFetch: account.markSeenAfterFetch,
-      authorizedSenders: nextList
-    })
-    state.settings = next
-    const updated = next.accounts.find((a) => a.id === account.id)
-    if (authorizedSendersEl && updated) {
-      authorizedSendersEl.value = (updated.authorizedSenders ?? []).join('\n')
-    }
-    setStatus(t(okMessage), 'ok')
-    applyView()
-  } catch (err) {
-    setStatus(err instanceof Error ? err.message : String(err), 'error')
-  }
-}
-
-async function addAuthorizedSender(ip: string): Promise<void> {
-  const trimmed = ip.trim()
-  if (!trimmed) return
-  if (isListedAuthorized(trimmed)) {
-    setStatus(t('problems.addAuthorizedDone'), 'ok')
-    return
-  }
-  await saveAuthorizedList([...authorizedSenders(), trimmed], 'problems.addAuthorizedDone')
-}
-
-async function removeAuthorizedSender(ip: string): Promise<void> {
-  const trimmed = ip.trim()
-  if (!trimmed) return
-  const next = authorizedSenders().filter(
-    (e) => e !== trimmed && !e.startsWith(`${trimmed}/`) && e.split('/')[0] !== trimmed
-  )
-  if (next.length === authorizedSenders().length) return
-  await saveAuthorizedList(next, 'problems.removeAuthorizedDone')
-}
-
 /** Drop cached SPF marks (e.g. on account switch) so badges never use another account's expand. */
 export function clearSpfMarks(): void {
   state.spfExpandToken++
   state.spfPrefixes = []
 }
 
-/** Re-render views that embed SPF/Erlaubte badges after prefixes change. */
-function renderAfterSpfMarksUpdate(spfCidrs: string[]): void {
+/** Re-render views that embed SPF badges after prefixes change. */
+function renderAfterSpfMarksUpdate(): void {
   if (state.viewResult) {
-    const problems = buildProblemSources(
-      state.viewResult.reports,
-      40,
-      authorizedSenders(),
-      spfCidrs
-    )
-    state.viewResult = {
-      ...state.viewResult,
-      dashboard: { ...state.viewResult.dashboard, problemSources: problems }
-    }
     renderBucketTable(tableIps, state.viewResult.dashboard.bySourceIp, {
       withIpMeta: true,
-      withSenderActions: true,
       onRowClick: (name) => setDrillFilter('sourceIp', name)
     })
-    renderProblemSources(problems)
+    renderProblemSources(state.viewResult.dashboard.problemSources ?? [])
   }
   if (state.selectedReportId && state.viewResult) {
     const selected =
@@ -230,7 +120,7 @@ async function refreshSpfMarks(): Promise<void> {
   // Invalidate immediately — never keep the previous account/domain's CIDRs while loading.
   state.spfPrefixes = []
   if (!targets.length) {
-    renderAfterSpfMarksUpdate([])
+    renderAfterSpfMarksUpdate()
     return
   }
   const cidrs = new Set<string>()
@@ -245,75 +135,8 @@ async function refreshSpfMarks(): Promise<void> {
     })
   )
   if (token !== state.spfExpandToken) return
-  const spfCidrs = [...cidrs]
-  state.spfPrefixes = parseAuthorizedSenderPrefixes(spfCidrs)
-  renderAfterSpfMarksUpdate(spfCidrs)
-  // Recompute Ampel with SPF coverage once prefixes are known.
-  domainHealthSource = null
-  void refreshDomainHealth(state.fullResult)
-}
-
-export async function importSpfAuthorizedSenders(options?: {
-  accountId?: string | null
-  domains?: string[]
-}): Promise<string> {
-  if (typeof window.api.expandSpf !== 'function') {
-    const msg = t('settings.spfImportNeedRestart')
-    setStatus(msg, 'error')
-    return msg
-  }
-  const accountId = options?.accountId ?? state.settings?.activeAccountId
-  const account = state.settings?.accounts.find((a) => a.id === accountId) ?? null
-  if (!account) {
-    const msg = t('main.noAccountSelected')
-    setStatus(msg, 'error')
-    return msg
-  }
-  const targets = (
-    options?.domains?.length
-      ? options.domains
-      : filterDomainEl.value.trim()
-        ? [filterDomainEl.value.trim()]
-        : (state.fullResult?.aggregate.domains ?? [])
-  )
-    .map((d) => d.trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 8)
-  if (!targets.length) {
-    const msg = t('settings.spfImportNoDomain')
-    setStatus(msg, 'error')
-    return msg
-  }
-  setStatus(t('settings.spfImportLoading'), '')
-  const merged = new Set(account.authorizedSenders ?? [])
-  let added = 0
-  const errors: string[] = []
-  for (const domain of targets) {
-    try {
-      const result = await window.api.expandSpf(domain)
-      for (const c of result.cidrs) {
-        if (!merged.has(c)) {
-          merged.add(c)
-          added++
-        }
-      }
-      errors.push(...result.errors.slice(0, 3))
-    } catch (err) {
-      errors.push(`${domain}: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
-  if (added === 0) {
-    const msg = errors[0]
-      ? t('settings.spfImportFailed', { detail: errors[0] })
-      : t('settings.spfImportNone')
-    setStatus(msg, errors[0] ? 'error' : 'ok')
-    return msg
-  }
-  await saveAuthorizedList([...merged].sort(), 'problems.addAuthorizedDone', account.id)
-  const msg = t('settings.spfImportDone', { count: String(added) })
-  setStatus(msg, 'ok')
-  void refreshSpfMarks()
-  return msg
+  state.spfPrefixes = parseAuthorizedSenderPrefixes([...cidrs])
+  renderAfterSpfMarksUpdate()
 }
 
 function renderBucketTable(
@@ -321,11 +144,10 @@ function renderBucketTable(
   rows: NamedBucket[],
   options: {
     withIpMeta?: boolean
-    withSenderActions?: boolean
     onRowClick?: (name: string) => void
   } = {}
 ): void {
-  const cols = options.withSenderActions ? 4 : 3
+  const cols = 3
   if (!rows.length) {
     tbody.innerHTML = `<tr class="empty"><td colspan="${cols}">${escapeHtml(t('table.noData'))}</td></tr>`
     return
@@ -334,9 +156,6 @@ function renderBucketTable(
     .map((r) => {
       if (options.withIpMeta) {
         const ipMeta = formatIpMetaHtml(r.name, r.provider, r.label)
-        const actions = options.withSenderActions
-          ? `<td class="problem-add-col">${authorizedActionButtonsHtml(r.name)}</td>`
-          : ''
         return `
       <tr data-name="${escapeHtml(r.name)}"${ipMeta ? ' class="has-ip-meta"' : ''}${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
         <td class="ip-col">${formatIpCellHtml(r.name, r.provider, r.label, { includeMeta: false })}</td>
@@ -345,9 +164,8 @@ function renderBucketTable(
           <span class="rate-bar"><span style="width:${Math.min(100, r.passRate)}%"></span></span>
           ${r.passRate.toFixed(1)}%
         </td>
-        ${actions}
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row"><td colspan="${cols}">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}><td colspan="${cols}">${ipMeta}</td></tr>` : ''}`
       }
       return `
       <tr data-name="${escapeHtml(r.name)}"${options.onRowClick ? ` title="${escapeHtml(t('filter.clickToFilter'))}"` : ''}>
@@ -365,7 +183,7 @@ function renderBucketTable(
     for (const tr of tbody.querySelectorAll<HTMLTableRowElement>('tr[data-name]')) {
       tr.addEventListener('click', (ev) => {
         const target = ev.target as HTMLElement
-        if (target.closest('[data-ip-detail], [data-add-authorized], [data-remove-authorized]')) {
+        if (target.closest('[data-ip-detail]')) {
           return
         }
         options.onRowClick?.(tr.dataset.name ?? '')
@@ -373,52 +191,55 @@ function renderBucketTable(
     }
   }
   bindIpDetailButtons(tbody)
-  if (options.withSenderActions) bindAuthorizedActionButtons(tbody)
+}
+
+function problemSourceFilterValue(row: ProblemSourceRow): string {
+  return [row.sourceIp, ...(row.extraIps ?? [])].sort().join(',')
+}
+
+function formatSourceIpChip(value: string): string {
+  const ips = parseSourceIpFilter(value)
+  if (!ips || ips.length <= 1) return value
+  const info = state.ipLabelCache.get(ips[0])
+  const label =
+    info?.cloudProvider || info?.provider || (info?.asn != null ? `AS${info.asn}` : ips[0])
+  return t('problems.ipGroupChip', { label, count: ips.length })
 }
 
 function renderProblemSources(rows: ProblemSourceRow[]): void {
   if (!tableProblemSources) return
-  if (!rows.length) {
-    tableProblemSources.innerHTML = `<tr class="empty"><td colspan="6">${escapeHtml(t('problems.empty'))}</td></tr>`
+  const grouped = groupProblemSources(rows, (ip) => state.ipLabelCache.get(ip)).slice(0, 40)
+  if (!grouped.length) {
+    tableProblemSources.innerHTML = `<tr class="empty"><td colspan="5">${escapeHtml(t('problems.empty'))}</td></tr>`
     return
   }
-  tableProblemSources.innerHTML = rows
+  tableProblemSources.innerHTML = grouped
     .map((r) => {
-      const ipMeta = formatIpMetaHtml(r.sourceIp)
-      const missingSpf = isAllowedMissingSpf(
-        r.sourceIp,
-        authorizedSenders(),
-        spfCidrsFromState()
-      )
-      const rowClass = [
-        ipMeta ? 'has-ip-meta' : '',
-        missingSpf ? 'problem-missing-spf' : ''
-      ]
-        .filter(Boolean)
-        .join(' ')
+      const groupCount = 1 + (r.extraIps?.length ?? 0)
+      const filterValue = problemSourceFilterValue(r)
+      const ipMeta = formatIpMetaHtml(r.sourceIp, null, null, { groupedIpCount: groupCount })
+      const rowClass = ipMeta ? 'has-ip-meta' : ''
       return `
-      <tr data-name="${escapeHtml(r.sourceIp)}" class="${rowClass}" title="${escapeHtml(t('filter.clickToFilter'))}">
+      <tr data-name="${escapeHtml(filterValue)}" class="${rowClass}" title="${escapeHtml(t('filter.clickToFilter'))}">
         <td class="ip-col">${formatIpCellHtml(r.sourceIp, null, null, { includeMeta: false })}</td>
         <td class="mono-from" title="${escapeHtml(r.headerFrom ?? '')}">${escapeHtml(r.headerFrom ?? '—')}</td>
         <td>${r.count}</td>
-        <td class="${missingSpf ? 'problem-spf-critical' : ''}">${r.spfFail}</td>
+        <td>${r.spfFail}</td>
         <td>${r.dkimFail}</td>
-        <td class="problem-add-col">${authorizedActionButtonsHtml(r.sourceIp)}</td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row${missingSpf ? ' problem-missing-spf' : ''}"><td colspan="6">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(filterValue)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="5">${ipMeta}</td></tr>` : ''}`
     })
     .join('')
 
   for (const tr of tableProblemSources.querySelectorAll<HTMLTableRowElement>('tr[data-name]')) {
     tr.addEventListener('click', (ev) => {
       const target = ev.target as HTMLElement
-      if (target.closest('[data-ip-detail], [data-add-authorized], [data-remove-authorized]')) {
+      if (target.closest('[data-ip-detail]')) {
         return
       }
       setDrillFilter('sourceIp', tr.dataset.name ?? '')
     })
   }
-  bindAuthorizedActionButtons(tableProblemSources)
   bindIpDetailButtons(tableProblemSources)
 }
 
@@ -426,7 +247,11 @@ function renderFilterChips(): void {
   const chips: Array<{ key: keyof DrillFilters; label: string; value: string }> = []
   if (state.drill.org) chips.push({ key: 'org', label: t('table.org'), value: state.drill.org })
   if (state.drill.sourceIp)
-    chips.push({ key: 'sourceIp', label: t('detail.ip'), value: state.drill.sourceIp })
+    chips.push({
+      key: 'sourceIp',
+      label: t('detail.ip'),
+      value: formatSourceIpChip(state.drill.sourceIp)
+    })
   if (state.drill.headerFrom)
     chips.push({ key: 'headerFrom', label: t('detail.from'), value: state.drill.headerFrom })
 
@@ -455,6 +280,73 @@ export function setDrillFilter(key: keyof DrillFilters, value: string): void {
   if (!value) return
   if (state.drill[key] === value) delete state.drill[key]
   else state.drill[key] = value
+  applyView()
+}
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+let rangeBeforeDayFilter: { range: string; from: string; to: string } | null = null
+
+function syncCustomRangeVisibility(): void {
+  filterCustomWrap.classList.toggle('hidden', filterRangeEl.value !== 'custom')
+}
+
+function hasActiveFilters(): boolean {
+  return (
+    filterRangeEl.value !== 'all' ||
+    Boolean(filterFromEl.value) ||
+    Boolean(filterToEl.value) ||
+    Boolean(filterDomainEl.value) ||
+    filterHideGoogleNoiseEl.checked ||
+    Boolean(state.drill.org || state.drill.sourceIp || state.drill.headerFrom)
+  )
+}
+
+function syncFilterResetButton(): void {
+  btnFilterReset.disabled = !hasActiveFilters()
+}
+
+export function resetFilters(): void {
+  const noiseWasOn = filterHideGoogleNoiseEl.checked
+  filterRangeEl.value = 'all'
+  filterFromEl.value = ''
+  filterToEl.value = ''
+  filterDomainEl.value = ''
+  filterHideGoogleNoiseEl.checked = false
+  rangeBeforeDayFilter = null
+  clearDrill()
+  syncCustomRangeVisibility()
+  applyView()
+  if (noiseWasOn) void persistHideGoogleNoise()
+}
+
+/** Filter dashboard to the volume-chart day, or restore the previous range on a second click. */
+export function filterVolumeByDay(date: string): void {
+  if (!DAY_RE.test(date)) return
+  const already =
+    filterRangeEl.value === 'custom' && filterFromEl.value === date && filterToEl.value === date
+  if (already) {
+    if (rangeBeforeDayFilter) {
+      filterRangeEl.value = rangeBeforeDayFilter.range
+      filterFromEl.value = rangeBeforeDayFilter.from
+      filterToEl.value = rangeBeforeDayFilter.to
+      rangeBeforeDayFilter = null
+    } else {
+      filterRangeEl.value = 'all'
+      filterFromEl.value = ''
+      filterToEl.value = ''
+    }
+  } else {
+    rangeBeforeDayFilter = {
+      range: filterRangeEl.value,
+      from: filterFromEl.value,
+      to: filterToEl.value
+    }
+    filterRangeEl.value = 'custom'
+    filterFromEl.value = date
+    filterToEl.value = date
+  }
+  syncCustomRangeVisibility()
   applyView()
 }
 
@@ -501,26 +393,16 @@ function selectDomainFilter(domain: string): void {
   filterDomainEl.value = match?.value ?? domain
 }
 
-function spfCidrsFromState(): string[] {
-  return state.spfPrefixes.map((p) => p.cidr).filter((c): c is string => Boolean(c))
-}
-
 function domainHealthFallback(reports: ReportRow[]): DomainHealth[] {
-  return buildDomainStats(
-    reportsForDomainHealth(reports),
-    authorizedSenders(),
-    spfCidrsFromState()
-  ).map((stats) => mergeDomainHealth(stats, null))
+  return buildDomainStats(reportsForDomainHealth(reports)).map((stats) =>
+    mergeDomainHealth(stats, null)
+  )
 }
 
 /** Immediate Ampel numbers from the 14-day window; keep prior DNS/status until batch returns. */
 function domainHealthQuickStats(reports: ReportRow[]): DomainHealth[] {
   const prevByDomain = new Map(state.domainHealthCache.map((h) => [h.domain, h]))
-  return buildDomainStats(
-    reportsForDomainHealth(reports),
-    authorizedSenders(),
-    spfCidrsFromState()
-  ).map((stats) => {
+  return buildDomainStats(reportsForDomainHealth(reports)).map((stats) => {
     const prev = prevByDomain.get(stats.domain)
     return prev ? { ...prev, ...stats } : mergeDomainHealth(stats, null)
   })
@@ -528,7 +410,6 @@ function domainHealthQuickStats(reports: ReportRow[]): DomainHealth[] {
 
 /** Last AnalyzeResult used for Ampel — skip re-fetch when only dashboard filters change. */
 let domainHealthSource: AnalyzeResult | null = null
-let domainHealthAuthorizedKey = ''
 
 /**
  * Ampel always uses the full loaded report set, windowed to the last
@@ -536,10 +417,8 @@ let domainHealthAuthorizedKey = ''
  */
 async function refreshDomainHealth(full: AnalyzeResult | null): Promise<void> {
   if (!domainAmpelEl) return
-  const authKey = authorizedSendersKey()
-  if (full && full === domainHealthSource && authKey === domainHealthAuthorizedKey) return
+  if (full && full === domainHealthSource) return
   domainHealthSource = full
-  domainHealthAuthorizedKey = authKey
 
   const token = ++state.domainHealthToken
   const source = full?.reports ?? []
@@ -648,7 +527,6 @@ function renderDashboard(result: AnalyzeResult | null): void {
   })
   renderBucketTable(tableIps, d.bySourceIp, {
     withIpMeta: true,
-    withSenderActions: true,
     onRowClick: (name) => setDrillFilter('sourceIp', name)
   })
   renderBucketTable(tableFrom, d.byHeaderFrom, {
@@ -708,7 +586,6 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
     if (state.viewResult) {
       renderBucketTable(tableIps, state.viewResult.dashboard.bySourceIp, {
         withIpMeta: true,
-        withSenderActions: true,
         onRowClick: (name) => setDrillFilter('sourceIp', name)
       })
       renderProblemSources(state.viewResult.dashboard.problemSources ?? [])
@@ -897,6 +774,7 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
 
 export function applyView(): void {
   renderFilterChips()
+  syncFilterResetButton()
   if (!state.fullResult) {
     state.viewResult = null
     state.spfExpandToken++
@@ -910,21 +788,17 @@ export function applyView(): void {
   }
 
   const hideGoogleNoise = filterHideGoogleNoiseEl.checked
-  state.viewResult = applyDashboardFilter(
-    state.fullResult,
-    {
-      range: filterRangeEl.value as DateRangePreset,
-      from: filterFromEl.value || undefined,
-      to: filterToEl.value || undefined,
-      domain: filterDomainEl.value,
-      org: state.drill.org,
-      sourceIp: state.drill.sourceIp,
-      headerFrom: state.drill.headerFrom,
-      hideGoogleNoise,
-      googleIps: hideGoogleNoise ? collectGoogleIps() : undefined
-    },
-    authorizedSenders()
-  )
+  state.viewResult = applyDashboardFilter(state.fullResult, {
+    range: filterRangeEl.value as DateRangePreset,
+    from: filterFromEl.value || undefined,
+    to: filterToEl.value || undefined,
+    domain: filterDomainEl.value,
+    org: state.drill.org,
+    sourceIp: state.drill.sourceIp,
+    headerFrom: state.drill.headerFrom,
+    hideGoogleNoise,
+    googleIps: hideGoogleNoise ? collectGoogleIps() : undefined
+  })
   updateSummary(state.viewResult)
   renderDashboard(state.viewResult)
   renderReports(state.viewResult)
@@ -961,8 +835,63 @@ export function showResult(result: AnalyzeResult, statusMessage?: string): void 
   }
 }
 
+function initStickyFilter(): void {
+  const panel = filterPanelEl
+  const slot = panel?.closest('.filter-slot')
+  const placeholder = slot?.querySelector<HTMLElement>('.filter-slot-ph')
+  if (!panel || !slot || !placeholder) return
+
+  let stuck = false
+  let ticking = false
+
+  const syncFixedBox = (): void => {
+    const rect = slot.getBoundingClientRect()
+    panel.style.left = `${rect.left}px`
+    panel.style.width = `${rect.width}px`
+  }
+
+  const setStuck = (next: boolean): void => {
+    if (next === stuck) return
+    if (next) {
+      placeholder.style.height = `${panel.offsetHeight}px`
+      placeholder.hidden = false
+      panel.classList.add('is-stuck')
+      syncFixedBox()
+    } else {
+      panel.classList.remove('is-stuck')
+      panel.style.left = ''
+      panel.style.width = ''
+      placeholder.hidden = true
+      placeholder.style.height = ''
+    }
+    stuck = next
+  }
+
+  const update = (): void => {
+    ticking = false
+    const rect = slot.getBoundingClientRect()
+    if (stuck) {
+      if (rect.bottom > 8) setStuck(false)
+      else syncFixedBox()
+    } else if (rect.bottom <= 0) {
+      setStuck(true)
+    }
+  }
+
+  const onScrollOrResize = (): void => {
+    if (ticking) return
+    ticking = true
+    requestAnimationFrame(update)
+  }
+
+  window.addEventListener('scroll', onScrollOrResize, { passive: true })
+  window.addEventListener('resize', onScrollOrResize)
+}
+
 export function initView(): void {
+  initStickyFilter()
   setIpMapFilterHandler((ip) => setDrillFilter('sourceIp', ip))
+  setVolumeDayClickHandler(filterVolumeByDay)
 
   btnCloseIpDetail.addEventListener('click', () => ipDetailDialog.close())
   btnIpFilter.addEventListener('click', () => {
@@ -987,7 +916,8 @@ export function initView(): void {
   })
 
   filterRangeEl.addEventListener('change', () => {
-    filterCustomWrap.classList.toggle('hidden', filterRangeEl.value !== 'custom')
+    rangeBeforeDayFilter = null
+    syncCustomRangeVisibility()
     applyView()
   })
   filterFromEl.addEventListener('change', () => applyView())
@@ -997,6 +927,7 @@ export function initView(): void {
     applyView()
     void persistHideGoogleNoise()
   })
+  btnFilterReset.addEventListener('click', () => resetFilters())
 }
 
 async function persistHideGoogleNoise(): Promise<void> {

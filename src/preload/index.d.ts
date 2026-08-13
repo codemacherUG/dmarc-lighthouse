@@ -7,6 +7,7 @@ import type {
   SpfExpandResult,
   GeoLiteDownloadResult,
   GeoLiteStatus,
+  AppTheme,
   GlobalSettings,
   IpInfo,
   CreateMailboxResult,
@@ -24,6 +25,7 @@ export interface DmarcLighthouseApi {
   deleteAccount: (id: string) => Promise<SettingsPublic>
   setActiveAccount: (id: string) => Promise<SettingsPublic>
   saveGlobalSettings: (input: GlobalSettings) => Promise<SettingsPublic>
+  previewTheme: (theme: AppTheme) => Promise<void>
   oauthLogin: (accountId: string) => Promise<SettingsPublic>
   oauthDisconnect: (accountId: string) => Promise<SettingsPublic>
   testConnection: (input: AccountSettingsInput) => Promise<TestConnectionResult>
@@ -35,7 +37,7 @@ export interface DmarcLighthouseApi {
   resolveIps: (ips: string[]) => Promise<IpInfo[]>
   lookupRdap: (ip: string) => Promise<RdapInfo>
   checkDns: (domain: string, selectors?: string[]) => Promise<DnsCheckResult>
-  expandSpf: (domain: string) => Promise<SpfExpandResult>
+  expandSpf: (domain: string, record?: string | null) => Promise<SpfExpandResult>
   healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
@@ -62,6 +64,7 @@ declare global {
       prepareDemo: () => Promise<void>
       openSettingsDemo: () => void
       closeSettings: () => void
+      setTheme: (theme: AppTheme) => void
       scrollTo: (selector: string) => Promise<void>
       selectFirstReport: () => Promise<void>
       prepareFullPage: () => Promise<{ width: number; height: number }>

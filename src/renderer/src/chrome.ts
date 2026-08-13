@@ -115,6 +115,10 @@ export function applyUpdateStatus(payload: UpdateStatusPayload): void {
       updateCheckStatusEl.textContent = t('update.downloadShort', { percent: pct })
       break
     }
+    case 'verifying':
+      showUpdateBanner(t('update.verifying', { version: payload.version }), false)
+      updateCheckStatusEl.textContent = t('update.verifyingShort')
+      break
     case 'downloaded':
       showUpdateBanner(t('update.downloaded', { version: payload.version }), true)
       updateCheckStatusEl.textContent = t('update.downloadedShort', { version: payload.version })
