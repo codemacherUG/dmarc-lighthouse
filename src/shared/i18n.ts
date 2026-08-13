@@ -79,6 +79,8 @@ const de = {
   'filter.hideGoogleNoise': 'Google-Rauschen ausblenden',
   'filter.hideGoogleNoiseHint':
     'Google-IPs mit SPF fail / DKIM pass ausblenden (interne Weiterleitungen und Report-Echo).',
+  'filter.reset': 'Zurücksetzen',
+  'filter.resetTitle': 'Alle Filter zurücksetzen',
 
   'kpi.reports': 'Reports',
   'kpi.messages': 'Nachrichten',
@@ -272,12 +274,14 @@ const de = {
 
   'problems.title': 'Problemquellen',
   'problems.hint':
-    'Zugestellte Auth-Fails im gewählten Zeitraum. Reject/quarantine und local_policy zählen nicht. Klick filtert auf die IP.',
+    'Zugestellte Auth-Fails im gewählten Zeitraum. IPs desselben Netzes (ASN/Anbieter) zur gleichen From-Domain werden gebündelt. Reject/quarantine und local_policy zählen nicht. Klick filtert auf die Quelle.',
   'problems.empty': 'Keine problematischen Zustellungen im Zeitraum.',
   'problems.from': 'From',
   'problems.count': 'Msgs',
   'problems.spfFail': 'SPF fail',
   'problems.dkimFail': 'DKIM fail',
+  'problems.ipGroup': '{count} IPs',
+  'problems.ipGroupChip': '{label} ({count} IPs)',
   'ipMark.spf': 'SPF',
   'table.ipsHint':
     'Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain liegen.',
@@ -648,6 +652,8 @@ const en: Dict = {
   'filter.hideGoogleNoise': 'Hide Google noise',
   'filter.hideGoogleNoiseHint':
     'Hide Google IPs with SPF fail / DKIM pass (internal forwarding and report echo).',
+  'filter.reset': 'Reset',
+  'filter.resetTitle': 'Reset all filters',
 
   'kpi.reports': 'Reports',
   'kpi.messages': 'Messages',
@@ -839,12 +845,14 @@ const en: Dict = {
 
   'problems.title': 'Problem sources',
   'problems.hint':
-    'Delivered auth-fails in the selected range. Reject/quarantine and local_policy do not count. Click filters by IP.',
+    'Delivered auth-fails in the selected range. IPs from the same network (ASN/provider) and From domain are grouped. Reject/quarantine and local_policy do not count. Click filters by source.',
   'problems.empty': 'No problematic deliveries in this range.',
   'problems.from': 'From',
   'problems.count': 'Msgs',
   'problems.spfFail': 'SPF fail',
   'problems.dkimFail': 'DKIM fail',
+  'problems.ipGroup': '{count} IPs',
+  'problems.ipGroupChip': '{label} ({count} IPs)',
   'ipMark.spf': 'SPF',
   'table.ipsHint':
     'The “SPF” badge marks sender IPs covered by the domain’s expanded SPF record.',

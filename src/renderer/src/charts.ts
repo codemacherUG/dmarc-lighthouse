@@ -11,7 +11,9 @@ import {
   LineElement,
   PointElement,
   Tooltip,
-  Filler
+  Filler,
+  type ActiveElement,
+  type ChartEvent
 } from 'chart.js'
 import { t } from '../../shared/i18n'
 import type { AlignmentBreakdown, NamedBucket } from '../../shared/types'
@@ -85,6 +87,13 @@ export const chartDisposition = new Chart(
     }
   }
 )
+
+let onVolumeDayClick: ((date: string) => void) | null = null
+
+export function setVolumeDayClickHandler(fn: (date: string) => void): void {
+  onVolumeDayClick = fn
+}
+
 export const chartVolume = new Chart(document.getElementById('chart-volume') as HTMLCanvasElement, {
   data: {
     labels: [] as string[],
@@ -136,6 +145,15 @@ export const chartVolume = new Chart(document.getElementById('chart-volume') as 
     },
     plugins: {
       legend: { position: 'bottom' }
+    },
+    onClick: (_event: ChartEvent, elements: ActiveElement[], chart) => {
+      if (!elements.length) return
+      const label = chart.data.labels?.[elements[0].index]
+      if (typeof label === 'string') onVolumeDayClick?.(label)
+    },
+    onHover: (event: ChartEvent, elements: ActiveElement[]) => {
+      const el = event.native?.target
+      if (el instanceof HTMLElement) el.style.cursor = elements.length ? 'pointer' : 'default'
     }
   }
 })
@@ -163,6 +181,8 @@ export function updateChartLocaleLabels(): void {
   chartVolume.data.datasets[0].label = t('chart.pass')
   chartVolume.data.datasets[1].label = t('chart.fail')
   chartVolume.data.datasets[2].label = t('chart.passRate')
+  const volumeCanvas = document.getElementById('chart-volume')
+  if (volumeCanvas) volumeCanvas.title = t('filter.clickToFilter')
   chartVolume.update()
 }
 

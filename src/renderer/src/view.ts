@@ -2,9 +2,11 @@ import {
   applyDashboardFilter,
   buildDomainStats,
   DOMAIN_HEALTH_WINDOW_DAYS,
+  groupProblemSources,
   isGoogleIpInfo,
   isGoogleNoiseAuthPattern,
   mergeDomainHealth,
+  parseSourceIpFilter,
   reportsForDomainHealth
 } from '../../shared/analyze'
 import { parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
@@ -25,12 +27,14 @@ import {
   clearVolumeChart,
   setAlignmentChart,
   setDispositionChart,
-  setVolumeChart
+  setVolumeChart,
+  setVolumeDayClickHandler
 } from './charts'
 import { setBusy, setStatus } from './chrome'
 import {
   btnCloseIpDetail,
   btnExport,
+  btnFilterReset,
   btnIpFilter,
   btnIpRdap,
   detailEl,
@@ -54,7 +58,7 @@ import {
 } from './dom'
 import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
 import { renderIpMap, setIpMapFilterHandler } from './ip-map'
-import { state, type DrillFilters } from './state'
+import { clearDrill, state, type DrillFilters } from './state'
 
 function updateSummary(result: AnalyzeResult | null): void {
   const map: Record<string, string> = {
@@ -188,25 +192,41 @@ function renderBucketTable(
   bindIpDetailButtons(tbody)
 }
 
+function problemSourceFilterValue(row: ProblemSourceRow): string {
+  return [row.sourceIp, ...(row.extraIps ?? [])].sort().join(',')
+}
+
+function formatSourceIpChip(value: string): string {
+  const ips = parseSourceIpFilter(value)
+  if (!ips || ips.length <= 1) return value
+  const info = state.ipLabelCache.get(ips[0])
+  const label =
+    info?.cloudProvider || info?.provider || (info?.asn != null ? `AS${info.asn}` : ips[0])
+  return t('problems.ipGroupChip', { label, count: ips.length })
+}
+
 function renderProblemSources(rows: ProblemSourceRow[]): void {
   if (!tableProblemSources) return
-  if (!rows.length) {
+  const grouped = groupProblemSources(rows, (ip) => state.ipLabelCache.get(ip)).slice(0, 40)
+  if (!grouped.length) {
     tableProblemSources.innerHTML = `<tr class="empty"><td colspan="5">${escapeHtml(t('problems.empty'))}</td></tr>`
     return
   }
-  tableProblemSources.innerHTML = rows
+  tableProblemSources.innerHTML = grouped
     .map((r) => {
-      const ipMeta = formatIpMetaHtml(r.sourceIp)
+      const groupCount = 1 + (r.extraIps?.length ?? 0)
+      const filterValue = problemSourceFilterValue(r)
+      const ipMeta = formatIpMetaHtml(r.sourceIp, null, null, { groupedIpCount: groupCount })
       const rowClass = ipMeta ? 'has-ip-meta' : ''
       return `
-      <tr data-name="${escapeHtml(r.sourceIp)}" class="${rowClass}" title="${escapeHtml(t('filter.clickToFilter'))}">
+      <tr data-name="${escapeHtml(filterValue)}" class="${rowClass}" title="${escapeHtml(t('filter.clickToFilter'))}">
         <td class="ip-col">${formatIpCellHtml(r.sourceIp, null, null, { includeMeta: false })}</td>
         <td class="mono-from" title="${escapeHtml(r.headerFrom ?? '')}">${escapeHtml(r.headerFrom ?? '—')}</td>
         <td>${r.count}</td>
         <td>${r.spfFail}</td>
         <td>${r.dkimFail}</td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(r.sourceIp)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="5">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(filterValue)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="5">${ipMeta}</td></tr>` : ''}`
     })
     .join('')
 
@@ -226,7 +246,11 @@ function renderFilterChips(): void {
   const chips: Array<{ key: keyof DrillFilters; label: string; value: string }> = []
   if (state.drill.org) chips.push({ key: 'org', label: t('table.org'), value: state.drill.org })
   if (state.drill.sourceIp)
-    chips.push({ key: 'sourceIp', label: t('detail.ip'), value: state.drill.sourceIp })
+    chips.push({
+      key: 'sourceIp',
+      label: t('detail.ip'),
+      value: formatSourceIpChip(state.drill.sourceIp)
+    })
   if (state.drill.headerFrom)
     chips.push({ key: 'headerFrom', label: t('detail.from'), value: state.drill.headerFrom })
 
@@ -255,6 +279,73 @@ export function setDrillFilter(key: keyof DrillFilters, value: string): void {
   if (!value) return
   if (state.drill[key] === value) delete state.drill[key]
   else state.drill[key] = value
+  applyView()
+}
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+let rangeBeforeDayFilter: { range: string; from: string; to: string } | null = null
+
+function syncCustomRangeVisibility(): void {
+  filterCustomWrap.classList.toggle('hidden', filterRangeEl.value !== 'custom')
+}
+
+function hasActiveFilters(): boolean {
+  return (
+    filterRangeEl.value !== 'all' ||
+    Boolean(filterFromEl.value) ||
+    Boolean(filterToEl.value) ||
+    Boolean(filterDomainEl.value) ||
+    filterHideGoogleNoiseEl.checked ||
+    Boolean(state.drill.org || state.drill.sourceIp || state.drill.headerFrom)
+  )
+}
+
+function syncFilterResetButton(): void {
+  btnFilterReset.disabled = !hasActiveFilters()
+}
+
+export function resetFilters(): void {
+  const noiseWasOn = filterHideGoogleNoiseEl.checked
+  filterRangeEl.value = 'all'
+  filterFromEl.value = ''
+  filterToEl.value = ''
+  filterDomainEl.value = ''
+  filterHideGoogleNoiseEl.checked = false
+  rangeBeforeDayFilter = null
+  clearDrill()
+  syncCustomRangeVisibility()
+  applyView()
+  if (noiseWasOn) void persistHideGoogleNoise()
+}
+
+/** Filter dashboard to the volume-chart day, or restore the previous range on a second click. */
+export function filterVolumeByDay(date: string): void {
+  if (!DAY_RE.test(date)) return
+  const already =
+    filterRangeEl.value === 'custom' && filterFromEl.value === date && filterToEl.value === date
+  if (already) {
+    if (rangeBeforeDayFilter) {
+      filterRangeEl.value = rangeBeforeDayFilter.range
+      filterFromEl.value = rangeBeforeDayFilter.from
+      filterToEl.value = rangeBeforeDayFilter.to
+      rangeBeforeDayFilter = null
+    } else {
+      filterRangeEl.value = 'all'
+      filterFromEl.value = ''
+      filterToEl.value = ''
+    }
+  } else {
+    rangeBeforeDayFilter = {
+      range: filterRangeEl.value,
+      from: filterFromEl.value,
+      to: filterToEl.value
+    }
+    filterRangeEl.value = 'custom'
+    filterFromEl.value = date
+    filterToEl.value = date
+  }
+  syncCustomRangeVisibility()
   applyView()
 }
 
@@ -682,6 +773,7 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
 
 export function applyView(): void {
   renderFilterChips()
+  syncFilterResetButton()
   if (!state.fullResult) {
     state.viewResult = null
     state.spfExpandToken++
@@ -744,6 +836,7 @@ export function showResult(result: AnalyzeResult, statusMessage?: string): void 
 
 export function initView(): void {
   setIpMapFilterHandler((ip) => setDrillFilter('sourceIp', ip))
+  setVolumeDayClickHandler(filterVolumeByDay)
 
   btnCloseIpDetail.addEventListener('click', () => ipDetailDialog.close())
   btnIpFilter.addEventListener('click', () => {
@@ -768,7 +861,8 @@ export function initView(): void {
   })
 
   filterRangeEl.addEventListener('change', () => {
-    filterCustomWrap.classList.toggle('hidden', filterRangeEl.value !== 'custom')
+    rangeBeforeDayFilter = null
+    syncCustomRangeVisibility()
     applyView()
   })
   filterFromEl.addEventListener('change', () => applyView())
@@ -778,6 +872,7 @@ export function initView(): void {
     applyView()
     void persistHideGoogleNoise()
   })
+  btnFilterReset.addEventListener('click', () => resetFilters())
 }
 
 async function persistHideGoogleNoise(): Promise<void> {

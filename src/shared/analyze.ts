@@ -96,7 +96,7 @@ function toNamedBuckets(
  * IPs with unhealthy DMARC outcomes for rollout review
  * (delivered auth-fails; reject/quarantine / local_policy excluded).
  */
-export function buildProblemSources(reports: ReportRow[], limit = 40): ProblemSourceRow[] {
+export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemSourceRow[] {
   type Acc = {
     count: number
     spfFail: number
@@ -145,6 +145,92 @@ export function buildProblemSources(reports: ReportRow[], limit = 40): ProblemSo
     })
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
+}
+
+export type ProblemSourceIpInfo = Pick<IpInfo, 'asn' | 'provider' | 'cloudProvider'>
+
+function problemSourceNetworkKey(info: ProblemSourceIpInfo | null | undefined): string | null {
+  if (info?.asn != null) return `as:${info.asn}`
+  const cloud = info?.cloudProvider?.trim()
+  if (cloud) return `cloud:${cloud.toLowerCase()}`
+  const provider = info?.provider?.trim()
+  if (provider) return `prov:${provider.toLowerCase()}`
+  return null
+}
+
+/**
+ * Collapse problem IPs that share a network (ASN / cloud / provider) and the same From.
+ * Unenriched IPs stay separate so the table can regroup after lookup.
+ */
+export function groupProblemSources(
+  rows: ProblemSourceRow[],
+  infoFor: (ip: string) => ProblemSourceIpInfo | null | undefined
+): ProblemSourceRow[] {
+  type Acc = {
+    sourceIp: string
+    count: number
+    spfFail: number
+    dkimFail: number
+    headerFrom: string | null
+    ips: string[]
+    topCount: number
+  }
+  const map = new Map<string, Acc>()
+  for (const row of rows) {
+    const net = problemSourceNetworkKey(infoFor(row.sourceIp))
+    const key = `${net ?? `ip:${row.sourceIp}`}|${row.headerFrom ?? ''}`
+    const cur = map.get(key)
+    if (!cur) {
+      map.set(key, {
+        sourceIp: row.sourceIp,
+        count: row.count,
+        spfFail: row.spfFail,
+        dkimFail: row.dkimFail,
+        headerFrom: row.headerFrom,
+        ips: [row.sourceIp],
+        topCount: row.count
+      })
+      continue
+    }
+    cur.count += row.count
+    cur.spfFail += row.spfFail
+    cur.dkimFail += row.dkimFail
+    cur.ips.push(row.sourceIp)
+    if (row.count > cur.topCount) {
+      cur.sourceIp = row.sourceIp
+      cur.topCount = row.count
+    }
+  }
+  return [...map.values()]
+    .map((v) => {
+      const extraIps = v.ips.filter((ip) => ip !== v.sourceIp)
+      return {
+        sourceIp: v.sourceIp,
+        count: v.count,
+        spfFail: v.spfFail,
+        dkimFail: v.dkimFail,
+        headerFrom: v.headerFrom,
+        ...(extraIps.length ? { extraIps } : {})
+      }
+    })
+    .sort((a, b) => b.count - a.count)
+}
+
+/** Parse a single IP or a comma-separated group used as drill-down filter. */
+export function parseSourceIpFilter(sourceIp: string | undefined): string[] | null {
+  if (!sourceIp?.trim()) return null
+  const ips = sourceIp
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return ips.length ? ips : null
+}
+
+export function recordMatchesSourceIp(recIp: string, filter: string | undefined): boolean {
+  const ips = parseSourceIpFilter(filter)
+  if (!ips) return true
+  if (ips.length === 1) return recIp === ips[0]
+  return ips.includes(recIp)
 }
 
 export function buildDashboard(reports: ReportRow[]): DashboardData {
@@ -299,13 +385,17 @@ export function reportsForDomainHealth(reports: ReportRow[]): ReportRow[] {
   return filterReportsLastDays(reports, DOMAIN_HEALTH_WINDOW_DAYS)
 }
 
-function parseDay(value: string | undefined, endOfDay: boolean): number | null {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return null
-  if (endOfDay) d.setHours(23, 59, 59, 999)
-  else d.setHours(0, 0, 0, 0)
-  return d.getTime()
+function inCustomDayRange(
+  iso: string | null | undefined,
+  from: string | undefined,
+  to: string | undefined
+): boolean {
+  if (!iso) return false
+  const day = dayKey(iso)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false
+  if (from && day < from) return false
+  if (to && day > to) return false
+  return true
 }
 
 const UNKNOWN = '(unbekannt)'
@@ -330,8 +420,7 @@ function withRecords(report: ReportRow, records: ReportRow['records']): ReportRo
 
 export function filterReports(reports: ReportRow[], filter: DashboardFilter): ReportRow[] {
   const cutoff = rangeCutoff(filter.range)
-  const customFrom = filter.range === 'custom' ? parseDay(filter.from, false) : null
-  const customTo = filter.range === 'custom' ? parseDay(filter.to, true) : null
+  const customRange = filter.range === 'custom'
   const domain = filter.domain.trim().toLowerCase()
   const org = filter.org?.trim()
   const sourceIp = filter.sourceIp?.trim()
@@ -345,18 +434,17 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
     if (org && (r.orgName || UNKNOWN) !== org) continue
 
     const end = r.dateEnd || r.dateBegin
-    if (cutoff || customFrom != null || customTo != null) {
+    if (customRange && (filter.from || filter.to)) {
+      if (!inCustomDayRange(end, filter.from, filter.to)) continue
+    } else if (cutoff) {
       if (!end) continue
       const t = new Date(end).getTime()
-      if (Number.isNaN(t)) continue
-      if (cutoff && t < cutoff.getTime()) continue
-      if (customFrom != null && t < customFrom) continue
-      if (customTo != null && t > customTo) continue
+      if (Number.isNaN(t) || t < cutoff.getTime()) continue
     }
 
     if (sourceIp || headerFrom || hideGoogleNoise) {
       const records = r.records.filter((rec) => {
-        if (sourceIp && rec.sourceIp !== sourceIp) return false
+        if (sourceIp && !recordMatchesSourceIp(rec.sourceIp, sourceIp)) return false
         if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
         if (hideGoogleNoise && isGoogleNoiseRecord(rec, googleIps)) return false
         return true
@@ -375,24 +463,22 @@ export function filterForensicReports(
   filter: DashboardFilter
 ): ForensicReportRow[] {
   const cutoff = rangeCutoff(filter.range)
-  const customFrom = filter.range === 'custom' ? parseDay(filter.from, false) : null
-  const customTo = filter.range === 'custom' ? parseDay(filter.to, true) : null
+  const customRange = filter.range === 'custom'
   const domain = filter.domain.trim().toLowerCase()
   const sourceIp = filter.sourceIp?.trim()
   const headerFrom = filter.headerFrom?.trim()
 
   return reports.filter((r) => {
     if (domain && (r.reportedDomain ?? '').toLowerCase() !== domain) return false
-    if (sourceIp && r.sourceIp !== sourceIp) return false
+    if (sourceIp && !recordMatchesSourceIp(r.sourceIp ?? '', sourceIp)) return false
     if (headerFrom && (r.headerFrom ?? UNKNOWN) !== headerFrom) return false
     const end = r.arrivalDate
-    if (cutoff || customFrom != null || customTo != null) {
+    if (customRange && (filter.from || filter.to)) {
+      if (!inCustomDayRange(end, filter.from, filter.to)) return false
+    } else if (cutoff) {
       if (!end) return false
       const t = new Date(end).getTime()
-      if (Number.isNaN(t)) return false
-      if (cutoff && t < cutoff.getTime()) return false
-      if (customFrom != null && t < customFrom) return false
-      if (customTo != null && t > customTo) return false
+      if (Number.isNaN(t) || t < cutoff.getTime()) return false
     }
     return true
   })

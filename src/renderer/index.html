@@ -223,6 +223,17 @@
       <section class="panel filter-panel">
         <div class="panel-heading">
           <h2 data-i18n="filter.title">Filter</h2>
+          <button
+            type="button"
+            id="btn-filter-reset"
+            class="btn ghost"
+            disabled
+            data-i18n="filter.reset"
+            data-i18n-title="filter.resetTitle"
+            title="Alle Filter zurücksetzen"
+          >
+            Zurücksetzen
+          </button>
         </div>
         <div class="filter-row">
           <label>
@@ -307,8 +318,9 @@
         <div class="panel-heading">
           <h2 data-i18n="problems.title">Problemquellen</h2>
           <p class="hint" data-i18n="problems.hint">
-            Zugestellte Auth-Fails im gewählten Zeitraum. Reject/quarantine und local_policy zählen
-            nicht. Klick filtert auf die IP.
+            Zugestellte Auth-Fails im gewählten Zeitraum. IPs desselben Netzes (ASN/Anbieter) zur
+            gleichen From-Domain werden gebündelt. Reject/quarantine und local_policy zählen nicht.
+            Klick filtert auf die Quelle.
           </p>
         </div>
         <div class="table-scroll problem-sources-scroll">
@@ -430,30 +442,6 @@
       </section>
 
       <section class="panel results-panel">
-        <div class="table-wrap">
-          <h2 data-i18n="table.forensic">Forensik / RUF (Failure-Reports)</h2>
-          <table id="forensic-table">
-            <thead>
-              <tr>
-                <th data-i18n="table.arrival">Empfang</th>
-                <th data-i18n="table.domain">Domain</th>
-                <th data-i18n="table.sourceIp">Quell-IP</th>
-                <th data-i18n="table.authFailure">Auth-Failure</th>
-                <th data-i18n="table.envelopeFrom">Envelope-From</th>
-                <th data-i18n="table.headerFrom">Header-From</th>
-                <th data-i18n="table.feedbackType">Typ</th>
-              </tr>
-            </thead>
-            <tbody id="forensic-body">
-              <tr class="empty">
-                <td colspan="7" data-i18n="table.forensicEmpty">Keine Forensik-Reports geladen.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel results-panel">
         <div class="results-layout">
           <div class="table-wrap">
             <h2 data-i18n="table.reports">Einzelne Reports</h2>
@@ -487,6 +475,30 @@
               <p class="muted" data-i18n="detail.pick">Report in der Tabelle auswählen.</p>
             </div>
           </aside>
+        </div>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="table-wrap">
+          <h2 data-i18n="table.forensic">Forensik / RUF (Failure-Reports)</h2>
+          <table id="forensic-table">
+            <thead>
+              <tr>
+                <th data-i18n="table.arrival">Empfang</th>
+                <th data-i18n="table.domain">Domain</th>
+                <th data-i18n="table.sourceIp">Quell-IP</th>
+                <th data-i18n="table.authFailure">Auth-Failure</th>
+                <th data-i18n="table.envelopeFrom">Envelope-From</th>
+                <th data-i18n="table.headerFrom">Header-From</th>
+                <th data-i18n="table.feedbackType">Typ</th>
+              </tr>
+            </thead>
+            <tbody id="forensic-body">
+              <tr class="empty">
+                <td colspan="7" data-i18n="table.forensicEmpty">Keine Forensik-Reports geladen.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

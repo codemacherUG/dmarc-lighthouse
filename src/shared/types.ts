@@ -254,6 +254,8 @@ export interface ProblemSourceRow {
   dkimFail: number
   /** Most frequent header-from among problem rows for this IP. */
   headerFrom: string | null
+  /** Other IPs in the same ASN/provider + From group (after enrichment). */
+  extraIps?: string[]
 }
 
 /** Kibana-ähnliche Dashboard-Aggregationen über alle Records. */
@@ -414,7 +416,7 @@ export interface DashboardFilter {
   domain: string
   /** Drill-down: only reports from this reporting organization. */
   org?: string
-  /** Drill-down: only records from this source IP. */
+  /** Drill-down: only records from this source IP (comma-separated for a group). */
   sourceIp?: string
   /** Drill-down: only records with this header-from domain. */
   headerFrom?: string

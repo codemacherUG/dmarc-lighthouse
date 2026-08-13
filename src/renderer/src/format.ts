@@ -37,12 +37,18 @@ export function resolveProviderLabel(
 export function formatIpMetaHtml(
   ip: string,
   fallbackProvider?: string | null,
-  fallbackPtr?: string | null
+  fallbackPtr?: string | null,
+  options?: { groupedIpCount?: number }
 ): string {
   const meta = state.ipLabelCache.get(ip)
   const provider = resolveProviderLabel(meta, fallbackProvider)
   const ptr = fallbackPtr ?? meta?.ptr
   const bits: string[] = []
+  if ((options?.groupedIpCount ?? 0) > 1) {
+    bits.push(
+      `<span class="badge">${escapeHtml(t('problems.ipGroup', { count: options?.groupedIpCount ?? 0 }))}</span>`
+    )
+  }
   if (isSpfSender(ip)) {
     bits.push(`<span class="badge spf">${escapeHtml(t('ipMark.spf'))}</span>`)
   }

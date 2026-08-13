@@ -23,6 +23,7 @@ export const filterHideGoogleNoiseEl = document.getElementById(
   'filter-hide-google-noise'
 ) as HTMLInputElement
 export const filterChipsEl = document.getElementById('filter-chips') as HTMLDivElement
+export const btnFilterReset = document.getElementById('btn-filter-reset') as HTMLButtonElement
 export const accountFieldEl = document.getElementById('account-field') as HTMLLabelElement
 export const accountSelectEl = document.getElementById('account-select') as HTMLSelectElement
 export const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputElement
