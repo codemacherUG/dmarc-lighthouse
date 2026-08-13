@@ -16,7 +16,9 @@ import type {
   ReportRow,
   SettingsPublic,
   TestConnectionResult,
-  UpdateStatusPayload
+  TransportSecurityResult,
+  UpdateStatusPayload,
+  EmailInspectResponse
 } from '../shared/types'
 
 export interface DmarcLighthouseApi {
@@ -38,16 +40,29 @@ export interface DmarcLighthouseApi {
   lookupRdap: (ip: string) => Promise<RdapInfo>
   checkDns: (domain: string, selectors?: string[]) => Promise<DnsCheckResult>
   expandSpf: (domain: string, record?: string | null) => Promise<SpfExpandResult>
+  checkTransport: (domain: string) => Promise<TransportSecurityResult>
   healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
   openFiles: () => Promise<AnalyzeResult | null>
   parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>) => Promise<AnalyzeResult>
+  openEmailFile: () => Promise<EmailInspectResponse | null>
+  parseEmail: (input: {
+    name?: string
+    data?: ArrayBuffer
+    text?: string
+  }) => Promise<EmailInspectResponse>
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'
   ) => Promise<{ ok: boolean; message: string }>
   exportReportZip: (report: ReportRow) => Promise<{ ok: boolean; message: string }>
+  exportPdfReport: (
+    result: AnalyzeResult,
+    options?: { domain?: string | null }
+  ) => Promise<{ ok: boolean; message: string }>
+  chooseReportDir: () => Promise<{ ok: boolean; dir: string }>
+  runMonthlyReport: () => Promise<{ ok: boolean; message: string }>
   getAppVersion: () => Promise<string>
   openThirdPartyNotices: () => Promise<{ ok: boolean; message: string }>
   checkForUpdates: () => Promise<{ ok: boolean; message: string }>
@@ -64,6 +79,12 @@ declare global {
       prepareDemo: () => Promise<void>
       openSettingsDemo: () => void
       closeSettings: () => void
+      openRolloutDemo: () => void
+      closeRollout: () => void
+      openDnsDemo: () => void
+      closeDns: () => void
+      openEmailInspectDemo: () => { width: number; height: number }
+      closeEmailInspect: () => void
       setTheme: (theme: AppTheme) => void
       scrollTo: (selector: string) => Promise<void>
       selectFirstReport: () => Promise<void>

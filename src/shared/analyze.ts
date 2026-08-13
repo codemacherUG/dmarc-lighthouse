@@ -8,6 +8,8 @@ import type {
   DomainHealth,
   DomainHealthStatus,
   DomainStats,
+  FailCategory,
+  FailCategoryCounts,
   ForensicReportRow,
   IpInfo,
   NamedBucket,
@@ -16,6 +18,7 @@ import type {
   SerializedRecord,
   VolumePoint
 } from './types'
+import { isRelaxedAligned } from './domain'
 import { isLikelyGoogleIp } from './google-ip'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
 
@@ -92,6 +95,61 @@ function toNamedBuckets(
     .slice(0, limit)
 }
 
+/** Receiver overrides that mark a failure as forwarding rather than abuse. */
+const FORWARDING_REASONS = new Set([
+  'forwarded',
+  'mailing_list',
+  'trusted_forwarder',
+  'local_policy'
+])
+
+/**
+ * Why a delivered message failed DMARC. `dkimResult` / `spfResult` are the
+ * *aligned* results from policy_evaluated, so a failing record failed both;
+ * the auth-result domains tell us which of these four situations it is.
+ */
+export function categorizeFailure(rec: SerializedRecord, policyDomain?: string): FailCategory {
+  for (const reason of rec.reasons ?? []) {
+    if (FORWARDING_REASONS.has((reason.type ?? '').toLowerCase())) return 'forwarder'
+  }
+
+  const from = rec.headerFrom || policyDomain || null
+  const dkimDomain = rec.dkimDomain?.trim() || null
+  const spfDomain = rec.spfDomain?.trim() || null
+
+  if (!dkimDomain && !spfDomain) return 'unauthenticated'
+
+  const dkimForeign = Boolean(dkimDomain) && !isRelaxedAligned(dkimDomain, from)
+  const spfForeign = Boolean(spfDomain) && !isRelaxedAligned(spfDomain, from)
+  // Signed or sent under someone else's domain: an ESP without alignment setup.
+  if ((dkimDomain ? dkimForeign : true) && (spfDomain ? spfForeign : true)) return 'thirdParty'
+
+  // Own domain authenticated but alignment/verification still failed.
+  return 'broken'
+}
+
+function topCategory(counts: FailCategoryCounts): FailCategory | null {
+  let best: FailCategory | null = null
+  let bestCount = 0
+  for (const [category, count] of Object.entries(counts) as Array<[FailCategory, number]>) {
+    if (count > bestCount) {
+      bestCount = count
+      best = category
+    }
+  }
+  return best
+}
+
+function addCategoryCounts(
+  target: FailCategoryCounts,
+  source: FailCategoryCounts
+): FailCategoryCounts {
+  for (const [category, count] of Object.entries(source) as Array<[FailCategory, number]>) {
+    target[category] = (target[category] ?? 0) + count
+  }
+  return target
+}
+
 /**
  * IPs with unhealthy DMARC outcomes for rollout review
  * (delivered auth-fails; reject/quarantine / local_policy excluded).
@@ -102,6 +160,7 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
     spfFail: number
     dkimFail: number
     fromCounts: Map<string, number>
+    categories: FailCategoryCounts
   }
   const map = new Map<string, Acc>()
 
@@ -114,13 +173,16 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
         count: 0,
         spfFail: 0,
         dkimFail: 0,
-        fromCounts: new Map()
+        fromCounts: new Map(),
+        categories: {} as FailCategoryCounts
       }
       cur.count += n
       if ((rec.spfResult ?? '').toLowerCase() !== 'pass') cur.spfFail += n
       if ((rec.dkimResult ?? '').toLowerCase() !== 'pass') cur.dkimFail += n
       const from = (rec.headerFrom || '').trim() || '(unbekannt)'
       cur.fromCounts.set(from, (cur.fromCounts.get(from) ?? 0) + n)
+      const category = categorizeFailure(rec, report.domain)
+      cur.categories[category] = (cur.categories[category] ?? 0) + n
       map.set(ip, cur)
     }
   }
@@ -140,7 +202,9 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
         count: v.count,
         spfFail: v.spfFail,
         dkimFail: v.dkimFail,
-        headerFrom
+        headerFrom,
+        categories: v.categories,
+        category: topCategory(v.categories)
       }
     })
     .sort((a, b) => b.count - a.count)
@@ -174,6 +238,7 @@ export function groupProblemSources(
     headerFrom: string | null
     ips: string[]
     topCount: number
+    categories: FailCategoryCounts
   }
   const map = new Map<string, Acc>()
   for (const row of rows) {
@@ -188,7 +253,8 @@ export function groupProblemSources(
         dkimFail: row.dkimFail,
         headerFrom: row.headerFrom,
         ips: [row.sourceIp],
-        topCount: row.count
+        topCount: row.count,
+        categories: addCategoryCounts({}, row.categories ?? {})
       })
       continue
     }
@@ -196,6 +262,7 @@ export function groupProblemSources(
     cur.spfFail += row.spfFail
     cur.dkimFail += row.dkimFail
     cur.ips.push(row.sourceIp)
+    addCategoryCounts(cur.categories, row.categories ?? {})
     if (row.count > cur.topCount) {
       cur.sourceIp = row.sourceIp
       cur.topCount = row.count
@@ -210,6 +277,8 @@ export function groupProblemSources(
         spfFail: v.spfFail,
         dkimFail: v.dkimFail,
         headerFrom: v.headerFrom,
+        categories: v.categories,
+        category: topCategory(v.categories),
         ...(extraIps.length ? { extraIps } : {})
       }
     })

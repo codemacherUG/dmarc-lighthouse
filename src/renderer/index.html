@@ -40,7 +40,14 @@
             <div class="brand-text">
               <h1 data-i18n="app.title">DMARC Lighthouse</h1>
               <p class="subtitle">
-                <span id="account-label" data-i18n="app.noCredentials">Keine Zugangsdaten</span>
+                <span data-i18n="app.poweredBy">Powered by</span>
+                <a
+                  class="brand-credit"
+                  href="https://codemacher.de/"
+                  target="_blank"
+                  rel="noreferrer"
+                  >codemacher</a
+                >
               </p>
             </div>
           </div>
@@ -83,6 +90,46 @@
                     <span class="nav-menu-item-title" data-i18n="filter.dns">DNS-Check</span>
                     <span class="nav-menu-item-desc" data-i18n="header.dnsDesc"
                       >DMARC, SPF und DKIM live prüfen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-tool" data-i18n="header.badgeTool"
+                    >Tool</span
+                  >
+                </button>
+                <button
+                  type="button"
+                  id="btn-rollout"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.rolloutTitle"
+                  title="Nächsten DMARC-Policy-Schritt planen"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.rollout"
+                      >Policy-Rollout</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.rolloutDesc"
+                      >Nächsten Schritt zu p=reject planen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-tool" data-i18n="header.badgeTool"
+                    >Tool</span
+                  >
+                </button>
+                <button
+                  type="button"
+                  id="btn-email-inspect"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.emailInspectTitle"
+                  title="E-Mail-Datei einlesen und bewerten"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.emailInspect"
+                      >E-Mail prüfen</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.emailInspectDesc"
+                      >Pfad und Authentifizierung einer Nachricht</span
                     >
                   </span>
                   <span class="nav-menu-badge nav-menu-badge-tool" data-i18n="header.badgeTool"
@@ -224,55 +271,55 @@
       <div class="filter-slot">
         <div class="filter-slot-ph" hidden aria-hidden="true"></div>
         <section id="filter-panel" class="panel filter-panel">
-        <div class="panel-heading">
-          <h2 data-i18n="filter.title">Filter</h2>
-          <button
-            type="button"
-            id="btn-filter-reset"
-            class="btn ghost"
-            disabled
-            data-i18n="filter.reset"
-            data-i18n-title="filter.resetTitle"
-            title="Alle Filter zurücksetzen"
-          >
-            Zurücksetzen
-          </button>
-        </div>
-        <div class="filter-row">
-          <label>
-            <span data-i18n="filter.range">Zeitraum</span>
-            <select id="filter-range">
-              <option value="all" selected data-i18n="filter.rangeAll">Gesamt</option>
-              <option value="7" data-i18n="filter.range7">Letzte 7 Tage</option>
-              <option value="30" data-i18n="filter.range30">Letzte 30 Tage</option>
-              <option value="90" data-i18n="filter.range90">Letzte 90 Tage</option>
-              <option value="custom" data-i18n="filter.rangeCustom">Benutzerdefiniert</option>
-            </select>
-          </label>
-          <label id="filter-custom-range" class="custom-range hidden">
-            <span data-i18n="filter.fromTo">Von / Bis</span>
-            <div class="inline-actions two-inputs">
-              <input id="filter-from" type="date" />
-              <input id="filter-to" type="date" />
-            </div>
-          </label>
-          <label>
-            <span data-i18n="filter.domain">Domain</span>
-            <select id="filter-domain">
-              <option value="" data-i18n="filter.allDomains">Alle Domains</option>
-            </select>
-          </label>
-          <label
-            class="checkbox filter-google-noise"
-            data-i18n-title="filter.hideGoogleNoiseHint"
-            title="Google-IPs mit SPF fail / DKIM pass ausblenden (interne Weiterleitungen und Report-Echo)."
-          >
-            <input id="filter-hide-google-noise" type="checkbox" />
-            <span data-i18n="filter.hideGoogleNoise">Google-Rauschen ausblenden</span>
-          </label>
-        </div>
-        <div id="filter-chips" class="filter-chips hidden"></div>
-      </section>
+          <div class="panel-heading">
+            <h2 data-i18n="filter.title">Filter</h2>
+            <button
+              type="button"
+              id="btn-filter-reset"
+              class="btn ghost"
+              disabled
+              data-i18n="filter.reset"
+              data-i18n-title="filter.resetTitle"
+              title="Alle Filter zurücksetzen"
+            >
+              Zurücksetzen
+            </button>
+          </div>
+          <div class="filter-row">
+            <label>
+              <span data-i18n="filter.range">Zeitraum</span>
+              <select id="filter-range">
+                <option value="all" selected data-i18n="filter.rangeAll">Gesamt</option>
+                <option value="7" data-i18n="filter.range7">Letzte 7 Tage</option>
+                <option value="30" data-i18n="filter.range30">Letzte 30 Tage</option>
+                <option value="90" data-i18n="filter.range90">Letzte 90 Tage</option>
+                <option value="custom" data-i18n="filter.rangeCustom">Benutzerdefiniert</option>
+              </select>
+            </label>
+            <label id="filter-custom-range" class="custom-range hidden">
+              <span data-i18n="filter.fromTo">Von / Bis</span>
+              <div class="inline-actions two-inputs">
+                <input id="filter-from" type="date" />
+                <input id="filter-to" type="date" />
+              </div>
+            </label>
+            <label>
+              <span data-i18n="filter.domain">Domain</span>
+              <select id="filter-domain">
+                <option value="" data-i18n="filter.allDomains">Alle Domains</option>
+              </select>
+            </label>
+            <label
+              class="checkbox filter-google-noise"
+              data-i18n-title="filter.hideGoogleNoiseHint"
+              title="Google-IPs mit SPF fail / DKIM pass ausblenden (interne Weiterleitungen und Report-Echo)."
+            >
+              <input id="filter-hide-google-noise" type="checkbox" />
+              <span data-i18n="filter.hideGoogleNoise">Google-Rauschen ausblenden</span>
+            </label>
+          </div>
+          <div id="filter-chips" class="filter-chips hidden"></div>
+        </section>
       </div>
 
       <section class="panel kpi-panel">
@@ -308,9 +355,9 @@
         <div class="panel-heading">
           <h2 data-i18n="health.title">Domain-Ampel</h2>
           <p class="hint" data-i18n="health.hint">
-            Gesundheitsrate der letzten 14 Tage (Auth-Pass sowie korrekt reject/quarantine; local_policy
-            zählt nicht negativ) und DNS-Status. Unabhängig vom Zeitraum-Filter. Klick filtert auf die
-            Domain.
+            Gesundheitsrate der letzten 14 Tage (Auth-Pass sowie korrekt reject/quarantine;
+            local_policy zählt nicht negativ) und DNS-Status. Unabhängig vom Zeitraum-Filter. Klick
+            filtert auf die Domain.
           </p>
         </div>
         <div id="domain-ampel" class="domain-ampel">
@@ -333,6 +380,7 @@
               <tr>
                 <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
                 <th data-i18n="problems.from">From</th>
+                <th data-i18n="problems.category">Ursache</th>
                 <th data-i18n="problems.count">Msgs</th>
                 <th data-i18n="problems.spfFail">SPF fail</th>
                 <th data-i18n="problems.dkimFail">DKIM fail</th>
@@ -340,7 +388,7 @@
             </thead>
             <tbody id="table-problem-sources">
               <tr class="empty">
-                <td colspan="5" data-i18n="problems.empty">
+                <td colspan="6" data-i18n="problems.empty">
                   Keine problematischen Zustellungen im Zeitraum.
                 </td>
               </tr>
@@ -381,7 +429,8 @@
               <div class="table-card-heading">
                 <h2 data-i18n="table.ips">Quellen (IP)</h2>
                 <p class="hint" data-i18n="table.ipsHint">
-                  Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain liegen.
+                  Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain
+                  liegen.
                 </p>
               </div>
               <div class="table-scroll">
@@ -708,9 +757,81 @@
                 </div>
               </div>
               <p id="password-hint" class="hint"></p>
-              <p id="oauth-hint" class="hint hidden" data-i18n="settings.oauthHint">
-                OAuth benötigt eine Client-ID unter „Abruf &amp; Benachrichtigungen“.
+            </fieldset>
+
+            <fieldset id="oauth-client-ids" class="settings-group hidden">
+              <legend data-i18n="settings.oauthClientIds">OAuth-Client-IDs</legend>
+              <p class="hint" data-i18n="settings.oauthClientHint">
+                Die Client-ID identifiziert diese App bei Google bzw. Microsoft, nicht das Postfach.
+                Eine ID gilt für alle Konten desselben Anbieters.
               </p>
+              <div class="settings-grid">
+                <label id="oauth-google-field" class="span-2">
+                  <span data-i18n="settings.oauthGoogleClientId">Google Client-ID</span>
+                  <input
+                    id="oauthGoogleClientId"
+                    name="oauthGoogleClientId"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </label>
+                <label id="oauth-microsoft-field" class="span-2">
+                  <span data-i18n="settings.oauthMicrosoftClientId">Microsoft Client-ID</span>
+                  <input
+                    id="oauthMicrosoftClientId"
+                    name="oauthMicrosoftClientId"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </label>
+              </div>
+              <details class="oauth-setup">
+                <summary data-i18n="settings.oauthSetupTitle">Client-ID erstellen</summary>
+                <div id="oauth-setup-google">
+                  <p class="oauth-setup-head" data-i18n="settings.oauthSetupGoogleTitle">
+                    Google (Gmail)
+                  </p>
+                  <ol>
+                    <li data-i18n="settings.oauthSetupGoogle1">
+                      Google Cloud Console öffnen, Projekt wählen oder anlegen.
+                    </li>
+                    <li data-i18n="settings.oauthSetupGoogle2">
+                      APIs und Dienste → Anmeldedaten → OAuth-Client-ID erstellen, Typ „Desktop-App“
+                      (kein Secret).
+                    </li>
+                    <li data-i18n="settings.oauthSetupGoogle3">
+                      Client-ID kopieren und oben eintragen. Beim ersten Mal den
+                      OAuth-Zustimmungsbildschirm ausfüllen; als Testnutzer die eigene Gmail-Adresse
+                      eintragen.
+                    </li>
+                  </ol>
+                </div>
+                <div id="oauth-setup-microsoft">
+                  <p class="oauth-setup-head" data-i18n="settings.oauthSetupMicrosoftTitle">
+                    Microsoft 365 / Outlook
+                  </p>
+                  <ol>
+                    <li data-i18n="settings.oauthSetupMicrosoft1">
+                      Microsoft Entra Admin Center → App-Registrierungen → Neue Registrierung.
+                    </li>
+                    <li>
+                      <span data-i18n="settings.oauthSetupMicrosoft2">
+                        Öffentlicher Client (Desktop/mobil). Redirect-URI:
+                      </span>
+                      <code>http://127.0.0.1:17893/oauth/callback</code>
+                    </li>
+                    <li data-i18n="settings.oauthSetupMicrosoft3">
+                      Authentifizierung: öffentliche Clientflows zulassen. API-Berechtigung
+                      IMAP.AccessAsUser.All (delegiert) hinzufügen. Anwendungs-ID oben eintragen.
+                    </li>
+                  </ol>
+                </div>
+                <p class="hint" data-i18n="settings.oauthSetupEnv">
+                  Alternativ die Umgebungsvariablen DMARC_GOOGLE_CLIENT_ID bzw. DMARC_MS_CLIENT_ID.
+                </p>
+              </details>
             </fieldset>
 
             <fieldset class="settings-group">
@@ -838,35 +959,6 @@
 
           <section id="tab-general" class="tab-panel hidden" role="tabpanel">
             <fieldset class="settings-group">
-              <legend data-i18n="settings.oauthClientIds">OAuth-Client-IDs</legend>
-              <div class="settings-grid">
-                <label class="span-2">
-                  <span data-i18n="settings.oauthGoogleClientId">Google Client-ID</span>
-                  <input
-                    id="oauthGoogleClientId"
-                    name="oauthGoogleClientId"
-                    type="text"
-                    autocomplete="off"
-                    spellcheck="false"
-                  />
-                </label>
-                <label class="span-2">
-                  <span data-i18n="settings.oauthMicrosoftClientId">Microsoft Client-ID</span>
-                  <input
-                    id="oauthMicrosoftClientId"
-                    name="oauthMicrosoftClientId"
-                    type="text"
-                    autocomplete="off"
-                    spellcheck="false"
-                  />
-                </label>
-              </div>
-              <p class="hint" data-i18n="settings.oauthClientHint">
-                Öffentliche Desktop-Apps (PKCE, ohne Secret).
-              </p>
-            </fieldset>
-
-            <fieldset class="settings-group">
               <legend data-i18n="settings.autoFetch">Automatischer Abruf</legend>
               <div class="settings-grid">
                 <label>
@@ -884,14 +976,14 @@
                 </label>
 
                 <label class="checkbox">
-                  <input id="runInTray" name="runInTray" type="checkbox" />
+                  <input id="runInTray" name="runInTray" type="checkbox" checked />
                   <span data-i18n="settings.runInTray"
                     >Im Hintergrund weiterlaufen (System-Tray)</span
                   >
                 </label>
 
                 <label class="checkbox span-2">
-                  <input id="openAtLogin" name="openAtLogin" type="checkbox" />
+                  <input id="openAtLogin" name="openAtLogin" type="checkbox" checked />
                   <span data-i18n="settings.openAtLogin">Beim Systemstart automatisch starten</span>
                 </label>
               </div>
@@ -902,6 +994,59 @@
               <p class="hint" data-i18n="settings.openAtLoginHint">
                 Mit System-Tray startet die App nach dem Login im Hintergrund (ohne Fenster).
               </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.pdfMonthly">Monatsbericht (PDF)</legend>
+              <div class="settings-grid">
+                <label class="checkbox span-2">
+                  <input id="pdfMonthlyEnabled" name="pdfMonthlyEnabled" type="checkbox" />
+                  <span data-i18n="settings.pdfMonthlyEnabled"
+                    >Für jede Domain im abgelaufenen Monat automatisch einen Managementbericht
+                    erzeugen</span
+                  >
+                </label>
+
+                <label class="span-2">
+                  <span data-i18n="settings.pdfMonthlyDir">Zielordner</span>
+                  <div class="inline-actions">
+                    <input
+                      id="pdfMonthlyDir"
+                      name="pdfMonthlyDir"
+                      type="text"
+                      spellcheck="false"
+                      data-i18n-placeholder="settings.pdfMonthlyDirPlaceholder"
+                      placeholder="Dokumente/DMARC Lighthouse"
+                    />
+                    <button
+                      type="button"
+                      id="btn-pdf-dir"
+                      class="btn secondary"
+                      data-i18n="settings.pdfMonthlyChoose"
+                    >
+                      Wählen…
+                    </button>
+                  </div>
+                </label>
+              </div>
+              <p class="hint">
+                <span data-i18n="settings.pdfMonthlyHint"
+                  >Ein PDF pro Domain. Der Automatismus nimmt den abgeschlossenen Monat; „Jetzt
+                  erzeugen“ nimmt denselben Monat oder — wenn dort noch keine Daten liegen — den
+                  neuesten Monat mit Reports.</span
+                >
+                <span id="pdf-monthly-last" class="muted"></span>
+              </p>
+              <div class="dialog-actions">
+                <button
+                  type="button"
+                  id="btn-pdf-now"
+                  class="btn secondary"
+                  data-i18n="settings.pdfMonthlyNow"
+                >
+                  Jetzt erzeugen
+                </button>
+              </div>
             </fieldset>
 
             <fieldset class="settings-group">
@@ -969,7 +1114,12 @@
                   >
                 </label>
                 <label class="checkbox">
-                  <input id="cloudRangesEnabled" name="cloudRangesEnabled" type="checkbox" checked />
+                  <input
+                    id="cloudRangesEnabled"
+                    name="cloudRangesEnabled"
+                    type="checkbox"
+                    checked
+                  />
                   <span data-i18n="settings.cloudRangesEnabled">Cloud-IP-Ranges</span>
                 </label>
                 <label class="checkbox">
@@ -1107,7 +1257,12 @@
             <button type="button" id="btn-ip-rdap" class="btn" data-i18n="ipDetail.loadRdap">
               WHOIS / RDAP laden
             </button>
-            <button type="button" id="btn-ip-filter" class="btn primary" data-i18n="ipDetail.filter">
+            <button
+              type="button"
+              id="btn-ip-filter"
+              class="btn primary"
+              data-i18n="ipDetail.filter"
+            >
               Nach IP filtern
             </button>
           </div>
@@ -1131,6 +1286,15 @@
         </header>
         <p class="hint" data-i18n="export.hint">Aktuell gefilterte Daten exportieren.</p>
         <footer class="dialog-actions">
+          <button
+            type="button"
+            id="btn-export-pdf"
+            class="btn secondary"
+            data-i18n="export.pdf"
+            data-i18n-title="export.pdfTitle"
+          >
+            PDF-Bericht
+          </button>
           <button type="button" id="btn-export-csv" class="btn secondary" data-i18n="export.csv">
             CSV speichern
           </button>
@@ -1177,6 +1341,7 @@
           </label>
         </div>
         <div id="dns-result" class="dns-result muted hidden"></div>
+        <div id="dns-transport" class="dns-result transport-result hidden"></div>
         <footer class="dialog-actions">
           <button type="submit" id="btn-dns" class="btn primary" data-i18n="filter.dnsCheck">
             Prüfen
@@ -1271,8 +1436,8 @@
                   </option>
                 </select>
                 <span class="field-hint" data-i18n="builder.policy.pHint"
-                  >Was Empfänger tun sollen, wenn SPF und DKIM die From-Domain nicht belegen.
-                  none liefert nur Reports; quarantine/reject greifen in die Zustellung ein.</span
+                  >Was Empfänger tun sollen, wenn SPF und DKIM die From-Domain nicht belegen. none
+                  liefert nur Reports; quarantine/reject greifen in die Zustellung ein.</span
                 >
               </label>
               <label>
@@ -1362,8 +1527,8 @@
             <fieldset class="builder-fo">
               <legend data-i18n="builder.reporting.fo">Failure options (fo=)</legend>
               <p class="field-hint" data-i18n="builder.reporting.foHint">
-                Steuert, wann Failure-Reports (RUF) erzeugt werden. Nur relevant, wenn ruf=
-                gesetzt ist.
+                Steuert, wann Failure-Reports (RUF) erzeugt werden. Nur relevant, wenn ruf= gesetzt
+                ist.
               </p>
               <label class="checkbox">
                 <input type="checkbox" name="builder-fo" value="0" checked />
@@ -1400,7 +1565,12 @@
             <button type="button" id="btn-builder-back" class="btn ghost" data-i18n="builder.back">
               Zurück
             </button>
-            <button type="button" id="btn-builder-next" class="btn primary" data-i18n="builder.next">
+            <button
+              type="button"
+              id="btn-builder-next"
+              class="btn primary"
+              data-i18n="builder.next"
+            >
               Weiter
             </button>
           </div>
@@ -1522,7 +1692,8 @@
                   </option>
                 </select>
                 <span class="field-hint" data-i18n="spfBuilder.mechanisms.allHint"
-                  >Was mit Absendern passiert, die von keiner Mechanismen-Regel erfasst werden.</span
+                  >Was mit Absendern passiert, die von keiner Mechanismen-Regel erfasst
+                  werden.</span
                 >
               </label>
             </div>
@@ -1561,6 +1732,99 @@
             </button>
           </div>
         </footer>
+      </div>
+    </dialog>
+
+    <dialog id="rollout-dialog">
+      <div class="settings-form rollout-form">
+        <header class="dialog-header">
+          <h2 data-i18n="rollout.title">Policy-Rollout</h2>
+          <button
+            type="button"
+            id="btn-close-rollout"
+            class="btn ghost"
+            data-i18n-aria="rollout.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <p class="hint" data-i18n="rollout.hint">
+          Bewertet die letzten 30 Tage einer Domain und empfiehlt den nächsten Schritt auf dem Weg
+          zu p=reject. Entscheidend sind zugestellte Fails von Absendern, die legitim aussehen —
+          genau die verliert eine strengere Policy.
+        </p>
+        <div class="rollout-controls">
+          <label>
+            <span data-i18n="rollout.domain">Domain</span>
+            <select id="rollout-domain"></select>
+          </label>
+          <button
+            type="button"
+            id="btn-rollout-refresh"
+            class="btn secondary"
+            data-i18n="rollout.refresh"
+          >
+            DNS neu prüfen
+          </button>
+        </div>
+        <div class="dialog-body rollout-body">
+          <div id="rollout-result" class="rollout-result"></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="email-inspect-dialog">
+      <div class="settings-form email-inspect-form">
+        <header class="dialog-header">
+          <h2 data-i18n="email.title">E-Mail prüfen</h2>
+          <button
+            type="button"
+            id="btn-close-email-inspect"
+            class="btn ghost"
+            data-i18n-aria="email.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <p class="hint" data-i18n="email.hint">
+          Eine gespeicherte Nachricht (.eml) einlesen. Gezeigt werden der Transportweg und die
+          Sicherheitsbewertung aus den Headern — der Inhalt der Mail bleibt ungelesen.
+        </p>
+        <div class="email-inspect-controls">
+          <button
+            type="button"
+            id="btn-email-inspect-open"
+            class="btn primary"
+            data-i18n="email.open"
+          >
+            Datei öffnen
+          </button>
+        </div>
+        <details id="email-inspect-paste" class="email-inspect-paste">
+          <summary data-i18n="email.pasteToggle">Header einfügen</summary>
+          <p class="hint" data-i18n="email.pasteHint">
+            Rohquelle oder Header (z. B. Gmail „Original anzeigen“) hier einfügen.
+          </p>
+          <textarea
+            id="email-inspect-paste-text"
+            rows="6"
+            spellcheck="false"
+            autocomplete="off"
+          ></textarea>
+          <button
+            type="button"
+            id="btn-email-inspect-paste"
+            class="btn secondary"
+            data-i18n="email.analyze"
+          >
+            Auswerten
+          </button>
+        </details>
+        <div class="dialog-body email-inspect-body">
+          <div id="email-inspect-result" class="email-inspect-result"></div>
+        </div>
       </div>
     </dialog>
 

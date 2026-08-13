@@ -177,7 +177,12 @@ body {
 .top-progress-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 72%, white) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent) 72%, black) 100%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 72%, white) 0%,
+    var(--accent) 55%,
+    color-mix(in srgb, var(--accent) 72%, black) 100%
+  );
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent);
   transition: width 0.15s ease-out;
 }
@@ -350,6 +355,17 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.subtitle .brand-credit {
+  color: inherit;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.subtitle .brand-credit:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .app-nav {
@@ -800,6 +816,44 @@ th {
   background: var(--bg-muted);
 }
 
+/* Sort arrow via ::after: applyDomI18n() overwrites the header's text content. */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th.sortable::after {
+  content: '↕';
+  margin-left: 4px;
+  opacity: 0.35;
+}
+
+th.sortable[aria-sort='ascending']::after {
+  content: '↑';
+  opacity: 1;
+}
+
+th.sortable[aria-sort='descending']::after {
+  content: '↓';
+  opacity: 1;
+}
+
+th.sortable:hover {
+  color: var(--ink);
+}
+
+th.sortable:focus-visible,
+tbody tr[tabindex]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* Keeps the scroll height right while only the visible rows exist. */
+tr.row-spacer:hover {
+  background: none;
+}
+
 .results-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
@@ -917,6 +971,11 @@ tbody tr.empty:hover {
 
 .fail {
   color: var(--bad);
+  font-weight: 600;
+}
+
+.warn {
+  color: var(--warn);
   font-weight: 600;
 }
 
@@ -1482,6 +1541,34 @@ input[type='checkbox']:focus-visible {
   flex-wrap: wrap;
 }
 
+.oauth-setup {
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.oauth-setup summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.oauth-setup-head {
+  margin: 12px 0 4px;
+  font-weight: 650;
+}
+
+.oauth-setup ol {
+  margin: 0 0 0 1.2rem;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.oauth-setup code {
+  display: inline-block;
+  margin-top: 2px;
+}
+
 code {
   font-family: var(--mono);
   font-size: 0.85em;
@@ -1679,6 +1766,10 @@ tr.ip-meta-row .ip-meta {
 .problem-sources-table th,
 .problem-sources-table td {
   white-space: nowrap;
+}
+
+.problem-sources-table td.cat-col .badge {
+  margin-right: 0;
 }
 
 .problem-sources-table td.mono-from {
@@ -1890,7 +1981,8 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #export-dialog,
 #dns-dialog,
 #create-mailbox-dialog,
-#status-log-dialog {
+#status-log-dialog,
+#email-inspect-dialog {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0;
@@ -1905,6 +1997,384 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #builder-dialog {
   width: min(720px, calc(100vw - 32px));
   overflow: hidden;
+}
+
+#rollout-dialog {
+  width: min(760px, calc(100vw - 32px));
+  overflow: hidden;
+}
+
+#email-inspect-dialog {
+  width: min(820px, calc(100vw - 32px));
+  overflow: hidden;
+}
+
+#rollout-dialog .rollout-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  padding: 0;
+}
+
+#rollout-dialog .dialog-header,
+#rollout-dialog > .rollout-form > .hint,
+.rollout-controls {
+  padding: 0 18px;
+}
+
+#rollout-dialog .dialog-header {
+  padding-top: 16px;
+  margin-bottom: 8px;
+}
+
+.rollout-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin: 10px 0 4px;
+}
+
+.rollout-controls > label {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 220px;
+}
+
+.rollout-verdict {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--other);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--bg-panel));
+}
+
+.rollout-verdict.ready {
+  border-left-color: var(--ok);
+}
+
+.rollout-verdict.blocked {
+  border-left-color: var(--warn);
+}
+
+.rollout-verdict.done {
+  border-left-color: var(--accent);
+}
+
+.rollout-verdict h3 {
+  margin: 4px 0 6px;
+  font-size: 1.05rem;
+}
+
+.rollout-verdict p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.rollout-verdict-current {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rollout-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rollout-metric {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+}
+
+.rollout-metric-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.rollout-metric-value {
+  font-weight: 650;
+}
+
+.rollout-section {
+  margin-top: 18px;
+}
+
+.rollout-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.rollout-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.rollout-sources li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rollout-plan {
+  margin: 0;
+  padding-left: 1.3rem;
+  display: grid;
+  gap: 10px;
+}
+
+.rollout-step {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.rollout-step.done {
+  opacity: 0.6;
+}
+
+.rollout-step.current {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.rollout-step.next {
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+  background: color-mix(in srgb, var(--bg) 55%, var(--bg-panel));
+}
+
+.rollout-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rollout-step-name {
+  font-weight: 650;
+}
+
+.rollout-step .hint {
+  margin: 0;
+}
+
+.rollout-step-record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rollout-step-record code {
+  flex: 1 1 260px;
+  word-break: break-all;
+  font-size: 0.85rem;
+}
+
+#email-inspect-dialog .email-inspect-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  padding: 0;
+}
+
+#email-inspect-dialog .dialog-header,
+#email-inspect-dialog > .email-inspect-form > .hint,
+.email-inspect-controls,
+.email-inspect-paste {
+  padding: 0 18px;
+}
+
+#email-inspect-dialog .dialog-header {
+  padding-top: 16px;
+  margin-bottom: 8px;
+}
+
+.email-inspect-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 4px;
+}
+
+.email-inspect-paste {
+  margin: 8px 0 4px;
+}
+
+.email-inspect-paste summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.email-inspect-paste textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  resize: vertical;
+  min-height: 7rem;
+}
+
+.email-inspect-body {
+  overflow: auto;
+  padding: 8px 18px 18px;
+}
+
+.email-inspect-placeholder {
+  margin: 24px 0;
+  text-align: center;
+}
+
+.email-verdict {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--other);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--bg-panel));
+}
+
+.email-verdict.ok {
+  border-left-color: var(--ok);
+}
+
+.email-verdict.warn {
+  border-left-color: var(--warn);
+}
+
+.email-verdict.bad {
+  border-left-color: var(--bad);
+}
+
+.email-verdict.unknown {
+  border-left-color: var(--other);
+}
+
+.email-verdict-file {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.email-verdict h3 {
+  margin: 4px 0 8px;
+  font-size: 1.05rem;
+}
+
+.email-inspect-section {
+  margin-top: 16px;
+}
+
+.email-inspect-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.email-identity {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.email-id-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.email-id-row dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.email-id-row dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.email-checks,
+.email-inspect-list,
+.email-hops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.email-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.email-check p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.email-hop {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 10px;
+  align-items: start;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.email-hop:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 0.85rem;
+  top: 1.7rem;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+
+.email-hop-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: var(--tint-accent);
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 0.82rem;
+  position: relative;
+  z-index: 1;
+}
+
+.email-hop.no-tls .email-hop-index {
+  background: var(--tint-warn);
+  color: var(--tint-warn-ink);
+}
+
+.email-hop-meta {
+  margin: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 #builder-dialog .builder-form {
@@ -2262,7 +2732,8 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #export-dialog::backdrop,
 #dns-dialog::backdrop,
 #create-mailbox-dialog::backdrop,
-#status-log-dialog::backdrop {
+#status-log-dialog::backdrop,
+#email-inspect-dialog::backdrop {
   background: rgba(20, 28, 38, 0.45);
 }
 
@@ -2283,6 +2754,49 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 
 #dns-dialog .dns-result {
   margin-top: 14px;
+}
+
+.transport-result {
+  display: grid;
+  gap: 8px;
+}
+
+.transport-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transport-block {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 4px 10px;
+  align-items: baseline;
+  font-size: 0.9rem;
+}
+
+.transport-label {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.transport-reasons {
+  margin: 4px 0 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.transport-reason.warn {
+  color: var(--tint-warn-ink);
+  font-weight: 650;
+}
+
+.transport-reason.bad {
+  color: var(--bad);
+  font-weight: 650;
 }
 
 #dns-dialog .dialog-actions {
@@ -2371,7 +2885,6 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
     min-width: 0;
   }
 }
-
 
 .builder-status.ok {
   color: var(--ok);
@@ -2526,6 +3039,30 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   .builder-result-value .btn-copy {
     align-self: flex-start;
   }
+}
+
+/* Email-inspect screenshot: let the dialog grow to its content instead of scrolling. */
+html.screenshot-dialog,
+html.screenshot-dialog body {
+  overflow: hidden !important;
+}
+
+html.screenshot-dialog #email-inspect-dialog {
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+html.screenshot-dialog #email-inspect-dialog .email-inspect-form,
+html.screenshot-dialog #email-inspect-dialog .email-inspect-body {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+html.screenshot-dialog #email-inspect-dialog::-webkit-scrollbar,
+html.screenshot-dialog #email-inspect-dialog *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 /* Full-page screenshot: no scrollbars, content can extend beyond the window. */

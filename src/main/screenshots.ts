@@ -50,9 +50,60 @@ async function captureFullPage(win: BrowserWindow, filePath: string): Promise<vo
     win,
     'return await api.prepareFullPage()'
   )
-  const width = Math.max(1200, Math.min(size.width, 1800))
-  const height = Math.max(900, Math.min(size.height + 8, 12000))
+  await captureViewport(
+    win,
+    filePath,
+    Math.max(1200, Math.min(size.width, 1800)),
+    Math.max(900, Math.min(size.height + 8, 12000))
+  )
+}
 
+/** Viewport-sized PNG of the composited surface (includes modal dialogs). */
+async function captureViewportExact(
+  win: BrowserWindow,
+  filePath: string,
+  width: number,
+  height: number
+): Promise<void> {
+  const dbg = win.webContents.debugger
+  if (!dbg.isAttached()) dbg.attach('1.3')
+  try {
+    await dbg.sendCommand('Emulation.setDeviceMetricsOverride', {
+      mobile: false,
+      width,
+      height,
+      deviceScaleFactor: 1,
+      screenWidth: width,
+      screenHeight: height
+    })
+    await wait(600)
+    const result = (await dbg.sendCommand('Page.captureScreenshot', {
+      format: 'png',
+      fromSurface: true
+    })) as { data: string }
+    writeFileSync(filePath, Buffer.from(result.data, 'base64'))
+    console.log(`Wrote ${filePath} (${width}×${height})`)
+  } finally {
+    try {
+      await dbg.sendCommand('Emulation.clearDeviceMetricsOverride')
+    } catch {
+      // ignore
+    }
+    try {
+      dbg.detach()
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/** Screenshot beyond the visible viewport at a fixed size. */
+async function captureViewport(
+  win: BrowserWindow,
+  filePath: string,
+  width: number,
+  height: number
+): Promise<void> {
   const dbg = win.webContents.debugger
   if (!dbg.isAttached()) dbg.attach('1.3')
   try {
@@ -147,8 +198,32 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
   await api(win, 'api.openSettingsDemo()')
   await wait(500)
   await capture(win, join(outDir, 'settings.png'))
-
   await api(win, 'api.closeSettings()')
+
+  await api(win, `api.setTheme('light')`)
+  await api(win, 'api.openRolloutDemo()')
+  await wait(500)
+  await capture(win, join(outDir, 'rollout.png'))
+  await api(win, 'api.closeRollout()')
+
+  await api(win, 'api.openDnsDemo()')
+  await wait(400)
+  await capture(win, join(outDir, 'dns.png'))
+  await api(win, 'api.closeDns()')
+
+  const emailSize = await apiValue<{ width: number; height: number }>(
+    win,
+    'return api.openEmailInspectDemo()'
+  )
+  await wait(400)
+  await captureViewportExact(
+    win,
+    join(outDir, 'email.png'),
+    Math.max(900, emailSize.width + 48),
+    Math.max(720, emailSize.height + 72)
+  )
+  await api(win, 'api.closeEmailInspect()')
+
   await captureFullPage(win, join(outDir, 'app-full.png'))
 
   console.log('Screenshot capture complete.')
@@ -157,8 +232,7 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
 
 export function wantsScreenshotCapture(): boolean {
   return (
-    process.argv.includes('--capture-screenshots') ||
-    process.argv.includes('--capture-full-app')
+    process.argv.includes('--capture-screenshots') || process.argv.includes('--capture-full-app')
   )
 }
 

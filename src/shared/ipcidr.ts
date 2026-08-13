@@ -91,6 +91,23 @@ function ipv6ToBits(ip: string): number[] | null {
 }
 
 /**
+ * Fixed-width sort key for an IP: lexicographic order equals numeric order and
+ * IPv4 sorts before IPv6. Returns null for values that are not an IP address.
+ */
+export function ipSortKey(ip: string): string | null {
+  const s = ip.trim()
+  if (isIPv4(s)) return `4${ipv4ToInt(s).toString(16).padStart(8, '0')}`
+  if (!isIPv6(s)) return null
+  const bits = ipv6ToBits(s)
+  if (!bits) return null
+  let out = '6'
+  for (let i = 0; i < 128; i += 4) {
+    out += ((bits[i]! << 3) | (bits[i + 1]! << 2) | (bits[i + 2]! << 1) | bits[i + 3]!).toString(16)
+  }
+  return out
+}
+
+/**
  * Normalize one authorized-sender entry (bare IP or CIDR).
  * Returns canonical CIDR string, or null if invalid.
  */

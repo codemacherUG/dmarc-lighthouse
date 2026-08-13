@@ -3,8 +3,10 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  LOCAL_IMPORT_ACCOUNT_KEY,
   clearCache,
   closeCacheDb,
+  importReports,
   loadCachedReports,
   mergeReports,
   saveCache,
@@ -135,5 +137,58 @@ describe('sqlite cache', () => {
   it('merges reports by reportId', () => {
     const merged = mergeReports([sampleReport('a')], [sampleReport('a'), sampleReport('b')])
     expect(merged.map((r) => r.reportId).sort()).toEqual(['a', 'b'])
+  })
+
+  it('imports reports without touching the UID watermarks', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [sampleReport('r1')],
+      lastUid: 42,
+      lastUidArchive: 7,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+
+    const imported = sampleReport('r2')
+    imported.records = [{ ...imported.records[0], sourceIp: '198.51.100.9' }]
+    const stored = importReports({ accountKey: 'acct1', reports: [imported] })
+
+    expect(stored).toEqual({ addedReports: 1, updatedReports: 0, addedForensic: 0 })
+    const loaded = loadCachedReports('acct1')
+    expect(loaded.reports.map((r) => r.reportId).sort()).toEqual(['r1', 'r2'])
+    expect(loaded.meta.lastUid).toBe(42)
+    expect(loaded.meta.lastUidArchive).toBe(7)
+    expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1', '198.51.100.9'])
+    // Failing baseline follows the cache so imported failures do not trigger alerts.
+    expect(loaded.meta.lastFailingTotal).toBe(2)
+  })
+
+  it('replaces an already cached report on re-import', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    importReports({ accountKey: 'acct1', reports: [sampleReport('r1')] })
+
+    const again = sampleReport('r1')
+    again.records = [...again.records, { ...again.records[0], sourceIp: '198.51.100.9' }]
+    const stored = importReports({ accountKey: 'acct1', reports: [again] })
+
+    expect(stored).toEqual({ addedReports: 0, updatedReports: 1, addedForensic: 0 })
+    const loaded = loadCachedReports('acct1')
+    expect(loaded.reports).toHaveLength(1)
+    expect(loaded.reports[0].records).toHaveLength(2)
+  })
+
+  it('imports into a fresh account slot', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    importReports({
+      accountKey: LOCAL_IMPORT_ACCOUNT_KEY,
+      reports: [sampleReport('r1')]
+    })
+    const loaded = loadCachedReports(LOCAL_IMPORT_ACCOUNT_KEY)
+    expect(loaded.reports).toHaveLength(1)
+    expect(loaded.meta.lastUid).toBe(0)
   })
 })

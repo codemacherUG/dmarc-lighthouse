@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign } from 'node:crypto'
+import { generateKeyPairSync, sign, type KeyObject } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import {
   matchDownloadedFile,
@@ -9,7 +9,7 @@ import {
 } from '../src/main/update-manifest'
 import { UPDATE_MANIFEST_PRODUCT } from '../src/main/update-trust'
 
-function keyPair() {
+function keyPair(): { privateKey: KeyObject; publicKeySpkiB64: string } {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519')
   const publicKeySpkiB64 = Buffer.from(
     publicKey.export({ type: 'spki', format: 'der' })

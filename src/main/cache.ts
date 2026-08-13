@@ -8,6 +8,7 @@ import type {
   ForensicReportRow,
   IpInfo,
   ReportRow,
+  SenderKind,
   SerializedRecord
 } from '../shared/types'
 
@@ -156,6 +157,7 @@ function openDb(): DatabaseSync {
       ip TEXT PRIMARY KEY,
       ptr TEXT,
       provider TEXT,
+      sender_kind TEXT,
       cloud_provider TEXT,
       country TEXT,
       country_code TEXT,
@@ -266,6 +268,17 @@ function migrateSchema(database: DatabaseSync): void {
     version = 5
     setSchemaVersion(database, version)
   }
+  // v6: identify the sending service, so `provider` now means e.g. "Amazon SES".
+  if (version < 6) {
+    try {
+      database.exec('ALTER TABLE ip_enrichment ADD COLUMN sender_kind TEXT')
+    } catch {
+      // Column may already exist.
+    }
+    database.exec('DELETE FROM ip_enrichment')
+    version = 6
+    setSchemaVersion(database, version)
+  }
 }
 
 /** One-time import of legacy per-account `*.json` cache files. */
@@ -335,6 +348,16 @@ function withTransaction(database: DatabaseSync, fn: () => void): void {
 export function accountKeyFor(user: string, host: string, mailbox: string): string {
   const raw = `${user.trim().toLowerCase()}@${host.trim().toLowerCase()}/${mailbox.trim()}`
   return createHash('sha256').update(raw).digest('hex').slice(0, 24)
+}
+
+/** Cache slot for local file imports while no IMAP account is configured. */
+export const LOCAL_IMPORT_ACCOUNT_KEY = 'local-import'
+
+/** Primary key for a report; falls back to org/domain/window for reports without an ID. */
+function reportKeyFor(report: ReportRow): string {
+  return (
+    report.reportId || `${report.orgName}|${report.domain}|${report.dateBegin}|${report.dateEnd}`
+  )
 }
 
 function emptyMeta(accountKey: string): CacheMeta {
@@ -521,8 +544,7 @@ function writeAccountCache(
   )
 
   for (const report of input.reports) {
-    const reportId =
-      report.reportId || `${report.orgName}|${report.domain}|${report.dateBegin}|${report.dateEnd}`
+    const reportId = reportKeyFor(report)
     reportStmt.run(
       input.accountKey,
       reportId,
@@ -685,6 +707,175 @@ export function saveCache(input: {
   }
 }
 
+export interface ImportCacheResult {
+  addedReports: number
+  updatedReports: number
+  addedForensic: number
+}
+
+/**
+ * Upsert locally imported reports into an account's cache.
+ *
+ * Unlike `saveCache` this touches neither the UID watermarks nor `last_fetch_at`,
+ * so importing files can never make the next IMAP fetch skip messages. The
+ * failing baseline is recomputed so imported failures do not trigger alerts.
+ */
+export function importReports(input: {
+  accountKey: string
+  reports: ReportRow[]
+  forensicReports?: ForensicReportRow[]
+}): ImportCacheResult {
+  const database = openDb()
+  const { accountKey } = input
+  const reports = input.reports.map(normalizeReport)
+  const forensicReports = input.forensicReports ?? []
+  const result: ImportCacheResult = { addedReports: 0, updatedReports: 0, addedForensic: 0 }
+  if (reports.length === 0 && forensicReports.length === 0) return result
+
+  withTransaction(database, () => {
+    database
+      .prepare(
+        `INSERT INTO cache_meta(account_key, last_uid, last_uid_archive, last_fetch_at, last_failing_total)
+         VALUES (?, 0, 0, NULL, 0)
+         ON CONFLICT(account_key) DO NOTHING`
+      )
+      .run(accountKey)
+
+    const reportExists = database.prepare(
+      'SELECT 1 AS hit FROM reports WHERE account_key = ? AND report_id = ?'
+    )
+    const upsertReport = database.prepare(
+      `INSERT INTO reports(
+         account_key, report_id, org_name, domain, date_begin, date_end,
+         total, passing, failing, pass_rate, policy_p
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(account_key, report_id) DO UPDATE SET
+         org_name = excluded.org_name,
+         domain = excluded.domain,
+         date_begin = excluded.date_begin,
+         date_end = excluded.date_end,
+         total = excluded.total,
+         passing = excluded.passing,
+         failing = excluded.failing,
+         pass_rate = excluded.pass_rate,
+         policy_p = excluded.policy_p`
+    )
+    const clearRecords = database.prepare(
+      'DELETE FROM report_records WHERE account_key = ? AND report_id = ?'
+    )
+    const recStmt = database.prepare(
+      `INSERT INTO report_records(
+         account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
+         header_from, dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    const ipStmt = database.prepare(
+      `INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)
+       ON CONFLICT(account_key, source_ip) DO NOTHING`
+    )
+
+    for (const report of reports) {
+      const reportId = reportKeyFor(report)
+      const seen = reportExists.get(accountKey, reportId) as { hit?: number } | undefined
+      if (seen) result.updatedReports += 1
+      else result.addedReports += 1
+
+      upsertReport.run(
+        accountKey,
+        reportId,
+        report.orgName,
+        report.domain,
+        report.dateBegin,
+        report.dateEnd,
+        report.total,
+        report.passing,
+        report.failing,
+        report.passRate,
+        report.policyP
+      )
+      clearRecords.run(accountKey, reportId)
+      report.records.forEach((rec, ordinal) => {
+        recStmt.run(
+          accountKey,
+          reportId,
+          ordinal,
+          rec.sourceIp,
+          rec.count,
+          rec.disposition,
+          rec.dkimResult,
+          rec.spfResult,
+          rec.headerFrom,
+          rec.dkimDomain,
+          rec.spfDomain,
+          rec.passesDmarc ? 1 : 0,
+          JSON.stringify(rec.reasons ?? []),
+          JSON.stringify(rec.dkimSelectors ?? [])
+        )
+        if (rec.sourceIp) ipStmt.run(accountKey, rec.sourceIp)
+      })
+    }
+
+    const forensicExists = database.prepare(
+      'SELECT 1 AS hit FROM forensic_reports WHERE account_key = ? AND id = ?'
+    )
+    const upsertForensic = database.prepare(
+      `INSERT INTO forensic_reports(
+         account_key, id, report_id, org_name, reported_domain, arrival_date, source_ip,
+         auth_failure, delivery_result, envelope_from, header_from, original_rcpt_to,
+         authentication_results, subject, feedback_type
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(account_key, id) DO UPDATE SET
+         report_id = excluded.report_id,
+         org_name = excluded.org_name,
+         reported_domain = excluded.reported_domain,
+         arrival_date = excluded.arrival_date,
+         source_ip = excluded.source_ip,
+         auth_failure = excluded.auth_failure,
+         delivery_result = excluded.delivery_result,
+         envelope_from = excluded.envelope_from,
+         header_from = excluded.header_from,
+         original_rcpt_to = excluded.original_rcpt_to,
+         authentication_results = excluded.authentication_results,
+         subject = excluded.subject,
+         feedback_type = excluded.feedback_type`
+    )
+    for (const f of forensicReports) {
+      const seen = forensicExists.get(accountKey, f.id) as { hit?: number } | undefined
+      if (!seen) result.addedForensic += 1
+      upsertForensic.run(
+        accountKey,
+        f.id,
+        f.reportId,
+        f.orgName,
+        f.reportedDomain,
+        f.arrivalDate,
+        f.sourceIp,
+        f.authFailure,
+        f.deliveryResult,
+        f.envelopeFrom,
+        f.headerFrom,
+        f.originalRcptTo,
+        f.authenticationResults,
+        f.subject,
+        f.feedbackType
+      )
+      if (f.sourceIp) ipStmt.run(accountKey, f.sourceIp)
+    }
+
+    database
+      .prepare(
+        `UPDATE cache_meta
+         SET last_failing_total = (
+           SELECT COALESCE(SUM(failing), 0) FROM reports WHERE account_key = ?
+         )
+         WHERE account_key = ?`
+      )
+      .run(accountKey, accountKey)
+  })
+
+  return result
+}
+
 export function clearCache(accountKey: string): void {
   const database = openDb()
   withTransaction(database, () => {
@@ -704,10 +895,17 @@ export function clearCache(accountKey: string): void {
 const IP_ENRICHMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const DNS_HEALTH_TTL_MS = 6 * 60 * 60 * 1000
 
+const SENDER_KINDS = new Set<SenderKind>(['esp', 'mailbox', 'saas', 'gateway', 'infra'])
+
+function toSenderKind(value: string | null): SenderKind | null {
+  return value && SENDER_KINDS.has(value as SenderKind) ? (value as SenderKind) : null
+}
+
 function rowToIpInfo(row: {
   ip: string
   ptr: string | null
   provider: string | null
+  sender_kind: string | null
   cloud_provider: string | null
   country: string | null
   country_code: string | null
@@ -731,6 +929,7 @@ function rowToIpInfo(row: {
     ip: row.ip,
     ptr: row.ptr,
     provider: row.provider,
+    senderKind: toSenderKind(row.sender_kind),
     country: row.country,
     countryCode: row.country_code,
     city: row.city,
@@ -750,8 +949,8 @@ export function getIpEnrichment(ips: string[]): Map<string, IpInfo> {
   const now = new Date().toISOString()
   const out = new Map<string, IpInfo>()
   const stmt = database.prepare(
-    `SELECT ip, ptr, provider, cloud_provider, country, country_code, city, lat, lon, asn, as_org,
-            dnsbl_json, geo_source
+    `SELECT ip, ptr, provider, sender_kind, cloud_provider, country, country_code, city, lat, lon,
+            asn, as_org, dnsbl_json, geo_source
      FROM ip_enrichment
      WHERE ip = ? AND expires_at > ?`
   )
@@ -761,6 +960,7 @@ export function getIpEnrichment(ips: string[]): Map<string, IpInfo> {
           ip: string
           ptr: string | null
           provider: string | null
+          sender_kind: string | null
           cloud_provider: string | null
           country: string | null
           country_code: string | null
@@ -785,12 +985,13 @@ export function upsertIpEnrichment(infos: IpInfo[], ttlMs = IP_ENRICHMENT_TTL_MS
   const expiresAt = new Date(Date.now() + ttlMs).toISOString()
   const stmt = database.prepare(
     `INSERT INTO ip_enrichment(
-       ip, ptr, provider, cloud_provider, country, country_code, city, lat, lon, asn, as_org,
-       dnsbl_json, geo_source, checked_at, expires_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ip, ptr, provider, sender_kind, cloud_provider, country, country_code, city, lat, lon, asn,
+       as_org, dnsbl_json, geo_source, checked_at, expires_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(ip) DO UPDATE SET
        ptr = excluded.ptr,
        provider = excluded.provider,
+       sender_kind = excluded.sender_kind,
        cloud_provider = excluded.cloud_provider,
        country = excluded.country,
        country_code = excluded.country_code,
@@ -810,6 +1011,7 @@ export function upsertIpEnrichment(infos: IpInfo[], ttlMs = IP_ENRICHMENT_TTL_MS
         info.ip,
         info.ptr,
         info.provider,
+        info.senderKind,
         info.cloudProvider,
         info.country,
         info.countryCode,

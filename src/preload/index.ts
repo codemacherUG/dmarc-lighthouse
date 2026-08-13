@@ -17,7 +17,9 @@ import type {
   ReportRow,
   SettingsPublic,
   TestConnectionResult,
-  UpdateStatusPayload
+  TransportSecurityResult,
+  UpdateStatusPayload,
+  EmailInspectResponse
 } from '../shared/types'
 
 const api = {
@@ -54,21 +56,37 @@ const api = {
     ipcRenderer.invoke('dns:check', domain, selectors ?? []),
   expandSpf: (domain: string, record?: string | null): Promise<SpfExpandResult> =>
     ipcRenderer.invoke('dns:expandSpf', domain, record ?? null),
+  checkTransport: (domain: string): Promise<TransportSecurityResult> =>
+    ipcRenderer.invoke('dns:transport', domain),
   healthBatch: (reports: ReportRow[]): Promise<DomainHealth[]> =>
     ipcRenderer.invoke('dns:healthBatch', reports),
   geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),
   downloadGeoLite: (licenseKey?: string): Promise<GeoLiteDownloadResult> =>
     ipcRenderer.invoke('enrichment:downloadGeoLite', licenseKey),
   openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
-  parseBuffers: (
-    files: Array<{ name: string; data: ArrayBuffer }>
-  ): Promise<AnalyzeResult> => ipcRenderer.invoke('files:parseBuffers', files),
+  parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>): Promise<AnalyzeResult> =>
+    ipcRenderer.invoke('files:parseBuffers', files),
+  openEmailFile: (): Promise<EmailInspectResponse | null> => ipcRenderer.invoke('email:open'),
+  parseEmail: (input: {
+    name?: string
+    data?: ArrayBuffer
+    text?: string
+  }): Promise<EmailInspectResponse> => ipcRenderer.invoke('email:parse', input),
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'
   ): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke('export:save', result, format),
   exportReportZip: (report: ReportRow): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('export:reportZip', report),
+  exportPdfReport: (
+    result: AnalyzeResult,
+    options?: { domain?: string | null }
+  ): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('report:pdf', result, options ?? {}),
+  chooseReportDir: (): Promise<{ ok: boolean; dir: string }> =>
+    ipcRenderer.invoke('report:chooseDir'),
+  runMonthlyReport: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('report:monthlyNow'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   openThirdPartyNotices: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('app:openThirdPartyNotices'),

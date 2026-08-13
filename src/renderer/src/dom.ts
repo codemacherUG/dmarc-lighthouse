@@ -2,12 +2,13 @@ export const statusEl = document.getElementById('status') as HTMLDivElement
 export const statusLogListEl = document.getElementById('status-log-list') as HTMLUListElement
 export const statusLogDialog = document.getElementById('status-log-dialog') as HTMLDialogElement
 export const btnStatusLog = document.getElementById('btn-status-log') as HTMLButtonElement
-export const btnCloseStatusLog = document.getElementById('btn-close-status-log') as HTMLButtonElement
+export const btnCloseStatusLog = document.getElementById(
+  'btn-close-status-log'
+) as HTMLButtonElement
 export const btnStatusLogOk = document.getElementById('btn-status-log-ok') as HTMLButtonElement
 export const topProgressEl = document.getElementById('top-progress') as HTMLDivElement
 export const progressEl = document.getElementById('progress') as HTMLDivElement
 export const progressLabelEl = document.getElementById('progress-label') as HTMLElement
-export const accountLabelEl = document.getElementById('account-label') as HTMLSpanElement
 export const reportsBody = document.getElementById('reports-body') as HTMLTableSectionElement
 export const detailEl = document.getElementById('detail') as HTMLDivElement
 export const tableOrgs = document.getElementById('table-orgs') as HTMLTableSectionElement
@@ -30,6 +31,7 @@ export const accountSelectEl = document.getElementById('account-select') as HTML
 export const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputElement
 export const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLInputElement
 export const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
+export const dnsTransportEl = document.getElementById('dns-transport') as HTMLDivElement
 export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
 export const tableProblemSources = document.getElementById(
   'table-problem-sources'
@@ -49,6 +51,31 @@ export const navDns = document.getElementById('nav-dns') as HTMLButtonElement
 export const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
 export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonElement
 export const btnSpfBuilder = document.getElementById('btn-spf-builder') as HTMLButtonElement
+export const btnRollout = document.getElementById('btn-rollout') as HTMLButtonElement
+export const btnEmailInspect = document.getElementById('btn-email-inspect') as HTMLButtonElement
+export const emailInspectDialog = document.getElementById(
+  'email-inspect-dialog'
+) as HTMLDialogElement
+export const btnCloseEmailInspect = document.getElementById(
+  'btn-close-email-inspect'
+) as HTMLButtonElement
+export const btnEmailInspectOpen = document.getElementById(
+  'btn-email-inspect-open'
+) as HTMLButtonElement
+export const btnEmailInspectPaste = document.getElementById(
+  'btn-email-inspect-paste'
+) as HTMLButtonElement
+export const emailInspectPasteEl = document.getElementById(
+  'email-inspect-paste-text'
+) as HTMLTextAreaElement
+export const emailInspectResultEl = document.getElementById(
+  'email-inspect-result'
+) as HTMLDivElement
+export const rolloutDialog = document.getElementById('rollout-dialog') as HTMLDialogElement
+export const btnCloseRollout = document.getElementById('btn-close-rollout') as HTMLButtonElement
+export const btnRolloutRefresh = document.getElementById('btn-rollout-refresh') as HTMLButtonElement
+export const rolloutDomainEl = document.getElementById('rollout-domain') as HTMLSelectElement
+export const rolloutResultEl = document.getElementById('rollout-result') as HTMLDivElement
 export const btnInfo = document.getElementById('btn-info') as HTMLButtonElement
 export const btnFetch = document.getElementById('btn-fetch') as HTMLButtonElement
 export const btnOpenFiles = document.getElementById('btn-open-files') as HTMLButtonElement
@@ -91,6 +118,7 @@ export const btnTest = document.getElementById('btn-test') as HTMLButtonElement
 export const btnClearCache = document.getElementById('btn-clear-cache') as HTMLButtonElement
 export const btnExportCsv = document.getElementById('btn-export-csv') as HTMLButtonElement
 export const btnExportJson = document.getElementById('btn-export-json') as HTMLButtonElement
+export const btnExportPdf = document.getElementById('btn-export-pdf') as HTMLButtonElement
 export const passwordHintEl = document.getElementById('password-hint') as HTMLParagraphElement
 export const settingsStatusEl = document.getElementById('settings-status') as HTMLParagraphElement
 export const aboutVersionEl = document.getElementById('about-version') as HTMLSpanElement
@@ -126,7 +154,11 @@ export const userEl = document.getElementById('user') as HTMLInputElement
 export const passwordEl = document.getElementById('password') as HTMLInputElement
 export const passwordFieldEl = document.getElementById('password-field') as HTMLElement
 export const oauthActionsEl = document.getElementById('oauth-actions') as HTMLElement
-export const oauthHintEl = document.getElementById('oauth-hint') as HTMLElement
+export const oauthClientIdsEl = document.getElementById('oauth-client-ids') as HTMLElement
+export const oauthGoogleFieldEl = document.getElementById('oauth-google-field') as HTMLElement
+export const oauthMicrosoftFieldEl = document.getElementById('oauth-microsoft-field') as HTMLElement
+export const oauthSetupGoogleEl = document.getElementById('oauth-setup-google') as HTMLElement
+export const oauthSetupMicrosoftEl = document.getElementById('oauth-setup-microsoft') as HTMLElement
 export const btnOauthLogin = document.getElementById('btn-oauth-login') as HTMLButtonElement
 export const btnOauthDisconnect = document.getElementById(
   'btn-oauth-disconnect'
@@ -143,6 +175,11 @@ export const markSeenAfterFetchEl = document.getElementById(
 export const autoFetchMinutesEl = document.getElementById('autoFetchMinutes') as HTMLInputElement
 export const runInTrayEl = document.getElementById('runInTray') as HTMLInputElement
 export const openAtLoginEl = document.getElementById('openAtLogin') as HTMLInputElement
+export const pdfMonthlyEnabledEl = document.getElementById('pdfMonthlyEnabled') as HTMLInputElement
+export const pdfMonthlyDirEl = document.getElementById('pdfMonthlyDir') as HTMLInputElement
+export const btnPdfDir = document.getElementById('btn-pdf-dir') as HTMLButtonElement
+export const btnPdfNow = document.getElementById('btn-pdf-now') as HTMLButtonElement
+export const pdfMonthlyLastEl = document.getElementById('pdf-monthly-last') as HTMLSpanElement
 export const notifyOnFailEl = document.getElementById('notifyOnFail') as HTMLInputElement
 export const notifyNewSourceEl = document.getElementById('notifyNewSource') as HTMLInputElement
 export const passRateAlertThresholdEl = document.getElementById(

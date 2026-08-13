@@ -363,7 +363,9 @@ describe('buildDashboard', () => {
         count: 4,
         spfFail: 4,
         dkimFail: 4,
-        headerFrom: 'example.com'
+        headerFrom: 'example.com',
+        categories: { broken: 4 },
+        category: 'broken'
       }
     ])
   })
@@ -455,6 +457,35 @@ describe('groupProblemSources', () => {
     )
     expect(grouped).toHaveLength(2)
     expect(grouped.every((r) => !r.extraIps?.length)).toBe(true)
+  })
+
+  it('sums failure categories of merged IPs and keeps the dominant one', () => {
+    const grouped = groupProblemSources(
+      [
+        {
+          sourceIp: '40.93.64.65',
+          count: 3,
+          spfFail: 3,
+          dkimFail: 3,
+          headerFrom: 'example.com',
+          categories: { forwarder: 1, thirdParty: 2 },
+          category: 'thirdParty'
+        },
+        {
+          sourceIp: '40.93.64.95',
+          count: 5,
+          spfFail: 5,
+          dkimFail: 5,
+          headerFrom: 'example.com',
+          categories: { forwarder: 5 },
+          category: 'forwarder'
+        }
+      ],
+      () => ms
+    )
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]?.categories).toEqual({ forwarder: 6, thirdParty: 2 })
+    expect(grouped[0]?.category).toBe('forwarder')
   })
 
   it('matches a single IP or a group in the source-IP filter', () => {

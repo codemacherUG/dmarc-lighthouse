@@ -1,9 +1,26 @@
-import { buildDemoAnalyzeResult, buildDemoSettings, DEMO_DNS_HTML } from '../../shared/demo-data'
+import {
+  buildDemoAnalyzeResult,
+  buildDemoEmailInspect,
+  buildDemoSettings,
+  DEMO_DNS_HTML,
+  DEMO_ROLLOUT_DNS,
+  DEMO_TRANSPORT
+} from '../../shared/demo-data'
 import { t } from '../../shared/i18n'
 import type { AppTheme } from '../../shared/theme'
 import type { IpInfo } from '../../shared/types'
 import { applyUiLocale } from './chrome'
-import { dnsDomainEl, dnsResultEl, settingsDialog } from './dom'
+import {
+  dnsDialog,
+  dnsDomainEl,
+  dnsResultEl,
+  emailInspectDialog,
+  rolloutDialog,
+  settingsDialog
+} from './dom'
+import { openEmailInspect, seedEmailInspect } from './email-inspect-ui'
+import { openRollout, seedRolloutDns } from './rollout-ui'
+import { renderTransportSecurity } from './transport-view'
 import { applySettings, fillGlobalForm, openSettings, showSettingsTab } from './settings-ui'
 import { clearDrill, state } from './state'
 import { applyTheme } from './theme'
@@ -35,6 +52,7 @@ export function installScreenshotApi(): void {
             ip,
             ptr,
             provider,
+            senderKind: extra.senderKind ?? null,
             country: extra.country ?? null,
             countryCode: extra.countryCode ?? null,
             city: extra.city ?? null,
@@ -151,6 +169,38 @@ export function installScreenshotApi(): void {
     },
     closeSettings(): void {
       settingsDialog.close()
+    },
+    openDnsDemo(): void {
+      dnsDomainEl.value = 'example.com'
+      dnsResultEl.innerHTML = DEMO_DNS_HTML
+      dnsResultEl.className = 'dns-result ok'
+      dnsResultEl.classList.remove('hidden')
+      renderTransportSecurity(DEMO_TRANSPORT)
+      dnsDialog.showModal()
+    },
+    closeDns(): void {
+      dnsDialog.close()
+    },
+    openRolloutDemo(): void {
+      seedRolloutDns('example.com', DEMO_ROLLOUT_DNS)
+      openRollout()
+    },
+    closeRollout(): void {
+      rolloutDialog.close()
+    },
+    openEmailInspectDemo(): { width: number; height: number } {
+      document.getElementById('email-inspect-paste')?.removeAttribute('open')
+      document.documentElement.classList.add('screenshot-dialog')
+      seedEmailInspect(buildDemoEmailInspect())
+      openEmailInspect()
+      return {
+        width: Math.ceil(emailInspectDialog.scrollWidth),
+        height: Math.ceil(emailInspectDialog.scrollHeight)
+      }
+    },
+    closeEmailInspect(): void {
+      emailInspectDialog.close()
+      document.documentElement.classList.remove('screenshot-dialog')
     },
     setTheme(theme: AppTheme): void {
       applyTheme(theme)

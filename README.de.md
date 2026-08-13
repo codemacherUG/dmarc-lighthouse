@@ -11,7 +11,7 @@
 
 <p align="center">
   Desktop-App zum Abrufen, Einlesen und Auswerten von DMARC-Aggregate- und Forensik-Reports.<br />
-  IMAP-Postfach oder lokale Dateien → KPIs, Alignment-Charts und Detailtabellen.
+  IMAP-Postfach oder lokale Dateien → KPIs, Alignment-Charts und Detailtabellen — plus Prüfung von Weg und Authentifizierung einer einzelnen E-Mail.
 </p>
 
 <p align="center">
@@ -41,6 +41,7 @@ DMARC-Aggregate-Reports (RUA) und Failure-Reports (RUF) landen oft in einem eige
 - wie sich Volumen und Pass-Rate **über die Zeit** entwickeln
 - optionale **Alerts** bei steigenden Failures, niedriger Pass-Rate oder neu gesehenen Quell-IPs
 - **Forensik / RUF** als bereinigte Tabelle (nur Header — keine Nachrichteninhalte)
+- eine gespeicherte **.eml** (oder eingefügte Header): Transportweg, SPF/DKIM/DMARC/TLS/ARC und Gesamturteil
 
 Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Electron-`userData`-Ordner, verschlüsselt mit `safeStorage`. Der Report-Cache nutzt **SQLite**. Es gibt keinen Cloud-Account und keine Telemetrie. Die Oberfläche ist auf **Deutsch** und **Englisch** verfügbar.
 
@@ -50,7 +51,7 @@ Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Ele
 
 ### Dashboard
 
-Kennzahlen, Alignment-Charts (inkl. Disposition), Zeitreihe, Filter (inkl. optionalem Google-Rauschen-Filter) sowie integrierter DNS-Check für DMARC, SPF und DKIM-Selektoren:
+Kennzahlen, Alignment-Charts (inkl. Disposition), Zeitreihe, Filter (inkl. optionalem Google-Rauschen-Filter) sowie Domain-Ampel:
 
 ![Dashboard mit KPIs, Alignment-Charts und DNS-Check](docs/screenshots/dashboard.png)
 
@@ -70,6 +71,24 @@ Quell-IPs auf OpenStreetMap (GeoIP-Koordinaten); Klick auf einen Marker filtert 
 
 ![Quell-IPs auf OpenStreetMap](docs/screenshots/map.png)
 
+### DNS-Check & Transport-Sicherheit
+
+DMARC, SPF und DKIM-Selektoren direkt beim autoritativen Nameserver — dazu TLS-RPT, MTA-STS (inkl. Policy-Datei und MX-Abdeckung) und DANE/TLSA der MX-Hosts:
+
+![DNS-Check mit Transport-Sicherheit](docs/screenshots/dns.png)
+
+### Policy-Rollout
+
+Bewertet die letzten 30 Tage einer Domain, empfiehlt den nächsten Schritt auf dem Weg zu `p=reject` und liefert den Staging-Plan mit fertigen Records zum Kopieren:
+
+![Policy-Rollout-Assistent mit Empfehlung und Staging-Plan](docs/screenshots/rollout.png)
+
+### E-Mail prüfen
+
+Unter **Tools → E-Mail prüfen** eine gespeicherte `.eml` öffnen (oder Header einfügen, z. B. Gmail „Original anzeigen“). Gezeigt werden Transportweg, SPF/DKIM/DMARC, TLS je Station, ARC und Gesamturteil. Es werden nur Header gelesen — der Inhalt nicht. Interne Stationen (LMTP, Docker-/Privat-IPs) sind als **lokal** markiert, nicht als fehlendes TLS. Outlook-`.msg` wird nicht unterstützt (als `.eml` speichern).
+
+![E-Mail-Prüfung mit Weg und Authentifizierungsurteil](docs/screenshots/email.png)
+
 ### Einstellungen
 
 Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray, Sprache und Erscheinungsbild (Hell / Dunkel / System):
@@ -86,19 +105,24 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Archiv-Ordner** | Optional „nach Abruf verschieben“ (aus IMAP-Liste wählbar; fehlende Ordner anlegbar); Inbox bleibt überwacht, Reports landen z. B. in `Archive/Aggregate` |
 | **Anmeldung** | App-Passwort **oder** OAuth (PKCE) für Gmail und Microsoft 365 IMAP |
 | **Mehrere Konten** | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; eigene Bezeichnung (Standard: E-Mail-Domain); Umschalten in der Toolbar |
-| **Datei-Import** | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop |
+| **Datei-Import** | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop; Importe landen im Cache und stehen nach dem Neustart wieder bereit |
 | **Lokaler Cache** | SQLite für Aggregate- und Forensik-Reports; alte JSON-Caches werden einmalig migriert |
 | **Forensik / RUF** | ARF-Failure-Reports (bereinigte Header); eigene Tabelle in der UI |
 | **Dashboard** | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum |
 | **Charts** | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit |
-| **Tabellen** | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert |
-| **IP-Anreicherung** | Reverse-DNS, bekannte Absender, Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand |
+| **Tabellen** | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert; sortierbare Spalten, Tastaturnavigation und Virtualisierung langer Tabellen |
+| **IP-Anreicherung** | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand |
+| **Fail-Kategorien** | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth |
+| **Policy-Rollout** | Empfehlung für den nächsten Schritt (`none` → `quarantine` → `reject`) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records |
 | **Quellenkarte** | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP |
 | **Domain-Ampel** | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain |
 | **Filter** | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain sowie Drill-Down nach Org, Quell-IP und From-Domain |
 | **Google-Rauschen** | Optionaler, gespeicherter Filter für Google-Weiterleitungs-/Report-Echo-Zeilen (Google-IP + SPF fail + DKIM pass + DMARC pass) |
 | **DNS-Check** | Live-Abfrage von DMARC (`p`, `rua`), SPF und DKIM-Selektoren (automatisch aus den Reports oder manuell) |
+| **Transport-Sicherheit** | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil |
+| **E-Mail prüfen** | `.eml` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil. Nur lokal; Body ungelesen. `.msg` nicht unterstützt |
 | **Export** | Aktuell gefilterte Daten als CSV oder JSON; einzelne Aggregate-Reports als ZIP (XML) |
+| **PDF-Managementbericht** | Druckfertiger A4-Bericht (Kennzahlen, Bewertung, Alignment, Verlauf, Domain-Status, Problemquellen) — manuell für die aktuelle Ansicht oder automatisch einmal pro Monat **ein PDF pro Domain**, im Hintergrund aus dem Cache |
 | **Auto-Abruf** | Optionales Intervall über alle Konten + Desktop-Benachrichtigung bei steigenden Failures |
 | **Alerts** | Pass-Rate-Schwelle (7 Tage) und „neue Quelle erkannt“ mit Ignorieren-Liste für bekannte IPs |
 | **System-Tray** | Optional im Hintergrund weiterlaufen; Abruf und Benachrichtigungen auch bei geschlossenem Fenster |
@@ -141,18 +165,21 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 1. Öffentliche Desktop-/Native-OAuth-App anlegen (PKCE, ohne Client-Secret):
    - Google Cloud Console → OAuth-Client-Typ „Desktop“
    - Microsoft Entra ID → App-Registrierung → öffentlicher Client, Redirect-URI `http://127.0.0.1:17893/oauth/callback`
-2. Client-IDs unter **Einstellungen → Abruf & Benachrichtigungen** eintragen oder `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID` setzen.
-3. Unter **Konto-Verwaltung** → **Zugang einrichten** **OAuth** wählen, speichern, dann **Mit Anbieter anmelden**.
+2. Unter **Einstellungen → Konto-Verwaltung** Anmeldung **OAuth** wählen und die Client-ID dort eintragen (oder `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID` setzen). Die Schritte stehen auch unter **Client-ID erstellen**.
+3. Konto speichern, dann **Mit Anbieter anmelden**.
 
 ---
 
 ## Nutzung
 
 1. **Einstellungen** → **Konto-Verwaltung** öffnen, Anbieter/Host sowie App-Passwort oder OAuth setzen und speichern. Bei Bedarf weitere Konten anlegen.
-2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** OAuth-Client-IDs, Auto-Abruf, Alerts, System-Tray, Autostart und Sprache konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
+2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** Auto-Abruf, Alerts, System-Tray und Autostart konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
 4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Google-Rauschen ausblenden**, um Google-Report-Echo-Hops zu entfernen. Charts, Aggregate-Tabellen, Forensik-/RUF-Tabelle und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Reports als ZIP laden.
 5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF sowie DKIM-Selektoren aus den Reports oder manuell).
+6. Unter **Tools → E-Mail prüfen** eine `.eml` laden (auf den Dialog ziehen) oder Header einfügen. Weg, TLS vs. lokale Stationen sowie SPF/DKIM/DMARC/ARC prüfen. Lokaler Versand mit `Authentication-Results: none` ist „unbekannt“, kein Spoofing.
+7. Unter **Tools → Policy-Rollout** den nächsten Schritt zu `p=reject` planen: Empfehlung, offene Punkte, zu klärende Absender und Staging-Plan mit kopierbaren Records.
+8. Für Berichte an die Leitung im **Export**-Dialog **PDF-Bericht** wählen — oder in den Einstellungen den **Monatsbericht** aktivieren: für jede Domain im abgelaufenen Monat entsteht ein eigenes PDF.
 
 > Tipp: Betreff-Filter erweitern oder leer lassen, wenn RUA und RUF aus demselben Postfach kommen sollen.
 >
@@ -182,8 +209,10 @@ IMAP-Postfach/-Postfächer / lokale Dateien
         │
         ├── Filter (Zeitraum, Domain, Drill-Down Org / IP / From)
         ├── DNS-Check (DMARC / SPF / DKIM)
+        ├── E-Mail prüfen (.eml / Einfügen: Weg, TLS, SPF/DKIM/DMARC/ARC)
+        ├── Policy-Rollout (nächster Schritt + Staging-Plan)
         ├── Alerts (Failures / Pass-Rate / neue Quellen)
-        └── Export (CSV / JSON)
+        └── Export (CSV / JSON / PDF-Managementbericht, monatlich automatisch)
 ```
 
 ---
@@ -254,7 +283,8 @@ npm run release
 
 ## Hinweise & Grenzen
 
-- Forensik-/RUF-Zeilen zeigen nur bereinigte Header — Nachrichteninhalte werden weder gespeichert noch angezeigt.
+- Forensik-/RUF-Zeilen zeigen nur bereinigte Header — Nachrichteninhalte werden weder gespeichert noch angezeigt. Dasselbe gilt für **E-Mail prüfen**: es werden nur Header gelesen.
+- Outlook-`.msg` wird bei der Prüfung nicht unterstützt; die Nachricht als `.eml` speichern.
 - Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
 - Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
 - Cache leeren: Einstellungen → Konto-Verwaltung → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).
