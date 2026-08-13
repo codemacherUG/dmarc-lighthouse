@@ -8,6 +8,7 @@ import { initSettingsUi, loadSettings, refreshSettingsLocale } from './settings-
 import { state } from './state'
 import { applyView, initView, showResult } from './view'
 import { initRolloutUi, refreshRolloutLocale } from './rollout-ui'
+import { initEmailInspectUi, refreshEmailInspectLocale } from './email-inspect-ui'
 import { initSpfWizardUi, refreshSpfBuilderLocale } from './spf-wizard-ui'
 import { initWizardUi, refreshBuilderLocale } from './wizard-ui'
 
@@ -16,6 +17,7 @@ setAfterLocaleChange(() => {
   refreshBuilderLocale()
   refreshSpfBuilderLocale()
   refreshRolloutLocale()
+  refreshEmailInspectLocale()
   if (state.fullResult) {
     showResult(state.fullResult)
   } else {
@@ -30,6 +32,7 @@ initSettingsUi()
 initWizardUi()
 initSpfWizardUi()
 initRolloutUi()
+initEmailInspectUi()
 initActions()
 installScreenshotApi()
 

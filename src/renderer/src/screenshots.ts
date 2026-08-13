@@ -1,5 +1,6 @@
 import {
   buildDemoAnalyzeResult,
+  buildDemoEmailInspect,
   buildDemoSettings,
   DEMO_DNS_HTML,
   DEMO_ROLLOUT_DNS,
@@ -9,7 +10,15 @@ import { t } from '../../shared/i18n'
 import type { AppTheme } from '../../shared/theme'
 import type { IpInfo } from '../../shared/types'
 import { applyUiLocale } from './chrome'
-import { dnsDialog, dnsDomainEl, dnsResultEl, rolloutDialog, settingsDialog } from './dom'
+import {
+  dnsDialog,
+  dnsDomainEl,
+  dnsResultEl,
+  emailInspectDialog,
+  rolloutDialog,
+  settingsDialog
+} from './dom'
+import { openEmailInspect, seedEmailInspect } from './email-inspect-ui'
 import { openRollout, seedRolloutDns } from './rollout-ui'
 import { renderTransportSecurity } from './transport-view'
 import { applySettings, fillGlobalForm, openSettings, showSettingsTab } from './settings-ui'
@@ -178,6 +187,13 @@ export function installScreenshotApi(): void {
     },
     closeRollout(): void {
       rolloutDialog.close()
+    },
+    openEmailInspectDemo(): void {
+      seedEmailInspect(buildDemoEmailInspect())
+      openEmailInspect()
+    },
+    closeEmailInspect(): void {
+      emailInspectDialog.close()
     },
     setTheme(theme: AppTheme): void {
       applyTheme(theme)

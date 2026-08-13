@@ -45,6 +45,7 @@ import {
   reportsInPeriod,
   writeReportFile
 } from './pdf-report'
+import { inspectEmailBuffer, inspectEmailText } from './email-inspect'
 import { importLocalFiles, loadLocalImportResult, type ImportTargetAccount } from './import'
 import { checkDomainDns } from './dnscheck'
 import { checkTransportSecurity } from './transport'
@@ -822,6 +823,37 @@ function registerIpc(): void {
         })
       }
       return importLocalFiles(buffers, importTargetAccount())
+    }
+  )
+
+  ipcMain.handle('email:open', async () => {
+    const openOptions = {
+      title: t('main.openEmail'),
+      properties: ['openFile'] as Array<'openFile'>,
+      filters: [
+        { name: 'E-Mail', extensions: ['eml', 'emlx', 'mime', 'txt'] },
+        { name: 'Alle Dateien / All files', extensions: ['*'] }
+      ]
+    }
+    const picked = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, openOptions)
+      : await dialog.showOpenDialog(openOptions)
+    if (picked.canceled || picked.filePaths.length === 0) return null
+    const filePath = picked.filePaths[0]
+    return inspectEmailBuffer(readFileSync(filePath), basename(filePath))
+  })
+
+  ipcMain.handle(
+    'email:parse',
+    async (_event, input: { name?: string; data?: ArrayBuffer | Uint8Array; text?: string }) => {
+      if (typeof input?.text === 'string') {
+        return inspectEmailText(input.text, input.name?.trim() || 'paste.eml')
+      }
+      if (!input?.data) return { ok: false, message: t('email.emptyFile') }
+      const rawName =
+        typeof input.name === 'string' && input.name.trim() ? input.name : 'message.eml'
+      const bytes = input.data instanceof ArrayBuffer ? new Uint8Array(input.data) : input.data
+      return inspectEmailBuffer(bytes, basename(rawName))
     }
   )
 

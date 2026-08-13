@@ -116,6 +116,26 @@
                     >Tool</span
                   >
                 </button>
+                <button
+                  type="button"
+                  id="btn-email-inspect"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.emailInspectTitle"
+                  title="E-Mail-Datei einlesen und bewerten"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.emailInspect"
+                      >E-Mail prüfen</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.emailInspectDesc"
+                      >Pfad und Authentifizierung einer Nachricht</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-tool" data-i18n="header.badgeTool"
+                    >Tool</span
+                  >
+                </button>
                 <hr class="nav-menu-divider" />
                 <button
                   type="button"
@@ -1750,6 +1770,60 @@
         </div>
         <div class="dialog-body rollout-body">
           <div id="rollout-result" class="rollout-result"></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="email-inspect-dialog">
+      <div class="settings-form email-inspect-form">
+        <header class="dialog-header">
+          <h2 data-i18n="email.title">E-Mail prüfen</h2>
+          <button
+            type="button"
+            id="btn-close-email-inspect"
+            class="btn ghost"
+            data-i18n-aria="email.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <p class="hint" data-i18n="email.hint">
+          Eine gespeicherte Nachricht (.eml) einlesen. Gezeigt werden der Transportweg und die
+          Sicherheitsbewertung aus den Headern — der Inhalt der Mail bleibt ungelesen.
+        </p>
+        <div class="email-inspect-controls">
+          <button
+            type="button"
+            id="btn-email-inspect-open"
+            class="btn primary"
+            data-i18n="email.open"
+          >
+            Datei öffnen
+          </button>
+        </div>
+        <details id="email-inspect-paste" class="email-inspect-paste">
+          <summary data-i18n="email.pasteToggle">Header einfügen</summary>
+          <p class="hint" data-i18n="email.pasteHint">
+            Rohquelle oder Header (z. B. Gmail „Original anzeigen“) hier einfügen.
+          </p>
+          <textarea
+            id="email-inspect-paste-text"
+            rows="6"
+            spellcheck="false"
+            autocomplete="off"
+          ></textarea>
+          <button
+            type="button"
+            id="btn-email-inspect-paste"
+            class="btn secondary"
+            data-i18n="email.analyze"
+          >
+            Auswerten
+          </button>
+        </details>
+        <div class="dialog-body email-inspect-body">
+          <div id="email-inspect-result" class="email-inspect-result"></div>
         </div>
       </div>
     </dialog>

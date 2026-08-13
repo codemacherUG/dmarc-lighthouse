@@ -21,6 +21,7 @@ import {
   progressLabelEl,
   settingsStatusEl
 } from './dom'
+import { inspectDroppedFile, isEmailInspectOpen } from './email-inspect-ui'
 import { escapeHtml } from './format'
 import {
   accountHasAuth,
@@ -257,6 +258,7 @@ export function initActions(): void {
   let dragDepth = 0
   window.addEventListener('dragenter', (e) => {
     e.preventDefault()
+    if (isEmailInspectOpen()) return
     dragDepth += 1
     dropOverlay.classList.remove('hidden')
   })
@@ -274,6 +276,11 @@ export function initActions(): void {
     dropOverlay.classList.add('hidden')
     const files = [...(e.dataTransfer?.files ?? [])]
     if (!files.length || state.busy) return
+    if (isEmailInspectOpen()) {
+      const file = files[0]
+      if (file) void inspectDroppedFile(file)
+      return
+    }
     void (async () => {
       setBusy(true)
       try {

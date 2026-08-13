@@ -1981,7 +1981,8 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #export-dialog,
 #dns-dialog,
 #create-mailbox-dialog,
-#status-log-dialog {
+#status-log-dialog,
+#email-inspect-dialog {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0;
@@ -2000,6 +2001,11 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 
 #rollout-dialog {
   width: min(760px, calc(100vw - 32px));
+  overflow: hidden;
+}
+
+#email-inspect-dialog {
+  width: min(820px, calc(100vw - 32px));
   overflow: hidden;
 }
 
@@ -2174,6 +2180,201 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   flex: 1 1 260px;
   word-break: break-all;
   font-size: 0.85rem;
+}
+
+#email-inspect-dialog .email-inspect-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  padding: 0;
+}
+
+#email-inspect-dialog .dialog-header,
+#email-inspect-dialog > .email-inspect-form > .hint,
+.email-inspect-controls,
+.email-inspect-paste {
+  padding: 0 18px;
+}
+
+#email-inspect-dialog .dialog-header {
+  padding-top: 16px;
+  margin-bottom: 8px;
+}
+
+.email-inspect-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 4px;
+}
+
+.email-inspect-paste {
+  margin: 8px 0 4px;
+}
+
+.email-inspect-paste summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.email-inspect-paste textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  resize: vertical;
+  min-height: 7rem;
+}
+
+.email-inspect-body {
+  overflow: auto;
+  padding: 8px 18px 18px;
+}
+
+.email-inspect-placeholder {
+  margin: 24px 0;
+  text-align: center;
+}
+
+.email-verdict {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--other);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--bg-panel));
+}
+
+.email-verdict.ok {
+  border-left-color: var(--ok);
+}
+
+.email-verdict.warn {
+  border-left-color: var(--warn);
+}
+
+.email-verdict.bad {
+  border-left-color: var(--bad);
+}
+
+.email-verdict.unknown {
+  border-left-color: var(--other);
+}
+
+.email-verdict-file {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.email-verdict h3 {
+  margin: 4px 0 8px;
+  font-size: 1.05rem;
+}
+
+.email-inspect-section {
+  margin-top: 16px;
+}
+
+.email-inspect-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.email-identity {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.email-id-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.email-id-row dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.email-id-row dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.email-checks,
+.email-inspect-list,
+.email-hops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.email-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.email-check p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.email-hop {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 10px;
+  align-items: start;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.email-hop:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 0.85rem;
+  top: 1.7rem;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+
+.email-hop-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: var(--tint-accent);
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 0.82rem;
+  position: relative;
+  z-index: 1;
+}
+
+.email-hop.no-tls .email-hop-index {
+  background: var(--tint-warn);
+  color: var(--tint-warn-ink);
+}
+
+.email-hop-meta {
+  margin: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 #builder-dialog .builder-form {
@@ -2531,7 +2732,8 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #export-dialog::backdrop,
 #dns-dialog::backdrop,
 #create-mailbox-dialog::backdrop,
-#status-log-dialog::backdrop {
+#status-log-dialog::backdrop,
+#email-inspect-dialog::backdrop {
   background: rgba(20, 28, 38, 0.45);
 }
 

@@ -17,7 +17,8 @@ import type {
   SettingsPublic,
   TestConnectionResult,
   TransportSecurityResult,
-  UpdateStatusPayload
+  UpdateStatusPayload,
+  EmailInspectResponse
 } from '../shared/types'
 
 export interface DmarcLighthouseApi {
@@ -45,6 +46,12 @@ export interface DmarcLighthouseApi {
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
   openFiles: () => Promise<AnalyzeResult | null>
   parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>) => Promise<AnalyzeResult>
+  openEmailFile: () => Promise<EmailInspectResponse | null>
+  parseEmail: (input: {
+    name?: string
+    data?: ArrayBuffer
+    text?: string
+  }) => Promise<EmailInspectResponse>
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'
@@ -76,6 +83,8 @@ declare global {
       closeRollout: () => void
       openDnsDemo: () => void
       closeDns: () => void
+      openEmailInspectDemo: () => void
+      closeEmailInspect: () => void
       setTheme: (theme: AppTheme) => void
       scrollTo: (selector: string) => Promise<void>
       selectFirstReport: () => Promise<void>

@@ -1,10 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
-import { getLocale } from '../shared/i18n'
-import { buildDemoAnalyzeResult } from '../shared/demo-data'
-import { buildManagementReportHtml } from '../shared/report-html'
-import { domainHealthFromReports } from './pdf-report'
 
 async function wait(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms))
@@ -102,39 +98,6 @@ async function captureViewport(
   }
 }
 
-/**
- * Preview of the management report from demo data. The report lives outside the
- * app window, so it gets its own A4-shaped window and a full-page capture.
- */
-async function captureReportPreview(outDir: string): Promise<void> {
-  const result = buildDemoAnalyzeResult()
-  const html = buildManagementReportHtml({
-    result,
-    locale: getLocale(),
-    month: '2026-07',
-    domain: 'example.com',
-    account: 'example.com',
-    domains: domainHealthFromReports(result.reports),
-    generatedAt: '2026-08-01T06:00:00.000Z',
-    appVersion: app.getVersion()
-  })
-  // A4 at 96 dpi, so the print layout matches what the PDF will look like.
-  const win = new BrowserWindow({
-    show: false,
-    width: 794,
-    height: 1123,
-    backgroundColor: '#ffffff',
-    webPreferences: { javascript: false, sandbox: true }
-  })
-  try {
-    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-    await wait(700)
-    await captureViewport(win, join(outDir, 'report.png'), 794, 1900)
-  } finally {
-    win.destroy()
-  }
-}
-
 /** Capture anonymized README screenshots, then quit. */
 export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
   const outDir = join(process.cwd(), 'docs', 'screenshots')
@@ -208,9 +171,13 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
   await wait(400)
   await capture(win, join(outDir, 'dns.png'))
   await api(win, 'api.closeDns()')
+
+  await api(win, 'api.openEmailInspectDemo()')
+  await wait(500)
+  await captureViewport(win, join(outDir, 'email.png'), 1400, 1280)
+  await api(win, 'api.closeEmailInspect()')
+
   await captureFullPage(win, join(outDir, 'app-full.png'))
-  // Last, because it needs a second window — restricted sandboxes deny that.
-  await captureReportPreview(outDir)
 
   console.log('Screenshot capture complete.')
   app.exit(0)

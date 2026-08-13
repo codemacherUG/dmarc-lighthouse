@@ -52,6 +52,25 @@ export const btnSettings = document.getElementById('btn-settings') as HTMLButton
 export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonElement
 export const btnSpfBuilder = document.getElementById('btn-spf-builder') as HTMLButtonElement
 export const btnRollout = document.getElementById('btn-rollout') as HTMLButtonElement
+export const btnEmailInspect = document.getElementById('btn-email-inspect') as HTMLButtonElement
+export const emailInspectDialog = document.getElementById(
+  'email-inspect-dialog'
+) as HTMLDialogElement
+export const btnCloseEmailInspect = document.getElementById(
+  'btn-close-email-inspect'
+) as HTMLButtonElement
+export const btnEmailInspectOpen = document.getElementById(
+  'btn-email-inspect-open'
+) as HTMLButtonElement
+export const btnEmailInspectPaste = document.getElementById(
+  'btn-email-inspect-paste'
+) as HTMLButtonElement
+export const emailInspectPasteEl = document.getElementById(
+  'email-inspect-paste-text'
+) as HTMLTextAreaElement
+export const emailInspectResultEl = document.getElementById(
+  'email-inspect-result'
+) as HTMLDivElement
 export const rolloutDialog = document.getElementById('rollout-dialog') as HTMLDialogElement
 export const btnCloseRollout = document.getElementById('btn-close-rollout') as HTMLButtonElement
 export const btnRolloutRefresh = document.getElementById('btn-rollout-refresh') as HTMLButtonElement

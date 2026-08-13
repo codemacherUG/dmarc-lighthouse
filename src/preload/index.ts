@@ -18,7 +18,8 @@ import type {
   SettingsPublic,
   TestConnectionResult,
   TransportSecurityResult,
-  UpdateStatusPayload
+  UpdateStatusPayload,
+  EmailInspectResponse
 } from '../shared/types'
 
 const api = {
@@ -65,6 +66,12 @@ const api = {
   openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
   parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>): Promise<AnalyzeResult> =>
     ipcRenderer.invoke('files:parseBuffers', files),
+  openEmailFile: (): Promise<EmailInspectResponse | null> => ipcRenderer.invoke('email:open'),
+  parseEmail: (input: {
+    name?: string
+    data?: ArrayBuffer
+    text?: string
+  }): Promise<EmailInspectResponse> => ipcRenderer.invoke('email:parse', input),
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'

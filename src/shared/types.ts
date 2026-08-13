@@ -510,6 +510,96 @@ export interface TransportSecurityResult {
   checkedAt: string
 }
 
+/** Traffic-light for a single email inspection finding. */
+export type EmailInspectStatus = 'ok' | 'warn' | 'bad' | 'unknown'
+
+/** One hop from a `Received` header, oldest first (origin = 1). */
+export interface EmailHop {
+  index: number
+  fromHost: string | null
+  fromIp: string | null
+  byHost: string | null
+  protocol: string | null
+  tlsVersion: string | null
+  tlsCipher: string | null
+  withTls: boolean
+  /** Internal hop (LMTP, loopback, RFC1918 / ULA) — TLS is not expected. */
+  local?: boolean
+  timestamp: string | null
+  forAddr: string | null
+  id: string | null
+  raw: string
+  ipInfo?: IpInfo | null
+}
+
+export interface AuthMethodResult {
+  method: string
+  result: string
+  reason: string | null
+  properties: Record<string, string>
+}
+
+export interface AuthResultsBlock {
+  authservId: string
+  methods: AuthMethodResult[]
+  raw: string
+  /** True when the receiver recorded `none` (no SPF/DKIM/DMARC check). */
+  skipped?: boolean
+}
+
+export interface DkimSignatureInfo {
+  domain: string | null
+  selector: string | null
+  identity: string | null
+  algorithm: string | null
+  raw: string
+}
+
+export interface ArcSetInfo {
+  instance: number
+  cv: string | null
+  authservId: string | null
+}
+
+export interface EmailIdentity {
+  from: string | null
+  fromDisplay: string | null
+  fromDomain: string | null
+  returnPath: string | null
+  returnPathDomain: string | null
+  replyTo: string | null
+  replyToDomain: string | null
+  to: string | null
+  subject: string | null
+  date: string | null
+  messageId: string | null
+}
+
+/** One security finding; `titleKey` / `detailKey` are i18n keys. */
+export interface EmailInspectCheck {
+  id: string
+  status: EmailInspectStatus
+  titleKey: string
+  detailKey: string
+  params?: Record<string, string | number>
+}
+
+export interface EmailInspectResult {
+  fileName: string
+  identity: EmailIdentity
+  hops: EmailHop[]
+  authResults: AuthResultsBlock[]
+  receivedSpf: Array<{ result: string; raw: string }>
+  dkimSignatures: DkimSignatureInfo[]
+  arc: ArcSetInfo[]
+  checks: EmailInspectCheck[]
+  status: EmailInspectStatus
+  verdictKey: string
+}
+
+export type EmailInspectResponse =
+  { ok: true; result: EmailInspectResult } | { ok: false; message: string }
+
 /** Expanded SPF allowlist (ip4/ip6/include/a/mx/redirect → CIDRs). */
 export interface SpfExpandResult {
   domain: string
