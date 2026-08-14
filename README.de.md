@@ -51,7 +51,7 @@ Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Ele
 
 ### Dashboard
 
-Kennzahlen, Alignment-Charts (inkl. Disposition), Zeitreihe, Filter (inkl. optionalem Mailbox-Rauschen-Filter) sowie Domain-Ampel:
+Kennzahlen, Alignment-Charts (inkl. Disposition), Zeitreihe, Filter (inkl. Reject / Nicht reject und optionalem Mailbox-Rauschen) sowie Domain-Ampel:
 
 ![Dashboard mit KPIs, Alignment-Charts und DNS-Check](docs/screenshots/de/dashboard.png)
 
@@ -116,10 +116,10 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Policy-Rollout**        | Empfehlung für den nächsten Schritt (`none` → `quarantine` → `reject`) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                                                            |
 | **Quellenkarte**          | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
 | **Domain-Ampel**          | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain                                                                                                                                            |
-| **Filter**                | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain sowie Drill-Down nach Org, Quell-IP und From-Domain                                                                                                          |
+| **Filter**                | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain, angewandte Disposition (Reject / Nicht reject) sowie Drill-Down nach Org, Quell-IP und From-Domain                                                          |
 | **Mailbox-Rauschen**      | Optionaler, gespeicherter Filter für Weiterleitungs-/Report-Echo-Zeilen von Gmail, Outlook, Yahoo und iCloud (Mailbox-IP + SPF fail + DKIM pass + DMARC pass)                                                                 |
 | **DNS-Check**             | Live-Abfrage von DMARC (`p`, `rua`), SPF und DKIM-Selektoren (automatisch aus den Reports oder manuell)                                                                                                                       |
-| **Record-Wizards**        | DMARC, SPF, TLS-RPT, MTA-STS und BIMI geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei)                                                                                                     |
+| **Record-Wizards**        | DMARC, SPF, TLS-RPT, MTA-STS und BIMI geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei)                                                                                                 |
 | **Transport-Sicherheit**  | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil                                                                                                        |
 | **E-Mail prüfen**         | `.eml` / `.msg` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil, PDF-Export. Nur lokal; Body ungelesen                                                      |
 | **Export**                | Aktuell gefilterte Daten als CSV oder JSON; einzelne Aggregate-Reports als ZIP (XML)                                                                                                                                          |
@@ -176,7 +176,7 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 1. **Einstellungen** → **Konto-Verwaltung** öffnen, Anbieter/Host sowie App-Passwort oder OAuth setzen und speichern. Bei Bedarf weitere Konten anlegen.
 2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** Auto-Abruf, Alerts, System-Tray und Autostart konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
-4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Mailbox-Rauschen ausblenden**, um Report-Echo-Hops von Gmail, Outlook, Yahoo und iCloud zu entfernen. Charts, Aggregate-Tabellen, Forensik-/RUF-Tabelle und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Reports als ZIP laden.
+4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, **Disposition** (Reject / Nicht reject), Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Mailbox-Rauschen ausblenden**, um Report-Echo-Hops von Gmail, Outlook, Yahoo und iCloud zu entfernen. Charts, Aggregate-Tabellen, Forensik-/RUF-Tabelle und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Reports als ZIP laden.
 5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF sowie DKIM-Selektoren aus den Reports oder manuell).
 6. Unter **Tools → E-Mail prüfen** eine `.eml` oder `.msg` laden (auf den Dialog ziehen) oder Header einfügen. Weg, TLS vs. lokale Stationen sowie SPF/DKIM/DMARC/ARC prüfen. Lokaler Versand mit `Authentication-Results: none` ist „unbekannt“, kein Spoofing.
 7. Unter **Tools → Policy-Rollout** den nächsten Schritt zu `p=reject` planen: Empfehlung, offene Punkte, zu klärende Absender und Staging-Plan mit kopierbaren Records.
@@ -208,7 +208,7 @@ IMAP-Postfach/-Postfächer / lokale Dateien
         ▼
   Analyse → KPIs, Charts, Tabellen
         │
-        ├── Filter (Zeitraum, Domain, Drill-Down Org / IP / From)
+        ├── Filter (Zeitraum, Domain, Disposition, Drill-Down Org / IP / From)
         ├── DNS-Check (DMARC / SPF / DKIM)
         ├── Record-Wizards (DMARC / SPF / TLS-RPT / MTA-STS / BIMI)
         ├── E-Mail prüfen (.eml / .msg / Einfügen: Weg, TLS, SPF/DKIM/DMARC/ARC)

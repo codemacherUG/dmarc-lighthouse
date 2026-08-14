@@ -15,6 +15,9 @@ export type DateRangePreset = 'all' | '7' | '30' | '90' | 'custom'
 /** Dashboard date filter applied on load and after "Reset". */
 export const DEFAULT_DATE_RANGE: DateRangePreset = '90'
 
+/** Applied DMARC disposition: reject vs everything else (none/quarantine). */
+export type DispositionFilter = 'all' | 'reject' | 'not-reject'
+
 export type UpdateStatusPayload =
   | { status: 'checking' }
   | { status: 'available'; version: string }
@@ -637,6 +640,8 @@ export interface DashboardFilter {
   sourceIp?: string
   /** Drill-down: only records with this header-from domain. */
   headerFrom?: string
+  /** `reject` = only rejected records; `not-reject` = delivered / quarantined / other. */
+  disposition?: DispositionFilter
   /**
    * Hide mailbox-provider forwarding / report-echo artifacts:
    * Gmail/Outlook/Yahoo/iCloud source IP + SPF fail + DKIM pass + DMARC pass.

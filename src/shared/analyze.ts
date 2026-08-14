@@ -4,6 +4,7 @@ import type {
   DashboardData,
   DashboardFilter,
   DateRangePreset,
+  DispositionFilter,
   DnsCheckResult,
   DomainHealth,
   DomainHealthStatus,
@@ -322,6 +323,26 @@ export function parseSourceIpFilter(sourceIp: string | undefined): string[] | nu
   return ips.length ? ips : null
 }
 
+export function normalizeDispositionFilter(value: unknown): DispositionFilter {
+  return value === 'reject' || value === 'not-reject' ? value : 'all'
+}
+
+/** True when the applied disposition (or forensic Delivery-Result) is reject. */
+export function isRejectDisposition(value: string | null | undefined): boolean {
+  const v = (value ?? '').trim().toLowerCase()
+  return v === 'reject' || v === 'rejected'
+}
+
+export function matchesDispositionFilter(
+  value: string | null | undefined,
+  filter: DispositionFilter | undefined
+): boolean {
+  const mode = normalizeDispositionFilter(filter)
+  if (mode === 'all') return true
+  const rejected = isRejectDisposition(value)
+  return mode === 'reject' ? rejected : !rejected
+}
+
 export function recordMatchesSourceIp(recIp: string, filter: string | undefined): boolean {
   const ips = parseSourceIpFilter(filter)
   if (!ips) return true
@@ -520,6 +541,8 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
   const headerFrom = filter.headerFrom?.trim()
   const hideMailboxNoise = Boolean(filter.hideMailboxNoise)
   const mailboxIps = filter.mailboxIps
+  const disposition = normalizeDispositionFilter(filter.disposition)
+  const filterDisposition = disposition !== 'all'
 
   const rows: ReportRow[] = []
   for (const r of reports) {
@@ -535,11 +558,14 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
       if (Number.isNaN(t) || t < cutoff.getTime()) continue
     }
 
-    if (sourceIp || headerFrom || hideMailboxNoise) {
+    if (sourceIp || headerFrom || hideMailboxNoise || filterDisposition) {
       const records = r.records.filter((rec) => {
         if (sourceIp && !recordMatchesSourceIp(rec.sourceIp, sourceIp)) return false
         if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
         if (hideMailboxNoise && isMailboxNoiseRecord(rec, mailboxIps)) return false
+        if (filterDisposition && !matchesDispositionFilter(rec.disposition, disposition)) {
+          return false
+        }
         return true
       })
       if (records.length === 0) continue
@@ -560,11 +586,14 @@ export function filterForensicReports(
   const domain = filter.domain.trim().toLowerCase()
   const sourceIp = filter.sourceIp?.trim()
   const headerFrom = filter.headerFrom?.trim()
+  const disposition = normalizeDispositionFilter(filter.disposition)
+  const filterDisposition = disposition !== 'all'
 
   return reports.filter((r) => {
     if (domain && (r.reportedDomain ?? '').toLowerCase() !== domain) return false
     if (sourceIp && !recordMatchesSourceIp(r.sourceIp ?? '', sourceIp)) return false
     if (headerFrom && (r.headerFrom ?? UNKNOWN) !== headerFrom) return false
+    if (filterDisposition && !matchesDispositionFilter(r.deliveryResult, disposition)) return false
     const end = r.arrivalDate
     if (customRange && (filter.from || filter.to)) {
       if (!inCustomDayRange(end, filter.from, filter.to)) return false
@@ -581,7 +610,10 @@ export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilte
   const filtered = filterReports(full.reports, filter)
   const forensicReports = filterForensicReports(full.forensicReports ?? [], filter)
   const mutatesRecords = Boolean(
-    filter.sourceIp?.trim() || filter.headerFrom?.trim() || filter.hideMailboxNoise
+    filter.sourceIp?.trim() ||
+    filter.headerFrom?.trim() ||
+    filter.hideMailboxNoise ||
+    (filter.disposition && filter.disposition !== 'all')
   )
   if (
     !mutatesRecords &&
