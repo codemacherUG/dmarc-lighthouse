@@ -371,6 +371,34 @@ function emptyMeta(accountKey: string): CacheMeta {
   }
 }
 
+function recordFromRow(rec: {
+  source_ip: string
+  count: number
+  disposition: string | null
+  dkim_result: string | null
+  spf_result: string | null
+  header_from: string | null
+  dkim_domain: string | null
+  spf_domain: string | null
+  passes_dmarc: number
+  reasons_json: string
+  selectors_json: string
+}): SerializedRecord {
+  return normalizeRecord({
+    sourceIp: rec.source_ip,
+    count: rec.count,
+    disposition: rec.disposition,
+    dkimResult: rec.dkim_result,
+    spfResult: rec.spf_result,
+    headerFrom: rec.header_from,
+    dkimDomain: rec.dkim_domain,
+    spfDomain: rec.spf_domain,
+    passesDmarc: Boolean(rec.passes_dmarc),
+    reasons: JSON.parse(rec.reasons_json || '[]'),
+    dkimSelectors: JSON.parse(rec.selectors_json || '[]')
+  })
+}
+
 function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
   const reportRows = database
     .prepare(
@@ -392,58 +420,52 @@ function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
     policy_p: string | null
   }>
 
-  const recStmt = database.prepare(
-    `SELECT source_ip, count, disposition, dkim_result, spf_result, header_from,
-            dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
-     FROM report_records
-     WHERE account_key = ? AND report_id = ?
-     ORDER BY ordinal ASC`
-  )
+  if (reportRows.length === 0) return []
 
-  return reportRows.map((row) => {
-    const records = (
-      recStmt.all(accountKey, row.report_id) as Array<{
-        source_ip: string
-        count: number
-        disposition: string | null
-        dkim_result: string | null
-        spf_result: string | null
-        header_from: string | null
-        dkim_domain: string | null
-        spf_domain: string | null
-        passes_dmarc: number
-        reasons_json: string
-        selectors_json: string
-      }>
-    ).map((rec) =>
-      normalizeRecord({
-        sourceIp: rec.source_ip,
-        count: rec.count,
-        disposition: rec.disposition,
-        dkimResult: rec.dkim_result,
-        spfResult: rec.spf_result,
-        headerFrom: rec.header_from,
-        dkimDomain: rec.dkim_domain,
-        spfDomain: rec.spf_domain,
-        passesDmarc: Boolean(rec.passes_dmarc),
-        reasons: JSON.parse(rec.reasons_json || '[]'),
-        dkimSelectors: JSON.parse(rec.selectors_json || '[]')
-      })
+  const recRows = database
+    .prepare(
+      `SELECT report_id, source_ip, count, disposition, dkim_result, spf_result, header_from,
+              dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
+       FROM report_records
+       WHERE account_key = ?
+       ORDER BY report_id, ordinal ASC`
     )
-    return {
-      reportId: row.report_id,
-      orgName: row.org_name,
-      domain: row.domain,
-      dateBegin: row.date_begin,
-      dateEnd: row.date_end,
-      total: row.total,
-      passing: row.passing,
-      failing: row.failing,
-      passRate: row.pass_rate,
-      policyP: row.policy_p,
-      records
-    }
-  })
+    .all(accountKey) as Array<{
+    report_id: string
+    source_ip: string
+    count: number
+    disposition: string | null
+    dkim_result: string | null
+    spf_result: string | null
+    header_from: string | null
+    dkim_domain: string | null
+    spf_domain: string | null
+    passes_dmarc: number
+    reasons_json: string
+    selectors_json: string
+  }>
+
+  const recordsByReport = new Map<string, SerializedRecord[]>()
+  for (const rec of recRows) {
+    const item = recordFromRow(rec)
+    const list = recordsByReport.get(rec.report_id)
+    if (list) list.push(item)
+    else recordsByReport.set(rec.report_id, [item])
+  }
+
+  return reportRows.map((row) => ({
+    reportId: row.report_id,
+    orgName: row.org_name,
+    domain: row.domain,
+    dateBegin: row.date_begin,
+    dateEnd: row.date_end,
+    total: row.total,
+    passing: row.passing,
+    failing: row.failing,
+    passRate: row.pass_rate,
+    policyP: row.policy_p,
+    records: recordsByReport.get(row.report_id) ?? []
+  }))
 }
 
 function loadForensic(database: DatabaseSync, accountKey: string): ForensicReportRow[] {
@@ -672,6 +694,159 @@ export function mergeForensicReports(
   return [...map.values()].sort((a, b) => (b.arrivalDate ?? '').localeCompare(a.arrivalDate ?? ''))
 }
 
+export interface ImportCacheResult {
+  addedReports: number
+  updatedReports: number
+  addedForensic: number
+}
+
+function upsertKnownIps(database: DatabaseSync, accountKey: string, ips: Iterable<string>): void {
+  const ipStmt = database.prepare(
+    `INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)
+     ON CONFLICT(account_key, source_ip) DO NOTHING`
+  )
+  for (const ip of ips) {
+    if (ip) ipStmt.run(accountKey, ip)
+  }
+}
+
+function upsertAccountReports(
+  database: DatabaseSync,
+  accountKey: string,
+  reports: ReportRow[],
+  forensicReports: ForensicReportRow[]
+): ImportCacheResult {
+  const result: ImportCacheResult = { addedReports: 0, updatedReports: 0, addedForensic: 0 }
+  const reportExists = database.prepare(
+    'SELECT 1 AS hit FROM reports WHERE account_key = ? AND report_id = ?'
+  )
+  const upsertReport = database.prepare(
+    `INSERT INTO reports(
+       account_key, report_id, org_name, domain, date_begin, date_end,
+       total, passing, failing, pass_rate, policy_p
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(account_key, report_id) DO UPDATE SET
+       org_name = excluded.org_name,
+       domain = excluded.domain,
+       date_begin = excluded.date_begin,
+       date_end = excluded.date_end,
+       total = excluded.total,
+       passing = excluded.passing,
+       failing = excluded.failing,
+       pass_rate = excluded.pass_rate,
+       policy_p = excluded.policy_p`
+  )
+  const clearRecords = database.prepare(
+    'DELETE FROM report_records WHERE account_key = ? AND report_id = ?'
+  )
+  const recStmt = database.prepare(
+    `INSERT INTO report_records(
+       account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
+       header_from, dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  const ipStmt = database.prepare(
+    `INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)
+     ON CONFLICT(account_key, source_ip) DO NOTHING`
+  )
+
+  for (const report of reports) {
+    const reportId = reportKeyFor(report)
+    const seen = reportExists.get(accountKey, reportId) as { hit?: number } | undefined
+    if (seen) result.updatedReports += 1
+    else result.addedReports += 1
+
+    upsertReport.run(
+      accountKey,
+      reportId,
+      report.orgName,
+      report.domain,
+      report.dateBegin,
+      report.dateEnd,
+      report.total,
+      report.passing,
+      report.failing,
+      report.passRate,
+      report.policyP
+    )
+    clearRecords.run(accountKey, reportId)
+    report.records.forEach((rec, ordinal) => {
+      recStmt.run(
+        accountKey,
+        reportId,
+        ordinal,
+        rec.sourceIp,
+        rec.count,
+        rec.disposition,
+        rec.dkimResult,
+        rec.spfResult,
+        rec.headerFrom,
+        rec.dkimDomain,
+        rec.spfDomain,
+        rec.passesDmarc ? 1 : 0,
+        JSON.stringify(rec.reasons ?? []),
+        JSON.stringify(rec.dkimSelectors ?? [])
+      )
+      if (rec.sourceIp) ipStmt.run(accountKey, rec.sourceIp)
+    })
+  }
+
+  const forensicExists = database.prepare(
+    'SELECT 1 AS hit FROM forensic_reports WHERE account_key = ? AND id = ?'
+  )
+  const upsertForensic = database.prepare(
+    `INSERT INTO forensic_reports(
+       account_key, id, report_id, org_name, reported_domain, arrival_date, source_ip,
+       auth_failure, delivery_result, envelope_from, header_from, original_rcpt_to,
+       authentication_results, subject, feedback_type
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(account_key, id) DO UPDATE SET
+       report_id = excluded.report_id,
+       org_name = excluded.org_name,
+       reported_domain = excluded.reported_domain,
+       arrival_date = excluded.arrival_date,
+       source_ip = excluded.source_ip,
+       auth_failure = excluded.auth_failure,
+       delivery_result = excluded.delivery_result,
+       envelope_from = excluded.envelope_from,
+       header_from = excluded.header_from,
+       original_rcpt_to = excluded.original_rcpt_to,
+       authentication_results = excluded.authentication_results,
+       subject = excluded.subject,
+       feedback_type = excluded.feedback_type`
+  )
+  for (const f of forensicReports) {
+    const seen = forensicExists.get(accountKey, f.id) as { hit?: number } | undefined
+    if (!seen) result.addedForensic += 1
+    upsertForensic.run(
+      accountKey,
+      f.id,
+      f.reportId,
+      f.orgName,
+      f.reportedDomain,
+      f.arrivalDate,
+      f.sourceIp,
+      f.authFailure,
+      f.deliveryResult,
+      f.envelopeFrom,
+      f.headerFrom,
+      f.originalRcptTo,
+      f.authenticationResults,
+      f.subject,
+      f.feedbackType
+    )
+    if (f.sourceIp) ipStmt.run(accountKey, f.sourceIp)
+  }
+
+  return result
+}
+
+/**
+ * Upsert reports into the account cache and refresh IMAP watermarks.
+ *
+ * Existing reports that are not in `input.reports` stay in place — callers
+ * should pass only newly fetched rows, not the merged history.
+ */
 export function saveCache(input: {
   accountKey: string
   reports: ReportRow[]
@@ -685,17 +860,21 @@ export function saveCache(input: {
   const lastFetchAt = new Date().toISOString()
   const forensicReports = input.forensicReports ?? []
   const lastUidArchive = input.lastUidArchive ?? 0
+  const reports = input.reports.map(normalizeReport)
   withTransaction(database, () => {
-    writeAccountCache(database, {
-      accountKey: input.accountKey,
-      reports: input.reports.map(normalizeReport),
-      forensicReports,
-      lastUid: input.lastUid,
-      lastUidArchive,
-      lastFailingTotal: input.lastFailingTotal,
-      knownSourceIps: input.knownSourceIps,
-      lastFetchAt
-    })
+    database
+      .prepare(
+        `INSERT INTO cache_meta(account_key, last_uid, last_uid_archive, last_fetch_at, last_failing_total)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(account_key) DO UPDATE SET
+           last_uid = excluded.last_uid,
+           last_uid_archive = excluded.last_uid_archive,
+           last_fetch_at = excluded.last_fetch_at,
+           last_failing_total = excluded.last_failing_total`
+      )
+      .run(input.accountKey, input.lastUid, lastUidArchive, lastFetchAt, input.lastFailingTotal)
+    upsertAccountReports(database, input.accountKey, reports, forensicReports)
+    upsertKnownIps(database, input.accountKey, input.knownSourceIps)
   })
   return {
     accountKey: input.accountKey,
@@ -705,12 +884,6 @@ export function saveCache(input: {
     lastFailingTotal: input.lastFailingTotal,
     knownSourceIps: input.knownSourceIps
   }
-}
-
-export interface ImportCacheResult {
-  addedReports: number
-  updatedReports: number
-  addedForensic: number
 }
 
 /**
@@ -741,126 +914,10 @@ export function importReports(input: {
       )
       .run(accountKey)
 
-    const reportExists = database.prepare(
-      'SELECT 1 AS hit FROM reports WHERE account_key = ? AND report_id = ?'
-    )
-    const upsertReport = database.prepare(
-      `INSERT INTO reports(
-         account_key, report_id, org_name, domain, date_begin, date_end,
-         total, passing, failing, pass_rate, policy_p
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(account_key, report_id) DO UPDATE SET
-         org_name = excluded.org_name,
-         domain = excluded.domain,
-         date_begin = excluded.date_begin,
-         date_end = excluded.date_end,
-         total = excluded.total,
-         passing = excluded.passing,
-         failing = excluded.failing,
-         pass_rate = excluded.pass_rate,
-         policy_p = excluded.policy_p`
-    )
-    const clearRecords = database.prepare(
-      'DELETE FROM report_records WHERE account_key = ? AND report_id = ?'
-    )
-    const recStmt = database.prepare(
-      `INSERT INTO report_records(
-         account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
-         header_from, dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    const ipStmt = database.prepare(
-      `INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)
-       ON CONFLICT(account_key, source_ip) DO NOTHING`
-    )
-
-    for (const report of reports) {
-      const reportId = reportKeyFor(report)
-      const seen = reportExists.get(accountKey, reportId) as { hit?: number } | undefined
-      if (seen) result.updatedReports += 1
-      else result.addedReports += 1
-
-      upsertReport.run(
-        accountKey,
-        reportId,
-        report.orgName,
-        report.domain,
-        report.dateBegin,
-        report.dateEnd,
-        report.total,
-        report.passing,
-        report.failing,
-        report.passRate,
-        report.policyP
-      )
-      clearRecords.run(accountKey, reportId)
-      report.records.forEach((rec, ordinal) => {
-        recStmt.run(
-          accountKey,
-          reportId,
-          ordinal,
-          rec.sourceIp,
-          rec.count,
-          rec.disposition,
-          rec.dkimResult,
-          rec.spfResult,
-          rec.headerFrom,
-          rec.dkimDomain,
-          rec.spfDomain,
-          rec.passesDmarc ? 1 : 0,
-          JSON.stringify(rec.reasons ?? []),
-          JSON.stringify(rec.dkimSelectors ?? [])
-        )
-        if (rec.sourceIp) ipStmt.run(accountKey, rec.sourceIp)
-      })
-    }
-
-    const forensicExists = database.prepare(
-      'SELECT 1 AS hit FROM forensic_reports WHERE account_key = ? AND id = ?'
-    )
-    const upsertForensic = database.prepare(
-      `INSERT INTO forensic_reports(
-         account_key, id, report_id, org_name, reported_domain, arrival_date, source_ip,
-         auth_failure, delivery_result, envelope_from, header_from, original_rcpt_to,
-         authentication_results, subject, feedback_type
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(account_key, id) DO UPDATE SET
-         report_id = excluded.report_id,
-         org_name = excluded.org_name,
-         reported_domain = excluded.reported_domain,
-         arrival_date = excluded.arrival_date,
-         source_ip = excluded.source_ip,
-         auth_failure = excluded.auth_failure,
-         delivery_result = excluded.delivery_result,
-         envelope_from = excluded.envelope_from,
-         header_from = excluded.header_from,
-         original_rcpt_to = excluded.original_rcpt_to,
-         authentication_results = excluded.authentication_results,
-         subject = excluded.subject,
-         feedback_type = excluded.feedback_type`
-    )
-    for (const f of forensicReports) {
-      const seen = forensicExists.get(accountKey, f.id) as { hit?: number } | undefined
-      if (!seen) result.addedForensic += 1
-      upsertForensic.run(
-        accountKey,
-        f.id,
-        f.reportId,
-        f.orgName,
-        f.reportedDomain,
-        f.arrivalDate,
-        f.sourceIp,
-        f.authFailure,
-        f.deliveryResult,
-        f.envelopeFrom,
-        f.headerFrom,
-        f.originalRcptTo,
-        f.authenticationResults,
-        f.subject,
-        f.feedbackType
-      )
-      if (f.sourceIp) ipStmt.run(accountKey, f.sourceIp)
-    }
+    const stored = upsertAccountReports(database, accountKey, reports, forensicReports)
+    result.addedReports = stored.addedReports
+    result.updatedReports = stored.updatedReports
+    result.addedForensic = stored.addedForensic
 
     database
       .prepare(

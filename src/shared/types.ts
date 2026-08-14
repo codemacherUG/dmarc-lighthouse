@@ -12,6 +12,9 @@ export type OAuthProvider = 'google' | 'microsoft'
 
 export type DateRangePreset = 'all' | '7' | '30' | '90' | 'custom'
 
+/** Dashboard date filter applied on load and after "Reset". */
+export const DEFAULT_DATE_RANGE: DateRangePreset = '90'
+
 export type UpdateStatusPayload =
   | { status: 'checking' }
   | { status: 'available'; version: string }
@@ -154,8 +157,8 @@ export interface GlobalSettings {
   cloudRangesEnabled: boolean
   /** Allow on-demand RDAP/WHOIS lookups. */
   rdapEnabled: boolean
-  /** Persist dashboard filter: hide Google SPF-fail / DKIM-pass noise. */
-  hideGoogleNoise: boolean
+  /** Persist dashboard filter: hide mailbox-provider SPF-fail / DKIM-pass noise. */
+  hideMailboxNoise: boolean
   /** Write a PDF management report for the finished month, once per month. */
   pdfMonthlyEnabled: boolean
   /** Output folder for monthly reports; empty = Documents/DMARC Lighthouse. */
@@ -452,6 +455,18 @@ export interface DnsCheckResult {
   checkedAt: string
 }
 
+/** TXT at `{selector}._bimi.{domain}` (BIMI assertion record). */
+export interface BimiCheckResult {
+  domain: string
+  selector: string
+  host: string
+  found: boolean
+  records: string[]
+  location: string | null
+  authority: string | null
+  error?: string
+}
+
 export interface TlsRptCheck {
   found: boolean
   records: string[]
@@ -623,13 +638,13 @@ export interface DashboardFilter {
   /** Drill-down: only records with this header-from domain. */
   headerFrom?: string
   /**
-   * Hide Google forwarding / report-echo artifacts:
-   * Google source IP + SPF fail + DKIM pass + DMARC pass.
-   * Uses well-known Google IP prefixes; `googleIps` from enrichment is optional extra.
+   * Hide mailbox-provider forwarding / report-echo artifacts:
+   * Gmail/Outlook/Yahoo/iCloud source IP + SPF fail + DKIM pass + DMARC pass.
+   * Uses well-known prefixes; `mailboxIps` from enrichment is optional extra.
    */
-  hideGoogleNoise?: boolean
-  /** Extra source IPs identified as Google (cloud / PTR / ASN). */
-  googleIps?: ReadonlySet<string>
+  hideMailboxNoise?: boolean
+  /** Extra source IPs identified as mailbox providers (cloud / PTR / ASN / sender kind). */
+  mailboxIps?: ReadonlySet<string>
 }
 
 export function emptyDashboard(): DashboardData {

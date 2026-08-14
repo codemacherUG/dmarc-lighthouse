@@ -37,7 +37,7 @@ import {
   btnSettings,
   btnTest,
   cloudRangesEnabledEl,
-  filterHideGoogleNoiseEl,
+  filterHideMailboxNoiseEl,
   createMailboxDialog,
   createMailboxPathEl,
   createMailboxStatusEl,
@@ -386,7 +386,7 @@ export function readGlobalForm(): GlobalSettings {
     dnsblEnabled: dnsblEnabledEl.checked,
     cloudRangesEnabled: cloudRangesEnabledEl.checked,
     rdapEnabled: rdapEnabledEl.checked,
-    hideGoogleNoise: filterHideGoogleNoiseEl.checked,
+    hideMailboxNoise: filterHideMailboxNoiseEl.checked,
     pdfMonthlyEnabled: pdfMonthlyEnabledEl.checked,
     pdfMonthlyDir: pdfMonthlyDirEl.value.trim(),
     // Owned by the scheduler in the main process; sent back unchanged.
@@ -520,7 +520,7 @@ export function fillSettingsAccountSelect(): void {
 
 export function applySettings(next: SettingsPublic): void {
   state.settings = next
-  filterHideGoogleNoiseEl.checked = Boolean(next.global.hideGoogleNoise)
+  filterHideMailboxNoiseEl.checked = Boolean(next.global.hideMailboxNoise)
   updateAccountUi()
   if (state.fullResult) applyView()
 }

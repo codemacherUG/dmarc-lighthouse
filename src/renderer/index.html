@@ -217,6 +217,26 @@
                     >Wizard</span
                   >
                 </button>
+                <button
+                  type="button"
+                  id="btn-bimi-builder"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.bimiBuilderTitle"
+                  title="BIMI-Record erzeugen"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.bimiBuilder"
+                      >BIMI Wizard</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.bimiBuilderDesc"
+                      >Logo-Record für die Inbox erzeugen</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-wizard" data-i18n="header.badgeWizard"
+                    >Wizard</span
+                  >
+                </button>
               </div>
             </div>
             <button
@@ -332,10 +352,10 @@
             <label>
               <span data-i18n="filter.range">Zeitraum</span>
               <select id="filter-range">
-                <option value="all" selected data-i18n="filter.rangeAll">Gesamt</option>
+                <option value="all" data-i18n="filter.rangeAll">Gesamt</option>
                 <option value="7" data-i18n="filter.range7">Letzte 7 Tage</option>
                 <option value="30" data-i18n="filter.range30">Letzte 30 Tage</option>
-                <option value="90" data-i18n="filter.range90">Letzte 90 Tage</option>
+                <option value="90" selected data-i18n="filter.range90">Letzte 90 Tage</option>
                 <option value="custom" data-i18n="filter.rangeCustom">Benutzerdefiniert</option>
               </select>
             </label>
@@ -352,14 +372,34 @@
                 <option value="" data-i18n="filter.allDomains">Alle Domains</option>
               </select>
             </label>
-            <label
-              class="checkbox filter-google-noise"
-              data-i18n-title="filter.hideGoogleNoiseHint"
-              title="Google-IPs mit SPF fail / DKIM pass ausblenden (interne Weiterleitungen und Report-Echo)."
-            >
-              <input id="filter-hide-google-noise" type="checkbox" />
-              <span data-i18n="filter.hideGoogleNoise">Google-Rauschen ausblenden</span>
-            </label>
+            <div class="filter-mailbox-noise-wrap">
+              <label class="checkbox filter-mailbox-noise">
+                <input
+                  id="filter-hide-mailbox-noise"
+                  type="checkbox"
+                  aria-describedby="filter-mailbox-noise-tip"
+                />
+                <span data-i18n="filter.hideMailboxNoise">Mailbox-Rauschen ausblenden</span>
+              </label>
+              <button
+                type="button"
+                class="filter-hint"
+                data-i18n-aria="filter.hideMailboxNoiseHintLabel"
+                aria-label="Was ist Mailbox-Rauschen?"
+                aria-describedby="filter-mailbox-noise-tip"
+              >
+                ?
+              </button>
+              <span
+                id="filter-mailbox-noise-tip"
+                class="filter-hint-pop"
+                role="tooltip"
+                data-i18n="filter.hideMailboxNoiseHint"
+              >
+                Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus
+                (deren IP, SPF fail, DKIM pass, DMARC pass). Echte Absender bleiben sichtbar.
+              </span>
+            </div>
           </div>
           <div id="filter-chips" class="filter-chips hidden"></div>
         </section>
@@ -1856,7 +1896,7 @@
               </li>
             </ul>
             <p class="hint" data-i18n="tlsrptBuilder.domain.body">
-              Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag als Vorlage geladen.
+              Domain festlegen. Vorhandene TLS-RPT-Records werden als Vorlage geladen.
             </p>
             <div class="builder-form-grid">
               <label>
@@ -1870,6 +1910,7 @@
               </label>
             </div>
             <p id="tlsrpt-builder-domain-status" class="builder-status muted" role="status"></p>
+            <div id="tlsrpt-builder-preview" class="builder-live muted"></div>
           </section>
 
           <section class="tlsrpt-builder-panel builder-panel hidden" data-step="reporting">
@@ -1978,7 +2019,7 @@
               </li>
             </ul>
             <p class="hint" data-i18n="mtaStsBuilder.domain.body">
-              Domain festlegen. Beim Weiter werden TXT, Policy-Datei und MX-Hosts geladen.
+              Domain festlegen. Vorhandene TXT-, Policy- und MX-Daten werden als Vorlage geladen.
             </p>
             <div class="builder-form-grid">
               <label>
@@ -1992,6 +2033,7 @@
               </label>
             </div>
             <p id="mta-sts-builder-domain-status" class="builder-status muted" role="status"></p>
+            <div id="mta-sts-builder-preview" class="builder-live muted"></div>
           </section>
 
           <section class="mta-sts-builder-panel builder-panel hidden" data-step="policy">
@@ -2080,6 +2122,154 @@
               id="btn-mta-sts-builder-next"
               class="btn primary"
               data-i18n="mtaStsBuilder.next"
+            >
+              Weiter
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog id="bimi-builder-dialog">
+      <div class="settings-form builder-form">
+        <header class="dialog-header">
+          <h2 data-i18n="bimiBuilder.title">BIMI-Record erzeugen</h2>
+          <button
+            type="button"
+            id="btn-close-bimi-builder"
+            class="btn ghost"
+            data-i18n-aria="bimiBuilder.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+
+        <ol id="bimi-builder-steps" class="builder-steps" aria-label="Schritte">
+          <li data-step="domain" class="active">
+            <span class="builder-step-index">1</span>
+            <span data-i18n="bimiBuilder.step.domain">Domain</span>
+          </li>
+          <li data-step="logo">
+            <span class="builder-step-index">2</span>
+            <span data-i18n="bimiBuilder.step.logo">Logo</span>
+          </li>
+          <li data-step="result">
+            <span class="builder-step-index">3</span>
+            <span data-i18n="bimiBuilder.step.result">Ergebnis</span>
+          </li>
+        </ol>
+
+        <div class="dialog-body builder-body">
+          <section class="bimi-builder-panel builder-panel" data-step="domain">
+            <h3 data-i18n="bimiBuilder.domain.headline">Wozu BIMI?</h3>
+            <p class="builder-intro" data-i18n="bimiBuilder.domain.why">
+              BIMI zeigt dein Markenlogo neben der Absenderadresse in unterstützten Postfächern —
+              wenn DMARC auf quarantine oder reject steht und ein gültiges SVG vorliegt.
+            </p>
+            <ul class="builder-checklist">
+              <li data-i18n="bimiBuilder.domain.does1">
+                Der Assistent erzeugt einen TXT-Record unter default._bimi.&lt;Domain&gt; mit der
+                Logo-URL (l=) und optional dem VMC (a=).
+              </li>
+              <li data-i18n="bimiBuilder.domain.does2">
+                Gmail, Yahoo und Apple Mail zeigen das Logo nur mit einem Verified Mark Certificate
+                (VMC). SVG Tiny PS und HTTPS sind Pflicht.
+              </li>
+            </ul>
+            <p class="hint" data-i18n="bimiBuilder.domain.body">
+              Domain festlegen. Vorhandene BIMI- und DMARC-Records werden als Vorlage geladen.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="bimiBuilder.domain.label">Domain</span>
+                <input
+                  id="bimi-builder-domain"
+                  type="text"
+                  placeholder="example.com"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+            <p id="bimi-builder-domain-status" class="builder-status muted" role="status"></p>
+            <div id="bimi-builder-preview" class="builder-live muted"></div>
+          </section>
+
+          <section class="bimi-builder-panel builder-panel hidden" data-step="logo">
+            <h3 data-i18n="bimiBuilder.logo.headline">Logo und Zertifikat</h3>
+            <p class="hint" data-i18n="bimiBuilder.logo.body">
+              HTTPS-URL zum SVG Tiny PS Logo. Das VMC ist im Record optional, für die Anzeige bei
+              großen Anbietern aber nötig.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="bimiBuilder.logo.selector">Selektor</span>
+                <input
+                  id="bimi-builder-selector"
+                  type="text"
+                  placeholder="default"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="bimiBuilder.logo.selectorHint"
+                  >Meist default. Record liegt unter &lt;Selektor&gt;._bimi.&lt;Domain&gt;.</span
+                >
+              </label>
+              <label class="span-2">
+                <span data-i18n="bimiBuilder.logo.location">Logo-URL (l=)</span>
+                <input
+                  id="bimi-builder-location"
+                  type="url"
+                  placeholder="https://example.com/logo.svg"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="bimiBuilder.logo.locationHint"
+                  >Nur https://. Datei muss SVG Tiny Portable/Secure sein, quadratisch, ohne externe
+                  Referenzen.</span
+                >
+              </label>
+              <label class="span-2">
+                <span data-i18n="bimiBuilder.logo.authority">VMC-URL (a=, optional)</span>
+                <input
+                  id="bimi-builder-authority"
+                  type="url"
+                  placeholder="https://example.com/vmc.pem"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="bimiBuilder.logo.authorityHint"
+                  >HTTPS-URL zur PEM-Datei des Verified Mark Certificate. Ohne VMC bleibt das Logo
+                  bei Gmail/Yahoo unsichtbar.</span
+                >
+              </label>
+            </div>
+          </section>
+
+          <section class="bimi-builder-panel builder-panel hidden" data-step="result">
+            <h3 data-i18n="bimiBuilder.result.headline">DNS-Eintrag</h3>
+            <p class="hint" data-i18n="bimiBuilder.result.body">
+              TXT-Record unter default._bimi.&lt;Domain&gt; anlegen. Host und Wert getrennt
+              kopieren. Logo und VMC müssen unter den HTTPS-URLs erreichbar sein.
+            </p>
+            <div id="bimi-builder-result" class="builder-result"></div>
+            <div id="bimi-builder-live" class="builder-live muted"></div>
+          </section>
+        </div>
+
+        <footer class="dialog-footer">
+          <p id="bimi-builder-footer-hint" class="hint"></p>
+          <div class="dialog-actions">
+            <button
+              type="button"
+              id="btn-bimi-builder-back"
+              class="btn ghost"
+              data-i18n="bimiBuilder.back"
+            >
+              Zurück
+            </button>
+            <button
+              type="button"
+              id="btn-bimi-builder-next"
+              class="btn primary"
+              data-i18n="bimiBuilder.next"
             >
               Weiter
             </button>

@@ -7,7 +7,7 @@ import {
 } from '../../shared/demo-data'
 import { t, type AppLocale } from '../../shared/i18n'
 import type { AppTheme } from '../../shared/theme'
-import type { IpInfo } from '../../shared/types'
+import { DEFAULT_DATE_RANGE, type IpInfo } from '../../shared/types'
 import { applyUiLocale } from './chrome'
 import { escapeHtml } from './format'
 import {
@@ -15,6 +15,7 @@ import {
   dnsDomainEl,
   dnsResultEl,
   emailInspectDialog,
+  filterRangeEl,
   rolloutDialog,
   settingsDialog
 } from './dom'
@@ -59,6 +60,7 @@ export function installScreenshotApi(): void {
       applyTheme('light')
       state.selectedReportId = null
       clearDrill()
+      filterRangeEl.value = DEFAULT_DATE_RANGE
       showResult(buildDemoAnalyzeResult(), t('status.cached', { count: 12 }))
       fillDnsDemo()
       // Seed PTR / Geo labels without calling the network.

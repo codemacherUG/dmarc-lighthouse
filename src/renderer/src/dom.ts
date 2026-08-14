@@ -20,8 +20,8 @@ export const filterCustomWrap = document.getElementById('filter-custom-range') a
 export const filterFromEl = document.getElementById('filter-from') as HTMLInputElement
 export const filterToEl = document.getElementById('filter-to') as HTMLInputElement
 export const filterDomainEl = document.getElementById('filter-domain') as HTMLSelectElement
-export const filterHideGoogleNoiseEl = document.getElementById(
-  'filter-hide-google-noise'
+export const filterHideMailboxNoiseEl = document.getElementById(
+  'filter-hide-mailbox-noise'
 ) as HTMLInputElement
 export const filterChipsEl = document.getElementById('filter-chips') as HTMLDivElement
 export const filterPanelEl = document.getElementById('filter-panel') as HTMLElement
@@ -53,6 +53,7 @@ export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonEl
 export const btnSpfBuilder = document.getElementById('btn-spf-builder') as HTMLButtonElement
 export const btnTlsrptBuilder = document.getElementById('btn-tlsrpt-builder') as HTMLButtonElement
 export const btnMtaStsBuilder = document.getElementById('btn-mta-sts-builder') as HTMLButtonElement
+export const btnBimiBuilder = document.getElementById('btn-bimi-builder') as HTMLButtonElement
 export const btnRollout = document.getElementById('btn-rollout') as HTMLButtonElement
 export const btnEmailInspect = document.getElementById('btn-email-inspect') as HTMLButtonElement
 export const emailInspectDialog = document.getElementById(
@@ -132,9 +133,7 @@ export const updateCheckStatusEl = document.getElementById(
 ) as HTMLParagraphElement
 export const updateBanner = document.getElementById('update-banner') as HTMLDivElement
 export const updateBannerText = document.getElementById('update-banner-text') as HTMLSpanElement
-export const btnUpdateDownload = document.getElementById(
-  'btn-update-download'
-) as HTMLButtonElement
+export const btnUpdateDownload = document.getElementById('btn-update-download') as HTMLButtonElement
 export const btnUpdateInstall = document.getElementById('btn-update-install') as HTMLButtonElement
 export const btnUpdateDismiss = document.getElementById('btn-update-dismiss') as HTMLButtonElement
 
@@ -283,6 +282,9 @@ export const tlsrptBuilderDomainEl = document.getElementById(
 export const tlsrptBuilderDomainStatusEl = document.getElementById(
   'tlsrpt-builder-domain-status'
 ) as HTMLParagraphElement
+export const tlsrptBuilderPreviewEl = document.getElementById(
+  'tlsrpt-builder-preview'
+) as HTMLDivElement
 export const tlsrptBuilderRuaEl = document.getElementById('tlsrpt-builder-rua') as HTMLInputElement
 export const tlsrptBuilderResultEl = document.getElementById(
   'tlsrpt-builder-result'
@@ -313,6 +315,9 @@ export const mtaStsBuilderDomainEl = document.getElementById(
 export const mtaStsBuilderDomainStatusEl = document.getElementById(
   'mta-sts-builder-domain-status'
 ) as HTMLParagraphElement
+export const mtaStsBuilderPreviewEl = document.getElementById(
+  'mta-sts-builder-preview'
+) as HTMLDivElement
 export const mtaStsBuilderModeEl = document.getElementById(
   'mta-sts-builder-mode'
 ) as HTMLSelectElement
@@ -340,4 +345,39 @@ export const btnMtaStsBuilderBack = document.getElementById(
 ) as HTMLButtonElement
 export const btnMtaStsBuilderNext = document.getElementById(
   'btn-mta-sts-builder-next'
+) as HTMLButtonElement
+
+export const bimiBuilderDialog = document.getElementById('bimi-builder-dialog') as HTMLDialogElement
+export const bimiBuilderStepsEl = document.getElementById('bimi-builder-steps') as HTMLOListElement
+export const bimiBuilderDomainEl = document.getElementById(
+  'bimi-builder-domain'
+) as HTMLInputElement
+export const bimiBuilderDomainStatusEl = document.getElementById(
+  'bimi-builder-domain-status'
+) as HTMLParagraphElement
+export const bimiBuilderPreviewEl = document.getElementById(
+  'bimi-builder-preview'
+) as HTMLDivElement
+export const bimiBuilderSelectorEl = document.getElementById(
+  'bimi-builder-selector'
+) as HTMLInputElement
+export const bimiBuilderLocationEl = document.getElementById(
+  'bimi-builder-location'
+) as HTMLInputElement
+export const bimiBuilderAuthorityEl = document.getElementById(
+  'bimi-builder-authority'
+) as HTMLInputElement
+export const bimiBuilderResultEl = document.getElementById('bimi-builder-result') as HTMLDivElement
+export const bimiBuilderLiveEl = document.getElementById('bimi-builder-live') as HTMLDivElement
+export const bimiBuilderFooterHintEl = document.getElementById(
+  'bimi-builder-footer-hint'
+) as HTMLParagraphElement
+export const btnCloseBimiBuilder = document.getElementById(
+  'btn-close-bimi-builder'
+) as HTMLButtonElement
+export const btnBimiBuilderBack = document.getElementById(
+  'btn-bimi-builder-back'
+) as HTMLButtonElement
+export const btnBimiBuilderNext = document.getElementById(
+  'btn-bimi-builder-next'
 ) as HTMLButtonElement

@@ -9,6 +9,7 @@ import { state } from './state'
 import { applyView, initView, showResult } from './view'
 import { initRolloutUi, refreshRolloutLocale } from './rollout-ui'
 import { initEmailInspectUi, refreshEmailInspectLocale } from './email-inspect-ui'
+import { initBimiWizardUi, refreshBimiBuilderLocale } from './bimi-wizard-ui'
 import { initSpfWizardUi, refreshSpfBuilderLocale } from './spf-wizard-ui'
 import { initTlsrptWizardUi, refreshTlsrptBuilderLocale } from './tlsrpt-wizard-ui'
 import { initMtaStsWizardUi, refreshMtaStsBuilderLocale } from './mta-sts-wizard-ui'
@@ -20,6 +21,7 @@ setAfterLocaleChange(() => {
   refreshSpfBuilderLocale()
   refreshTlsrptBuilderLocale()
   refreshMtaStsBuilderLocale()
+  refreshBimiBuilderLocale()
   refreshRolloutLocale()
   refreshEmailInspectLocale()
   if (state.fullResult) {
@@ -37,6 +39,7 @@ initWizardUi()
 initSpfWizardUi()
 initTlsrptWizardUi()
 initMtaStsWizardUi()
+initBimiWizardUi()
 initRolloutUi()
 initEmailInspectUi()
 initActions()

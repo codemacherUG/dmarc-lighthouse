@@ -3,12 +3,19 @@ import type {
   AnalyzeProgress,
   AnalyzeResult,
   CreateMailboxResult,
+  ForensicReportRow,
   ImapConnectionInput,
   ListMailboxesResult,
   MailboxListEntry,
+  ReportRow,
   TestConnectionResult
 } from '../shared/types'
-import { analyzeFromReports, parseMimeSources } from './analyze'
+import {
+  addMimeSource,
+  analyzeFromReports,
+  emptyMimeParseBatch,
+  type MimeParseBatch
+} from './analyze'
 import {
   accountKeyFor,
   loadCachedReports,
@@ -20,15 +27,17 @@ import { t } from '../shared/i18n'
 
 export type ProgressCallback = (progress: AnalyzeProgress) => void
 
-interface MimeSource {
-  uid: number
-  source: Buffer
-}
-
 interface MailboxFetchResult {
-  sources: MimeSource[]
+  reports: ReportRow[]
+  forensicReports: ForensicReportRow[]
+  skipped: number
+  errors: string[]
   uidList: number[]
   maxUid: number
+}
+
+function emptyMailboxFetch(maxUid: number): MailboxFetchResult {
+  return { reports: [], forensicReports: [], skipped: 0, errors: [], uidList: [], maxUid }
 }
 
 function createClient(settings: ImapConnectionInput): ImapFlow {
@@ -281,7 +290,7 @@ async function fetchFromMailbox(
     const uidList = Array.isArray(uids) ? uids.filter((u) => u > lastUid) : []
 
     if (uidList.length === 0) {
-      return { sources: [], uidList: [], maxUid: lastUid }
+      return emptyMailboxFetch(lastUid)
     }
 
     const total = uidList.length
@@ -296,7 +305,7 @@ async function fetchFromMailbox(
         : t('imap.fetching', { count: total })
     })
 
-    const sources: MimeSource[] = []
+    const batch: MimeParseBatch = emptyMimeParseBatch()
     let processed = 0
     let maxUid = lastUid
 
@@ -304,24 +313,28 @@ async function fetchFromMailbox(
       processed += 1
       if (message.uid > maxUid) maxUid = message.uid
       if (message.source) {
-        sources.push({
-          uid: message.uid,
-          source: Buffer.from(message.source)
-        })
+        await addMimeSource(batch, message.uid, Buffer.from(message.source))
       }
       if (processed % 5 === 0 || processed === total) {
         onProgress({
           phase: 'fetching',
           processed,
           total,
-          parsed: 0,
-          skipped: 0,
+          parsed: batch.reports.length + batch.forensicReports.length,
+          skipped: batch.skipped,
           message: t('imap.loaded', { processed, total })
         })
       }
     }
 
-    return { sources, uidList, maxUid }
+    return {
+      reports: batch.reports,
+      forensicReports: batch.forensicReports,
+      skipped: batch.skipped,
+      errors: batch.errors,
+      uidList,
+      maxUid
+    }
   } finally {
     lock.release()
   }
@@ -471,11 +484,7 @@ export async function fetchAndAnalyze(
         onProgress
       )
 
-      let archiveFetch: MailboxFetchResult = {
-        sources: [],
-        uidList: [],
-        maxUid: lastUidArchive
-      }
+      let archiveFetch: MailboxFetchResult = emptyMailboxFetch(lastUidArchive)
       if (archiveMailbox) {
         archiveFetch = await fetchFromMailbox(
           client,
@@ -487,7 +496,13 @@ export async function fetchAndAnalyze(
         )
       }
 
-      const sources = [...sourceFetch.sources, ...archiveFetch.sources]
+      const freshReports = mergeReports(sourceFetch.reports, archiveFetch.reports)
+      const freshForensic = mergeForensicReports(
+        sourceFetch.forensicReports,
+        archiveFetch.forensicReports
+      )
+      const skipped = sourceFetch.skipped + archiveFetch.skipped
+      const errors = [...sourceFetch.errors, ...archiveFetch.errors].slice(0, 50)
       const totalFetched = sourceFetch.uidList.length + archiveFetch.uidList.length
 
       if (totalFetched === 0) {
@@ -514,21 +529,8 @@ export async function fetchAndAnalyze(
         })
       }
 
-      onProgress({
-        phase: 'parsing',
-        processed: totalFetched,
-        total: totalFetched,
-        parsed: 0,
-        skipped: 0,
-        message: t('imap.parsing', { count: sources.length })
-      })
-
-      const fresh = await parseMimeSources(sources)
-      const merged = mergeReports(cached.reports, fresh.reports)
-      const mergedForensic = mergeForensicReports(
-        cached.forensicReports,
-        fresh.forensicReports ?? []
-      )
+      const merged = mergeReports(cached.reports, freshReports)
+      const mergedForensic = mergeForensicReports(cached.forensicReports, freshForensic)
 
       // Detect source IPs never seen for this account before. When the cache
       // predates this feature (reports but no known IPs), seed silently.
@@ -538,8 +540,8 @@ export async function fetchAndAnalyze(
         for (const r of cached.reports) for (const rec of r.records) known.add(rec.sourceIp)
       }
       const freshIps = new Set<string>()
-      for (const r of fresh.reports) for (const rec of r.records) freshIps.add(rec.sourceIp)
-      for (const f of fresh.forensicReports ?? []) {
+      for (const r of freshReports) for (const rec of r.records) freshIps.add(rec.sourceIp)
+      for (const f of freshForensic) {
         if (f.sourceIp) freshIps.add(f.sourceIp)
       }
       const newSourceIps =
@@ -549,23 +551,23 @@ export async function fetchAndAnalyze(
       for (const ip of freshIps) known.add(ip)
 
       const result = analyzeFromReports(merged, {
-        skipped: fresh.skipped,
-        errors: fresh.errors,
+        skipped,
+        errors,
         fromCache: cached.reports.length > 0 || cached.forensicReports.length > 0,
-        newReports: fresh.reports.length,
-        newForensicReports: fresh.forensicReports?.length ?? 0,
+        newReports: freshReports.length,
+        newForensicReports: freshForensic.length,
         forensicReports: mergedForensic
       })
       result.newSourceIps = newSourceIps
 
       saveCache({
         accountKey,
-        reports: merged,
-        forensicReports: mergedForensic,
+        reports: freshReports,
+        forensicReports: freshForensic,
         lastUid: sourceFetch.maxUid,
         lastUidArchive: archiveMailbox ? archiveFetch.maxUid : lastUidArchive,
         lastFailingTotal: result.aggregate.failing,
-        knownSourceIps: [...known].sort()
+        knownSourceIps: seedOnly ? [...known] : [...freshIps]
       })
 
       const notes: string[] = []
@@ -592,7 +594,7 @@ export async function fetchAndAnalyze(
       }
 
       const doneMessage = t('imap.done', {
-        newCount: fresh.reports.length,
+        newCount: freshReports.length,
         total: result.reports.length,
         skipped: result.skipped
       })

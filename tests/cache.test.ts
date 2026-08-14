@@ -87,7 +87,7 @@ describe('sqlite cache', () => {
     const loaded = loadCachedReports('acct1')
     expect(loaded.meta.lastUid).toBe(42)
     expect(loaded.meta.lastUidArchive).toBe(7)
-    expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1'])
+    expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1', '203.0.113.1'])
     expect(loaded.reports).toHaveLength(1)
     expect(loaded.reports[0].records[0].dkimSelectors).toEqual(['s1'])
     expect(loaded.forensicReports).toHaveLength(1)
@@ -190,5 +190,35 @@ describe('sqlite cache', () => {
     const loaded = loadCachedReports(LOCAL_IMPORT_ACCOUNT_KEY)
     expect(loaded.reports).toHaveLength(1)
     expect(loaded.meta.lastUid).toBe(0)
+  })
+
+  it('appends newly saved reports without dropping the rest', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [sampleReport('r1')],
+      lastUid: 1,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+    const second = sampleReport('r2')
+    second.records = [{ ...second.records[0], sourceIp: '198.51.100.9' }]
+    saveCache({
+      accountKey: 'acct1',
+      reports: [second],
+      lastUid: 9,
+      lastFailingTotal: 2,
+      knownSourceIps: ['198.51.100.9']
+    })
+
+    const loaded = loadCachedReports('acct1')
+    expect(loaded.reports.map((r) => r.reportId).sort()).toEqual(['r1', 'r2'])
+    expect(loaded.reports.find((r) => r.reportId === 'r1')?.records[0].sourceIp).toBe('192.0.2.1')
+    expect(loaded.reports.find((r) => r.reportId === 'r2')?.records[0].sourceIp).toBe(
+      '198.51.100.9'
+    )
+    expect(loaded.meta.lastUid).toBe(9)
+    expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1', '198.51.100.9'])
   })
 })

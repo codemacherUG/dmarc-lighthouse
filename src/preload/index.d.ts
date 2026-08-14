@@ -2,6 +2,7 @@ import type {
   AccountSettingsInput,
   AnalyzeProgress,
   AnalyzeResult,
+  BimiCheckResult,
   DnsCheckResult,
   DomainHealth,
   SpfExpandResult,
@@ -40,6 +41,7 @@ export interface DmarcLighthouseApi {
   resolveIps: (ips: string[]) => Promise<IpInfo[]>
   lookupRdap: (ip: string) => Promise<RdapInfo>
   checkDns: (domain: string, selectors?: string[]) => Promise<DnsCheckResult>
+  checkBimi: (domain: string, selector?: string) => Promise<BimiCheckResult>
   expandSpf: (domain: string, record?: string | null) => Promise<SpfExpandResult>
   checkTransport: (domain: string) => Promise<TransportSecurityResult>
   healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>

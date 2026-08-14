@@ -2,6 +2,7 @@ import {
   buildTlsRptRecord,
   DEFAULT_TLSRPT_BUILDER_INPUT,
   defaultTlsRptMailbox,
+  isValidDomain,
   normalizeDomain,
   parseTlsRptBuilderRecord,
   TLSRPT_BUILDER_STEPS,
@@ -24,6 +25,7 @@ import {
   tlsrptBuilderDomainStatusEl,
   tlsrptBuilderFooterHintEl,
   tlsrptBuilderLiveEl,
+  tlsrptBuilderPreviewEl,
   tlsrptBuilderResultEl,
   tlsrptBuilderRuaEl,
   tlsrptBuilderStepsEl
@@ -34,7 +36,10 @@ import { state } from './state'
 let currentStep: TlsRptBuilderStep = 'domain'
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let liveDnsValue: string | null = null
-let dnsBusy = false
+let loadGen = 0
+let appliedKey = ''
+let inflight: Promise<void> | null = null
+let inflightKey = ''
 
 function readInput(): TlsRptBuilderInput {
   return {
@@ -77,6 +82,7 @@ function showStep(step: TlsRptBuilderStep): void {
     step === 'result' ? t('tlsrptBuilder.finish') : t('tlsrptBuilder.next')
   const input = readInput()
   tlsrptBuilderFooterHintEl.textContent = input.domain || ''
+  if (step === 'domain') renderDomainPreview()
   if (step === 'result') renderResult()
 }
 
@@ -158,37 +164,73 @@ function ensureDefaultMailbox(domain: string): void {
   if (!tlsrptBuilderRuaEl.value.trim()) tlsrptBuilderRuaEl.value = mailbox
 }
 
+function renderDomainPreview(): void {
+  if (!liveDnsValue) {
+    tlsrptBuilderPreviewEl.innerHTML = ''
+    return
+  }
+  tlsrptBuilderPreviewEl.innerHTML = `<div class="builder-live-card">
+    <span class="builder-result-label">${escapeHtml(t('tlsrptBuilder.result.liveTitle'))}</span>
+    <code class="mono">${escapeHtml(liveDnsValue)}</code>
+  </div>`
+}
+
+function applyTlsrptTemplate(domain: string, record: string | null): void {
+  if (record) {
+    fillForm({ domain, ...parseTlsRptBuilderRecord(record) })
+    return
+  }
+  fillForm({ domain, rua: defaultTlsRptMailbox(domain) })
+}
+
 async function loadDnsTemplate(): Promise<void> {
   const domain = normalizeDomain(tlsrptBuilderDomainEl.value)
+  if (!isValidDomain(domain)) return
+  if (appliedKey === domain) return
+
+  const gen = ++loadGen
   tlsrptBuilderDomainEl.value = domain
   tlsrptBuilderDomainStatusEl.textContent = t('tlsrptBuilder.domain.loading', { domain })
   tlsrptBuilderDomainStatusEl.className = 'builder-status'
   try {
     const result = await window.api.checkTransport(domain)
+    if (gen !== loadGen) return
     tlsrptBuilderDomainEl.value = result.domain
-    ensureDefaultMailbox(result.domain)
     const existing =
       result.tlsrpt.records.find((r) => /v\s*=\s*TLSRPTv1/i.test(r)) ??
       result.tlsrpt.records[0] ??
       null
-    liveDnsValue = existing
-    if (existing) {
-      fillForm({ domain: result.domain, ...parseTlsRptBuilderRecord(existing) })
+    liveDnsValue = result.tlsrpt.found ? existing : null
+    appliedKey = result.domain
+    applyTlsrptTemplate(result.domain, liveDnsValue)
+    if (liveDnsValue) {
       tlsrptBuilderDomainStatusEl.textContent = t('tlsrptBuilder.domain.loaded')
       tlsrptBuilderDomainStatusEl.className = 'builder-status ok'
     } else {
-      liveDnsValue = null
-      fillForm({ domain: result.domain })
       tlsrptBuilderDomainStatusEl.textContent = t('tlsrptBuilder.domain.missing')
       tlsrptBuilderDomainStatusEl.className = 'builder-status'
     }
+    renderDomainPreview()
   } catch (err) {
+    if (gen !== loadGen) return
     liveDnsValue = null
+    appliedKey = ''
+    tlsrptBuilderPreviewEl.innerHTML = ''
     tlsrptBuilderDomainStatusEl.textContent = t('tlsrptBuilder.domain.error', {
       message: err instanceof Error ? err.message : String(err)
     })
     tlsrptBuilderDomainStatusEl.className = 'builder-status error'
   }
+}
+
+function requestDnsTemplate(): Promise<void> {
+  const domain = normalizeDomain(tlsrptBuilderDomainEl.value)
+  if (inflight && inflightKey === domain) return inflight
+  inflightKey = domain
+  inflight = loadDnsTemplate().finally(() => {
+    if (inflightKey === domain) inflight = null
+  })
+  return inflight
 }
 
 function suggestInitialDomain(): string {
@@ -208,12 +250,16 @@ export function openTlsrptBuilder(): void {
     ensureDefaultMailbox(domain)
   }
   liveDnsValue = null
+  appliedKey = ''
+  loadGen += 1
   tlsrptBuilderDomainStatusEl.textContent = ''
   tlsrptBuilderDomainStatusEl.className = 'builder-status muted'
+  tlsrptBuilderPreviewEl.innerHTML = ''
   tlsrptBuilderLiveEl.textContent = ''
   showStep('domain')
   tlsrptBuilderDialog.showModal()
   tlsrptBuilderDomainEl.focus()
+  if (isValidDomain(domain)) void requestDnsTemplate()
 }
 
 export function refreshTlsrptBuilderLocale(): void {
@@ -232,24 +278,16 @@ export function initTlsrptWizardUi(): void {
 
   btnTlsrptBuilderNext.addEventListener('click', () => {
     void (async () => {
-      if (dnsBusy) return
       if (currentStep === 'result') {
         tlsrptBuilderDialog.close()
         return
       }
       if (!validateCurrentStep()) return
-      if (currentStep === 'domain') {
-        const domain = normalizeDomain(tlsrptBuilderDomainEl.value)
-        tlsrptBuilderDomainEl.value = domain
-        ensureDefaultMailbox(domain)
-        dnsBusy = true
-        btnTlsrptBuilderNext.disabled = true
-        try {
-          await loadDnsTemplate()
-        } finally {
-          dnsBusy = false
-          btnTlsrptBuilderNext.disabled = false
-        }
+      btnTlsrptBuilderNext.disabled = true
+      try {
+        if (currentStep === 'domain') await requestDnsTemplate()
+      } finally {
+        btnTlsrptBuilderNext.disabled = false
       }
       const idx = tlsrptStepIndex(currentStep)
       showStep(TLSRPT_BUILDER_STEPS[idx + 1])
@@ -258,7 +296,10 @@ export function initTlsrptWizardUi(): void {
 
   tlsrptBuilderDomainEl.addEventListener('change', () => {
     const domain = normalizeDomain(tlsrptBuilderDomainEl.value)
-    if (domain) ensureDefaultMailbox(domain)
+    tlsrptBuilderDomainEl.value = domain
+    appliedKey = ''
+    if (isValidDomain(domain)) void requestDnsTemplate()
+    else if (domain) ensureDefaultMailbox(domain)
   })
 
   tlsrptBuilderResultEl.addEventListener('click', (event) => {

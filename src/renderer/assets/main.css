@@ -1315,10 +1315,73 @@ input[type='checkbox']:focus-visible {
   flex: 1 1 140px;
 }
 
-.filter-panel .filter-row > label.filter-google-noise {
+.filter-panel .filter-row > .filter-mailbox-noise-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: auto;
+  align-self: end;
+  min-height: 38px;
+}
+
+.filter-panel .filter-row > .filter-mailbox-noise-wrap > label.filter-mailbox-noise {
   flex: 0 1 auto;
   min-width: auto;
   white-space: nowrap;
+  align-self: center;
+  min-height: 0;
+}
+
+.filter-hint {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg-panel);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: help;
+}
+
+.filter-hint:hover,
+.filter-hint:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.filter-hint-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  z-index: 80;
+  width: min(320px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: var(--shadow-float);
+  white-space: normal;
+}
+
+.filter-hint:hover + .filter-hint-pop,
+.filter-hint:focus-visible + .filter-hint-pop {
+  display: block;
 }
 
 .dns-check-row .dns-selectors-field {
@@ -1397,12 +1460,21 @@ input[type='checkbox']:focus-visible {
   border: 0;
 }
 
-.filter-panel.is-stuck .filter-row > label.filter-google-noise {
+.filter-panel.is-stuck .filter-row > .filter-mailbox-noise-wrap {
   flex: 0 0 auto;
   min-width: 0;
   min-height: 30px;
+}
+
+.filter-panel.is-stuck .filter-row > .filter-mailbox-noise-wrap > label.filter-mailbox-noise {
+  min-height: 30px;
   gap: 10px;
   font-size: 0.78rem;
+}
+
+.filter-panel.is-stuck .filter-hint-pop {
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 
 .filter-panel.is-stuck .filter-row input:not([type='checkbox']):not([type='radio']),
@@ -2912,6 +2984,10 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 
 .builder-status.ok {
   color: var(--ok);
+}
+
+.builder-status.warn {
+  color: var(--warn);
 }
 
 .builder-status.error {

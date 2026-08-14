@@ -3,6 +3,7 @@ import type {
   AccountSettingsInput,
   AnalyzeProgress,
   AnalyzeResult,
+  BimiCheckResult,
   DnsCheckResult,
   DomainHealth,
   SpfExpandResult,
@@ -55,6 +56,8 @@ const api = {
   lookupRdap: (ip: string): Promise<RdapInfo> => ipcRenderer.invoke('ip:rdap', ip),
   checkDns: (domain: string, selectors?: string[]): Promise<DnsCheckResult> =>
     ipcRenderer.invoke('dns:check', domain, selectors ?? []),
+  checkBimi: (domain: string, selector?: string): Promise<BimiCheckResult> =>
+    ipcRenderer.invoke('dns:bimi', domain, selector ?? 'default'),
   expandSpf: (domain: string, record?: string | null): Promise<SpfExpandResult> =>
     ipcRenderer.invoke('dns:expandSpf', domain, record ?? null),
   checkTransport: (domain: string): Promise<TransportSecurityResult> =>

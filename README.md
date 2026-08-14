@@ -51,7 +51,7 @@ Everything runs locally on your machine: credentials and OAuth tokens stay in th
 
 ### Dashboard
 
-KPIs, alignment charts (including disposition), time series, filters (including optional Google-noise filter), and domain-health tiles:
+KPIs, alignment charts (including disposition), time series, filters (including optional mailbox-noise filter), and domain-health tiles:
 
 ![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/en/dashboard.png)
 
@@ -73,7 +73,7 @@ Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
 
 ### DNS check & transport security
 
-DMARC, SPF, and DKIM selectors straight from the authoritative nameserver — plus TLS-RPT, MTA-STS (including the policy file and MX coverage), and DANE/TLSA of the MX hosts. Missing records can be generated step by step under **Tools** (DMARC, SPF, TLS-RPT, MTA-STS):
+DMARC, SPF, and DKIM selectors straight from the authoritative nameserver — plus TLS-RPT, MTA-STS (including the policy file and MX coverage), and DANE/TLSA of the MX hosts. Missing records can be generated step by step under **Tools** (DMARC, SPF, TLS-RPT, MTA-STS, BIMI):
 
 ![DNS check with transport security](docs/screenshots/en/dns.png)
 
@@ -99,38 +99,38 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 
 ## Features
 
-| Area | Details |
-| --- | --- |
-| **IMAP fetch** | Gmail, Outlook/Microsoft 365, or any IMAP server; incremental via UIDs |
-| **Archive folder** | Optional “move after fetch” folder (selectable from IMAP list; create missing folders); inbox stays monitored while reports land in e.g. `Archive/Aggregate` |
-| **Auth** | App password **or** OAuth (PKCE) for Gmail and Microsoft 365 IMAP |
-| **Multiple accounts** | Any number of IMAP accounts/profiles with separate caches; custom display name (default: email domain); switch via toolbar |
-| **File import** | XML, GZ, ZIP, EML/MIME — dialog or drag & drop; imports go into the cache and are still there after a restart |
-| **Local cache** | SQLite store for aggregate + forensic reports; legacy JSON caches are migrated once |
-| **Forensic / RUF** | ARF failure reports (sanitized headers); separate table in the UI |
-| **Dashboard** | Reports, messages, pass/fail, pass rate, date range |
-| **Charts** | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time |
-| **Tables** | Organizations, source IPs, From domains, individual reports + record details; click a row to filter; sortable columns, keyboard navigation, and virtualized long tables |
-| **IP enrichment** | Reverse DNS, identified sending service (ESP, mailbox provider, SaaS, gateway, hosting), cloud IP ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optional online fallback), DNSBL/DNSWL, on-demand RDAP/WHOIS |
-| **Failure categories** | Problem sources name the cause: forwarding, third party, configuration, own sender, or no auth at all |
-| **Policy rollout** | Recommends the next step (`none` → `quarantine` → `reject`) with thresholds, open items, and a staging plan of ready-to-copy records |
-| **Source map** | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP |
-| **Domain health** | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter |
-| **Filters** | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain |
-| **Google noise filter** | Optional, persisted filter that hides Google forwarding / report-echo rows (Google IP + SPF fail + DKIM pass + DMARC pass) |
-| **DNS check** | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual) |
-| **Record wizards** | Guided DMARC, SPF, TLS-RPT, and MTA-STS records; live DNS as a template, copy-ready output (MTA-STS includes the policy file) |
-| **Transport security** | TLS-RPT record, MTA-STS TXT + policy file (mode, `max_age`, MX coverage), and DANE/TLSA per MX host with an overall verdict |
-| **Email inspection** | Open an `.eml` / `.msg` or paste headers: Received path, SPF/DKIM/DMARC/alignment, TLS vs local hops, ARC, overall verdict, PDF export. Local only; body unread |
-| **Export** | Currently filtered data as CSV or JSON; single aggregate reports as ZIP (XML) |
+| Area                      | Details                                                                                                                                                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **IMAP fetch**            | Gmail, Outlook/Microsoft 365, or any IMAP server; incremental via UIDs                                                                                                                                                           |
+| **Archive folder**        | Optional “move after fetch” folder (selectable from IMAP list; create missing folders); inbox stays monitored while reports land in e.g. `Archive/Aggregate`                                                                     |
+| **Auth**                  | App password **or** OAuth (PKCE) for Gmail and Microsoft 365 IMAP                                                                                                                                                                |
+| **Multiple accounts**     | Any number of IMAP accounts/profiles with separate caches; custom display name (default: email domain); switch via toolbar                                                                                                       |
+| **File import**           | XML, GZ, ZIP, EML/MIME — dialog or drag & drop; imports go into the cache and are still there after a restart                                                                                                                    |
+| **Local cache**           | SQLite store for aggregate + forensic reports; legacy JSON caches are migrated once                                                                                                                                              |
+| **Forensic / RUF**        | ARF failure reports (sanitized headers); separate table in the UI                                                                                                                                                                |
+| **Dashboard**             | Reports, messages, pass/fail, pass rate, date range                                                                                                                                                                              |
+| **Charts**                | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time                                                                                                                    |
+| **Tables**                | Organizations, source IPs, From domains, individual reports + record details; click a row to filter; sortable columns, keyboard navigation, and virtualized long tables                                                          |
+| **IP enrichment**         | Reverse DNS, identified sending service (ESP, mailbox provider, SaaS, gateway, hosting), cloud IP ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optional online fallback), DNSBL/DNSWL, on-demand RDAP/WHOIS         |
+| **Failure categories**    | Problem sources name the cause: forwarding, third party, configuration, own sender, or no auth at all                                                                                                                            |
+| **Policy rollout**        | Recommends the next step (`none` → `quarantine` → `reject`) with thresholds, open items, and a staging plan of ready-to-copy records                                                                                             |
+| **Source map**            | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP                                                                                                                                                 |
+| **Domain health**         | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter                                                                                                                                              |
+| **Filters**               | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain                                                                                                                         |
+| **Mailbox noise filter**  | Optional, persisted filter that hides forwarding / report-echo rows from Gmail, Outlook, Yahoo and iCloud (mailbox IP + SPF fail + DKIM pass + DMARC pass)                                                                       |
+| **DNS check**             | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual)                                                                                                                               |
+| **Record wizards**        | Guided DMARC, SPF, TLS-RPT, MTA-STS, and BIMI records; live DNS as a template, copy-ready output (MTA-STS includes the policy file)                                                                                              |
+| **Transport security**    | TLS-RPT record, MTA-STS TXT + policy file (mode, `max_age`, MX coverage), and DANE/TLSA per MX host with an overall verdict                                                                                                      |
+| **Email inspection**      | Open an `.eml` / `.msg` or paste headers: Received path, SPF/DKIM/DMARC/alignment, TLS vs local hops, ARC, overall verdict, PDF export. Local only; body unread                                                                  |
+| **Export**                | Currently filtered data as CSV or JSON; single aggregate reports as ZIP (XML)                                                                                                                                                    |
 | **PDF management report** | Print-ready A4 report (key figures, assessment, alignment, trend, domain status, problem sources) — on demand for the current view, or automatically once a month **one PDF per domain**, built in the background from the cache |
-| **Auto-fetch** | Optional interval across all accounts + desktop notification when failures increase |
-| **Alerts** | Pass-rate threshold (7 days) and "new source detected" with an ignore list for known IPs |
-| **System tray** | Optionally keep running in the background; fetching and notifications continue with the window closed |
-| **Autostart** | Optional launch at system login; with tray enabled the app can start hidden in the background |
-| **Language** | Switchable German and English UI (Settings → Appearance) |
-| **Appearance** | Light, dark, or follow the operating system |
-| **Auto-update** | Checks GitHub Releases (NSIS, AppImage, macOS ZIP) |
+| **Auto-fetch**            | Optional interval across all accounts + desktop notification when failures increase                                                                                                                                              |
+| **Alerts**                | Pass-rate threshold (7 days) and "new source detected" with an ignore list for known IPs                                                                                                                                         |
+| **System tray**           | Optionally keep running in the background; fetching and notifications continue with the window closed                                                                                                                            |
+| **Autostart**             | Optional launch at system login; with tray enabled the app can start hidden in the background                                                                                                                                    |
+| **Language**              | Switchable German and English UI (Settings → Appearance)                                                                                                                                                                         |
+| **Appearance**            | Light, dark, or follow the operating system                                                                                                                                                                                      |
+| **Auto-update**           | Checks GitHub Releases (NSIS, AppImage, macOS ZIP)                                                                                                                                                                               |
 
 ---
 
@@ -138,11 +138,11 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 
 Ready-made builds are available under [GitHub Releases](https://github.com/codemacherUG/dmarc-lighthouse/releases/latest):
 
-| Platform | Packages |
-| --- | --- |
+| Platform    | Packages                     |
+| ----------- | ---------------------------- |
 | **Windows** | NSIS installer, portable EXE |
-| **Linux** | AppImage, `.deb` |
-| **macOS** | DMG and ZIP (x64 / arm64) |
+| **Linux**   | AppImage, `.deb`             |
+| **macOS**   | DMG and ZIP (x64 / arm64)    |
 
 Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` are not updated automatically — NSIS setup, AppImage, and macOS ZIP are.
 
@@ -155,11 +155,11 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 
 ### App passwords & IMAP
 
-| Provider | Host | Port | Notes |
-| --- | --- | --- | --- |
-| **Gmail** | `imap.gmail.com` | `993` (TLS) | App password, or OAuth with scope `https://mail.google.com/` |
-| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App password, or OAuth with `IMAP.AccessAsUser.All` |
-| **Custom** | any | e.g. `993` | Username/password; TLS recommended |
+| Provider                    | Host                    | Port        | Notes                                                        |
+| --------------------------- | ----------------------- | ----------- | ------------------------------------------------------------ |
+| **Gmail**                   | `imap.gmail.com`        | `993` (TLS) | App password, or OAuth with scope `https://mail.google.com/` |
+| **Outlook / Microsoft 365** | `outlook.office365.com` | `993` (TLS) | App password, or OAuth with `IMAP.AccessAsUser.All`          |
+| **Custom**                  | any                     | e.g. `993`  | Username/password; TLS recommended                           |
 
 ### OAuth setup (optional)
 
@@ -176,7 +176,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 1. Open **Settings** → **Accounts**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, and autostart. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
-4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide Google noise** to drop Google report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
+4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
 5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, and DKIM selectors from the reports or entered manually).
 6. Open **Tools → Inspect email** to load an `.eml` or `.msg` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
 7. Plan the next step towards `p=reject` under **Tools → Policy rollout**: recommendation, open items, senders to fix, and a staging plan of ready-to-copy records.
@@ -210,7 +210,7 @@ IMAP mailbox(es) / local files
         │
         ├── Filters (date range, domain, org / IP / From drill-down)
         ├── DNS check (DMARC / SPF / DKIM)
-        ├── Record wizards (DMARC / SPF / TLS-RPT / MTA-STS)
+        ├── Record wizards (DMARC / SPF / TLS-RPT / MTA-STS / BIMI)
         ├── Email inspection (.eml / .msg / paste: path, TLS, SPF/DKIM/DMARC/ARC)
         ├── Policy rollout (next step + staging plan)
         ├── Alerts (failures / pass rate / new sources)

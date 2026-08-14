@@ -19,8 +19,10 @@ import type {
   VolumePoint
 } from './types'
 import { isRelaxedAligned } from './domain'
-import { isLikelyGoogleIp } from './google-ip'
+import { isLikelyMailboxIp } from './mailbox-ip'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
+
+type MailboxIpInfo = Pick<IpInfo, 'cloudProvider' | 'provider' | 'asn' | 'asOrg' | 'senderKind'>
 
 /** True when enrichment labels the IP as Google (cloud, PTR, or ASN). */
 export function isGoogleIpInfo(
@@ -33,8 +35,33 @@ export function isGoogleIpInfo(
   return false
 }
 
-/** Auth pattern of Google forwarding / report-echo noise (IP not checked). */
-export function isGoogleNoiseAuthPattern(rec: SerializedRecord): boolean {
+/** True when enrichment labels the IP as a mailbox provider (Gmail, Outlook, Yahoo, iCloud, …). */
+export function isMailboxIpInfo(info: MailboxIpInfo | null | undefined): boolean {
+  if (!info) return false
+  if (info.senderKind === 'mailbox') return true
+  if (isGoogleIpInfo(info)) return true
+  const provider = (info.provider ?? '').toLowerCase()
+  if (/\b(microsoft 365|outlook|yahoo|aol|icloud)\b/.test(provider)) return true
+  if (
+    info.asn === 10310 ||
+    info.asn === 26101 ||
+    info.asn === 14778 ||
+    info.asn === 1668 ||
+    info.asn === 714
+  ) {
+    return true
+  }
+  if (
+    info.asOrg &&
+    /\b(yahoo|aol|oath|verizon media|apple|icloud|hotmail|outlook)\b/i.test(info.asOrg)
+  ) {
+    return true
+  }
+  return false
+}
+
+/** Auth pattern of mailbox forwarding / report-echo noise (IP not checked). */
+export function isMailboxNoiseAuthPattern(rec: SerializedRecord): boolean {
   if (!rec.passesDmarc) return false
   const spf = (rec.spfResult ?? '').toLowerCase()
   const dkim = (rec.dkimResult ?? '').toLowerCase()
@@ -42,16 +69,16 @@ export function isGoogleNoiseAuthPattern(rec: SerializedRecord): boolean {
 }
 
 /**
- * Google-internal hop / report-echo noise: SPF fails on Google IP, DKIM holds, DMARC passes.
- * Uses enrichment labels when available, otherwise well-known Google IP prefixes.
+ * Mailbox-provider hop / report-echo noise: SPF fails on a Gmail/Outlook/Yahoo/iCloud IP,
+ * DKIM holds, DMARC passes. Uses enrichment labels when available, otherwise well-known prefixes.
  */
-export function isGoogleNoiseRecord(
+export function isMailboxNoiseRecord(
   rec: SerializedRecord,
-  googleIps?: ReadonlySet<string>
+  mailboxIps?: ReadonlySet<string>
 ): boolean {
-  if (!isGoogleNoiseAuthPattern(rec)) return false
-  if (googleIps?.has(rec.sourceIp)) return true
-  return isLikelyGoogleIp(rec.sourceIp)
+  if (!isMailboxNoiseAuthPattern(rec)) return false
+  if (mailboxIps?.has(rec.sourceIp)) return true
+  return isLikelyMailboxIp(rec.sourceIp)
 }
 
 function dayKey(iso: string): string {
@@ -365,11 +392,8 @@ export function analyzeFromReports(
     forensicReports?: ForensicReportRow[]
   }
 ): AnalyzeResult {
-  const rows = [...reports].sort((a, b) => b.dateEnd.localeCompare(a.dateEnd))
-  const forensicReports = [...(extras?.forensicReports ?? [])].sort((a, b) =>
-    (b.arrivalDate ?? '').localeCompare(a.arrivalDate ?? '')
-  )
-  if (rows.length === 0) {
+  const forensicReports = extras?.forensicReports ?? []
+  if (reports.length === 0) {
     return {
       ...emptyAnalyzeResult(),
       forensicReports,
@@ -388,7 +412,7 @@ export function analyzeFromReports(
   let dateEnd: string | null = null
   const domains = new Set<string>()
 
-  for (const r of rows) {
+  for (const r of reports) {
     total += r.total
     passing += r.passing
     failing += r.failing
@@ -399,7 +423,7 @@ export function analyzeFromReports(
 
   return {
     aggregate: {
-      reportCount: rows.length,
+      reportCount: reports.length,
       total,
       passing,
       failing,
@@ -408,8 +432,8 @@ export function analyzeFromReports(
       dateEnd,
       domains: [...domains].sort()
     },
-    dashboard: buildDashboard(rows),
-    reports: rows,
+    dashboard: buildDashboard(reports),
+    reports,
     forensicReports,
     skipped: extras?.skipped ?? 0,
     errors: extras?.errors ?? [],
@@ -494,8 +518,8 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
   const org = filter.org?.trim()
   const sourceIp = filter.sourceIp?.trim()
   const headerFrom = filter.headerFrom?.trim()
-  const hideGoogleNoise = Boolean(filter.hideGoogleNoise)
-  const googleIps = filter.googleIps
+  const hideMailboxNoise = Boolean(filter.hideMailboxNoise)
+  const mailboxIps = filter.mailboxIps
 
   const rows: ReportRow[] = []
   for (const r of reports) {
@@ -511,11 +535,11 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
       if (Number.isNaN(t) || t < cutoff.getTime()) continue
     }
 
-    if (sourceIp || headerFrom || hideGoogleNoise) {
+    if (sourceIp || headerFrom || hideMailboxNoise) {
       const records = r.records.filter((rec) => {
         if (sourceIp && !recordMatchesSourceIp(rec.sourceIp, sourceIp)) return false
         if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
-        if (hideGoogleNoise && isGoogleNoiseRecord(rec, googleIps)) return false
+        if (hideMailboxNoise && isMailboxNoiseRecord(rec, mailboxIps)) return false
         return true
       })
       if (records.length === 0) continue
@@ -555,13 +579,24 @@ export function filterForensicReports(
 
 export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilter): AnalyzeResult {
   const filtered = filterReports(full.reports, filter)
+  const forensicReports = filterForensicReports(full.forensicReports ?? [], filter)
+  const mutatesRecords = Boolean(
+    filter.sourceIp?.trim() || filter.headerFrom?.trim() || filter.hideMailboxNoise
+  )
+  if (
+    !mutatesRecords &&
+    filtered.length === full.reports.length &&
+    forensicReports.length === (full.forensicReports?.length ?? 0)
+  ) {
+    return full
+  }
   return analyzeFromReports(filtered, {
     skipped: full.skipped,
     errors: full.errors,
     fromCache: full.fromCache,
     newReports: full.newReports,
     newForensicReports: full.newForensicReports,
-    forensicReports: filterForensicReports(full.forensicReports ?? [], filter)
+    forensicReports
   })
 }
 

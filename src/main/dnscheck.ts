@@ -1,5 +1,17 @@
 import { promises as dns } from 'dns'
-import type { DkimSelectorCheck, DnsCheckResult, DnsResolverInfo } from '../shared/types'
+import {
+  bimiHost,
+  DEFAULT_BIMI_SELECTOR,
+  isValidBimiSelector,
+  normalizeBimiSelector,
+  parseBimiRecord
+} from '../shared/bimi-builder'
+import type {
+  BimiCheckResult,
+  DkimSelectorCheck,
+  DnsCheckResult,
+  DnsResolverInfo
+} from '../shared/types'
 import { t } from '../shared/i18n'
 
 function flattenTxt(records: string[][]): string[] {
@@ -38,11 +50,7 @@ export function normalizeDkimSelector(raw: string): string | null {
 
 /** Zones to try for NS, longest first. Stops before the TLD (single label). */
 export function ancestorZones(domain: string): string[] {
-  const labels = domain
-    .toLowerCase()
-    .replace(/\.+$/, '')
-    .split('.')
-    .filter(Boolean)
+  const labels = domain.toLowerCase().replace(/\.+$/, '').split('.').filter(Boolean)
   const zones: string[] = []
   for (let i = 0; i <= labels.length - 2; i++) {
     zones.push(labels.slice(i).join('.'))
@@ -82,7 +90,9 @@ export interface AuthoritativeNs {
 export async function findAuthoritativeNs(domain: string): Promise<AuthoritativeNs | null> {
   for (const zone of ancestorZones(domain)) {
     try {
-      const names = [...new Set((await dns.resolveNs(zone)).map((n) => n.replace(/\.$/, '').toLowerCase()))]
+      const names = [
+        ...new Set((await dns.resolveNs(zone)).map((n) => n.replace(/\.$/, '').toLowerCase()))
+      ]
       if (names.length === 0) continue
       const servers: string[] = []
       for (const name of names) {
@@ -142,7 +152,9 @@ export async function checkDomainDns(
   }
 
   const selectors = [
-    ...new Set((selectorsRaw ?? []).map(normalizeDkimSelector).filter((s): s is string => Boolean(s)))
+    ...new Set(
+      (selectorsRaw ?? []).map(normalizeDkimSelector).filter((s): s is string => Boolean(s))
+    )
   ].slice(0, 10)
 
   const authNs = await findAuthoritativeNs(domain)
@@ -191,4 +203,50 @@ export async function checkDomainDns(
   )
 
   return result
+}
+
+export async function checkBimiDns(
+  domainRaw: string,
+  selectorRaw = DEFAULT_BIMI_SELECTOR
+): Promise<BimiCheckResult> {
+  const domain = domainRaw.trim().toLowerCase().replace(/\.$/, '')
+  if (!domain || !/^[a-z0-9.-]+$/i.test(domain)) {
+    throw new Error(t('main.invalidDomain'))
+  }
+  const selector = isValidBimiSelector(selectorRaw)
+    ? normalizeBimiSelector(selectorRaw)
+    : DEFAULT_BIMI_SELECTOR
+  const host = bimiHost(domain, selector)
+  const empty: BimiCheckResult = {
+    domain,
+    selector,
+    host,
+    found: false,
+    records: [],
+    location: null,
+    authority: null
+  }
+
+  const authNs = await findAuthoritativeNs(domain)
+  let auth: InstanceType<typeof dns.Resolver> | null = null
+  if (authNs) {
+    auth = new dns.Resolver()
+    auth.setServers(authNs.servers)
+  }
+
+  try {
+    const records = flattenTxt(await resolveTxtRecords(host, auth))
+    const parsed =
+      records.map(parseBimiRecord).find((r) => r.found) ?? parseBimiRecord(records[0] ?? '')
+    return {
+      ...empty,
+      found: parsed.found,
+      records,
+      location: parsed.location,
+      authority: parsed.authority
+    }
+  } catch (err) {
+    if (isEmptyDnsError(err)) return empty
+    return { ...empty, error: err instanceof Error ? err.message : String(err) }
+  }
 }

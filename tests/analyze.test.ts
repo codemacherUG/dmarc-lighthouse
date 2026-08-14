@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   analyzeFromReports,
+  applyDashboardFilter,
   buildDashboard,
   filterReports,
   groupProblemSources,
   isGoogleIpInfo,
-  isGoogleNoiseRecord,
+  isMailboxIpInfo,
+  isMailboxNoiseRecord,
   recordMatchesSourceIp
 } from '../src/shared/analyze'
 import type { ReportRow, SerializedRecord } from '../src/shared/types'
@@ -162,7 +164,7 @@ describe('filterReports', () => {
     expect(out[0].total).toBe(2)
   })
 
-  it('hides Google SPF-fail / DKIM-pass noise and keeps real sources', () => {
+  it('hides mailbox SPF-fail / DKIM-pass noise and keeps real sources', () => {
     const googleIp = '2a00:1450:4864:20::346'
     const ownIp = '159.195.74.209'
     const rows = [
@@ -196,8 +198,8 @@ describe('filterReports', () => {
     const out = filterReports(rows, {
       range: 'all',
       domain: '',
-      hideGoogleNoise: true,
-      googleIps: new Set([googleIp])
+      hideMailboxNoise: true,
+      mailboxIps: new Set([googleIp])
     })
     expect(out).toHaveLength(1)
     expect(out[0].records.map((r) => ({ ip: r.sourceIp, count: r.count }))).toEqual([
@@ -208,13 +210,21 @@ describe('filterReports', () => {
     expect(out[0].passing).toBe(3)
   })
 
-  it('hides Google noise via well-known prefixes without enrichment', () => {
+  it('hides mailbox noise via well-known prefixes without enrichment', () => {
     const googleIp = '2a00:1450:4864:20::346'
+    const outlookIp = '40.92.0.10'
     const rows = [
       report({
         records: [
           record({
             sourceIp: googleIp,
+            count: 2,
+            spfResult: 'fail',
+            dkimResult: 'pass',
+            passesDmarc: true
+          }),
+          record({
+            sourceIp: outlookIp,
             count: 2,
             spfResult: 'fail',
             dkimResult: 'pass',
@@ -230,7 +240,7 @@ describe('filterReports', () => {
         ]
       })
     ]
-    const out = filterReports(rows, { range: 'all', domain: '', hideGoogleNoise: true })
+    const out = filterReports(rows, { range: 'all', domain: '', hideMailboxNoise: true })
     expect(out).toHaveLength(1)
     expect(out[0].total).toBe(3)
     expect(out[0].records).toHaveLength(1)
@@ -238,14 +248,14 @@ describe('filterReports', () => {
   })
 })
 
-describe('isGoogleIpInfo / isGoogleNoiseRecord', () => {
+describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
   it('detects Google via cloud, provider, ASN, and asOrg', () => {
-    expect(isGoogleIpInfo({ cloudProvider: 'Google', provider: null, asn: null, asOrg: null })).toBe(
-      true
-    )
-    expect(isGoogleIpInfo({ cloudProvider: null, provider: 'Google', asn: null, asOrg: null })).toBe(
-      true
-    )
+    expect(
+      isGoogleIpInfo({ cloudProvider: 'Google', provider: null, asn: null, asOrg: null })
+    ).toBe(true)
+    expect(
+      isGoogleIpInfo({ cloudProvider: null, provider: 'Google', asn: null, asOrg: null })
+    ).toBe(true)
     expect(isGoogleIpInfo({ cloudProvider: null, provider: null, asn: 15169, asOrg: null })).toBe(
       true
     )
@@ -257,9 +267,39 @@ describe('isGoogleIpInfo / isGoogleNoiseRecord', () => {
     ).toBe(false)
   })
 
-  it('matches only SPF-fail + DKIM-pass + DMARC-pass on Google IPs', () => {
+  it('detects mailbox providers via sender kind, product name, and ASN', () => {
     expect(
-      isGoogleNoiseRecord(
+      isMailboxIpInfo({
+        cloudProvider: null,
+        provider: 'Microsoft 365',
+        asn: null,
+        asOrg: null,
+        senderKind: 'mailbox'
+      })
+    ).toBe(true)
+    expect(
+      isMailboxIpInfo({
+        cloudProvider: null,
+        provider: 'Yahoo',
+        asn: null,
+        asOrg: null,
+        senderKind: null
+      })
+    ).toBe(true)
+    expect(
+      isMailboxIpInfo({
+        cloudProvider: 'Microsoft',
+        provider: 'Azure',
+        asn: 8075,
+        asOrg: 'Microsoft Corporation',
+        senderKind: 'infra'
+      })
+    ).toBe(false)
+  })
+
+  it('matches only SPF-fail + DKIM-pass + DMARC-pass on mailbox IPs', () => {
+    expect(
+      isMailboxNoiseRecord(
         record({
           sourceIp: '2a00:1450:4864:20::346',
           spfResult: 'fail',
@@ -269,7 +309,17 @@ describe('isGoogleIpInfo / isGoogleNoiseRecord', () => {
       )
     ).toBe(true)
     expect(
-      isGoogleNoiseRecord(
+      isMailboxNoiseRecord(
+        record({
+          sourceIp: '40.92.0.10',
+          spfResult: 'fail',
+          dkimResult: 'pass',
+          passesDmarc: true
+        })
+      )
+    ).toBe(true)
+    expect(
+      isMailboxNoiseRecord(
         record({
           sourceIp: '2a00:1450:4864:20::346',
           spfResult: 'fail',
@@ -279,7 +329,7 @@ describe('isGoogleIpInfo / isGoogleNoiseRecord', () => {
       )
     ).toBe(false)
     expect(
-      isGoogleNoiseRecord(
+      isMailboxNoiseRecord(
         record({
           sourceIp: '192.0.2.1',
           spfResult: 'fail',
@@ -288,9 +338,9 @@ describe('isGoogleIpInfo / isGoogleNoiseRecord', () => {
         })
       )
     ).toBe(false)
-    // Enrichment can mark non-prefix IPs as Google too.
+    // Enrichment can mark non-prefix IPs as mailbox too.
     expect(
-      isGoogleNoiseRecord(
+      isMailboxNoiseRecord(
         record({
           sourceIp: '203.0.113.50',
           spfResult: 'fail',
@@ -529,5 +579,32 @@ describe('analyzeFromReports', () => {
     const result = analyzeFromReports([])
     expect(result.aggregate.reportCount).toBe(0)
     expect(result.reports).toEqual([])
+  })
+})
+
+describe('applyDashboardFilter', () => {
+  it('reuses the full result when nothing is dropped or mutated', () => {
+    const full = analyzeFromReports([report()])
+    const out = applyDashboardFilter(full, { range: 'all', domain: '' })
+    expect(out).toBe(full)
+  })
+
+  it('rebuilds when the date window drops reports', () => {
+    const recentEnd = new Date()
+    recentEnd.setHours(12, 0, 0, 0)
+    const old = report({
+      reportId: 'old',
+      dateBegin: '2020-01-01T00:00:00.000Z',
+      dateEnd: '2020-01-02T00:00:00.000Z'
+    })
+    const recent = report({
+      reportId: 'new',
+      dateBegin: recentEnd.toISOString(),
+      dateEnd: recentEnd.toISOString()
+    })
+    const full = analyzeFromReports([recent, old])
+    const out = applyDashboardFilter(full, { range: '90', domain: '' })
+    expect(out).not.toBe(full)
+    expect(out.reports.map((r) => r.reportId)).toEqual(['new'])
   })
 })
