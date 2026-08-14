@@ -451,6 +451,8 @@ export interface DnsCheckResult {
   dkim: {
     selectors: DkimSelectorCheck[]
   }
+  /** BIMI assertion at `default._bimi.{domain}` (optional on older cached results). */
+  bimi?: BimiCheckResult
   resolver?: DnsResolverInfo
   checkedAt: string
 }

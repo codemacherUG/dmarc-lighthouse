@@ -142,6 +142,38 @@ async function checkDkimSelector(
   }
 }
 
+async function lookupBimi(
+  domain: string,
+  selector: string,
+  auth: InstanceType<typeof dns.Resolver> | null
+): Promise<BimiCheckResult> {
+  const host = bimiHost(domain, selector)
+  const empty: BimiCheckResult = {
+    domain,
+    selector,
+    host,
+    found: false,
+    records: [],
+    location: null,
+    authority: null
+  }
+  try {
+    const records = flattenTxt(await resolveTxtRecords(host, auth))
+    const parsed =
+      records.map(parseBimiRecord).find((r) => r.found) ?? parseBimiRecord(records[0] ?? '')
+    return {
+      ...empty,
+      found: parsed.found,
+      records,
+      location: parsed.location,
+      authority: parsed.authority
+    }
+  } catch (err) {
+    if (isEmptyDnsError(err)) return empty
+    return { ...empty, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 export async function checkDomainDns(
   domainRaw: string,
   selectorsRaw: string[] = []
@@ -198,9 +230,12 @@ export async function checkDomainDns(
     result.spf.error = err instanceof Error ? err.message : String(err)
   }
 
-  result.dkim.selectors = await Promise.all(
-    selectors.map((sel) => checkDkimSelector(domain, sel, auth))
-  )
+  const [dkimSelectors, bimi] = await Promise.all([
+    Promise.all(selectors.map((sel) => checkDkimSelector(domain, sel, auth))),
+    lookupBimi(domain, DEFAULT_BIMI_SELECTOR, auth)
+  ])
+  result.dkim.selectors = dkimSelectors
+  result.bimi = bimi
 
   return result
 }
@@ -216,16 +251,6 @@ export async function checkBimiDns(
   const selector = isValidBimiSelector(selectorRaw)
     ? normalizeBimiSelector(selectorRaw)
     : DEFAULT_BIMI_SELECTOR
-  const host = bimiHost(domain, selector)
-  const empty: BimiCheckResult = {
-    domain,
-    selector,
-    host,
-    found: false,
-    records: [],
-    location: null,
-    authority: null
-  }
 
   const authNs = await findAuthoritativeNs(domain)
   let auth: InstanceType<typeof dns.Resolver> | null = null
@@ -234,19 +259,5 @@ export async function checkBimiDns(
     auth.setServers(authNs.servers)
   }
 
-  try {
-    const records = flattenTxt(await resolveTxtRecords(host, auth))
-    const parsed =
-      records.map(parseBimiRecord).find((r) => r.found) ?? parseBimiRecord(records[0] ?? '')
-    return {
-      ...empty,
-      found: parsed.found,
-      records,
-      location: parsed.location,
-      authority: parsed.authority
-    }
-  } catch (err) {
-    if (isEmptyDnsError(err)) return empty
-    return { ...empty, error: err instanceof Error ? err.message : String(err) }
-  }
+  return lookupBimi(domain, selector, auth)
 }

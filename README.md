@@ -73,7 +73,7 @@ Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
 
 ### DNS check & transport security
 
-DMARC, SPF, and DKIM selectors straight from the authoritative nameserver — plus TLS-RPT, MTA-STS (including the policy file and MX coverage), and DANE/TLSA of the MX hosts. Missing records can be generated step by step under **Tools** (DMARC, SPF, TLS-RPT, MTA-STS, BIMI):
+DMARC, SPF, DKIM selectors, and BIMI straight from the authoritative nameserver — plus TLS-RPT, MTA-STS (including the policy file and MX coverage), and DANE/TLSA of the MX hosts. Missing records can be generated step by step under **Tools** (DMARC, SPF, TLS-RPT, MTA-STS, BIMI):
 
 ![DNS check with transport security](docs/screenshots/en/dns.png)
 
@@ -118,7 +118,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Domain health**         | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter                                                                                                                                              |
 | **Filters**               | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain                                                                                                                         |
 | **Mailbox noise filter**  | Optional, persisted filter that hides forwarding / report-echo rows from Gmail, Outlook, Yahoo and iCloud (mailbox IP + SPF fail + DKIM pass + DMARC pass)                                                                       |
-| **DNS check**             | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual)                                                                                                                               |
+| **DNS check**             | Live lookup of DMARC (`p`, `rua`), SPF, DKIM selectors (auto-collected from reports or manual), and BIMI (`l`, `a`)                                                                                                              |
 | **Record wizards**        | Guided DMARC, SPF, TLS-RPT, MTA-STS, and BIMI records; live DNS as a template, copy-ready output (MTA-STS includes the policy file)                                                                                              |
 | **Transport security**    | TLS-RPT record, MTA-STS TXT + policy file (mode, `max_age`, MX coverage), and DANE/TLSA per MX host with an overall verdict                                                                                                      |
 | **Email inspection**      | Open an `.eml` / `.msg` or paste headers: Received path, SPF/DKIM/DMARC/alignment, TLS vs local hops, ARC, overall verdict, PDF export. Local only; body unread                                                                  |
@@ -177,7 +177,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, and autostart. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
 4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
-5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, and DKIM selectors from the reports or entered manually).
+5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, DKIM selectors from the reports or entered manually, and BIMI).
 6. Open **Tools → Inspect email** to load an `.eml` or `.msg` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
 7. Plan the next step towards `p=reject` under **Tools → Policy rollout**: recommendation, open items, senders to fix, and a staging plan of ready-to-copy records.
 8. For management reporting, pick **PDF report** in the **Export** dialog — or enable the **monthly report** in the settings: each domain in the finished month gets its own PDF.
@@ -209,7 +209,7 @@ IMAP mailbox(es) / local files
   Analysis → KPIs, charts, tables
         │
         ├── Filters (date range, domain, org / IP / From drill-down)
-        ├── DNS check (DMARC / SPF / DKIM)
+        ├── DNS check (DMARC / SPF / DKIM / BIMI)
         ├── Record wizards (DMARC / SPF / TLS-RPT / MTA-STS / BIMI)
         ├── Email inspection (.eml / .msg / paste: path, TLS, SPF/DKIM/DMARC/ARC)
         ├── Policy rollout (next step + staging plan)

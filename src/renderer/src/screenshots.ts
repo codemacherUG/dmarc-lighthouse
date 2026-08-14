@@ -39,7 +39,14 @@ function fillDnsDemo(): void {
     selector: '<span class="mono">selector1</span>',
     state: `<span class="pass">${escapeHtml(t('dns.dkimFound'))}</span>`
   })
-  dnsResultEl.innerHTML = `<strong>example.com</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}`
+  const bimiHtml = `<span class="pass">${escapeHtml(
+    t('dns.bimiFound', {
+      selector: 'default',
+      location: 'https://example.com/logo.svg',
+      authority: 'https://example.com/vmc.pem'
+    })
+  )}</span>`
+  dnsResultEl.innerHTML = `<strong>example.com</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}`
   dnsResultEl.className = 'dns-result ok'
 }
 

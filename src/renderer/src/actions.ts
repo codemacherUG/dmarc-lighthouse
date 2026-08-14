@@ -231,6 +231,21 @@ export function initActions(): void {
         dkimHtml = escapeHtml(t('dns.dkimNone'))
       }
 
+      const bimi = result.bimi
+      let bimiHtml = ''
+      if (!bimi || !bimi.found) {
+        const detail = bimi?.error ? ` (${bimi.error})` : ''
+        bimiHtml = `<span class="fail">${escapeHtml(t('dns.bimiMissing'))}${escapeHtml(detail)}</span>`
+      } else {
+        bimiHtml = `<span class="pass">${escapeHtml(
+          t('dns.bimiFound', {
+            selector: bimi.selector,
+            location: bimi.location || '—',
+            authority: bimi.authority || '—'
+          })
+        )}</span>`
+      }
+
       const resolverLine =
         result.resolver?.mode === 'authoritative'
           ? t('dns.resolverAuth', {
@@ -238,7 +253,7 @@ export function initActions(): void {
               zone: result.resolver.zone ?? result.domain
             })
           : t('dns.resolverRecursive')
-      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}`
+      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}`
       dnsResultEl.className = 'dns-result ok'
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)

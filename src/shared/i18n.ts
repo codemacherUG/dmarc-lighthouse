@@ -20,7 +20,7 @@ const de = {
   'header.tools': 'Tools',
   'header.toolsTitle': 'Werkzeuge',
   'header.toolsSection': 'Tools',
-  'header.dnsDesc': 'DMARC, SPF und DKIM live prüfen',
+  'header.dnsDesc': 'DMARC, SPF, DKIM und BIMI live prüfen',
   'header.builderDesc': 'DMARC-Record geführt erstellen',
   'header.spfBuilderDesc': 'SPF bauen, auswerten und auflösen',
   'header.tlsrptBuilderDesc': 'Reporting-Record für TLS-Fehler',
@@ -265,7 +265,7 @@ const de = {
   'filter.dns': 'DNS-Check',
   'filter.dnsCheck': 'Prüfen',
   'filter.dnsHint':
-    'DMARC-/SPF-/DKIM-DNS einer Domain prüfen — direkt beim autoritativen Nameserver.',
+    'DMARC-/SPF-/DKIM-/BIMI-DNS einer Domain prüfen — direkt beim autoritativen Nameserver.',
   'filter.selectors': 'DKIM-Selektoren',
   'filter.selectorsPlaceholder': 'z. B. default, google',
   'filter.selectorsTitle':
@@ -641,6 +641,8 @@ const de = {
   'dns.dkimNone':
     'DKIM: keine Selektoren bekannt — Selektoren eingeben oder Reports (neu) abrufen.',
   'dns.dkimLine': 'DKIM {selector}: {state}',
+  'dns.bimiFound': 'BIMI ({selector}): l={location} · a={authority}',
+  'dns.bimiMissing': 'BIMI: nicht gefunden',
   'dns.resolverAuth': 'Direkt bei {ns} (Zone {zone})',
   'dns.resolverRecursive': 'System-Resolver (kein autoritativer NS gefunden)',
 
@@ -1174,7 +1176,7 @@ const en: Dict = {
   'header.tools': 'Tools',
   'header.toolsTitle': 'Tools',
   'header.toolsSection': 'Tools',
-  'header.dnsDesc': 'Check DMARC, SPF and DKIM live',
+  'header.dnsDesc': 'Check DMARC, SPF, DKIM and BIMI live',
   'header.builderDesc': 'Create a DMARC record step by step',
   'header.spfBuilderDesc': 'Build, evaluate and expand SPF',
   'header.tlsrptBuilderDesc': 'Reporting record for TLS failures',
@@ -1417,7 +1419,7 @@ const en: Dict = {
   'filter.dns': 'DNS check',
   'filter.dnsCheck': 'Check',
   'filter.dnsHint':
-    'Check DMARC / SPF / DKIM DNS for a domain — queried at the authoritative nameserver.',
+    'Check DMARC / SPF / DKIM / BIMI DNS for a domain — queried at the authoritative nameserver.',
   'filter.selectors': 'DKIM selectors',
   'filter.selectorsPlaceholder': 'e.g. default, google',
   'filter.selectorsTitle':
@@ -1787,6 +1789,8 @@ const en: Dict = {
   'dns.dkimMissing': 'not found',
   'dns.dkimNone': 'DKIM: no selectors known — enter selectors or fetch reports again.',
   'dns.dkimLine': 'DKIM {selector}: {state}',
+  'dns.bimiFound': 'BIMI ({selector}): l={location} · a={authority}',
+  'dns.bimiMissing': 'BIMI: not found',
   'dns.resolverAuth': 'Authoritative via {ns} (zone {zone})',
   'dns.resolverRecursive': 'System resolver (no authoritative NS found)',
 
