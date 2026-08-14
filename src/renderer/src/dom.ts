@@ -64,6 +64,9 @@ export const btnCloseEmailInspect = document.getElementById(
 export const btnEmailInspectOpen = document.getElementById(
   'btn-email-inspect-open'
 ) as HTMLButtonElement
+export const btnEmailInspectPdf = document.getElementById(
+  'btn-email-inspect-pdf'
+) as HTMLButtonElement
 export const btnEmailInspectPaste = document.getElementById(
   'btn-email-inspect-paste'
 ) as HTMLButtonElement

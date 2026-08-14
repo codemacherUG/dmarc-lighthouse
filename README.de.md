@@ -41,7 +41,7 @@ DMARC-Aggregate-Reports (RUA) und Failure-Reports (RUF) landen oft in einem eige
 - wie sich Volumen und Pass-Rate **über die Zeit** entwickeln
 - optionale **Alerts** bei steigenden Failures, niedriger Pass-Rate oder neu gesehenen Quell-IPs
 - **Forensik / RUF** als bereinigte Tabelle (nur Header — keine Nachrichteninhalte)
-- eine gespeicherte **.eml** (oder eingefügte Header): Transportweg, SPF/DKIM/DMARC/TLS/ARC und Gesamturteil
+- eine gespeicherte **.eml** oder Outlook-**.msg** (oder eingefügte Header): Transportweg, SPF/DKIM/DMARC/TLS/ARC und Gesamturteil
 
 Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Electron-`userData`-Ordner, verschlüsselt mit `safeStorage`. Der Report-Cache nutzt **SQLite**. Es gibt keinen Cloud-Account und keine Telemetrie. Die Oberfläche ist auf **Deutsch** und **Englisch** verfügbar.
 
@@ -85,7 +85,7 @@ Bewertet die letzten 30 Tage einer Domain, empfiehlt den nächsten Schritt auf d
 
 ### E-Mail prüfen
 
-Unter **Tools → E-Mail prüfen** eine gespeicherte `.eml` öffnen (oder Header einfügen, z. B. Gmail „Original anzeigen“). Gezeigt werden Transportweg, SPF/DKIM/DMARC, TLS je Station, ARC und Gesamturteil. Es werden nur Header gelesen — der Inhalt nicht. Interne Stationen (LMTP, Docker-/Privat-IPs) sind als **lokal** markiert, nicht als fehlendes TLS. Outlook-`.msg` wird nicht unterstützt (als `.eml` speichern).
+Unter **Tools → E-Mail prüfen** eine gespeicherte `.eml` oder Outlook-`.msg` öffnen (oder Header einfügen, z. B. Gmail „Original anzeigen“). Gezeigt werden Transportweg, SPF/DKIM/DMARC, TLS je Station, ARC und Gesamturteil. Das Ergebnis lässt sich als **PDF** speichern. Es werden nur Header gelesen — der Inhalt nicht. Interne Stationen (LMTP, Docker-/Privat-IPs) sind als **lokal** markiert, nicht als fehlendes TLS. Bei `.msg` ohne Transport-Header (z. B. ungesendete Entwürfe) fehlen Weg und Auth-Ergebnisse.
 
 ![E-Mail-Prüfung mit Weg und Authentifizierungsurteil](docs/screenshots/de/email.png)
 
@@ -121,7 +121,7 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **DNS-Check** | Live-Abfrage von DMARC (`p`, `rua`), SPF und DKIM-Selektoren (automatisch aus den Reports oder manuell) |
 | **Record-Wizards** | DMARC, SPF, TLS-RPT und MTA-STS geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei) |
 | **Transport-Sicherheit** | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil |
-| **E-Mail prüfen** | `.eml` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil. Nur lokal; Body ungelesen. `.msg` nicht unterstützt |
+| **E-Mail prüfen** | `.eml` / `.msg` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil, PDF-Export. Nur lokal; Body ungelesen |
 | **Export** | Aktuell gefilterte Daten als CSV oder JSON; einzelne Aggregate-Reports als ZIP (XML) |
 | **PDF-Managementbericht** | Druckfertiger A4-Bericht (Kennzahlen, Bewertung, Alignment, Verlauf, Domain-Status, Problemquellen) — manuell für die aktuelle Ansicht oder automatisch einmal pro Monat **ein PDF pro Domain**, im Hintergrund aus dem Cache |
 | **Auto-Abruf** | Optionales Intervall über alle Konten + Desktop-Benachrichtigung bei steigenden Failures |
@@ -178,7 +178,7 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
 4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Google-Rauschen ausblenden**, um Google-Report-Echo-Hops zu entfernen. Charts, Aggregate-Tabellen, Forensik-/RUF-Tabelle und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Reports als ZIP laden.
 5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF sowie DKIM-Selektoren aus den Reports oder manuell).
-6. Unter **Tools → E-Mail prüfen** eine `.eml` laden (auf den Dialog ziehen) oder Header einfügen. Weg, TLS vs. lokale Stationen sowie SPF/DKIM/DMARC/ARC prüfen. Lokaler Versand mit `Authentication-Results: none` ist „unbekannt“, kein Spoofing.
+6. Unter **Tools → E-Mail prüfen** eine `.eml` oder `.msg` laden (auf den Dialog ziehen) oder Header einfügen. Weg, TLS vs. lokale Stationen sowie SPF/DKIM/DMARC/ARC prüfen. Lokaler Versand mit `Authentication-Results: none` ist „unbekannt“, kein Spoofing.
 7. Unter **Tools → Policy-Rollout** den nächsten Schritt zu `p=reject` planen: Empfehlung, offene Punkte, zu klärende Absender und Staging-Plan mit kopierbaren Records.
 8. Für Berichte an die Leitung im **Export**-Dialog **PDF-Bericht** wählen — oder in den Einstellungen den **Monatsbericht** aktivieren: für jede Domain im abgelaufenen Monat entsteht ein eigenes PDF.
 
@@ -211,7 +211,7 @@ IMAP-Postfach/-Postfächer / lokale Dateien
         ├── Filter (Zeitraum, Domain, Drill-Down Org / IP / From)
         ├── DNS-Check (DMARC / SPF / DKIM)
         ├── Record-Wizards (DMARC / SPF / TLS-RPT / MTA-STS)
-        ├── E-Mail prüfen (.eml / Einfügen: Weg, TLS, SPF/DKIM/DMARC/ARC)
+        ├── E-Mail prüfen (.eml / .msg / Einfügen: Weg, TLS, SPF/DKIM/DMARC/ARC)
         ├── Policy-Rollout (nächster Schritt + Staging-Plan)
         ├── Alerts (Failures / Pass-Rate / neue Quellen)
         └── Export (CSV / JSON / PDF-Managementbericht, monatlich automatisch)
@@ -286,7 +286,7 @@ npm run release
 ## Hinweise & Grenzen
 
 - Forensik-/RUF-Zeilen zeigen nur bereinigte Header — Nachrichteninhalte werden weder gespeichert noch angezeigt. Dasselbe gilt für **E-Mail prüfen**: es werden nur Header gelesen.
-- Outlook-`.msg` wird bei der Prüfung nicht unterstützt; die Nachricht als `.eml` speichern.
+- Outlook-`.msg` ohne Internet-Transport-Header (typisch bei Entwürfen) liefert nur Absender/Betreff, keinen Received-Pfad.
 - Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
 - Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
 - Cache leeren: Einstellungen → Konto-Verwaltung → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).

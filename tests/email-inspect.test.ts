@@ -250,7 +250,7 @@ hi
     }
   })
 
-  it('rejects Outlook MSG compound files', () => {
+  it('rejects truncated Outlook MSG compound files', () => {
     const ole = Uint8Array.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])
     expect(() => decodeEmailBytes(ole)).toThrow(EmailInspectError)
   })

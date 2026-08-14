@@ -7,11 +7,13 @@ import { pathToFileURL } from 'url'
 import { buildDomainStats, mergeDomainHealth } from '../shared/analyze'
 import { getLocale, t } from '../shared/i18n'
 import { buildManagementReportHtml, type ManagementReportInput } from '../shared/report-html'
+import { buildEmailInspectReportHtml } from '../shared/email-inspect-html'
 import type { ReportPeriod } from '../shared/report-period'
 import type {
   AnalyzeResult,
   DnsCheckResult,
   DomainHealth,
+  EmailInspectResult,
   ForensicReportRow,
   ReportRow
 } from '../shared/types'
@@ -309,6 +311,21 @@ export async function buildPdfReport(
   return renderHtmlToPdf(buildManagementReportHtml(input), host)
 }
 
+export async function buildEmailInspectPdf(
+  result: EmailInspectResult,
+  options: { host?: BrowserWindow | null; generatedAt?: string } = {}
+): Promise<Buffer> {
+  return renderHtmlToPdf(
+    buildEmailInspectReportHtml({
+      result,
+      locale: getLocale(),
+      appVersion: app.getVersion(),
+      generatedAt: options.generatedAt
+    }),
+    options.host
+  )
+}
+
 /** Reports whose measurement window overlaps the period. */
 export function reportsInPeriod(reports: ReportRow[], period: ReportPeriod): ReportRow[] {
   const from = new Date(period.from).getTime()
@@ -364,7 +381,10 @@ export function groupReportsByDomain(
     string,
     DomainReportSlice & { seenReports: Set<string>; seenForensic: Set<string> }
   >()
-  const bucket = (domain: string, label: string | null) => {
+  const bucket = (
+    domain: string,
+    label: string | null
+  ): DomainReportSlice & { seenReports: Set<string>; seenForensic: Set<string> } => {
     let slice = map.get(domain)
     if (!slice) {
       slice = {

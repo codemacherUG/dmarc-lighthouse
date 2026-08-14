@@ -12,11 +12,13 @@ import {
   btnEmailInspect,
   btnEmailInspectOpen,
   btnEmailInspectPaste,
+  btnEmailInspectPdf,
   emailInspectDialog,
   emailInspectPasteEl,
   emailInspectResultEl
 } from './dom'
 import { escapeHtml } from './format'
+import { setStatus } from './chrome'
 
 const STATUS_BADGE: Record<EmailInspectStatus, string> = {
   ok: 'badge',
@@ -140,6 +142,10 @@ function extrasHtml(result: EmailInspectResult): string {
   return parts.join('')
 }
 
+function syncPdfButton(): void {
+  btnEmailInspectPdf.disabled = !lastResult
+}
+
 function renderResult(result: EmailInspectResult): void {
   emailInspectResultEl.innerHTML = `
     <div class="email-verdict ${result.status}">
@@ -176,11 +182,13 @@ function show(response: EmailInspectResponse): void {
     lastResult = null
     lastError = response.message
     renderError(response.message)
+    syncPdfButton()
     return
   }
   lastError = null
   lastResult = response.result
   renderResult(response.result)
+  syncPdfButton()
 }
 
 export function isEmailInspectOpen(): boolean {
@@ -204,6 +212,7 @@ export function seedEmailInspect(result: EmailInspectResult): void {
   lastError = null
   lastResult = result
   if (emailInspectDialog.open) renderResult(result)
+  syncPdfButton()
 }
 
 export function refreshEmailInspectLocale(): void {
@@ -216,6 +225,24 @@ export function refreshEmailInspectLocale(): void {
 export function initEmailInspectUi(): void {
   btnEmailInspect.addEventListener('click', () => openEmailInspect())
   btnCloseEmailInspect.addEventListener('click', () => emailInspectDialog.close())
+  syncPdfButton()
+
+  btnEmailInspectPdf.addEventListener('click', async () => {
+    if (!lastResult) {
+      setStatus(t('email.pdfEmpty'), 'error')
+      return
+    }
+    btnEmailInspectPdf.disabled = true
+    setStatus(t('status.emailPdfBuilding'))
+    try {
+      const res = await window.api.exportEmailInspectPdf(lastResult)
+      setStatus(res.message, res.ok ? 'ok' : '')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : String(err), 'error')
+    } finally {
+      syncPdfButton()
+    }
+  })
 
   btnEmailInspectOpen.addEventListener('click', async () => {
     btnEmailInspectOpen.disabled = true

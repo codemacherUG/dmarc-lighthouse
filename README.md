@@ -41,7 +41,7 @@ DMARC aggregate reports (RUA) and failure reports (RUF) often land in a dedicate
 - how volume and pass rate evolve **over time**
 - optional **alerts** for rising failures, a low pass rate, or newly seen source IPs
 - **forensic / RUF** failure reports as a sanitized table (headers only — no message bodies)
-- a saved **.eml** (or pasted headers): hop path, SPF/DKIM/DMARC/TLS/ARC, and an overall verdict
+- a saved **.eml** or Outlook **.msg** (or pasted headers): hop path, SPF/DKIM/DMARC/TLS/ARC, and an overall verdict
 
 Everything runs locally on your machine: credentials and OAuth tokens stay in the Electron `userData` folder, encrypted with `safeStorage`. Report caches use **SQLite**. There is no cloud account and no telemetry. The UI is available in **German** and **English**.
 
@@ -85,7 +85,7 @@ Reviews the last 30 days of a domain, recommends the next step towards `p=reject
 
 ### Email inspection
 
-Under **Tools → Inspect email**, open a saved `.eml` (or paste headers, e.g. Gmail “Show original”). The app shows the hop path, SPF/DKIM/DMARC, TLS per hop, ARC, and an overall verdict. Only headers are read — the body is not. Internal hops (LMTP, Docker/private IPs) are marked **local**, not as missing TLS. Outlook `.msg` is not supported (save as `.eml`).
+Under **Tools → Inspect email**, open a saved `.eml` or Outlook `.msg` (or paste headers, e.g. Gmail “Show original”). The app shows the hop path, SPF/DKIM/DMARC, TLS per hop, ARC, and an overall verdict. The result can be saved as a **PDF**. Only headers are read — the body is not. Internal hops (LMTP, Docker/private IPs) are marked **local**, not as missing TLS. A `.msg` without transport headers (e.g. unsent drafts) has no path or auth results.
 
 ![Email inspection with path and authentication verdict](docs/screenshots/en/email.png)
 
@@ -121,7 +121,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **DNS check** | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual) |
 | **Record wizards** | Guided DMARC, SPF, TLS-RPT, and MTA-STS records; live DNS as a template, copy-ready output (MTA-STS includes the policy file) |
 | **Transport security** | TLS-RPT record, MTA-STS TXT + policy file (mode, `max_age`, MX coverage), and DANE/TLSA per MX host with an overall verdict |
-| **Email inspection** | Open an `.eml` or paste headers: Received path, SPF/DKIM/DMARC/alignment, TLS vs local hops, ARC, overall verdict. Local only; body unread. `.msg` not supported |
+| **Email inspection** | Open an `.eml` / `.msg` or paste headers: Received path, SPF/DKIM/DMARC/alignment, TLS vs local hops, ARC, overall verdict, PDF export. Local only; body unread |
 | **Export** | Currently filtered data as CSV or JSON; single aggregate reports as ZIP (XML) |
 | **PDF management report** | Print-ready A4 report (key figures, assessment, alignment, trend, domain status, problem sources) — on demand for the current view, or automatically once a month **one PDF per domain**, built in the background from the cache |
 | **Auto-fetch** | Optional interval across all accounts + desktop notification when failures increase |
@@ -178,7 +178,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
 4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide Google noise** to drop Google report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
 5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, and DKIM selectors from the reports or entered manually).
-6. Open **Tools → Inspect email** to load an `.eml` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
+6. Open **Tools → Inspect email** to load an `.eml` or `.msg` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
 7. Plan the next step towards `p=reject` under **Tools → Policy rollout**: recommendation, open items, senders to fix, and a staging plan of ready-to-copy records.
 8. For management reporting, pick **PDF report** in the **Export** dialog — or enable the **monthly report** in the settings: each domain in the finished month gets its own PDF.
 
@@ -211,7 +211,7 @@ IMAP mailbox(es) / local files
         ├── Filters (date range, domain, org / IP / From drill-down)
         ├── DNS check (DMARC / SPF / DKIM)
         ├── Record wizards (DMARC / SPF / TLS-RPT / MTA-STS)
-        ├── Email inspection (.eml / paste: path, TLS, SPF/DKIM/DMARC/ARC)
+        ├── Email inspection (.eml / .msg / paste: path, TLS, SPF/DKIM/DMARC/ARC)
         ├── Policy rollout (next step + staging plan)
         ├── Alerts (failures / pass rate / new sources)
         └── Export (CSV / JSON / PDF management report, monthly on schedule)
@@ -286,7 +286,7 @@ npm run release
 ## Notes & limitations
 
 - Forensic/RUF rows show sanitized headers only — message bodies are never stored or displayed. The same applies to **Inspect email**: only headers are parsed.
-- Outlook `.msg` is not supported for inspection; save the message as `.eml`.
+- Outlook `.msg` files without Internet transport headers (typical for drafts) show identity only, not a Received path.
 - Messages without a valid DMARC attachment are skipped and counted.
 - Settings and report caches live under the Electron `userData` path (not in the repo); each IMAP account has its own cache.
 - Clear cache: Settings → Accounts → **Clear this account’s cache** (the next fetch will retrieve everything again for that account).

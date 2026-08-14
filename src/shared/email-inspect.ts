@@ -1,4 +1,5 @@
 import { isRelaxedAligned, organizationalDomain } from './domain'
+import { extractMsgRfc822, isOleCompound } from './msg-headers'
 import type {
   ArcSetInfo,
   AuthMethodResult,
@@ -21,7 +22,6 @@ export class EmailInspectError extends Error {
 }
 
 const HEADER_SCAN = 256 * 1024
-const OLE_MAGIC = [0xd0, 0xcf, 0x11, 0xe0]
 
 const IPV4_RE = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g
 const BRACKET_IP_RE = /\[(?:IPv6:)?([0-9a-f:.]+)\]/gi
@@ -31,14 +31,13 @@ const TLS_CIPHER_RE = /(?:with\s+cipher|cipher\s*=)\s*([A-Za-z0-9_:-]+)/i
 const AUTH_RESULT_OK = new Set(['pass', 'ok', 'valid'])
 const AUTH_RESULT_BAD = new Set(['fail', 'hardfail', 'invalid', 'permerror'])
 
-function isOleCompound(bytes: Uint8Array): boolean {
-  if (bytes.length < 4) return false
-  return OLE_MAGIC.every((b, i) => bytes[i] === b)
-}
-
 /** Decode a file/buffer into RFC 5322 text (headers + start of body). */
 export function decodeEmailBytes(bytes: Uint8Array): string {
-  if (isOleCompound(bytes)) throw new EmailInspectError('unsupportedMsg')
+  if (isOleCompound(bytes)) {
+    const headers = extractMsgRfc822(bytes)
+    if (!headers?.trim()) throw new EmailInspectError('unsupportedMsg')
+    return headers
+  }
   let offset = 0
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
     offset = 3

@@ -19,7 +19,8 @@ import type {
   TestConnectionResult,
   TransportSecurityResult,
   UpdateStatusPayload,
-  EmailInspectResponse
+  EmailInspectResponse,
+  EmailInspectResult
 } from '../shared/types'
 
 const api = {
@@ -72,6 +73,8 @@ const api = {
     data?: ArrayBuffer
     text?: string
   }): Promise<EmailInspectResponse> => ipcRenderer.invoke('email:parse', input),
+  exportEmailInspectPdf: (result: EmailInspectResult): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('email:pdf', result),
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'

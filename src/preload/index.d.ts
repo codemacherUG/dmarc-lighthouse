@@ -18,7 +18,8 @@ import type {
   TestConnectionResult,
   TransportSecurityResult,
   UpdateStatusPayload,
-  EmailInspectResponse
+  EmailInspectResponse,
+  EmailInspectResult
 } from '../shared/types'
 
 export interface DmarcLighthouseApi {
@@ -52,6 +53,7 @@ export interface DmarcLighthouseApi {
     data?: ArrayBuffer
     text?: string
   }) => Promise<EmailInspectResponse>
+  exportEmailInspectPdf: (result: EmailInspectResult) => Promise<{ ok: boolean; message: string }>
   exportSave: (
     result: AnalyzeResult,
     format: 'json' | 'csv'

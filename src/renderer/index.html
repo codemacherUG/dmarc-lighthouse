@@ -2110,8 +2110,9 @@
           </button>
         </header>
         <p class="hint" data-i18n="email.hint">
-          Eine gespeicherte Nachricht (.eml) einlesen. Gezeigt werden der Transportweg und die
-          Sicherheitsbewertung aus den Headern — der Inhalt der Mail bleibt ungelesen.
+          Eine gespeicherte Nachricht (.eml oder Outlook-.msg) einlesen. Gezeigt werden der
+          Transportweg und die Sicherheitsbewertung aus den Headern — der Inhalt der Mail bleibt
+          ungelesen.
         </p>
         <div class="email-inspect-controls">
           <button
@@ -2121,6 +2122,16 @@
             data-i18n="email.open"
           >
             Datei öffnen
+          </button>
+          <button
+            type="button"
+            id="btn-email-inspect-pdf"
+            class="btn secondary"
+            data-i18n="email.pdf"
+            data-i18n-title="email.pdfTitle"
+            disabled
+          >
+            PDF speichern
           </button>
         </div>
         <details id="email-inspect-paste" class="email-inspect-paste">

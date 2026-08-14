@@ -18,6 +18,7 @@ import type {
   AccountSettingsInput,
   AnalyzeResult,
   AppTheme,
+  EmailInspectResult,
   GlobalSettings,
   ReportRow
 } from '../shared/types'
@@ -38,6 +39,7 @@ import {
 } from '../shared/report-period'
 import {
   buildPdfReport,
+  buildEmailInspectPdf,
   defaultReportDir,
   domainHealthFromReports,
   forensicInPeriod,
@@ -45,6 +47,7 @@ import {
   reportsInPeriod,
   writeReportFile
 } from './pdf-report'
+import { emailInspectPdfFilename } from '../shared/email-inspect-html'
 import { inspectEmailBuffer, inspectEmailText } from './email-inspect'
 import { importLocalFiles, loadLocalImportResult, type ImportTargetAccount } from './import'
 import { checkDomainDns } from './dnscheck'
@@ -831,7 +834,7 @@ function registerIpc(): void {
       title: t('main.openEmail'),
       properties: ['openFile'] as Array<'openFile'>,
       filters: [
-        { name: 'E-Mail', extensions: ['eml', 'emlx', 'mime', 'txt'] },
+        { name: 'E-Mail', extensions: ['eml', 'emlx', 'msg', 'mime', 'txt'] },
         { name: 'Alle Dateien / All files', extensions: ['*'] }
       ]
     }
@@ -856,6 +859,26 @@ function registerIpc(): void {
       return inspectEmailBuffer(bytes, basename(rawName))
     }
   )
+
+  ipcMain.handle('email:pdf', async (_event, result: EmailInspectResult) => {
+    if (!result || typeof result !== 'object' || !Array.isArray(result.checks)) {
+      return { ok: false, message: t('email.pdfEmpty') }
+    }
+    const pdf = await buildEmailInspectPdf(result, { host: mainWindow })
+    const saveOptions = {
+      title: t('main.saveEmailPdf'),
+      defaultPath: emailInspectPdfFilename(
+        typeof result.fileName === 'string' ? result.fileName : 'message'
+      ),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    }
+    const save = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, saveOptions)
+      : await dialog.showSaveDialog(saveOptions)
+    if (save.canceled || !save.filePath) return { ok: false, message: t('main.cancelled') }
+    writeFileSync(save.filePath, pdf)
+    return { ok: true, message: t('main.saved', { path: save.filePath }) }
+  })
 
   ipcMain.handle('export:save', async (_event, result: AnalyzeResult, format: 'json' | 'csv') => {
     const defaultPath = format === 'json' ? 'dmarc-reports.json' : 'dmarc-reports.csv'
