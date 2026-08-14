@@ -1977,6 +1977,9 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 
 #settings-dialog,
 #builder-dialog,
+#spf-builder-dialog,
+#tlsrpt-builder-dialog,
+#mta-sts-builder-dialog,
 #info-dialog,
 #export-dialog,
 #dns-dialog,
@@ -1994,7 +1997,10 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   color: var(--ink);
 }
 
-#builder-dialog {
+#builder-dialog,
+#spf-builder-dialog,
+#tlsrpt-builder-dialog,
+#mta-sts-builder-dialog {
   width: min(720px, calc(100vw - 32px));
   overflow: hidden;
 }
@@ -2377,14 +2383,20 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   gap: 4px;
 }
 
-#builder-dialog .builder-form {
+#builder-dialog .builder-form,
+#spf-builder-dialog .builder-form,
+#tlsrpt-builder-dialog .builder-form,
+#mta-sts-builder-dialog .builder-form {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 48px);
   padding: 0;
 }
 
-#builder-dialog .dialog-header {
+#builder-dialog .dialog-header,
+#spf-builder-dialog .dialog-header,
+#tlsrpt-builder-dialog .dialog-header,
+#mta-sts-builder-dialog .dialog-header {
   padding: 16px 18px 0;
   margin-bottom: 8px;
 }
@@ -2477,11 +2489,20 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   font-size: 0.98rem;
 }
 
+.builder-intro {
+  margin: 0 0 10px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
 .builder-checklist {
-  margin: 12px 0 0;
+  margin: 0 0 12px;
   padding-left: 1.2rem;
   display: grid;
   gap: 6px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
 }
 
 .builder-form-grid {
@@ -2728,6 +2749,9 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 
 #settings-dialog::backdrop,
 #builder-dialog::backdrop,
+#spf-builder-dialog::backdrop,
+#tlsrpt-builder-dialog::backdrop,
+#mta-sts-builder-dialog::backdrop,
 #info-dialog::backdrop,
 #export-dialog::backdrop,
 #dns-dialog::backdrop,

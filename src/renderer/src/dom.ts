@@ -51,6 +51,8 @@ export const navDns = document.getElementById('nav-dns') as HTMLButtonElement
 export const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement
 export const btnBuilder = document.getElementById('btn-builder') as HTMLButtonElement
 export const btnSpfBuilder = document.getElementById('btn-spf-builder') as HTMLButtonElement
+export const btnTlsrptBuilder = document.getElementById('btn-tlsrpt-builder') as HTMLButtonElement
+export const btnMtaStsBuilder = document.getElementById('btn-mta-sts-builder') as HTMLButtonElement
 export const btnRollout = document.getElementById('btn-rollout') as HTMLButtonElement
 export const btnEmailInspect = document.getElementById('btn-email-inspect') as HTMLButtonElement
 export const emailInspectDialog = document.getElementById(
@@ -261,4 +263,75 @@ export const btnSpfBuilderBack = document.getElementById(
 ) as HTMLButtonElement
 export const btnSpfBuilderNext = document.getElementById(
   'btn-spf-builder-next'
+) as HTMLButtonElement
+
+export const tlsrptBuilderDialog = document.getElementById(
+  'tlsrpt-builder-dialog'
+) as HTMLDialogElement
+export const tlsrptBuilderStepsEl = document.getElementById(
+  'tlsrpt-builder-steps'
+) as HTMLOListElement
+export const tlsrptBuilderDomainEl = document.getElementById(
+  'tlsrpt-builder-domain'
+) as HTMLInputElement
+export const tlsrptBuilderDomainStatusEl = document.getElementById(
+  'tlsrpt-builder-domain-status'
+) as HTMLParagraphElement
+export const tlsrptBuilderRuaEl = document.getElementById('tlsrpt-builder-rua') as HTMLInputElement
+export const tlsrptBuilderResultEl = document.getElementById(
+  'tlsrpt-builder-result'
+) as HTMLDivElement
+export const tlsrptBuilderLiveEl = document.getElementById('tlsrpt-builder-live') as HTMLDivElement
+export const tlsrptBuilderFooterHintEl = document.getElementById(
+  'tlsrpt-builder-footer-hint'
+) as HTMLParagraphElement
+export const btnCloseTlsrptBuilder = document.getElementById(
+  'btn-close-tlsrpt-builder'
+) as HTMLButtonElement
+export const btnTlsrptBuilderBack = document.getElementById(
+  'btn-tlsrpt-builder-back'
+) as HTMLButtonElement
+export const btnTlsrptBuilderNext = document.getElementById(
+  'btn-tlsrpt-builder-next'
+) as HTMLButtonElement
+
+export const mtaStsBuilderDialog = document.getElementById(
+  'mta-sts-builder-dialog'
+) as HTMLDialogElement
+export const mtaStsBuilderStepsEl = document.getElementById(
+  'mta-sts-builder-steps'
+) as HTMLOListElement
+export const mtaStsBuilderDomainEl = document.getElementById(
+  'mta-sts-builder-domain'
+) as HTMLInputElement
+export const mtaStsBuilderDomainStatusEl = document.getElementById(
+  'mta-sts-builder-domain-status'
+) as HTMLParagraphElement
+export const mtaStsBuilderModeEl = document.getElementById(
+  'mta-sts-builder-mode'
+) as HTMLSelectElement
+export const mtaStsBuilderMaxAgeEl = document.getElementById(
+  'mta-sts-builder-max-age'
+) as HTMLInputElement
+export const mtaStsBuilderMxEl = document.getElementById(
+  'mta-sts-builder-mx'
+) as HTMLTextAreaElement
+export const mtaStsBuilderRenewIdEl = document.getElementById(
+  'mta-sts-builder-renew-id'
+) as HTMLInputElement
+export const mtaStsBuilderResultEl = document.getElementById(
+  'mta-sts-builder-result'
+) as HTMLDivElement
+export const mtaStsBuilderLiveEl = document.getElementById('mta-sts-builder-live') as HTMLDivElement
+export const mtaStsBuilderFooterHintEl = document.getElementById(
+  'mta-sts-builder-footer-hint'
+) as HTMLParagraphElement
+export const btnCloseMtaStsBuilder = document.getElementById(
+  'btn-close-mta-sts-builder'
+) as HTMLButtonElement
+export const btnMtaStsBuilderBack = document.getElementById(
+  'btn-mta-sts-builder-back'
+) as HTMLButtonElement
+export const btnMtaStsBuilderNext = document.getElementById(
+  'btn-mta-sts-builder-next'
 ) as HTMLButtonElement

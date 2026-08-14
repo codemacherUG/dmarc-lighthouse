@@ -73,7 +73,7 @@ Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
 
 ### DNS check & transport security
 
-DMARC, SPF, and DKIM selectors straight from the authoritative nameserver — plus TLS-RPT, MTA-STS (including the policy file and MX coverage), and DANE/TLSA of the MX hosts:
+DMARC, SPF, and DKIM selectors straight from the authoritative nameserver — plus TLS-RPT, MTA-STS (including the policy file and MX coverage), and DANE/TLSA of the MX hosts. Missing records can be generated step by step under **Tools** (DMARC, SPF, TLS-RPT, MTA-STS):
 
 ![DNS check with transport security](docs/screenshots/en/dns.png)
 
@@ -119,6 +119,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Filters** | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain |
 | **Google noise filter** | Optional, persisted filter that hides Google forwarding / report-echo rows (Google IP + SPF fail + DKIM pass + DMARC pass) |
 | **DNS check** | Live lookup of DMARC (`p`, `rua`), SPF, and DKIM selectors (auto-collected from reports or manual) |
+| **Record wizards** | Guided DMARC, SPF, TLS-RPT, and MTA-STS records; live DNS as a template, copy-ready output (MTA-STS includes the policy file) |
 | **Transport security** | TLS-RPT record, MTA-STS TXT + policy file (mode, `max_age`, MX coverage), and DANE/TLSA per MX host with an overall verdict |
 | **Email inspection** | Open an `.eml` or paste headers: Received path, SPF/DKIM/DMARC/alignment, TLS vs local hops, ARC, overall verdict. Local only; body unread. `.msg` not supported |
 | **Export** | Currently filtered data as CSV or JSON; single aggregate reports as ZIP (XML) |
@@ -209,6 +210,7 @@ IMAP mailbox(es) / local files
         │
         ├── Filters (date range, domain, org / IP / From drill-down)
         ├── DNS check (DMARC / SPF / DKIM)
+        ├── Record wizards (DMARC / SPF / TLS-RPT / MTA-STS)
         ├── Email inspection (.eml / paste: path, TLS, SPF/DKIM/DMARC/ARC)
         ├── Policy rollout (next step + staging plan)
         ├── Alerts (failures / pass rate / new sources)

@@ -23,6 +23,8 @@ const de = {
   'header.dnsDesc': 'DMARC, SPF und DKIM live prüfen',
   'header.builderDesc': 'DMARC-Record geführt erstellen',
   'header.spfBuilderDesc': 'SPF bauen, auswerten und auflösen',
+  'header.tlsrptBuilderDesc': 'Reporting-Record für TLS-Fehler',
+  'header.mtaStsBuilderDesc': 'Policy und TXT-Record für SMTP-TLS',
   'header.badgeTool': 'Tool',
   'header.badgeWizard': 'Wizard',
   'header.info': 'Info',
@@ -31,6 +33,8 @@ const de = {
   'header.settings': 'Einstellungen',
   'header.builder': 'DMARC-Record Wizard',
   'header.spfBuilder': 'SPF-Record Wizard',
+  'header.tlsrptBuilder': 'TLS-RPT Wizard',
+  'header.mtaStsBuilder': 'MTA-STS Wizard',
   'header.fetch': 'Reports abrufen',
   'header.infoTitle': 'Über die App',
   'header.openFilesTitle': 'Lokale DMARC-Dateien öffnen',
@@ -38,6 +42,8 @@ const de = {
   'header.settingsTitle': 'Einstellungen öffnen',
   'header.builderTitle': 'DMARC-Record erzeugen',
   'header.spfBuilderTitle': 'SPF-Record erzeugen und auflösen',
+  'header.tlsrptBuilderTitle': 'TLS-RPT-Record erzeugen',
+  'header.mtaStsBuilderTitle': 'MTA-STS-Policy erzeugen',
   'header.fetchTitle': 'Reports per IMAP abrufen',
   'header.rollout': 'Policy-Rollout',
   'header.rolloutDesc': 'Nächsten Schritt zu p=reject planen',
@@ -940,7 +946,125 @@ const de = {
   'spfBuilder.expand.needRestart': 'App neu starten, damit SPF-Auflösung verfügbar ist.',
   'spfBuilder.error.domain': 'Bitte eine gültige Domain eingeben (z. B. example.com).',
   'spfBuilder.error.mechanisms': 'Mindestens ein Include, IP, a oder mx angeben.',
-  'spfBuilder.error.include': 'Ungültiger Include-Hostname.'
+  'spfBuilder.error.include': 'Ungültiger Include-Hostname.',
+
+  'tlsrptBuilder.title': 'TLS-RPT-Record erzeugen',
+  'tlsrptBuilder.close': 'Schließen',
+  'tlsrptBuilder.back': 'Zurück',
+  'tlsrptBuilder.next': 'Weiter',
+  'tlsrptBuilder.finish': 'Fertig',
+  'tlsrptBuilder.step.domain': 'Domain',
+  'tlsrptBuilder.step.reporting': 'Reports',
+  'tlsrptBuilder.step.result': 'Ergebnis',
+  'tlsrptBuilder.domain.headline': 'Wozu TLS-RPT?',
+  'tlsrptBuilder.domain.why':
+    'Andere Mailserver melden dir, wenn die TLS-Verbindung zu deinen MX-Hosts scheitert — etwa fehlendes STARTTLS, ein ungültiges Zertifikat oder eine MTA-STS-Policy, die nicht eingehalten werden kann. Der Record blockiert keine Mail, er liefert nur Berichte.',
+  'tlsrptBuilder.domain.does1':
+    'Der Assistent erzeugt einen TXT-Record unter _smtp._tls.<Domain> mit einer Report-Adresse (E-Mail oder https://).',
+  'tlsrptBuilder.domain.does2':
+    'Zusammen mit MTA-STS siehst du, ob Sender TLS wirklich nutzen, bevor du auf enforce gehst.',
+  'tlsrptBuilder.domain.body':
+    'Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag als Vorlage geladen.',
+  'tlsrptBuilder.domain.label': 'Domain',
+  'tlsrptBuilder.domain.loading': 'Lade DNS für {domain}…',
+  'tlsrptBuilder.domain.loaded': 'Vorhandener TLS-RPT-Record geladen und als Vorlage übernommen.',
+  'tlsrptBuilder.domain.missing':
+    'Kein TLS-RPT-Record gefunden — Formular bleibt bei den Standardwerten.',
+  'tlsrptBuilder.domain.error': 'DNS-Lookup fehlgeschlagen: {message}',
+  'tlsrptBuilder.reporting.headline': 'Report-Ziele',
+  'tlsrptBuilder.reporting.body':
+    'Wohin sollen SMTP-TLS-Fehlerberichte (RFC 8460) geschickt werden? E-Mail oder https://-URL.',
+  'tlsrptBuilder.reporting.rua': 'Report-URI (rua=)',
+  'tlsrptBuilder.reporting.ruaHint':
+    'E-Mail, mailto: oder https://. Mehrere Adressen kommagetrennt. http:// ist nicht erlaubt.',
+  'tlsrptBuilder.result.headline': 'DNS-Eintrag',
+  'tlsrptBuilder.result.body':
+    'TXT-Record unter _smtp._tls.<Domain> anlegen. Host und Wert getrennt kopieren.',
+  'tlsrptBuilder.result.host': 'Host / Name',
+  'tlsrptBuilder.result.type': 'Typ',
+  'tlsrptBuilder.result.value': 'Wert',
+  'tlsrptBuilder.result.copy': 'Kopieren',
+  'tlsrptBuilder.result.copied': 'Kopiert',
+  'tlsrptBuilder.result.tags': 'Tags',
+  'tlsrptBuilder.result.liveTitle': 'Aktuell im DNS',
+  'tlsrptBuilder.result.liveMissing': 'Noch kein TLS-RPT-Record im DNS.',
+  'tlsrptBuilder.result.liveSame': 'Entspricht dem erzeugten Record.',
+  'tlsrptBuilder.result.liveDifferent': 'Weicht vom erzeugten Record ab.',
+  'tlsrptBuilder.error.domain': 'Bitte eine gültige Domain eingeben (z. B. example.com).',
+  'tlsrptBuilder.error.rua': 'Bitte mindestens eine Report-Adresse angeben.',
+  'tlsrptBuilder.error.ruaUri':
+    'Nur E-Mail-Adressen oder https://-URLs — http:// ist nicht erlaubt.',
+
+  'mtaStsBuilder.title': 'MTA-STS-Policy erzeugen',
+  'mtaStsBuilder.close': 'Schließen',
+  'mtaStsBuilder.back': 'Zurück',
+  'mtaStsBuilder.next': 'Weiter',
+  'mtaStsBuilder.finish': 'Fertig',
+  'mtaStsBuilder.step.domain': 'Domain',
+  'mtaStsBuilder.step.policy': 'Policy',
+  'mtaStsBuilder.step.result': 'Ergebnis',
+  'mtaStsBuilder.domain.headline': 'Wozu MTA-STS?',
+  'mtaStsBuilder.domain.why':
+    'MTA-STS sagt sendenden Servern, dass sie deine Domain nur verschlüsselt (TLS) beliefern dürfen. Ohne so eine Policy können Angreifer die Verbindung auf Klartext herabstufen.',
+  'mtaStsBuilder.domain.does1':
+    'Der Assistent erzeugt den TXT-Record unter _mta-sts.<Domain> und die Policy-Datei unter https://mta-sts.<Domain>/.well-known/mta-sts.txt.',
+  'mtaStsBuilder.domain.does2':
+    'Die Datei listet erlaubte MX-Hosts und den Modus: testing (nur berichten) oder enforce (Zustellung ohne TLS ablehnen).',
+  'mtaStsBuilder.domain.body':
+    'Domain festlegen. Beim Weiter werden TXT, Policy-Datei und MX-Hosts geladen.',
+  'mtaStsBuilder.domain.label': 'Domain',
+  'mtaStsBuilder.domain.loading': 'Lade DNS für {domain}…',
+  'mtaStsBuilder.domain.loaded': 'Vorhandene MTA-STS-Policy geladen und als Vorlage übernommen.',
+  'mtaStsBuilder.domain.loadedTxtOnly':
+    'TXT-Record gefunden, Policy-Datei nicht erreichbar — MX aus dem DNS vorbelegt.',
+  'mtaStsBuilder.domain.missingMx':
+    'Kein MTA-STS gefunden — MX-Hosts aus dem DNS als Vorlage übernommen.',
+  'mtaStsBuilder.domain.missing':
+    'Kein MTA-STS-Record gefunden — Formular bleibt bei den Standardwerten.',
+  'mtaStsBuilder.domain.error': 'DNS-Lookup fehlgeschlagen: {message}',
+  'mtaStsBuilder.policy.headline': 'Policy wählen',
+  'mtaStsBuilder.policy.body':
+    'Mit testing starten, Reports über TLS-RPT prüfen, danach auf enforce wechseln. Alle MX-Hosts müssen zu einem Muster passen.',
+  'mtaStsBuilder.policy.mode': 'Modus',
+  'mtaStsBuilder.policy.modeHint':
+    'enforce erst, wenn TLS-RPT keine echten Zustellprobleme mehr zeigt.',
+  'mtaStsBuilder.policy.testing': 'testing — berichten, nicht blockieren',
+  'mtaStsBuilder.policy.enforce': 'enforce — TLS erzwingen',
+  'mtaStsBuilder.policy.none': 'none — Policy zurückziehen',
+  'mtaStsBuilder.policy.maxAge': 'Gültigkeit (max_age)',
+  'mtaStsBuilder.policy.maxAgeHint': 'Sekunden, 1–31557600. Empfohlen mindestens 604800 (1 Woche).',
+  'mtaStsBuilder.policy.mx': 'MX-Muster',
+  'mtaStsBuilder.policy.mxPlaceholder':
+    'Ein Host pro Zeile, z. B. mail.example.com oder *.example.net',
+  'mtaStsBuilder.policy.mxHint':
+    'Exakter Hostname oder *.domain (genau ein Label). Alle MX-Records der Domain müssen abgedeckt sein.',
+  'mtaStsBuilder.policy.renewId': 'Policy-ID erneuern (auch ohne inhaltliche Änderung)',
+  'mtaStsBuilder.result.headline': 'DNS-Eintrag & Policy-Datei',
+  'mtaStsBuilder.result.body':
+    'Zuerst die Policy-Datei per HTTPS bereitstellen, danach den TXT-Record setzen. Sonst verweigern Sender in enforce die Zustellung.',
+  'mtaStsBuilder.result.host': 'Host / Name',
+  'mtaStsBuilder.result.type': 'Typ',
+  'mtaStsBuilder.result.value': 'Wert',
+  'mtaStsBuilder.result.copy': 'Kopieren',
+  'mtaStsBuilder.result.copied': 'Kopiert',
+  'mtaStsBuilder.result.dnsHint':
+    'TXT an _mta-sts.<Domain>. Die id muss sich ändern, sobald die Policy-Datei wechselt.',
+  'mtaStsBuilder.result.policyUrl': 'Policy-URL',
+  'mtaStsBuilder.result.httpsHost': 'HTTPS-Host (A/AAAA oder CNAME)',
+  'mtaStsBuilder.result.policyFile': 'Policy-Datei',
+  'mtaStsBuilder.result.httpsHint':
+    'mta-sts.<Domain> braucht ein gültiges Zertifikat für genau diesen Namen. Datei unter /.well-known/mta-sts.txt als text/plain ausliefern.',
+  'mtaStsBuilder.result.liveTxtTitle': 'Aktuell im DNS',
+  'mtaStsBuilder.result.livePolicyTitle': 'Aktuelle Policy-Datei',
+  'mtaStsBuilder.result.liveTxtMissing': 'Noch kein MTA-STS-TXT im DNS.',
+  'mtaStsBuilder.result.livePolicyMissing': 'Keine Policy-Datei erreichbar.',
+  'mtaStsBuilder.result.liveSame': 'Entspricht dem erzeugten Eintrag.',
+  'mtaStsBuilder.result.liveDifferent': 'Weicht vom erzeugten Eintrag ab.',
+  'mtaStsBuilder.error.domain': 'Bitte eine gültige Domain eingeben (z. B. example.com).',
+  'mtaStsBuilder.error.mx': 'Bitte mindestens einen MX-Host oder ein Muster angeben.',
+  'mtaStsBuilder.error.mxPattern':
+    'Ungültiges MX-Muster. Erlaubt: mail.example.com oder *.example.net.',
+  'mtaStsBuilder.error.maxAge': 'max_age muss zwischen 1 und 31557600 Sekunden liegen.'
 } as const
 
 const en: Dict = {
@@ -962,6 +1086,8 @@ const en: Dict = {
   'header.dnsDesc': 'Check DMARC, SPF and DKIM live',
   'header.builderDesc': 'Create a DMARC record step by step',
   'header.spfBuilderDesc': 'Build, evaluate and expand SPF',
+  'header.tlsrptBuilderDesc': 'Reporting record for TLS failures',
+  'header.mtaStsBuilderDesc': 'Policy and TXT record for SMTP TLS',
   'header.badgeTool': 'Tool',
   'header.badgeWizard': 'Wizard',
   'header.info': 'About',
@@ -970,6 +1096,8 @@ const en: Dict = {
   'header.settings': 'Settings',
   'header.builder': 'DMARC record wizard',
   'header.spfBuilder': 'SPF record wizard',
+  'header.tlsrptBuilder': 'TLS-RPT wizard',
+  'header.mtaStsBuilder': 'MTA-STS wizard',
   'header.fetch': 'Fetch reports',
   'header.infoTitle': 'About the app',
   'header.openFilesTitle': 'Open local DMARC files',
@@ -977,6 +1105,8 @@ const en: Dict = {
   'header.settingsTitle': 'Open settings',
   'header.builderTitle': 'Generate DMARC record',
   'header.spfBuilderTitle': 'Build and expand an SPF record',
+  'header.tlsrptBuilderTitle': 'Generate TLS-RPT record',
+  'header.mtaStsBuilderTitle': 'Generate MTA-STS policy',
   'header.fetchTitle': 'Fetch reports via IMAP',
   'header.rollout': 'Policy rollout',
   'header.rolloutDesc': 'Plan the next step towards p=reject',
@@ -1870,7 +2000,121 @@ const en: Dict = {
   'spfBuilder.expand.needRestart': 'Restart the app to enable SPF expansion.',
   'spfBuilder.error.domain': 'Please enter a valid domain (e.g. example.com).',
   'spfBuilder.error.mechanisms': 'Provide at least one include, IP, a or mx.',
-  'spfBuilder.error.include': 'Invalid include hostname.'
+  'spfBuilder.error.include': 'Invalid include hostname.',
+
+  'tlsrptBuilder.title': 'Generate TLS-RPT record',
+  'tlsrptBuilder.close': 'Close',
+  'tlsrptBuilder.back': 'Back',
+  'tlsrptBuilder.next': 'Next',
+  'tlsrptBuilder.finish': 'Done',
+  'tlsrptBuilder.step.domain': 'Domain',
+  'tlsrptBuilder.step.reporting': 'Reports',
+  'tlsrptBuilder.step.result': 'Result',
+  'tlsrptBuilder.domain.headline': 'What is TLS-RPT for?',
+  'tlsrptBuilder.domain.why':
+    'Other mail servers report when the TLS connection to your MX hosts fails — missing STARTTLS, a bad certificate, or an MTA-STS policy they cannot follow. The record does not block mail; it only delivers reports.',
+  'tlsrptBuilder.domain.does1':
+    'The wizard builds a TXT record at _smtp._tls.<domain> with a report address (email or https://).',
+  'tlsrptBuilder.domain.does2':
+    'Together with MTA-STS you can see whether senders actually use TLS before you switch to enforce.',
+  'tlsrptBuilder.domain.body':
+    'Choose the domain. Continuing loads the current DNS entry as a template.',
+  'tlsrptBuilder.domain.label': 'Domain',
+  'tlsrptBuilder.domain.loading': 'Loading DNS for {domain}…',
+  'tlsrptBuilder.domain.loaded': 'Existing TLS-RPT record loaded as a template.',
+  'tlsrptBuilder.domain.missing': 'No TLS-RPT record found — form keeps the defaults.',
+  'tlsrptBuilder.domain.error': 'DNS lookup failed: {message}',
+  'tlsrptBuilder.reporting.headline': 'Report targets',
+  'tlsrptBuilder.reporting.body':
+    'Where should SMTP TLS failure reports (RFC 8460) be sent? Email or https:// URL.',
+  'tlsrptBuilder.reporting.rua': 'Report URI (rua=)',
+  'tlsrptBuilder.reporting.ruaHint':
+    'Email, mailto:, or https://. Multiple addresses comma-separated. http:// is not allowed.',
+  'tlsrptBuilder.result.headline': 'DNS record',
+  'tlsrptBuilder.result.body':
+    'Publish this TXT record at _smtp._tls.<domain>. Copy host and value separately.',
+  'tlsrptBuilder.result.host': 'Host / name',
+  'tlsrptBuilder.result.type': 'Type',
+  'tlsrptBuilder.result.value': 'Value',
+  'tlsrptBuilder.result.copy': 'Copy',
+  'tlsrptBuilder.result.copied': 'Copied',
+  'tlsrptBuilder.result.tags': 'Tags',
+  'tlsrptBuilder.result.liveTitle': 'Currently in DNS',
+  'tlsrptBuilder.result.liveMissing': 'No TLS-RPT record in DNS yet.',
+  'tlsrptBuilder.result.liveSame': 'Matches the generated record.',
+  'tlsrptBuilder.result.liveDifferent': 'Differs from the generated record.',
+  'tlsrptBuilder.error.domain': 'Please enter a valid domain (e.g. example.com).',
+  'tlsrptBuilder.error.rua': 'Please provide at least one report address.',
+  'tlsrptBuilder.error.ruaUri': 'Only email addresses or https:// URLs — http:// is not allowed.',
+
+  'mtaStsBuilder.title': 'Generate MTA-STS policy',
+  'mtaStsBuilder.close': 'Close',
+  'mtaStsBuilder.back': 'Back',
+  'mtaStsBuilder.next': 'Next',
+  'mtaStsBuilder.finish': 'Done',
+  'mtaStsBuilder.step.domain': 'Domain',
+  'mtaStsBuilder.step.policy': 'Policy',
+  'mtaStsBuilder.step.result': 'Result',
+  'mtaStsBuilder.domain.headline': 'What is MTA-STS for?',
+  'mtaStsBuilder.domain.why':
+    'MTA-STS tells sending servers they must deliver to your domain over TLS. Without such a policy, attackers can downgrade the connection to plaintext.',
+  'mtaStsBuilder.domain.does1':
+    'The wizard builds the TXT record at _mta-sts.<domain> and the policy file at https://mta-sts.<domain>/.well-known/mta-sts.txt.',
+  'mtaStsBuilder.domain.does2':
+    'The file lists allowed MX hosts and the mode: testing (report only) or enforce (refuse delivery without TLS).',
+  'mtaStsBuilder.domain.body':
+    'Choose the domain. Continuing loads TXT, policy file, and MX hosts.',
+  'mtaStsBuilder.domain.label': 'Domain',
+  'mtaStsBuilder.domain.loading': 'Loading DNS for {domain}…',
+  'mtaStsBuilder.domain.loaded': 'Existing MTA-STS policy loaded as a template.',
+  'mtaStsBuilder.domain.loadedTxtOnly':
+    'TXT record found, policy file unreachable — MX hosts prefilled from DNS.',
+  'mtaStsBuilder.domain.missingMx': 'No MTA-STS found — MX hosts from DNS used as a template.',
+  'mtaStsBuilder.domain.missing': 'No MTA-STS record found — form keeps the defaults.',
+  'mtaStsBuilder.domain.error': 'DNS lookup failed: {message}',
+  'mtaStsBuilder.policy.headline': 'Choose policy',
+  'mtaStsBuilder.policy.body':
+    'Start with testing, watch TLS-RPT reports, then switch to enforce. Every MX host must match a pattern.',
+  'mtaStsBuilder.policy.mode': 'Mode',
+  'mtaStsBuilder.policy.modeHint':
+    'Use enforce only once TLS-RPT no longer shows real delivery problems.',
+  'mtaStsBuilder.policy.testing': 'testing — report, do not block',
+  'mtaStsBuilder.policy.enforce': 'enforce — require TLS',
+  'mtaStsBuilder.policy.none': 'none — withdraw the policy',
+  'mtaStsBuilder.policy.maxAge': 'Lifetime (max_age)',
+  'mtaStsBuilder.policy.maxAgeHint':
+    'Seconds, 1–31557600. At least 604800 (1 week) is recommended.',
+  'mtaStsBuilder.policy.mx': 'MX patterns',
+  'mtaStsBuilder.policy.mxPlaceholder': 'One host per line, e.g. mail.example.com or *.example.net',
+  'mtaStsBuilder.policy.mxHint':
+    'Exact hostname or *.domain (exactly one label). Every MX record for the domain must be covered.',
+  'mtaStsBuilder.policy.renewId': 'Renew policy id (even if the policy is unchanged)',
+  'mtaStsBuilder.result.headline': 'DNS record & policy file',
+  'mtaStsBuilder.result.body':
+    'Serve the policy file over HTTPS first, then publish the TXT record. Otherwise senders in enforce will refuse delivery.',
+  'mtaStsBuilder.result.host': 'Host / name',
+  'mtaStsBuilder.result.type': 'Type',
+  'mtaStsBuilder.result.value': 'Value',
+  'mtaStsBuilder.result.copy': 'Copy',
+  'mtaStsBuilder.result.copied': 'Copied',
+  'mtaStsBuilder.result.dnsHint':
+    'TXT at _mta-sts.<domain>. The id must change whenever the policy file changes.',
+  'mtaStsBuilder.result.policyUrl': 'Policy URL',
+  'mtaStsBuilder.result.httpsHost': 'HTTPS host (A/AAAA or CNAME)',
+  'mtaStsBuilder.result.policyFile': 'Policy file',
+  'mtaStsBuilder.result.httpsHint':
+    'mta-sts.<domain> needs a valid certificate for that exact name. Serve /.well-known/mta-sts.txt as text/plain.',
+  'mtaStsBuilder.result.liveTxtTitle': 'Currently in DNS',
+  'mtaStsBuilder.result.livePolicyTitle': 'Current policy file',
+  'mtaStsBuilder.result.liveTxtMissing': 'No MTA-STS TXT in DNS yet.',
+  'mtaStsBuilder.result.livePolicyMissing': 'No policy file reachable.',
+  'mtaStsBuilder.result.liveSame': 'Matches the generated entry.',
+  'mtaStsBuilder.result.liveDifferent': 'Differs from the generated entry.',
+  'mtaStsBuilder.error.domain': 'Please enter a valid domain (e.g. example.com).',
+  'mtaStsBuilder.error.mx': 'Please provide at least one MX host or pattern.',
+  'mtaStsBuilder.error.mxPattern':
+    'Invalid MX pattern. Allowed: mail.example.com or *.example.net.',
+  'mtaStsBuilder.error.maxAge': 'max_age must be between 1 and 31557600 seconds.'
 }
 
 const catalogs: Record<AppLocale, Dict> = { de: de as Dict, en }

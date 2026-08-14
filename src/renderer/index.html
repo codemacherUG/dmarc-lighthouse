@@ -177,6 +177,46 @@
                     >Wizard</span
                   >
                 </button>
+                <button
+                  type="button"
+                  id="btn-tlsrpt-builder"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.tlsrptBuilderTitle"
+                  title="TLS-RPT-Record erzeugen"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.tlsrptBuilder"
+                      >TLS-RPT Wizard</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.tlsrptBuilderDesc"
+                      >Reporting-Record für TLS-Fehler</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-wizard" data-i18n="header.badgeWizard"
+                    >Wizard</span
+                  >
+                </button>
+                <button
+                  type="button"
+                  id="btn-mta-sts-builder"
+                  class="nav-menu-item"
+                  role="menuitem"
+                  data-i18n-title="header.mtaStsBuilderTitle"
+                  title="MTA-STS-Policy erzeugen"
+                >
+                  <span class="nav-menu-item-text">
+                    <span class="nav-menu-item-title" data-i18n="header.mtaStsBuilder"
+                      >MTA-STS Wizard</span
+                    >
+                    <span class="nav-menu-item-desc" data-i18n="header.mtaStsBuilderDesc"
+                      >Policy und TXT-Record für SMTP-TLS</span
+                    >
+                  </span>
+                  <span class="nav-menu-badge nav-menu-badge-wizard" data-i18n="header.badgeWizard"
+                    >Wizard</span
+                  >
+                </button>
               </div>
             </div>
             <button
@@ -1727,6 +1767,287 @@
               id="btn-spf-builder-next"
               class="btn primary"
               data-i18n="spfBuilder.next"
+            >
+              Weiter
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog id="tlsrpt-builder-dialog">
+      <div class="settings-form builder-form">
+        <header class="dialog-header">
+          <h2 data-i18n="tlsrptBuilder.title">TLS-RPT-Record erzeugen</h2>
+          <button
+            type="button"
+            id="btn-close-tlsrpt-builder"
+            class="btn ghost"
+            data-i18n-aria="tlsrptBuilder.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+
+        <ol id="tlsrpt-builder-steps" class="builder-steps" aria-label="Schritte">
+          <li data-step="domain" class="active">
+            <span class="builder-step-index">1</span>
+            <span data-i18n="tlsrptBuilder.step.domain">Domain</span>
+          </li>
+          <li data-step="reporting">
+            <span class="builder-step-index">2</span>
+            <span data-i18n="tlsrptBuilder.step.reporting">Reports</span>
+          </li>
+          <li data-step="result">
+            <span class="builder-step-index">3</span>
+            <span data-i18n="tlsrptBuilder.step.result">Ergebnis</span>
+          </li>
+        </ol>
+
+        <div class="dialog-body builder-body">
+          <section class="tlsrpt-builder-panel builder-panel" data-step="domain">
+            <h3 data-i18n="tlsrptBuilder.domain.headline">Wozu TLS-RPT?</h3>
+            <p class="builder-intro" data-i18n="tlsrptBuilder.domain.why">
+              Andere Mailserver melden dir, wenn die TLS-Verbindung zu deinen MX-Hosts scheitert —
+              etwa fehlendes STARTTLS, ein ungültiges Zertifikat oder eine MTA-STS-Policy, die nicht
+              eingehalten werden kann. Der Record blockiert keine Mail, er liefert nur Berichte.
+            </p>
+            <ul class="builder-checklist">
+              <li data-i18n="tlsrptBuilder.domain.does1">
+                Der Assistent erzeugt einen TXT-Record unter _smtp._tls.&lt;Domain&gt; mit einer
+                Report-Adresse (E-Mail oder https://).
+              </li>
+              <li data-i18n="tlsrptBuilder.domain.does2">
+                Zusammen mit MTA-STS siehst du, ob Sender TLS wirklich nutzen, bevor du auf enforce
+                gehst.
+              </li>
+            </ul>
+            <p class="hint" data-i18n="tlsrptBuilder.domain.body">
+              Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag als Vorlage geladen.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="tlsrptBuilder.domain.label">Domain</span>
+                <input
+                  id="tlsrpt-builder-domain"
+                  type="text"
+                  placeholder="example.com"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+            <p id="tlsrpt-builder-domain-status" class="builder-status muted" role="status"></p>
+          </section>
+
+          <section class="tlsrpt-builder-panel builder-panel hidden" data-step="reporting">
+            <h3 data-i18n="tlsrptBuilder.reporting.headline">Report-Ziele</h3>
+            <p class="hint" data-i18n="tlsrptBuilder.reporting.body">
+              Wohin sollen SMTP-TLS-Fehlerberichte (RFC 8460) geschickt werden? E-Mail oder
+              https://-URL.
+            </p>
+            <div class="builder-form-grid">
+              <label class="span-2">
+                <span data-i18n="tlsrptBuilder.reporting.rua">Report-URI (rua=)</span>
+                <input
+                  id="tlsrpt-builder-rua"
+                  type="text"
+                  placeholder="tlsrpt@example.com"
+                  autocomplete="off"
+                />
+                <span class="field-hint" data-i18n="tlsrptBuilder.reporting.ruaHint"
+                  >E-Mail, mailto: oder https://. Mehrere Adressen kommagetrennt. http:// ist nicht
+                  erlaubt.</span
+                >
+              </label>
+            </div>
+          </section>
+
+          <section class="tlsrpt-builder-panel builder-panel hidden" data-step="result">
+            <h3 data-i18n="tlsrptBuilder.result.headline">DNS-Eintrag</h3>
+            <p class="hint" data-i18n="tlsrptBuilder.result.body">
+              TXT-Record unter _smtp._tls.&lt;Domain&gt; anlegen. Host und Wert getrennt kopieren.
+            </p>
+            <div id="tlsrpt-builder-result" class="builder-result"></div>
+            <div id="tlsrpt-builder-live" class="builder-live muted"></div>
+          </section>
+        </div>
+
+        <footer class="dialog-footer">
+          <p id="tlsrpt-builder-footer-hint" class="hint"></p>
+          <div class="dialog-actions">
+            <button
+              type="button"
+              id="btn-tlsrpt-builder-back"
+              class="btn ghost"
+              data-i18n="tlsrptBuilder.back"
+            >
+              Zurück
+            </button>
+            <button
+              type="button"
+              id="btn-tlsrpt-builder-next"
+              class="btn primary"
+              data-i18n="tlsrptBuilder.next"
+            >
+              Weiter
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog id="mta-sts-builder-dialog">
+      <div class="settings-form builder-form">
+        <header class="dialog-header">
+          <h2 data-i18n="mtaStsBuilder.title">MTA-STS-Policy erzeugen</h2>
+          <button
+            type="button"
+            id="btn-close-mta-sts-builder"
+            class="btn ghost"
+            data-i18n-aria="mtaStsBuilder.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+
+        <ol id="mta-sts-builder-steps" class="builder-steps" aria-label="Schritte">
+          <li data-step="domain" class="active">
+            <span class="builder-step-index">1</span>
+            <span data-i18n="mtaStsBuilder.step.domain">Domain</span>
+          </li>
+          <li data-step="policy">
+            <span class="builder-step-index">2</span>
+            <span data-i18n="mtaStsBuilder.step.policy">Policy</span>
+          </li>
+          <li data-step="result">
+            <span class="builder-step-index">3</span>
+            <span data-i18n="mtaStsBuilder.step.result">Ergebnis</span>
+          </li>
+        </ol>
+
+        <div class="dialog-body builder-body">
+          <section class="mta-sts-builder-panel builder-panel" data-step="domain">
+            <h3 data-i18n="mtaStsBuilder.domain.headline">Wozu MTA-STS?</h3>
+            <p class="builder-intro" data-i18n="mtaStsBuilder.domain.why">
+              MTA-STS sagt sendenden Servern, dass sie deine Domain nur verschlüsselt (TLS)
+              beliefern dürfen. Ohne so eine Policy können Angreifer die Verbindung auf Klartext
+              herabstufen.
+            </p>
+            <ul class="builder-checklist">
+              <li data-i18n="mtaStsBuilder.domain.does1">
+                Der Assistent erzeugt den TXT-Record unter _mta-sts.&lt;Domain&gt; und die
+                Policy-Datei unter https://mta-sts.&lt;Domain&gt;/.well-known/mta-sts.txt.
+              </li>
+              <li data-i18n="mtaStsBuilder.domain.does2">
+                Die Datei listet erlaubte MX-Hosts und den Modus: testing (nur berichten) oder
+                enforce (Zustellung ohne TLS ablehnen).
+              </li>
+            </ul>
+            <p class="hint" data-i18n="mtaStsBuilder.domain.body">
+              Domain festlegen. Beim Weiter werden TXT, Policy-Datei und MX-Hosts geladen.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="mtaStsBuilder.domain.label">Domain</span>
+                <input
+                  id="mta-sts-builder-domain"
+                  type="text"
+                  placeholder="example.com"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+            <p id="mta-sts-builder-domain-status" class="builder-status muted" role="status"></p>
+          </section>
+
+          <section class="mta-sts-builder-panel builder-panel hidden" data-step="policy">
+            <h3 data-i18n="mtaStsBuilder.policy.headline">Policy wählen</h3>
+            <p class="hint" data-i18n="mtaStsBuilder.policy.body">
+              Mit testing starten, Reports über TLS-RPT prüfen, danach auf enforce wechseln. Alle
+              MX-Hosts müssen zu einem Muster passen.
+            </p>
+            <div class="builder-form-grid">
+              <label>
+                <span data-i18n="mtaStsBuilder.policy.mode">Modus</span>
+                <select id="mta-sts-builder-mode">
+                  <option value="testing" selected data-i18n="mtaStsBuilder.policy.testing">
+                    testing — berichten, nicht blockieren
+                  </option>
+                  <option value="enforce" data-i18n="mtaStsBuilder.policy.enforce">
+                    enforce — TLS erzwingen
+                  </option>
+                  <option value="none" data-i18n="mtaStsBuilder.policy.none">
+                    none — Policy zurückziehen
+                  </option>
+                </select>
+                <span class="field-hint" data-i18n="mtaStsBuilder.policy.modeHint"
+                  >enforce erst, wenn TLS-RPT keine echten Zustellprobleme mehr zeigt.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="mtaStsBuilder.policy.maxAge">Gültigkeit (max_age)</span>
+                <input
+                  id="mta-sts-builder-max-age"
+                  type="number"
+                  min="1"
+                  max="31557600"
+                  value="604800"
+                />
+                <span class="field-hint" data-i18n="mtaStsBuilder.policy.maxAgeHint"
+                  >Sekunden, 1–31557600. Empfohlen mindestens 604800 (1 Woche).</span
+                >
+              </label>
+              <label class="span-2">
+                <span data-i18n="mtaStsBuilder.policy.mx">MX-Muster</span>
+                <textarea
+                  id="mta-sts-builder-mx"
+                  rows="4"
+                  data-i18n-placeholder="mtaStsBuilder.policy.mxPlaceholder"
+                  placeholder="Ein Host pro Zeile, z. B. mail.example.com oder *.example.net"
+                ></textarea>
+                <span class="field-hint" data-i18n="mtaStsBuilder.policy.mxHint"
+                  >Exakter Hostname oder *.domain (genau ein Label). Alle MX-Records der Domain
+                  müssen abgedeckt sein.</span
+                >
+              </label>
+              <label class="checkbox span-2">
+                <input id="mta-sts-builder-renew-id" type="checkbox" />
+                <span data-i18n="mtaStsBuilder.policy.renewId"
+                  >Policy-ID erneuern (auch ohne inhaltliche Änderung)</span
+                >
+              </label>
+            </div>
+          </section>
+
+          <section class="mta-sts-builder-panel builder-panel hidden" data-step="result">
+            <h3 data-i18n="mtaStsBuilder.result.headline">DNS-Eintrag &amp; Policy-Datei</h3>
+            <p class="hint" data-i18n="mtaStsBuilder.result.body">
+              Zuerst die Policy-Datei per HTTPS bereitstellen, danach den TXT-Record setzen. Sonst
+              verweigern Sender in enforce die Zustellung.
+            </p>
+            <div id="mta-sts-builder-result" class="builder-result"></div>
+            <div id="mta-sts-builder-live" class="builder-live muted"></div>
+          </section>
+        </div>
+
+        <footer class="dialog-footer">
+          <p id="mta-sts-builder-footer-hint" class="hint"></p>
+          <div class="dialog-actions">
+            <button
+              type="button"
+              id="btn-mta-sts-builder-back"
+              class="btn ghost"
+              data-i18n="mtaStsBuilder.back"
+            >
+              Zurück
+            </button>
+            <button
+              type="button"
+              id="btn-mta-sts-builder-next"
+              class="btn primary"
+              data-i18n="mtaStsBuilder.next"
             >
               Weiter
             </button>

@@ -73,7 +73,7 @@ Quell-IPs auf OpenStreetMap (GeoIP-Koordinaten); Klick auf einen Marker filtert 
 
 ### DNS-Check & Transport-Sicherheit
 
-DMARC, SPF und DKIM-Selektoren direkt beim autoritativen Nameserver — dazu TLS-RPT, MTA-STS (inkl. Policy-Datei und MX-Abdeckung) und DANE/TLSA der MX-Hosts:
+DMARC, SPF und DKIM-Selektoren direkt beim autoritativen Nameserver — dazu TLS-RPT, MTA-STS (inkl. Policy-Datei und MX-Abdeckung) und DANE/TLSA der MX-Hosts. Fehlende Einträge lassen sich unter **Tools** geführt erzeugen (DMARC, SPF, TLS-RPT, MTA-STS):
 
 ![DNS-Check mit Transport-Sicherheit](docs/screenshots/de/dns.png)
 
@@ -119,6 +119,7 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Filter** | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain sowie Drill-Down nach Org, Quell-IP und From-Domain |
 | **Google-Rauschen** | Optionaler, gespeicherter Filter für Google-Weiterleitungs-/Report-Echo-Zeilen (Google-IP + SPF fail + DKIM pass + DMARC pass) |
 | **DNS-Check** | Live-Abfrage von DMARC (`p`, `rua`), SPF und DKIM-Selektoren (automatisch aus den Reports oder manuell) |
+| **Record-Wizards** | DMARC, SPF, TLS-RPT und MTA-STS geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei) |
 | **Transport-Sicherheit** | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil |
 | **E-Mail prüfen** | `.eml` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil. Nur lokal; Body ungelesen. `.msg` nicht unterstützt |
 | **Export** | Aktuell gefilterte Daten als CSV oder JSON; einzelne Aggregate-Reports als ZIP (XML) |
@@ -209,6 +210,7 @@ IMAP-Postfach/-Postfächer / lokale Dateien
         │
         ├── Filter (Zeitraum, Domain, Drill-Down Org / IP / From)
         ├── DNS-Check (DMARC / SPF / DKIM)
+        ├── Record-Wizards (DMARC / SPF / TLS-RPT / MTA-STS)
         ├── E-Mail prüfen (.eml / Einfügen: Weg, TLS, SPF/DKIM/DMARC/ARC)
         ├── Policy-Rollout (nächster Schritt + Staging-Plan)
         ├── Alerts (Failures / Pass-Rate / neue Quellen)
