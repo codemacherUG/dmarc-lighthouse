@@ -309,7 +309,7 @@ export function buildDemoSettings(language: AppLocale = 'de'): SettingsPublic {
       dnsblEnabled: true,
       cloudRangesEnabled: true,
       rdapEnabled: true,
-      hideGoogleNoise: false,
+      hideMailboxNoise: false,
       pdfMonthlyEnabled: true,
       pdfMonthlyDir: '',
       pdfMonthlyLastRun: '2026-08-01T06:00:00.000Z'

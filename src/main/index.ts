@@ -50,7 +50,7 @@ import {
 import { emailInspectPdfFilename } from '../shared/email-inspect-html'
 import { inspectEmailBuffer, inspectEmailText } from './email-inspect'
 import { importLocalFiles, loadLocalImportResult, type ImportTargetAccount } from './import'
-import { checkDomainDns } from './dnscheck'
+import { checkBimiDns, checkDomainDns } from './dnscheck'
 import { checkTransportSecurity } from './transport'
 import { expandSpf } from './spf-expand'
 import { exportReportZip, exportReportsCsv, exportReportsJson } from './export'
@@ -770,6 +770,10 @@ function registerIpc(): void {
 
   ipcMain.handle('dns:check', async (_event, domain: string, selectors?: string[]) =>
     checkDomainDns(domain, selectors ?? [])
+  )
+
+  ipcMain.handle('dns:bimi', async (_event, domain: string, selector?: string) =>
+    checkBimiDns(domain ?? '', selector)
   )
 
   ipcMain.handle('dns:expandSpf', async (_event, domain: string, record?: string | null) =>

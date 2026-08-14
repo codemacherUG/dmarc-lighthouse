@@ -9,6 +9,7 @@ import {
   mtaStsPoliciesEquivalent,
   mtaStsStepIndex,
   normalizeDomain,
+  isValidDomain,
   normalizeMaxAge,
   normalizeMtaStsMode,
   parseMtaStsBuilderPolicy,
@@ -30,6 +31,7 @@ import {
   mtaStsBuilderDomainStatusEl,
   mtaStsBuilderFooterHintEl,
   mtaStsBuilderLiveEl,
+  mtaStsBuilderPreviewEl,
   mtaStsBuilderMaxAgeEl,
   mtaStsBuilderModeEl,
   mtaStsBuilderMxEl,
@@ -45,7 +47,10 @@ let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let liveDnsValue: string | null = null
 let livePolicyText: string | null = null
 let liveId: string | null = null
-let dnsBusy = false
+let loadGen = 0
+let appliedKey = ''
+let inflight: Promise<void> | null = null
+let inflightKey = ''
 
 function readInput(): MtaStsBuilderInput {
   return {
@@ -106,6 +111,7 @@ function showStep(step: MtaStsBuilderStep): void {
     step === 'result' ? t('mtaStsBuilder.finish') : t('mtaStsBuilder.next')
   const input = readInput()
   mtaStsBuilderFooterHintEl.textContent = input.domain || ''
+  if (step === 'domain') renderDomainPreview()
   if (step === 'result') renderResult()
 }
 
@@ -207,19 +213,43 @@ function renderResult(): void {
   mtaStsBuilderLiveEl.innerHTML = liveBits.join('')
 }
 
+function renderDomainPreview(): void {
+  const bits: string[] = []
+  if (liveDnsValue) {
+    bits.push(`<div class="builder-live-card">
+      <span class="builder-result-label">${escapeHtml(t('mtaStsBuilder.result.liveTxtTitle'))}</span>
+      <code class="mono">${escapeHtml(liveDnsValue)}</code>
+    </div>`)
+  }
+  if (livePolicyText) {
+    bits.push(`<div class="builder-live-card">
+      <span class="builder-result-label">${escapeHtml(t('mtaStsBuilder.result.livePolicyTitle'))}</span>
+      <code class="mono">${escapeHtml(livePolicyText.trimEnd())}</code>
+    </div>`)
+  }
+  mtaStsBuilderPreviewEl.innerHTML = bits.join('')
+}
+
 async function loadDnsTemplate(): Promise<void> {
   const domain = normalizeDomain(mtaStsBuilderDomainEl.value)
+  if (!isValidDomain(domain)) return
+  if (appliedKey === domain) return
+
+  const gen = ++loadGen
   mtaStsBuilderDomainEl.value = domain
   mtaStsBuilderDomainStatusEl.textContent = t('mtaStsBuilder.domain.loading', { domain })
   mtaStsBuilderDomainStatusEl.className = 'builder-status'
   try {
     const result = await window.api.checkTransport(domain)
+    if (gen !== loadGen) return
     mtaStsBuilderDomainEl.value = result.domain
     const existingTxt =
       result.mtaSts.records.find((r) => /v\s*=\s*STSv1/i.test(r)) ??
       result.mtaSts.records[0] ??
       null
-    liveDnsValue = existingTxt
+    const mxFromPolicy = result.mtaSts.policy?.mx ?? []
+    const mxFromDns = result.dane.mx.map((m) => m.host)
+    liveDnsValue = result.mtaSts.found ? existingTxt : null
     liveId = result.mtaSts.id
     livePolicyText = result.mtaSts.policy
       ? buildMtaStsPolicyFile({
@@ -231,21 +261,21 @@ async function loadDnsTemplate(): Promise<void> {
         })
       : null
 
-    const mxFromPolicy = result.mtaSts.policy?.mx ?? []
-    const mxFromDns = result.dane.mx.map((m) => m.host)
-    const parsedTxt = existingTxt ? parseMtaStsBuilderTxt(existingTxt) : {}
+    const parsedTxt = liveDnsValue ? parseMtaStsBuilderTxt(liveDnsValue) : {}
     const parsedPolicy = livePolicyText ? parseMtaStsBuilderPolicy(livePolicyText) : {}
     fillForm({
       domain: result.domain,
-      ...parsedTxt,
-      ...parsedPolicy,
-      mx: mxFromPolicy.length > 0 ? mxFromPolicy : mxFromDns
+      mode: parsedPolicy.mode ?? DEFAULT_MTA_STS_BUILDER_INPUT.mode,
+      maxAgeSeconds: parsedPolicy.maxAgeSeconds ?? DEFAULT_MTA_STS_BUILDER_INPUT.maxAgeSeconds,
+      mx: mxFromPolicy.length > 0 ? mxFromPolicy : mxFromDns,
+      ...parsedTxt
     })
+    appliedKey = result.domain
 
-    if (existingTxt && result.mtaSts.policy) {
+    if (liveDnsValue && livePolicyText) {
       mtaStsBuilderDomainStatusEl.textContent = t('mtaStsBuilder.domain.loaded')
       mtaStsBuilderDomainStatusEl.className = 'builder-status ok'
-    } else if (existingTxt) {
+    } else if (liveDnsValue) {
       mtaStsBuilderDomainStatusEl.textContent = t('mtaStsBuilder.domain.loadedTxtOnly')
       mtaStsBuilderDomainStatusEl.className = 'builder-status'
     } else if (mxFromDns.length > 0) {
@@ -261,15 +291,29 @@ async function loadDnsTemplate(): Promise<void> {
       mtaStsBuilderDomainStatusEl.textContent = t('mtaStsBuilder.domain.missing')
       mtaStsBuilderDomainStatusEl.className = 'builder-status'
     }
+    renderDomainPreview()
   } catch (err) {
+    if (gen !== loadGen) return
     liveDnsValue = null
     liveId = null
     livePolicyText = null
+    appliedKey = ''
+    mtaStsBuilderPreviewEl.innerHTML = ''
     mtaStsBuilderDomainStatusEl.textContent = t('mtaStsBuilder.domain.error', {
       message: err instanceof Error ? err.message : String(err)
     })
     mtaStsBuilderDomainStatusEl.className = 'builder-status error'
   }
+}
+
+function requestDnsTemplate(): Promise<void> {
+  const domain = normalizeDomain(mtaStsBuilderDomainEl.value)
+  if (inflight && inflightKey === domain) return inflight
+  inflightKey = domain
+  inflight = loadDnsTemplate().finally(() => {
+    if (inflightKey === domain) inflight = null
+  })
+  return inflight
 }
 
 function suggestInitialDomain(): string {
@@ -289,12 +333,16 @@ export function openMtaStsBuilder(): void {
   liveDnsValue = null
   livePolicyText = null
   liveId = null
+  appliedKey = ''
+  loadGen += 1
   mtaStsBuilderDomainStatusEl.textContent = ''
   mtaStsBuilderDomainStatusEl.className = 'builder-status muted'
+  mtaStsBuilderPreviewEl.innerHTML = ''
   mtaStsBuilderLiveEl.textContent = ''
   showStep('domain')
   mtaStsBuilderDialog.showModal()
   mtaStsBuilderDomainEl.focus()
+  if (isValidDomain(domain)) void requestDnsTemplate()
 }
 
 export function refreshMtaStsBuilderLocale(): void {
@@ -313,25 +361,27 @@ export function initMtaStsWizardUi(): void {
 
   btnMtaStsBuilderNext.addEventListener('click', () => {
     void (async () => {
-      if (dnsBusy) return
       if (currentStep === 'result') {
         mtaStsBuilderDialog.close()
         return
       }
       if (!validateCurrentStep()) return
-      if (currentStep === 'domain') {
-        dnsBusy = true
-        btnMtaStsBuilderNext.disabled = true
-        try {
-          await loadDnsTemplate()
-        } finally {
-          dnsBusy = false
-          btnMtaStsBuilderNext.disabled = false
-        }
+      btnMtaStsBuilderNext.disabled = true
+      try {
+        if (currentStep === 'domain') await requestDnsTemplate()
+      } finally {
+        btnMtaStsBuilderNext.disabled = false
       }
       const idx = mtaStsStepIndex(currentStep)
       showStep(MTA_STS_BUILDER_STEPS[idx + 1])
     })()
+  })
+
+  mtaStsBuilderDomainEl.addEventListener('change', () => {
+    const domain = normalizeDomain(mtaStsBuilderDomainEl.value)
+    mtaStsBuilderDomainEl.value = domain
+    appliedKey = ''
+    if (isValidDomain(domain)) void requestDnsTemplate()
   })
 
   mtaStsBuilderResultEl.addEventListener('click', (event) => {

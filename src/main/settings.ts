@@ -70,7 +70,9 @@ interface StoredGlobal {
   dnsblEnabled?: boolean
   cloudRangesEnabled?: boolean
   rdapEnabled?: boolean
+  /** @deprecated migrated to hideMailboxNoise */
   hideGoogleNoise?: boolean
+  hideMailboxNoise?: boolean
   pdfMonthlyEnabled?: boolean
   pdfMonthlyDir?: string
   /** Written by the scheduler, never by the settings form. */
@@ -118,7 +120,7 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   dnsblEnabled: true,
   cloudRangesEnabled: true,
   rdapEnabled: true,
-  hideGoogleNoise: false,
+  hideMailboxNoise: false,
   pdfMonthlyEnabled: false,
   pdfMonthlyDir: '',
   pdfMonthlyLastRun: ''
@@ -436,7 +438,7 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     dnsblEnabled: g.dnsblEnabled ?? GLOBAL_DEFAULTS.dnsblEnabled,
     cloudRangesEnabled: g.cloudRangesEnabled ?? GLOBAL_DEFAULTS.cloudRangesEnabled,
     rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled,
-    hideGoogleNoise: Boolean(g.hideGoogleNoise),
+    hideMailboxNoise: Boolean(g.hideMailboxNoise ?? g.hideGoogleNoise),
     pdfMonthlyEnabled: Boolean(g.pdfMonthlyEnabled),
     pdfMonthlyDir: (g.pdfMonthlyDir ?? '').trim(),
     pdfMonthlyLastRun: g.pdfMonthlyLastRun ?? ''
@@ -618,7 +620,7 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     dnsblEnabled: input.dnsblEnabled !== false,
     cloudRangesEnabled: input.cloudRangesEnabled !== false,
     rdapEnabled: input.rdapEnabled !== false,
-    hideGoogleNoise: Boolean(input.hideGoogleNoise),
+    hideMailboxNoise: Boolean(input.hideMailboxNoise),
     pdfMonthlyEnabled: Boolean(input.pdfMonthlyEnabled),
     pdfMonthlyDir: String(input.pdfMonthlyDir ?? '').trim(),
     // Owned by the scheduler: the form round-trips a display value only.

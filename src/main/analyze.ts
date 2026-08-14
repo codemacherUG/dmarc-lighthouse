@@ -78,38 +78,56 @@ async function parseMimeBuffer(source: Buffer): Promise<ParsedMime> {
   }
 }
 
+export interface MimeParseBatch {
+  reports: ReportRow[]
+  forensicReports: ForensicReportRow[]
+  skipped: number
+  errors: string[]
+}
+
+export function emptyMimeParseBatch(): MimeParseBatch {
+  return { reports: [], forensicReports: [], skipped: 0, errors: [] }
+}
+
+function parseErrorMessage(err: unknown): string {
+  return err instanceof DmarcParseError || err instanceof ForensicParseError
+    ? err.message
+    : err instanceof Error
+      ? err.message
+      : String(err)
+}
+
+/** Parse one MIME buffer into `batch` and drop the buffer afterwards. */
+export async function addMimeSource(
+  batch: MimeParseBatch,
+  uid: number,
+  source: Buffer
+): Promise<void> {
+  try {
+    const parsed = await parseMimeBuffer(source)
+    if (parsed.kind === 'aggregate') batch.reports.push(serializeReport(parsed.report))
+    else batch.forensicReports.push(parsed.report)
+  } catch (err) {
+    batch.skipped += 1
+    if (batch.errors.length < 50) {
+      batch.errors.push(`UID ${uid}: ${parseErrorMessage(err)}`)
+    }
+  }
+}
+
 export async function parseMimeSources(
   sources: Array<{ uid: number; source: Buffer }>
 ): Promise<AnalyzeResult> {
-  const reports: DmarcReport[] = []
-  const forensicReports: ForensicReportRow[] = []
-  const errors: string[] = []
-  let skipped = 0
-
+  const batch = emptyMimeParseBatch()
   for (const item of sources) {
-    try {
-      const parsed = await parseMimeBuffer(item.source)
-      if (parsed.kind === 'aggregate') reports.push(parsed.report)
-      else forensicReports.push(parsed.report)
-    } catch (err) {
-      skipped += 1
-      const message =
-        err instanceof DmarcParseError || err instanceof ForensicParseError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : String(err)
-      errors.push(`UID ${item.uid}: ${message}`)
-    }
+    await addMimeSource(batch, item.uid, item.source)
   }
-
-  const rows = reports.map(serializeReport)
-  return analyzeFromReports(rows, {
-    skipped,
-    errors: errors.slice(0, 50),
-    newReports: rows.length,
-    newForensicReports: forensicReports.length,
-    forensicReports
+  return analyzeFromReports(batch.reports, {
+    skipped: batch.skipped,
+    errors: batch.errors,
+    newReports: batch.reports.length,
+    newForensicReports: batch.forensicReports.length,
+    forensicReports: batch.forensicReports
   })
 }
 
@@ -128,12 +146,7 @@ export async function parseLocalBuffers(
       else forensicReports.push(parsed.report)
     } catch (err) {
       skipped += 1
-      const message =
-        err instanceof DmarcParseError || err instanceof ForensicParseError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : String(err)
+      const message = parseErrorMessage(err)
       errors.push(`${file.name}: ${message}`)
     }
   }

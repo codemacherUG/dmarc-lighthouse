@@ -4,23 +4,24 @@ import {
   categorizeFailure,
   DOMAIN_HEALTH_WINDOW_DAYS,
   groupProblemSources,
-  isGoogleIpInfo,
-  isGoogleNoiseAuthPattern,
+  isMailboxIpInfo,
+  isMailboxNoiseAuthPattern,
   mergeDomainHealth,
   parseSourceIpFilter,
   reportsForDomainHealth
 } from '../../shared/analyze'
 import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
 import { t, type MessageKey } from '../../shared/i18n'
-import type {
-  AnalyzeResult,
-  DateRangePreset,
-  DomainHealth,
-  FailCategory,
-  ForensicReportRow,
-  NamedBucket,
-  ProblemSourceRow,
-  ReportRow
+import {
+  DEFAULT_DATE_RANGE,
+  type AnalyzeResult,
+  type DateRangePreset,
+  type DomainHealth,
+  type FailCategory,
+  type ForensicReportRow,
+  type NamedBucket,
+  type ProblemSourceRow,
+  type ReportRow
 } from '../../shared/types'
 import {
   chartDkim,
@@ -46,7 +47,7 @@ import {
   filterChipsEl,
   filterDomainEl,
   filterFromEl,
-  filterHideGoogleNoiseEl,
+  filterHideMailboxNoiseEl,
   filterPanelEl,
   filterRangeEl,
   filterToEl,
@@ -424,11 +425,11 @@ function syncCustomRangeVisibility(): void {
 
 function hasActiveFilters(): boolean {
   return (
-    filterRangeEl.value !== 'all' ||
+    filterRangeEl.value !== DEFAULT_DATE_RANGE ||
     Boolean(filterFromEl.value) ||
     Boolean(filterToEl.value) ||
     Boolean(filterDomainEl.value) ||
-    filterHideGoogleNoiseEl.checked ||
+    filterHideMailboxNoiseEl.checked ||
     Boolean(state.drill.org || state.drill.sourceIp || state.drill.headerFrom)
   )
 }
@@ -438,17 +439,17 @@ function syncFilterResetButton(): void {
 }
 
 export function resetFilters(): void {
-  const noiseWasOn = filterHideGoogleNoiseEl.checked
-  filterRangeEl.value = 'all'
+  const noiseWasOn = filterHideMailboxNoiseEl.checked
+  filterRangeEl.value = DEFAULT_DATE_RANGE
   filterFromEl.value = ''
   filterToEl.value = ''
   filterDomainEl.value = ''
-  filterHideGoogleNoiseEl.checked = false
+  filterHideMailboxNoiseEl.checked = false
   rangeBeforeDayFilter = null
   clearDrill()
   syncCustomRangeVisibility()
   applyView()
-  if (noiseWasOn) void persistHideGoogleNoise()
+  if (noiseWasOn) void persistHideMailboxNoise()
 }
 
 /** Filter dashboard to the volume-chart day, or restore the previous range on a second click. */
@@ -463,7 +464,7 @@ export function filterVolumeByDay(date: string): void {
       filterToEl.value = rangeBeforeDayFilter.to
       rangeBeforeDayFilter = null
     } else {
-      filterRangeEl.value = 'all'
+      filterRangeEl.value = DEFAULT_DATE_RANGE
       filterFromEl.value = ''
       filterToEl.value = ''
     }
@@ -580,17 +581,17 @@ async function refreshDomainHealth(full: AnalyzeResult | null): Promise<void> {
   try {
     let health: DomainHealth[]
     if (typeof window.api.healthBatch === 'function') {
-      health = await window.api.healthBatch(source)
+      health = await window.api.healthBatch(windowed)
     } else {
       // Preload not yet reloaded — still show Ampel from local stats.
-      health = domainHealthFallback(source)
+      health = domainHealthFallback(windowed)
     }
     if (token !== state.domainHealthToken) return
     state.domainHealthCache = health
     renderDomainAmpel(health)
   } catch {
     if (token !== state.domainHealthToken) return
-    state.domainHealthCache = domainHealthFallback(source)
+    state.domainHealthCache = domainHealthFallback(windowed)
     renderDomainAmpel(state.domainHealthCache)
   }
 }
@@ -666,7 +667,7 @@ function renderDashboard(result: AnalyzeResult | null): void {
   renderIpMap(d.bySourceIp)
   void refreshSpfMarks()
 
-  // Prefer enriching noise-candidate IPs so the Google filter can engage even when
+  // Prefer enriching noise-candidate IPs so the mailbox filter can engage even when
   // those sources fall outside the displayed top-N IP table.
   const enrichIps: string[] = []
   const seen = new Set<string>()
@@ -675,10 +676,10 @@ function renderDashboard(result: AnalyzeResult | null): void {
     seen.add(ip)
     enrichIps.push(ip)
   }
-  if (filterHideGoogleNoiseEl.checked && state.fullResult) {
+  if (filterHideMailboxNoiseEl.checked && state.fullResult) {
     for (const report of state.fullResult.reports) {
       for (const rec of report.records) {
-        if (isGoogleNoiseAuthPattern(rec)) pushIp(rec.sourceIp)
+        if (isMailboxNoiseAuthPattern(rec)) pushIp(rec.sourceIp)
       }
     }
   }
@@ -689,27 +690,27 @@ function renderDashboard(result: AnalyzeResult | null): void {
   void refreshDomainHealth(state.fullResult)
 }
 
-function collectGoogleIps(): Set<string> {
+function collectMailboxIps(): Set<string> {
   const set = new Set<string>()
   for (const [ip, info] of state.ipLabelCache) {
-    if (isGoogleIpInfo(info)) set.add(ip)
+    if (isMailboxIpInfo(info)) set.add(ip)
   }
   return set
 }
 
 async function enrichIpLabels(ips: string[]): Promise<void> {
-  // When the Google-noise filter is on, resolve those candidates first (up to 40).
+  // When the mailbox-noise filter is on, resolve those candidates first (up to 40).
   const missing = ips.filter((ip) => !state.ipLabelCache.has(ip)).slice(0, 40)
   if (!missing.length) return
   try {
     const infos = await window.api.resolveIps(missing)
-    let foundGoogle = false
+    let foundMailbox = false
     for (const info of infos) {
       state.ipLabelCache.set(info.ip, info)
-      if (isGoogleIpInfo(info)) foundGoogle = true
+      if (isMailboxIpInfo(info)) foundMailbox = true
     }
-    // Re-filter once Google IPs are known so KPIs/charts/Ampel all update together.
-    if (foundGoogle && filterHideGoogleNoiseEl.checked) {
+    // Re-filter once mailbox IPs are known so KPIs/charts/Ampel all update together.
+    if (foundMailbox && filterHideMailboxNoiseEl.checked) {
       applyView()
       return
     }
@@ -986,7 +987,7 @@ export function applyView(): void {
     return
   }
 
-  const hideGoogleNoise = filterHideGoogleNoiseEl.checked
+  const hideMailboxNoise = filterHideMailboxNoiseEl.checked
   state.viewResult = applyDashboardFilter(state.fullResult, {
     range: filterRangeEl.value as DateRangePreset,
     from: filterFromEl.value || undefined,
@@ -995,8 +996,8 @@ export function applyView(): void {
     org: state.drill.org,
     sourceIp: state.drill.sourceIp,
     headerFrom: state.drill.headerFrom,
-    hideGoogleNoise,
-    googleIps: hideGoogleNoise ? collectGoogleIps() : undefined
+    hideMailboxNoise,
+    mailboxIps: hideMailboxNoise ? collectMailboxIps() : undefined
   })
   updateSummary(state.viewResult)
   renderDashboard(state.viewResult)
@@ -1190,19 +1191,19 @@ export function initView(): void {
   filterFromEl.addEventListener('change', () => applyView())
   filterToEl.addEventListener('change', () => applyView())
   filterDomainEl.addEventListener('change', () => applyView())
-  filterHideGoogleNoiseEl.addEventListener('change', () => {
+  filterHideMailboxNoiseEl.addEventListener('change', () => {
     applyView()
-    void persistHideGoogleNoise()
+    void persistHideMailboxNoise()
   })
   btnFilterReset.addEventListener('click', () => resetFilters())
 }
 
-async function persistHideGoogleNoise(): Promise<void> {
+async function persistHideMailboxNoise(): Promise<void> {
   if (!state.settings) return
   try {
     const next = await window.api.saveGlobalSettings({
       ...state.settings.global,
-      hideGoogleNoise: filterHideGoogleNoiseEl.checked
+      hideMailboxNoise: filterHideMailboxNoiseEl.checked
     })
     state.settings = next
   } catch {

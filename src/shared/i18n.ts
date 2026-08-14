@@ -25,6 +25,7 @@ const de = {
   'header.spfBuilderDesc': 'SPF bauen, auswerten und auflösen',
   'header.tlsrptBuilderDesc': 'Reporting-Record für TLS-Fehler',
   'header.mtaStsBuilderDesc': 'Policy und TXT-Record für SMTP-TLS',
+  'header.bimiBuilderDesc': 'Logo-Record für die Inbox erzeugen',
   'header.badgeTool': 'Tool',
   'header.badgeWizard': 'Wizard',
   'header.info': 'Info',
@@ -35,6 +36,7 @@ const de = {
   'header.spfBuilder': 'SPF-Record Wizard',
   'header.tlsrptBuilder': 'TLS-RPT Wizard',
   'header.mtaStsBuilder': 'MTA-STS Wizard',
+  'header.bimiBuilder': 'BIMI Wizard',
   'header.fetch': 'Reports abrufen',
   'header.infoTitle': 'Über die App',
   'header.openFilesTitle': 'Lokale DMARC-Dateien öffnen',
@@ -44,6 +46,7 @@ const de = {
   'header.spfBuilderTitle': 'SPF-Record erzeugen und auflösen',
   'header.tlsrptBuilderTitle': 'TLS-RPT-Record erzeugen',
   'header.mtaStsBuilderTitle': 'MTA-STS-Policy erzeugen',
+  'header.bimiBuilderTitle': 'BIMI-Record erzeugen',
   'header.fetchTitle': 'Reports per IMAP abrufen',
   'header.rollout': 'Policy-Rollout',
   'header.rolloutDesc': 'Nächsten Schritt zu p=reject planen',
@@ -269,9 +272,10 @@ const de = {
     'Nur den Selektor, z. B. default — nicht default._domainkey. Kommagetrennt; leer = aus den Reports',
   'filter.clickToFilter': 'Klicken zum Filtern',
   'filter.removeChip': 'Filter entfernen',
-  'filter.hideGoogleNoise': 'Google-Rauschen ausblenden',
-  'filter.hideGoogleNoiseHint':
-    'Google-IPs mit SPF fail / DKIM pass ausblenden (interne Weiterleitungen und Report-Echo).',
+  'filter.hideMailboxNoise': 'Mailbox-Rauschen ausblenden',
+  'filter.hideMailboxNoiseHint':
+    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (deren IP, SPF fail, DKIM pass, DMARC pass). Echte Absender bleiben sichtbar.',
+  'filter.hideMailboxNoiseHintLabel': 'Was ist Mailbox-Rauschen?',
   'filter.reset': 'Zurücksetzen',
   'filter.resetTitle': 'Alle Filter zurücksetzen',
 
@@ -849,8 +853,7 @@ const de = {
     'Der Assistent erzeugt einen TXT-Record unter _dmarc.<Domain> mit Policy (none/quarantine/reject), Alignment und Report-Adressen.',
   'builder.domain.does2':
     'Typischer Start ist p=none: Reports sammeln, in dieser App prüfen, später auf quarantine oder reject verschärfen.',
-  'builder.domain.body':
-    'Domain festlegen. Optional den aktuellen DNS-Eintrag als Vorlage laden.',
+  'builder.domain.body': 'Domain festlegen. Optional den aktuellen DNS-Eintrag als Vorlage laden.',
   'builder.domain.label': 'Domain',
   'builder.domain.loadDns': 'Aktuellen DNS laden',
   'builder.domain.loading': 'Lade DNS für {domain}…',
@@ -927,8 +930,7 @@ const de = {
     'Der Assistent erzeugt einen TXT-Record direkt an der Domain (Host @) mit Includes, IPs und der Abschluss-Policy (all).',
   'spfBuilder.domain.does2':
     'Die Auflösung zeigt, welche Adressen die Includes wirklich erlauben und ob das DNS-Lookup-Limit von 10 überschritten wird.',
-  'spfBuilder.domain.body':
-    'Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag geladen.',
+  'spfBuilder.domain.body': 'Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag geladen.',
   'spfBuilder.domain.label': 'Domain',
   'spfBuilder.domain.loading': 'Lade DNS für {domain}…',
   'spfBuilder.domain.loaded': 'Vorhandener SPF-Record geladen und als Vorlage übernommen.',
@@ -993,7 +995,7 @@ const de = {
   'tlsrptBuilder.domain.does2':
     'Zusammen mit MTA-STS siehst du, ob Sender TLS wirklich nutzen, bevor du auf enforce gehst.',
   'tlsrptBuilder.domain.body':
-    'Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag als Vorlage geladen.',
+    'Domain festlegen. Vorhandene TLS-RPT-Records werden als Vorlage geladen.',
   'tlsrptBuilder.domain.label': 'Domain',
   'tlsrptBuilder.domain.loading': 'Lade DNS für {domain}…',
   'tlsrptBuilder.domain.loaded': 'Vorhandener TLS-RPT-Record geladen und als Vorlage übernommen.',
@@ -1040,7 +1042,7 @@ const de = {
   'mtaStsBuilder.domain.does2':
     'Die Datei listet erlaubte MX-Hosts und den Modus: testing (nur berichten) oder enforce (Zustellung ohne TLS ablehnen).',
   'mtaStsBuilder.domain.body':
-    'Domain festlegen. Beim Weiter werden TXT, Policy-Datei und MX-Hosts geladen.',
+    'Domain festlegen. Vorhandene TXT-, Policy- und MX-Daten werden als Vorlage geladen.',
   'mtaStsBuilder.domain.label': 'Domain',
   'mtaStsBuilder.domain.loading': 'Lade DNS für {domain}…',
   'mtaStsBuilder.domain.loaded': 'Vorhandene MTA-STS-Policy geladen und als Vorlage übernommen.',
@@ -1093,7 +1095,67 @@ const de = {
   'mtaStsBuilder.error.mx': 'Bitte mindestens einen MX-Host oder ein Muster angeben.',
   'mtaStsBuilder.error.mxPattern':
     'Ungültiges MX-Muster. Erlaubt: mail.example.com oder *.example.net.',
-  'mtaStsBuilder.error.maxAge': 'max_age muss zwischen 1 und 31557600 Sekunden liegen.'
+  'mtaStsBuilder.error.maxAge': 'max_age muss zwischen 1 und 31557600 Sekunden liegen.',
+
+  'bimiBuilder.title': 'BIMI-Record erzeugen',
+  'bimiBuilder.close': 'Schließen',
+  'bimiBuilder.back': 'Zurück',
+  'bimiBuilder.next': 'Weiter',
+  'bimiBuilder.finish': 'Fertig',
+  'bimiBuilder.step.domain': 'Domain',
+  'bimiBuilder.step.logo': 'Logo',
+  'bimiBuilder.step.result': 'Ergebnis',
+  'bimiBuilder.domain.headline': 'Wozu BIMI?',
+  'bimiBuilder.domain.why':
+    'BIMI (Brand Indicators for Message Identification) zeigt dein Markenlogo neben der Absenderadresse in unterstützten Postfächern — sofern DMARC auf quarantine oder reject steht und ein gültiges SVG vorliegt.',
+  'bimiBuilder.domain.does1':
+    'Der Assistent erzeugt einen TXT-Record unter default._bimi.<Domain> mit der Logo-URL (l=) und optional dem VMC (a=).',
+  'bimiBuilder.domain.does2':
+    'Gmail, Yahoo und Apple Mail zeigen das Logo nur mit einem Verified Mark Certificate (VMC). SVG Tiny PS und HTTPS sind Pflicht.',
+  'bimiBuilder.domain.body':
+    'Domain festlegen. Vorhandene BIMI- und DMARC-Records werden als Vorlage geladen.',
+  'bimiBuilder.domain.label': 'Domain',
+  'bimiBuilder.domain.loading': 'Lade DNS für {domain}…',
+  'bimiBuilder.domain.loaded': 'Vorhandener BIMI-Record geladen und als Vorlage übernommen.',
+  'bimiBuilder.domain.missing':
+    'Kein BIMI-Record gefunden — Formular bleibt bei den Standardwerten.',
+  'bimiBuilder.domain.error': 'DNS-Lookup fehlgeschlagen: {message}',
+  'bimiBuilder.domain.dmarcOk': 'DMARC ist p={policy} — Voraussetzung für BIMI erfüllt.',
+  'bimiBuilder.domain.dmarcWeak':
+    'DMARC ist p={policy} — BIMI braucht p=quarantine oder p=reject bei pct=100.',
+  'bimiBuilder.domain.dmarcMissing':
+    'Kein DMARC-Record — BIMI greift erst mit p=quarantine oder p=reject.',
+  'bimiBuilder.domain.dmarcPct': 'DMARC p={policy} gilt nur für {pct} % — BIMI braucht pct=100.',
+  'bimiBuilder.logo.headline': 'Logo und Zertifikat',
+  'bimiBuilder.logo.body':
+    'HTTPS-URL zum SVG Tiny PS Logo. Das VMC ist im Record optional, für die Anzeige bei großen Anbietern aber nötig.',
+  'bimiBuilder.logo.selector': 'Selektor',
+  'bimiBuilder.logo.selectorHint': 'Meist default. Record liegt unter <Selektor>._bimi.<Domain>.',
+  'bimiBuilder.logo.location': 'Logo-URL (l=)',
+  'bimiBuilder.logo.locationHint':
+    'Nur https://. Datei muss SVG Tiny Portable/Secure sein, quadratisch, ohne externe Referenzen.',
+  'bimiBuilder.logo.authority': 'VMC-URL (a=, optional)',
+  'bimiBuilder.logo.authorityHint':
+    'HTTPS-URL zur PEM-Datei des Verified Mark Certificate. Ohne VMC bleibt das Logo bei Gmail/Yahoo unsichtbar.',
+  'bimiBuilder.result.headline': 'DNS-Eintrag',
+  'bimiBuilder.result.body':
+    'TXT-Record unter default._bimi.<Domain> anlegen. Host und Wert getrennt kopieren. Logo und VMC müssen unter den HTTPS-URLs erreichbar sein.',
+  'bimiBuilder.result.host': 'Host / Name',
+  'bimiBuilder.result.type': 'Typ',
+  'bimiBuilder.result.value': 'Wert',
+  'bimiBuilder.result.copy': 'Kopieren',
+  'bimiBuilder.result.copied': 'Kopiert',
+  'bimiBuilder.result.tags': 'Tags',
+  'bimiBuilder.result.liveTitle': 'Aktuell im DNS',
+  'bimiBuilder.result.liveMissing': 'Noch kein BIMI-Record im DNS.',
+  'bimiBuilder.result.liveSame': 'Entspricht dem erzeugten Record.',
+  'bimiBuilder.result.liveDifferent': 'Weicht vom erzeugten Record ab.',
+  'bimiBuilder.result.vmcHint':
+    'Ohne VMC (a=) zeigen Gmail, Yahoo und Apple Mail das Logo nicht an.',
+  'bimiBuilder.error.domain': 'Bitte eine gültige Domain eingeben (z. B. example.com).',
+  'bimiBuilder.error.selector': 'Ungültiger Selektor. Erlaubt ist ein DNS-Label, meist default.',
+  'bimiBuilder.error.location': 'Bitte eine https://-URL zum SVG-Logo angeben.',
+  'bimiBuilder.error.authority': 'Die VMC-URL muss mit https:// beginnen.'
 } as const
 
 const en: Dict = {
@@ -1117,6 +1179,7 @@ const en: Dict = {
   'header.spfBuilderDesc': 'Build, evaluate and expand SPF',
   'header.tlsrptBuilderDesc': 'Reporting record for TLS failures',
   'header.mtaStsBuilderDesc': 'Policy and TXT record for SMTP TLS',
+  'header.bimiBuilderDesc': 'Inbox logo record',
   'header.badgeTool': 'Tool',
   'header.badgeWizard': 'Wizard',
   'header.info': 'About',
@@ -1127,6 +1190,7 @@ const en: Dict = {
   'header.spfBuilder': 'SPF record wizard',
   'header.tlsrptBuilder': 'TLS-RPT wizard',
   'header.mtaStsBuilder': 'MTA-STS wizard',
+  'header.bimiBuilder': 'BIMI wizard',
   'header.fetch': 'Fetch reports',
   'header.infoTitle': 'About the app',
   'header.openFilesTitle': 'Open local DMARC files',
@@ -1136,6 +1200,7 @@ const en: Dict = {
   'header.spfBuilderTitle': 'Build and expand an SPF record',
   'header.tlsrptBuilderTitle': 'Generate TLS-RPT record',
   'header.mtaStsBuilderTitle': 'Generate MTA-STS policy',
+  'header.bimiBuilderTitle': 'Generate BIMI record',
   'header.fetchTitle': 'Fetch reports via IMAP',
   'header.rollout': 'Policy rollout',
   'header.rolloutDesc': 'Plan the next step towards p=reject',
@@ -1359,9 +1424,10 @@ const en: Dict = {
     'Selector only, e.g. default — not default._domainkey. Comma-separated; empty = from reports',
   'filter.clickToFilter': 'Click to filter',
   'filter.removeChip': 'Remove filter',
-  'filter.hideGoogleNoise': 'Hide Google noise',
-  'filter.hideGoogleNoiseHint':
-    'Hide Google IPs with SPF fail / DKIM pass (internal forwarding and report echo).',
+  'filter.hideMailboxNoise': 'Hide mailbox noise',
+  'filter.hideMailboxNoiseHint':
+    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (their IP, SPF fail, DKIM pass, DMARC pass). Real senders stay visible.',
+  'filter.hideMailboxNoiseHintLabel': 'What is mailbox noise?',
   'filter.reset': 'Reset',
   'filter.resetTitle': 'Reset all filters',
 
@@ -2074,7 +2140,7 @@ const en: Dict = {
   'tlsrptBuilder.domain.does2':
     'Together with MTA-STS you can see whether senders actually use TLS before you switch to enforce.',
   'tlsrptBuilder.domain.body':
-    'Choose the domain. Continuing loads the current DNS entry as a template.',
+    'Choose the domain. Existing TLS-RPT records are loaded as a template.',
   'tlsrptBuilder.domain.label': 'Domain',
   'tlsrptBuilder.domain.loading': 'Loading DNS for {domain}…',
   'tlsrptBuilder.domain.loaded': 'Existing TLS-RPT record loaded as a template.',
@@ -2119,7 +2185,7 @@ const en: Dict = {
   'mtaStsBuilder.domain.does2':
     'The file lists allowed MX hosts and the mode: testing (report only) or enforce (refuse delivery without TLS).',
   'mtaStsBuilder.domain.body':
-    'Choose the domain. Continuing loads TXT, policy file, and MX hosts.',
+    'Choose the domain. Existing TXT, policy file, and MX hosts are loaded as a template.',
   'mtaStsBuilder.domain.label': 'Domain',
   'mtaStsBuilder.domain.loading': 'Loading DNS for {domain}…',
   'mtaStsBuilder.domain.loaded': 'Existing MTA-STS policy loaded as a template.',
@@ -2170,7 +2236,66 @@ const en: Dict = {
   'mtaStsBuilder.error.mx': 'Please provide at least one MX host or pattern.',
   'mtaStsBuilder.error.mxPattern':
     'Invalid MX pattern. Allowed: mail.example.com or *.example.net.',
-  'mtaStsBuilder.error.maxAge': 'max_age must be between 1 and 31557600 seconds.'
+  'mtaStsBuilder.error.maxAge': 'max_age must be between 1 and 31557600 seconds.',
+
+  'bimiBuilder.title': 'Generate BIMI record',
+  'bimiBuilder.close': 'Close',
+  'bimiBuilder.back': 'Back',
+  'bimiBuilder.next': 'Next',
+  'bimiBuilder.finish': 'Done',
+  'bimiBuilder.step.domain': 'Domain',
+  'bimiBuilder.step.logo': 'Logo',
+  'bimiBuilder.step.result': 'Result',
+  'bimiBuilder.domain.headline': 'What is BIMI for?',
+  'bimiBuilder.domain.why':
+    'BIMI (Brand Indicators for Message Identification) shows your brand logo next to the sender address in supporting inboxes — if DMARC is quarantine or reject and a valid SVG is published.',
+  'bimiBuilder.domain.does1':
+    'The wizard builds a TXT record at default._bimi.<domain> with the logo URL (l=) and an optional VMC (a=).',
+  'bimiBuilder.domain.does2':
+    'Gmail, Yahoo, and Apple Mail only show the logo with a Verified Mark Certificate (VMC). SVG Tiny PS and HTTPS are required.',
+  'bimiBuilder.domain.body':
+    'Choose the domain. Existing BIMI and DMARC records are loaded as a template.',
+  'bimiBuilder.domain.label': 'Domain',
+  'bimiBuilder.domain.loading': 'Loading DNS for {domain}…',
+  'bimiBuilder.domain.loaded': 'Existing BIMI record loaded as a template.',
+  'bimiBuilder.domain.missing': 'No BIMI record found — form keeps the defaults.',
+  'bimiBuilder.domain.error': 'DNS lookup failed: {message}',
+  'bimiBuilder.domain.dmarcOk': 'DMARC is p={policy} — BIMI prerequisite met.',
+  'bimiBuilder.domain.dmarcWeak':
+    'DMARC is p={policy} — BIMI needs p=quarantine or p=reject at pct=100.',
+  'bimiBuilder.domain.dmarcMissing':
+    'No DMARC record — BIMI only takes effect with p=quarantine or p=reject.',
+  'bimiBuilder.domain.dmarcPct': 'DMARC p={policy} applies to only {pct} % — BIMI needs pct=100.',
+  'bimiBuilder.logo.headline': 'Logo and certificate',
+  'bimiBuilder.logo.body':
+    'HTTPS URL of the SVG Tiny PS logo. The VMC is optional in the record, but required for display at major providers.',
+  'bimiBuilder.logo.selector': 'Selector',
+  'bimiBuilder.logo.selectorHint': 'Usually default. Record lives at <selector>._bimi.<domain>.',
+  'bimiBuilder.logo.location': 'Logo URL (l=)',
+  'bimiBuilder.logo.locationHint':
+    'https:// only. The file must be SVG Tiny Portable/Secure, square, with no external references.',
+  'bimiBuilder.logo.authority': 'VMC URL (a=, optional)',
+  'bimiBuilder.logo.authorityHint':
+    'HTTPS URL of the Verified Mark Certificate PEM. Without a VMC, Gmail/Yahoo will not show the logo.',
+  'bimiBuilder.result.headline': 'DNS record',
+  'bimiBuilder.result.body':
+    'Publish this TXT record at default._bimi.<domain>. Copy host and value separately. Logo and VMC must be reachable at the HTTPS URLs.',
+  'bimiBuilder.result.host': 'Host / name',
+  'bimiBuilder.result.type': 'Type',
+  'bimiBuilder.result.value': 'Value',
+  'bimiBuilder.result.copy': 'Copy',
+  'bimiBuilder.result.copied': 'Copied',
+  'bimiBuilder.result.tags': 'Tags',
+  'bimiBuilder.result.liveTitle': 'Currently in DNS',
+  'bimiBuilder.result.liveMissing': 'No BIMI record in DNS yet.',
+  'bimiBuilder.result.liveSame': 'Matches the generated record.',
+  'bimiBuilder.result.liveDifferent': 'Differs from the generated record.',
+  'bimiBuilder.result.vmcHint':
+    'Without a VMC (a=), Gmail, Yahoo, and Apple Mail will not display the logo.',
+  'bimiBuilder.error.domain': 'Please enter a valid domain (e.g. example.com).',
+  'bimiBuilder.error.selector': 'Invalid selector. Use a DNS label, usually default.',
+  'bimiBuilder.error.location': 'Please provide an https:// URL to the SVG logo.',
+  'bimiBuilder.error.authority': 'The VMC URL must start with https://.'
 }
 
 const catalogs: Record<AppLocale, Dict> = { de: de as Dict, en }
