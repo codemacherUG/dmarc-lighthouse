@@ -68,6 +68,7 @@ export interface DmarcLighthouseApi {
   getAppVersion: () => Promise<string>
   openThirdPartyNotices: () => Promise<{ ok: boolean; message: string }>
   checkForUpdates: () => Promise<{ ok: boolean; message: string }>
+  downloadUpdate: () => Promise<{ ok: boolean; message: string }>
   installUpdate: () => Promise<{ ok: boolean; message: string }>
   onProgress: (callback: (progress: AnalyzeProgress) => void) => () => void
   onResult: (callback: (result: AnalyzeResult) => void) => () => void

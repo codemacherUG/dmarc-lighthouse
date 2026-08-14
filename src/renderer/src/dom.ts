@@ -132,6 +132,9 @@ export const updateCheckStatusEl = document.getElementById(
 ) as HTMLParagraphElement
 export const updateBanner = document.getElementById('update-banner') as HTMLDivElement
 export const updateBannerText = document.getElementById('update-banner-text') as HTMLSpanElement
+export const btnUpdateDownload = document.getElementById(
+  'btn-update-download'
+) as HTMLButtonElement
 export const btnUpdateInstall = document.getElementById('btn-update-install') as HTMLButtonElement
 export const btnUpdateDismiss = document.getElementById('btn-update-dismiss') as HTMLButtonElement
 

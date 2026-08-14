@@ -12,6 +12,8 @@ let getMainWindow: (() => BrowserWindow | null) | null = null
 let started = false
 /** Set after download + external manifest verification succeeds. */
 let verifiedUpdate: { version: string } | null = null
+/** Prevents overlapping downloadUpdate() calls after the user confirms. */
+let downloadInProgress = false
 
 function send(payload: UpdateStatusPayload): void {
   const win = getMainWindow?.()
@@ -62,6 +64,21 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
     }
   })
 
+  ipcMain.handle('update:download', async () => {
+    if (is.dev) return { ok: false, message: t('updater.devDownload') }
+    if (downloadInProgress) return { ok: true, message: t('updater.downloadStarted') }
+    downloadInProgress = true
+    try {
+      await autoUpdater.downloadUpdate()
+      return { ok: true, message: t('updater.downloadStarted') }
+    } catch (err) {
+      downloadInProgress = false
+      const message = err instanceof Error ? err.message : String(err)
+      send({ status: 'error', message })
+      return { ok: false, message }
+    }
+  })
+
   ipcMain.handle('update:install', () => {
     if (is.dev) return { ok: false, message: t('updater.devInstall') }
     if (!verifiedUpdate) {
@@ -74,7 +91,7 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
 
   if (is.dev) return
 
-  autoUpdater.autoDownload = true
+  autoUpdater.autoDownload = false
   // Enabled only after external manifest verification succeeds.
   autoUpdater.autoInstallOnAppQuit = false
   // When isSilent=false, quitAndInstall uses this flag (not the 2nd argument).
@@ -96,6 +113,7 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
   })
 
   autoUpdater.on('update-available', (info) => {
+    if (downloadInProgress) return
     verifiedUpdate = null
     autoUpdater.autoInstallOnAppQuit = false
     send({ status: 'available', version: versionOf(info) })
@@ -120,6 +138,7 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
 
   autoUpdater.on('error', (err: Error) => {
     verifiedUpdate = null
+    downloadInProgress = false
     autoUpdater.autoInstallOnAppQuit = false
     send({ status: 'error', message: err?.message || String(err) })
   })

@@ -233,9 +233,10 @@ const de = {
   'drop.formats': 'XML, GZ, ZIP, EML',
 
   'update.install': 'Neu starten & installieren',
+  'update.download': 'Herunterladen',
   'update.dismiss': 'Ausblenden',
   'update.checking': 'Prüfe auf Updates…',
-  'update.available': 'Update {version} verfügbar — Download startet…',
+  'update.available': 'Update {version} verfügbar.',
   'update.availableShort': 'Update {version} verfügbar.',
   'update.downloading': 'Update wird heruntergeladen… {percent}%',
   'update.downloadShort': 'Download: {percent}%',
@@ -824,6 +825,8 @@ const de = {
 
   'updater.devDisabled': 'Updates sind im Dev-Modus deaktiviert.',
   'updater.devInstall': 'Im Dev-Modus nicht verfügbar.',
+  'updater.devDownload': 'Im Dev-Modus nicht verfügbar.',
+  'updater.downloadStarted': 'Update-Download gestartet.',
   'updater.installing': 'Installiere Update…',
   'updater.releaseInfo': 'Aktuelle Release-Info: {version}',
   'updater.started': 'Update-Prüfung gestartet.',
@@ -839,9 +842,15 @@ const de = {
   'builder.step.policy': 'Policy',
   'builder.step.reporting': 'Reports',
   'builder.step.result': 'Ergebnis',
-  'builder.domain.headline': 'Domain festlegen',
+  'builder.domain.headline': 'Wozu DMARC?',
+  'builder.domain.why':
+    'Andere Mailserver prüfen, ob Absender wirklich zu deiner Domain gehören — über SPF und DKIM. Schlägt das fehl, sagt DMARC ihnen, ob die Mail trotzdem ankommen, in Junk landen oder abgelehnt werden soll. Schon p=none liefert die Reports; blockiert wird erst mit quarantine oder reject.',
+  'builder.domain.does1':
+    'Der Assistent erzeugt einen TXT-Record unter _dmarc.<Domain> mit Policy (none/quarantine/reject), Alignment und Report-Adressen.',
+  'builder.domain.does2':
+    'Typischer Start ist p=none: Reports sammeln, in dieser App prüfen, später auf quarantine oder reject verschärfen.',
   'builder.domain.body':
-    'Für welche Domain soll der DMARC-TXT-Record erzeugt werden? Optional kannst du den aktuellen DNS-Eintrag laden und als Vorlage nutzen.',
+    'Domain festlegen. Optional den aktuellen DNS-Eintrag als Vorlage laden.',
   'builder.domain.label': 'Domain',
   'builder.domain.loadDns': 'Aktuellen DNS laden',
   'builder.domain.loading': 'Lade DNS für {domain}…',
@@ -911,9 +920,15 @@ const de = {
   'spfBuilder.step.domain': 'Domain',
   'spfBuilder.step.mechanisms': 'Quellen',
   'spfBuilder.step.result': 'Ergebnis',
-  'spfBuilder.domain.headline': 'Domain festlegen',
+  'spfBuilder.domain.headline': 'Wozu SPF?',
+  'spfBuilder.domain.why':
+    'SPF listet, welche Server im Namen deiner Domain Mail versenden dürfen. Empfänger prüfen den verbindenden Host gegen diesen TXT-Record — ohne Eintrag wirken fremde Absender oft wie deine Domain.',
+  'spfBuilder.domain.does1':
+    'Der Assistent erzeugt einen TXT-Record direkt an der Domain (Host @) mit Includes, IPs und der Abschluss-Policy (all).',
+  'spfBuilder.domain.does2':
+    'Die Auflösung zeigt, welche Adressen die Includes wirklich erlauben und ob das DNS-Lookup-Limit von 10 überschritten wird.',
   'spfBuilder.domain.body':
-    'Für welche Domain soll der SPF-TXT-Record gebaut oder ausgewertet werden? Beim Weiter wird der aktuelle DNS-Eintrag geladen.',
+    'Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag geladen.',
   'spfBuilder.domain.label': 'Domain',
   'spfBuilder.domain.loading': 'Lade DNS für {domain}…',
   'spfBuilder.domain.loaded': 'Vorhandener SPF-Record geladen und als Vorlage übernommen.',
@@ -1308,9 +1323,10 @@ const en: Dict = {
   'drop.formats': 'XML, GZ, ZIP, EML',
 
   'update.install': 'Restart & install',
+  'update.download': 'Download',
   'update.dismiss': 'Dismiss',
   'update.checking': 'Checking for updates…',
-  'update.available': 'Update {version} available — download starting…',
+  'update.available': 'Update {version} available.',
   'update.availableShort': 'Update {version} available.',
   'update.downloading': 'Downloading update… {percent}%',
   'update.downloadShort': 'Download: {percent}%',
@@ -1893,6 +1909,8 @@ const en: Dict = {
 
   'updater.devDisabled': 'Updates are disabled in development mode.',
   'updater.devInstall': 'Not available in development mode.',
+  'updater.devDownload': 'Not available in development mode.',
+  'updater.downloadStarted': 'Update download started.',
   'updater.installing': 'Installing update…',
   'updater.releaseInfo': 'Current release info: {version}',
   'updater.started': 'Update check started.',
@@ -1908,9 +1926,14 @@ const en: Dict = {
   'builder.step.policy': 'Policy',
   'builder.step.reporting': 'Reports',
   'builder.step.result': 'Result',
-  'builder.domain.headline': 'Choose domain',
-  'builder.domain.body':
-    'Which domain should the DMARC TXT record be generated for? Optionally load the current DNS record as a template.',
+  'builder.domain.headline': 'What is DMARC for?',
+  'builder.domain.why':
+    'Other mail servers check whether senders really belong to your domain — via SPF and DKIM. If that fails, DMARC tells them whether the mail should still be delivered, go to junk, or be rejected. Even p=none already produces the reports; blocking starts only with quarantine or reject.',
+  'builder.domain.does1':
+    'The wizard builds a TXT record at _dmarc.<Domain> with policy (none/quarantine/reject), alignment, and report addresses.',
+  'builder.domain.does2':
+    'A typical start is p=none: collect reports, review them in this app, then tighten to quarantine or reject.',
+  'builder.domain.body': 'Choose the domain. Optionally load the current DNS record as a template.',
   'builder.domain.label': 'Domain',
   'builder.domain.loadDns': 'Load current DNS',
   'builder.domain.loading': 'Loading DNS for {domain}…',
@@ -1980,9 +2003,14 @@ const en: Dict = {
   'spfBuilder.step.domain': 'Domain',
   'spfBuilder.step.mechanisms': 'Sources',
   'spfBuilder.step.result': 'Result',
-  'spfBuilder.domain.headline': 'Choose domain',
-  'spfBuilder.domain.body':
-    'Which domain should the SPF TXT record be built or evaluated for? Continuing loads the current DNS entry.',
+  'spfBuilder.domain.headline': 'What is SPF for?',
+  'spfBuilder.domain.why':
+    'SPF lists which servers may send mail for your domain. Receivers check the connecting host against this TXT record — without it, spoofed senders often look like you.',
+  'spfBuilder.domain.does1':
+    'The wizard builds a TXT record on the domain itself (host @) with includes, IPs, and the trailing all policy.',
+  'spfBuilder.domain.does2':
+    'Expansion shows which addresses the includes actually allow and whether you exceed the 10 DNS-lookup limit.',
+  'spfBuilder.domain.body': 'Choose the domain. Continuing loads the current DNS entry.',
   'spfBuilder.domain.label': 'Domain',
   'spfBuilder.domain.loading': 'Loading DNS for {domain}…',
   'spfBuilder.domain.loaded': 'Existing SPF record loaded as a template.',

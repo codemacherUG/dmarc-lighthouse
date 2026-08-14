@@ -95,6 +95,8 @@ const api = {
     ipcRenderer.invoke('app:openThirdPartyNotices'),
   checkForUpdates: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('update:check'),
+  downloadUpdate: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('update:download'),
   installUpdate: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('update:install'),
   onProgress: (callback: (progress: AnalyzeProgress) => void): (() => void) => {

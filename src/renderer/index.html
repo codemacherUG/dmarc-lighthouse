@@ -293,6 +293,9 @@
       <div id="update-banner" class="update-banner hidden" role="status" aria-live="polite">
         <span id="update-banner-text"></span>
         <div class="update-banner-actions">
+          <button type="button" id="btn-update-download" class="btn primary hidden">
+            <span data-i18n="update.download">Herunterladen</span>
+          </button>
           <button type="button" id="btn-update-install" class="btn primary hidden">
             <span data-i18n="update.install">Neu starten &amp; installieren</span>
           </button>
@@ -1426,10 +1429,25 @@
 
         <div class="dialog-body builder-body">
           <section id="builder-panel-domain" class="builder-panel" data-step="domain">
-            <h3 data-i18n="builder.domain.headline">Domain festlegen</h3>
+            <h3 data-i18n="builder.domain.headline">Wozu DMARC?</h3>
+            <p class="builder-intro" data-i18n="builder.domain.why">
+              Andere Mailserver prüfen, ob Absender wirklich zu deiner Domain gehören — über SPF und
+              DKIM. Schlägt das fehl, sagt DMARC ihnen, ob die Mail trotzdem ankommen, in Junk
+              landen oder abgelehnt werden soll. Schon p=none liefert die Reports; blockiert wird
+              erst mit quarantine oder reject.
+            </p>
+            <ul class="builder-checklist">
+              <li data-i18n="builder.domain.does1">
+                Der Assistent erzeugt einen TXT-Record unter _dmarc.&lt;Domain&gt; mit Policy
+                (none/quarantine/reject), Alignment und Report-Adressen.
+              </li>
+              <li data-i18n="builder.domain.does2">
+                Typischer Start ist p=none: Reports sammeln, in dieser App prüfen, später auf
+                quarantine oder reject verschärfen.
+              </li>
+            </ul>
             <p class="hint" data-i18n="builder.domain.body">
-              Für welche Domain soll der DMARC-TXT-Record erzeugt werden? Optional kannst du den
-              aktuellen DNS-Eintrag laden und als Vorlage nutzen.
+              Domain festlegen. Optional den aktuellen DNS-Eintrag als Vorlage laden.
             </p>
             <div class="builder-form-grid">
               <label>
@@ -1650,10 +1668,24 @@
 
         <div class="dialog-body builder-body">
           <section class="spf-builder-panel builder-panel" data-step="domain">
-            <h3 data-i18n="spfBuilder.domain.headline">Domain festlegen</h3>
+            <h3 data-i18n="spfBuilder.domain.headline">Wozu SPF?</h3>
+            <p class="builder-intro" data-i18n="spfBuilder.domain.why">
+              SPF listet, welche Server im Namen deiner Domain Mail versenden dürfen. Empfänger
+              prüfen den verbindenden Host gegen diesen TXT-Record — ohne Eintrag wirken fremde
+              Absender oft wie deine Domain.
+            </p>
+            <ul class="builder-checklist">
+              <li data-i18n="spfBuilder.domain.does1">
+                Der Assistent erzeugt einen TXT-Record direkt an der Domain (Host @) mit Includes,
+                IPs und der Abschluss-Policy (all).
+              </li>
+              <li data-i18n="spfBuilder.domain.does2">
+                Die Auflösung zeigt, welche Adressen die Includes wirklich erlauben und ob das
+                DNS-Lookup-Limit von 10 überschritten wird.
+              </li>
+            </ul>
             <p class="hint" data-i18n="spfBuilder.domain.body">
-              Für welche Domain soll der SPF-TXT-Record gebaut oder ausgewertet werden? Beim Weiter
-              wird der aktuelle DNS-Eintrag geladen.
+              Domain festlegen. Beim Weiter wird der aktuelle DNS-Eintrag geladen.
             </p>
             <div class="builder-form-grid">
               <label>

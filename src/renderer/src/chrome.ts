@@ -15,6 +15,7 @@ import {
   btnStatusLogOk,
   btnTest,
   btnUpdateDismiss,
+  btnUpdateDownload,
   btnUpdateInstall,
   btnCloseDns,
   dnsDialog,
@@ -88,15 +89,20 @@ export function setStatus(message: string, kind: StatusKind = ''): void {
   if (statusLogDialog.open) renderStatusLog()
 }
 
-export function showUpdateBanner(text: string, showInstall: boolean): void {
+type UpdateBannerAction = 'none' | 'download' | 'install'
+
+export function showUpdateBanner(text: string, action: UpdateBannerAction = 'none'): void {
   updateBannerText.textContent = text
-  updateBanner.classList.remove('hidden', 'error', 'ready')
-  if (showInstall) updateBanner.classList.add('ready')
-  btnUpdateInstall.classList.toggle('hidden', !showInstall)
+  updateBanner.classList.remove('hidden', 'error')
+  updateBanner.classList.toggle('ready', action !== 'none')
+  btnUpdateDownload.disabled = false
+  btnUpdateDownload.classList.toggle('hidden', action !== 'download')
+  btnUpdateInstall.classList.toggle('hidden', action !== 'install')
 }
 
 export function hideUpdateBanner(): void {
   updateBanner.classList.add('hidden')
+  btnUpdateDownload.classList.add('hidden')
   btnUpdateInstall.classList.add('hidden')
 }
 
@@ -106,21 +112,21 @@ export function applyUpdateStatus(payload: UpdateStatusPayload): void {
       updateCheckStatusEl.textContent = t('update.checking')
       break
     case 'available':
-      showUpdateBanner(t('update.available', { version: payload.version }), false)
+      showUpdateBanner(t('update.available', { version: payload.version }), 'download')
       updateCheckStatusEl.textContent = t('update.availableShort', { version: payload.version })
       break
     case 'downloading': {
       const pct = Math.max(0, Math.min(100, Math.round(payload.percent)))
-      showUpdateBanner(t('update.downloading', { percent: pct }), false)
+      showUpdateBanner(t('update.downloading', { percent: pct }))
       updateCheckStatusEl.textContent = t('update.downloadShort', { percent: pct })
       break
     }
     case 'verifying':
-      showUpdateBanner(t('update.verifying', { version: payload.version }), false)
+      showUpdateBanner(t('update.verifying', { version: payload.version }))
       updateCheckStatusEl.textContent = t('update.verifyingShort')
       break
     case 'downloaded':
-      showUpdateBanner(t('update.downloaded', { version: payload.version }), true)
+      showUpdateBanner(t('update.downloaded', { version: payload.version }), 'install')
       updateCheckStatusEl.textContent = t('update.downloadedShort', { version: payload.version })
       break
     case 'not-available':
@@ -132,6 +138,7 @@ export function applyUpdateStatus(payload: UpdateStatusPayload): void {
       updateBannerText.textContent = t('update.error', { message: payload.message })
       updateBanner.classList.remove('hidden', 'ready')
       updateBanner.classList.add('error')
+      btnUpdateDownload.classList.add('hidden')
       btnUpdateInstall.classList.add('hidden')
       updateCheckStatusEl.textContent = payload.message
       break
@@ -238,6 +245,22 @@ export function initChrome(): void {
     } catch (err) {
       updateCheckStatusEl.textContent = err instanceof Error ? err.message : String(err)
     }
+  })
+
+  btnUpdateDownload.addEventListener('click', () => {
+    btnUpdateDownload.disabled = true
+    void window.api.downloadUpdate().then(
+      (result) => {
+        if (!result.ok) {
+          btnUpdateDownload.disabled = false
+          updateCheckStatusEl.textContent = result.message
+        }
+      },
+      (err: unknown) => {
+        btnUpdateDownload.disabled = false
+        updateCheckStatusEl.textContent = err instanceof Error ? err.message : String(err)
+      }
+    )
   })
 
   btnUpdateInstall.addEventListener('click', () => {
