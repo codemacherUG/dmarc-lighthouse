@@ -1,8 +1,8 @@
-import { promises as dns } from 'dns'
 import { identifySender } from '../shared/sender'
 import type { IpInfo } from '../shared/types'
 import { getIpEnrichment, upsertIpEnrichment } from './cache'
 import { lookupCloudProvider } from './cloudranges'
+import { configureDnsEnvironment, reverseReliable } from './dns-env'
 import { lookupDnsbl } from './dnsbl'
 import { lookupGeo } from './geoip'
 import { loadSettings } from './settings'
@@ -30,7 +30,7 @@ function emptyInfo(ip: string): IpInfo {
 
 async function resolvePtr(ip: string): Promise<string | null> {
   try {
-    const names = await dns.reverse(ip)
+    const names = await reverseReliable(ip)
     return names[0] ?? null
   } catch {
     return null
@@ -87,6 +87,7 @@ async function resolveOne(ip: string): Promise<IpInfo> {
 }
 
 export async function resolveIps(ips: string[]): Promise<IpInfo[]> {
+  configureDnsEnvironment()
   const unique = [...new Set(ips.map((ip) => ip.trim()).filter(Boolean))]
   if (unique.length === 0) return []
 

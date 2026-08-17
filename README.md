@@ -51,7 +51,7 @@ Everything runs locally on your machine: credentials and OAuth tokens stay in th
 
 ### Dashboard
 
-KPIs, alignment charts (including disposition), time series, filters (including optional mailbox-noise filter), and domain-health tiles:
+KPIs, alignment charts (including disposition), time series, filters (including Reject / Not reject and optional mailbox noise), and domain-health tiles:
 
 ![Dashboard with KPIs, alignment charts, and DNS check](docs/screenshots/en/dashboard.png)
 
@@ -116,7 +116,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Policy rollout**        | Recommends the next step (`none` → `quarantine` → `reject`) with thresholds, open items, and a staging plan of ready-to-copy records                                                                                             |
 | **Source map**            | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP                                                                                                                                                 |
 | **Domain health**         | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter                                                                                                                                              |
-| **Filters**               | Date range (7 / 30 / 90 days / all / custom), domain, plus drill-down by org, source IP, and From domain                                                                                                                         |
+| **Filters**               | Date range (7 / 30 / 90 days / all / custom), domain, applied disposition (Reject / Not reject), plus drill-down by org, source IP, and From domain                                                                              |
 | **Mailbox noise filter**  | Optional, persisted filter that hides forwarding / report-echo rows from Gmail, Outlook, Yahoo and iCloud (mailbox IP + SPF fail + DKIM pass + DMARC pass)                                                                       |
 | **DNS check**             | Live lookup of DMARC (`p`, `rua`), SPF, DKIM selectors (auto-collected from reports or manual), and BIMI (`l`, `a`)                                                                                                              |
 | **Record wizards**        | Guided DMARC, SPF, TLS-RPT, MTA-STS, and BIMI records; live DNS as a template, copy-ready output (MTA-STS includes the policy file)                                                                                              |
@@ -176,7 +176,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 1. Open **Settings** → **Accounts**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, and autostart. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
-4. Narrow with date range (including custom From/To), domain, domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
+4. Narrow with date range (including custom From/To), domain, **disposition** (Reject / Not reject), domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
 5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, DKIM selectors from the reports or entered manually, and BIMI).
 6. Open **Tools → Inspect email** to load an `.eml` or `.msg` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
 7. Plan the next step towards `p=reject` under **Tools → Policy rollout**: recommendation, open items, senders to fix, and a staging plan of ready-to-copy records.
@@ -208,7 +208,7 @@ IMAP mailbox(es) / local files
         ▼
   Analysis → KPIs, charts, tables
         │
-        ├── Filters (date range, domain, org / IP / From drill-down)
+        ├── Filters (date range, domain, disposition, org / IP / From drill-down)
         ├── DNS check (DMARC / SPF / DKIM / BIMI)
         ├── Record wizards (DMARC / SPF / TLS-RPT / MTA-STS / BIMI)
         ├── Email inspection (.eml / .msg / paste: path, TLS, SPF/DKIM/DMARC/ARC)

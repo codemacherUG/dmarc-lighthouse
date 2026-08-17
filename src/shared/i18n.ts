@@ -262,6 +262,10 @@ const de = {
   'filter.fromTo': 'Von / Bis',
   'filter.domain': 'Domain',
   'filter.allDomains': 'Alle Domains',
+  'filter.disposition': 'Disposition',
+  'filter.dispositionAll': 'Alle',
+  'filter.dispositionReject': 'Reject',
+  'filter.dispositionNotReject': 'Nicht reject',
   'filter.dns': 'DNS-Check',
   'filter.dnsCheck': 'Prüfen',
   'filter.dnsHint':
@@ -1416,6 +1420,10 @@ const en: Dict = {
   'filter.fromTo': 'From / To',
   'filter.domain': 'Domain',
   'filter.allDomains': 'All domains',
+  'filter.disposition': 'Disposition',
+  'filter.dispositionAll': 'All',
+  'filter.dispositionReject': 'Reject',
+  'filter.dispositionNotReject': 'Not reject',
   'filter.dns': 'DNS check',
   'filter.dnsCheck': 'Check',
   'filter.dnsHint':

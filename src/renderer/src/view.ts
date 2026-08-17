@@ -7,6 +7,7 @@ import {
   isMailboxIpInfo,
   isMailboxNoiseAuthPattern,
   mergeDomainHealth,
+  normalizeDispositionFilter,
   parseSourceIpFilter,
   reportsForDomainHealth
 } from '../../shared/analyze'
@@ -52,6 +53,7 @@ import {
   filterRangeEl,
   filterToEl,
   filterCustomWrap,
+  filterDispositionEl,
   forensicBody,
   ipDetailBody,
   ipDetailDialog,
@@ -429,6 +431,7 @@ function hasActiveFilters(): boolean {
     Boolean(filterFromEl.value) ||
     Boolean(filterToEl.value) ||
     Boolean(filterDomainEl.value) ||
+    filterDispositionEl.value !== 'all' ||
     filterHideMailboxNoiseEl.checked ||
     Boolean(state.drill.org || state.drill.sourceIp || state.drill.headerFrom)
   )
@@ -444,6 +447,7 @@ export function resetFilters(): void {
   filterFromEl.value = ''
   filterToEl.value = ''
   filterDomainEl.value = ''
+  filterDispositionEl.value = 'all'
   filterHideMailboxNoiseEl.checked = false
   rangeBeforeDayFilter = null
   clearDrill()
@@ -993,6 +997,7 @@ export function applyView(): void {
     from: filterFromEl.value || undefined,
     to: filterToEl.value || undefined,
     domain: filterDomainEl.value,
+    disposition: normalizeDispositionFilter(filterDispositionEl.value),
     org: state.drill.org,
     sourceIp: state.drill.sourceIp,
     headerFrom: state.drill.headerFrom,
@@ -1191,6 +1196,7 @@ export function initView(): void {
   filterFromEl.addEventListener('change', () => applyView())
   filterToEl.addEventListener('change', () => applyView())
   filterDomainEl.addEventListener('change', () => applyView())
+  filterDispositionEl.addEventListener('change', () => applyView())
   filterHideMailboxNoiseEl.addEventListener('change', () => {
     applyView()
     void persistHideMailboxNoise()

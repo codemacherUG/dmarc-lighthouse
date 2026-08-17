@@ -1,6 +1,7 @@
 import { isIP } from 'net'
 import type { RdapInfo } from '../shared/types'
 import { t } from '../shared/i18n'
+import { appFetch, formatNetworkError } from './http'
 
 /**
  * Build the `/ip/{…}` path segment for RDAP.
@@ -111,7 +112,7 @@ export async function lookupRdap(ipRaw: string): Promise<RdapInfo> {
   }
 
   try {
-    const res = await fetch(`https://rdap.org/ip/${path}`, {
+    const res = await appFetch(`https://rdap.org/ip/${path}`, {
       headers: { Accept: 'application/rdap+json, application/json' },
       signal: AbortSignal.timeout(10_000),
       redirect: 'follow'
@@ -144,6 +145,6 @@ export async function lookupRdap(ipRaw: string): Promise<RdapInfo> {
       rawSummary: parts.join(' · ') || null
     }
   } catch (err) {
-    return emptyRdap(displayIp, err instanceof Error ? err.message : String(err))
+    return emptyRdap(displayIp, formatNetworkError(err))
   }
 }

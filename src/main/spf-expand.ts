@@ -1,7 +1,13 @@
-import { promises as dns } from 'dns'
 import { normalizeAuthorizedSenderEntry } from '../shared/ipcidr'
 import { t } from '../shared/i18n'
 import type { SpfExpandResult } from '../shared/types'
+import {
+  configureDnsEnvironment,
+  resolve4Reliable,
+  resolve6Reliable,
+  resolveMxReliable,
+  resolveTxtReliable
+} from './dns-env'
 
 const MAX_DNS_LOOKUPS = 10
 
@@ -40,7 +46,7 @@ export function spfIpMechanismToCidr(kind: 'ip4' | 'ip6', value: string): string
 async function resolveHostCidrs(host: string): Promise<string[]> {
   const out: string[] = []
   try {
-    const v4 = await dns.resolve4(host)
+    const v4 = await resolve4Reliable(host)
     for (const ip of v4) {
       const cidr = normalizeAuthorizedSenderEntry(ip)
       if (cidr) out.push(cidr)
@@ -49,7 +55,7 @@ async function resolveHostCidrs(host: string): Promise<string[]> {
     // no A records
   }
   try {
-    const v6 = await dns.resolve6(host)
+    const v6 = await resolve6Reliable(host)
     for (const ip of v6) {
       const cidr = normalizeAuthorizedSenderEntry(ip)
       if (cidr) out.push(cidr)
@@ -73,6 +79,7 @@ export async function expandSpf(
   domainRaw: string,
   options: ExpandSpfOptions = {}
 ): Promise<SpfExpandResult> {
+  configureDnsEnvironment()
   const domain = domainRaw.trim().toLowerCase().replace(/\.$/, '')
   if (!domain || !isDnsName(domain)) {
     throw new Error(t('main.invalidDomain'))
@@ -106,7 +113,7 @@ export async function expandSpf(
       }
       lookups++
       try {
-        const txt = flattenTxt(await dns.resolveTxt(key))
+        const txt = flattenTxt(await resolveTxtReliable(key))
         record = txt.find((r) => /v\s*=\s*spf1/i.test(r)) ?? null
       } catch (err) {
         errors.push(`${key}: ${err instanceof Error ? err.message : String(err)}`)
@@ -174,7 +181,7 @@ export async function expandSpf(
             : term.slice(3).replace(/^\//, '').split('/')[0]?.trim() || key
         lookups++
         try {
-          const mxs = await dns.resolveMx(host)
+          const mxs = await resolveMxReliable(host)
           for (const mx of mxs.slice(0, 10)) {
             if (lookups >= MAX_DNS_LOOKUPS) break
             lookups++

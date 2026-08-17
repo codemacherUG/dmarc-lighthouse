@@ -9,6 +9,7 @@ import maxmind, { type CityResponse, type AsnResponse, type Reader } from 'maxmi
 import type { GeoLiteDownloadResult, GeoLiteStatus, GeoSource } from '../shared/types'
 import { t } from '../shared/i18n'
 import { readdirSync } from 'fs'
+import { appFetch, formatNetworkError } from './http'
 
 export interface GeoLookupResult {
   country: string | null
@@ -126,7 +127,7 @@ function lookupMaxmind(ip: string): GeoLookupResult | null {
 
 async function lookupOnline(ip: string): Promise<GeoLookupResult | null> {
   try {
-    const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+    const res = await appFetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
       signal: AbortSignal.timeout(5000)
     })
     if (!res.ok) return null
@@ -210,7 +211,7 @@ async function downloadAndExtractEdition(
   const url =
     `https://download.maxmind.com/app/geoip_download?edition_id=${editionId}` +
     `&license_key=${encodeURIComponent(licenseKey)}&suffix=tar.gz`
-  const res = await fetch(url, { signal: AbortSignal.timeout(120_000) })
+  const res = await appFetch(url, { signal: AbortSignal.timeout(120_000) })
   if (!res.ok || !res.body) {
     throw new Error(`MaxMind download failed (${res.status}) for ${editionId}`)
   }
@@ -252,7 +253,7 @@ export async function downloadGeoLite(licenseKey: string): Promise<GeoLiteDownlo
   } catch (err) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : String(err)
+      message: formatNetworkError(err)
     }
   }
 }

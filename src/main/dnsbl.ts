@@ -1,5 +1,5 @@
-import { promises as dns } from 'dns'
 import { isIP } from 'net'
+import { configureDnsEnvironment, resolve4Reliable } from './dns-env'
 
 const LOOKUP_TIMEOUT_MS = 2000
 
@@ -76,7 +76,7 @@ export function isListedDnsblAnswer(answers: string[]): boolean {
 
 async function queryZone(reversed: string, zone: string): Promise<boolean> {
   try {
-    const answers = await withTimeout(dns.resolve4(`${reversed}.${zone}`), LOOKUP_TIMEOUT_MS)
+    const answers = await withTimeout(resolve4Reliable(`${reversed}.${zone}`), LOOKUP_TIMEOUT_MS)
     return isListedDnsblAnswer(Array.isArray(answers) ? answers : [])
   } catch {
     // NXDOMAIN / timeout / SERVFAIL → not listed
@@ -86,6 +86,7 @@ async function queryZone(reversed: string, zone: string): Promise<boolean> {
 
 /** Return DNSBL/DNSWL hit labels for an IP (empty on miss/error). */
 export async function lookupDnsbl(ip: string): Promise<string[]> {
+  configureDnsEnvironment()
   const reversed = reverseIpForDnsbl(ip.trim())
   if (!reversed) return []
 

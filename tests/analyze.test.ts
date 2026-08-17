@@ -3,14 +3,16 @@ import {
   analyzeFromReports,
   applyDashboardFilter,
   buildDashboard,
+  filterForensicReports,
   filterReports,
   groupProblemSources,
   isGoogleIpInfo,
   isMailboxIpInfo,
   isMailboxNoiseRecord,
+  matchesDispositionFilter,
   recordMatchesSourceIp
 } from '../src/shared/analyze'
-import type { ReportRow, SerializedRecord } from '../src/shared/types'
+import type { ForensicReportRow, ReportRow, SerializedRecord } from '../src/shared/types'
 
 function record(overrides: Partial<SerializedRecord> = {}): SerializedRecord {
   return {
@@ -245,6 +247,99 @@ describe('filterReports', () => {
     expect(out[0].total).toBe(3)
     expect(out[0].records).toHaveLength(1)
     expect(out[0].records[0]?.sourceIp).toBe('159.195.74.209')
+  })
+
+  it('keeps only records with applied disposition reject', () => {
+    const rows = [
+      report({
+        reportId: 'mixed',
+        records: [
+          record({ disposition: 'none', count: 4 }),
+          record({ disposition: 'quarantine', count: 2, passesDmarc: false }),
+          record({ disposition: 'reject', count: 3, passesDmarc: false })
+        ]
+      }),
+      report({
+        reportId: 'none-only',
+        records: [record({ disposition: 'none', count: 1 })]
+      })
+    ]
+    const out = filterReports(rows, { range: 'all', domain: '', disposition: 'reject' })
+    expect(out).toHaveLength(1)
+    expect(out[0].reportId).toBe('mixed')
+    expect(out[0].records).toHaveLength(1)
+    expect(out[0].records[0]?.disposition).toBe('reject')
+    expect(out[0].total).toBe(3)
+    expect(out[0].failing).toBe(3)
+  })
+
+  it('keeps none and quarantine when filtering to not-reject', () => {
+    const rows = [
+      report({
+        records: [
+          record({ disposition: 'none', count: 4 }),
+          record({ disposition: 'quarantine', count: 2, passesDmarc: false }),
+          record({ disposition: 'reject', count: 3, passesDmarc: false })
+        ]
+      })
+    ]
+    const out = filterReports(rows, { range: 'all', domain: '', disposition: 'not-reject' })
+    expect(out).toHaveLength(1)
+    expect(out[0].records.map((r) => r.disposition)).toEqual(['none', 'quarantine'])
+    expect(out[0].total).toBe(6)
+  })
+})
+
+describe('matchesDispositionFilter', () => {
+  it('treats reject and rejected as reject, everything else as not-reject', () => {
+    expect(matchesDispositionFilter('reject', 'reject')).toBe(true)
+    expect(matchesDispositionFilter('Rejected', 'reject')).toBe(true)
+    expect(matchesDispositionFilter('quarantine', 'reject')).toBe(false)
+    expect(matchesDispositionFilter('none', 'not-reject')).toBe(true)
+    expect(matchesDispositionFilter('', 'not-reject')).toBe(true)
+    expect(matchesDispositionFilter('reject', 'not-reject')).toBe(false)
+    expect(matchesDispositionFilter('reject', 'all')).toBe(true)
+  })
+})
+
+describe('filterForensicReports', () => {
+  function forensic(overrides: Partial<ForensicReportRow> = {}): ForensicReportRow {
+    return {
+      id: 'f-1',
+      reportId: 'ruf-1',
+      orgName: 'google.com',
+      reportedDomain: 'example.com',
+      arrivalDate: '2026-07-02T00:00:00.000Z',
+      sourceIp: '192.0.2.1',
+      authFailure: 'dmarc',
+      deliveryResult: 'delivered',
+      envelopeFrom: null,
+      headerFrom: 'example.com',
+      originalRcptTo: null,
+      authenticationResults: null,
+      subject: null,
+      feedbackType: null,
+      ...overrides
+    }
+  }
+
+  it('filters forensic rows by delivery-result reject vs not-reject', () => {
+    const rows = [
+      forensic({ id: 'a', deliveryResult: 'reject' }),
+      forensic({ id: 'b', deliveryResult: 'rejected' }),
+      forensic({ id: 'c', deliveryResult: 'delivered' }),
+      forensic({ id: 'd', deliveryResult: null })
+    ]
+    expect(
+      filterForensicReports(rows, { range: 'all', domain: '', disposition: 'reject' }).map(
+        (r) => r.id
+      )
+    ).toEqual(['a', 'b'])
+    expect(
+      filterForensicReports(rows, { range: 'all', domain: '', disposition: 'not-reject' }).map(
+        (r) => r.id
+      )
+    ).toEqual(['c', 'd'])
   })
 })
 
@@ -606,5 +701,20 @@ describe('applyDashboardFilter', () => {
     const out = applyDashboardFilter(full, { range: '90', domain: '' })
     expect(out).not.toBe(full)
     expect(out.reports.map((r) => r.reportId)).toEqual(['new'])
+  })
+
+  it('rebuilds totals when filtering by applied disposition', () => {
+    const full = analyzeFromReports([
+      report({
+        records: [
+          record({ disposition: 'none', count: 5 }),
+          record({ disposition: 'reject', count: 2, passesDmarc: false })
+        ]
+      })
+    ])
+    const out = applyDashboardFilter(full, { range: 'all', domain: '', disposition: 'reject' })
+    expect(out).not.toBe(full)
+    expect(out.aggregate.total).toBe(2)
+    expect(out.dashboard.dispositions.map((b) => b.name)).toEqual(['reject'])
   })
 })

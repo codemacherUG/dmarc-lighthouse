@@ -20,6 +20,9 @@ export const filterCustomWrap = document.getElementById('filter-custom-range') a
 export const filterFromEl = document.getElementById('filter-from') as HTMLInputElement
 export const filterToEl = document.getElementById('filter-to') as HTMLInputElement
 export const filterDomainEl = document.getElementById('filter-domain') as HTMLSelectElement
+export const filterDispositionEl = document.getElementById(
+  'filter-disposition'
+) as HTMLSelectElement
 export const filterHideMailboxNoiseEl = document.getElementById(
   'filter-hide-mailbox-noise'
 ) as HTMLInputElement

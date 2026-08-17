@@ -1,5 +1,6 @@
 import { createSocket } from 'node:dgram'
 import { promises as dns } from 'node:dns'
+import { pickDnsServers, PUBLIC_DNS_FALLBACK } from './dns-env'
 
 /**
  * Node's resolver has no TLSA support, so DANE needs a hand-built query.
@@ -87,9 +88,10 @@ export function formatTlsa(record: TlsaRecord): string {
   return `${record.usage} ${record.selector} ${record.matchingType} ${digest}`
 }
 
-/** One UDP query against the system resolver; resolves empty when nothing answers. */
+/** One UDP query against a usable system resolver; resolves empty when nothing answers. */
 export async function queryTlsa(name: string, timeoutMs = 4000): Promise<TlsaRecord[]> {
-  const server = dns.getServers().find((s) => !s.startsWith('fe80')) ?? '1.1.1.1'
+  const server =
+    pickDnsServers(dns.getServers())[0] ?? PUBLIC_DNS_FALLBACK[0]
   const ipv6 = server.includes(':')
   const socket = createSocket(ipv6 ? 'udp6' : 'udp4')
   const id = Math.floor(Math.random() * 0xffff)
