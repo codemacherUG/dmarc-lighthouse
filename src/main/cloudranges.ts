@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { matchCloudProvider, parseCidr, type CloudPrefix } from '../shared/ipcidr'
+import { appFetch } from './http'
 
 export type { CloudPrefix }
 export { matchCloudProvider, parseCidr }
@@ -27,7 +28,7 @@ function rangesPath(): string {
 }
 
 async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+  const res = await appFetch(url, { signal: AbortSignal.timeout(30_000) })
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`)
   return res.text()
 }

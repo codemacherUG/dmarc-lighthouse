@@ -93,6 +93,7 @@ import { t } from '../shared/i18n'
 import { applyAppIdentityBeforeReady, ensureSafeStorageIdentity } from './app-identity'
 import { fixPackagedExecEnv, relaunchApp } from './relaunch'
 import { openExternalSafe } from './open-external'
+import { configureDnsEnvironment } from './dns-env'
 
 function accountReady(account: AccountPublic): boolean {
   return Boolean(account.user && (account.hasPassword || account.hasOAuth))
@@ -117,6 +118,7 @@ if (process.platform === 'linux') {
   // Avoid Chromium FATAL on /dev/shm shared-memory create (ESRCH) when spawning windows.
   app.commandLine.appendSwitch('disable-dev-shm-usage')
 }
+configureDnsEnvironment()
 
 let mainWindow: BrowserWindow | null = null
 let noticesWindow: BrowserWindow | null = null

@@ -172,7 +172,8 @@ export function matchDownloadedFile(
 export type FetchText = (url: string) => Promise<string>
 
 async function defaultFetchText(url: string): Promise<string> {
-  const res = await fetch(url, {
+  const { appFetch } = await import('./http')
+  const res = await appFetch(url, {
     headers: { Accept: 'application/octet-stream, application/json, text/plain, */*' },
     signal: AbortSignal.timeout(20_000),
     redirect: 'follow'

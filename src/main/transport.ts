@@ -1,4 +1,3 @@
-import { promises as dns } from 'node:dns'
 import { t } from '../shared/i18n'
 import {
   evaluateTransportSecurity,
@@ -12,6 +11,8 @@ import type {
   TlsRptCheck,
   TransportSecurityResult
 } from '../shared/types'
+import { configureDnsEnvironment, resolveMxReliable, resolveTxtReliable } from './dns-env'
+import { appFetch, formatNetworkError } from './http'
 import { formatTlsa, queryTlsa } from './dnswire'
 
 const POLICY_TIMEOUT_MS = 8000
@@ -20,11 +21,11 @@ const POLICY_MAX_BYTES = 64 * 1024
 const MAX_MX_HOSTS = 5
 
 function errorText(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
+  return formatNetworkError(err)
 }
 
 async function txtRecords(name: string): Promise<string[]> {
-  return (await dns.resolveTxt(name)).map((parts) => parts.join(''))
+  return (await resolveTxtReliable(name)).map((parts) => parts.join(''))
 }
 
 async function checkTlsRpt(domain: string): Promise<TlsRptCheck> {
@@ -41,7 +42,7 @@ async function fetchMtaStsPolicy(domain: string): Promise<{ text: string | null;
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), POLICY_TIMEOUT_MS)
   try {
-    const response = await fetch(url, {
+    const response = await appFetch(url, {
       signal: controller.signal,
       redirect: 'error',
       headers: { accept: 'text/plain' }
@@ -108,6 +109,7 @@ async function checkDaneForMx(host: string, preference: number): Promise<DaneMxC
 
 /** TLS-RPT, MTA-STS and DANE for one domain, graded into a single status. */
 export async function checkTransportSecurity(domainRaw: string): Promise<TransportSecurityResult> {
+  configureDnsEnvironment()
   const domain = domainRaw.trim().toLowerCase().replace(/\.$/, '')
   if (!domain || !/^[a-z0-9.-]+$/i.test(domain)) {
     throw new Error(t('main.invalidDomain'))
@@ -116,7 +118,7 @@ export async function checkTransportSecurity(domainRaw: string): Promise<Transpo
   const [tlsrpt, mtaSts, mxResult] = await Promise.all([
     checkTlsRpt(domain),
     checkMtaSts(domain),
-    dns.resolveMx(domain).then(
+    resolveMxReliable(domain).then(
       (list) => ({ list, error: undefined as string | undefined }),
       (err) => ({ list: [], error: errorText(err) })
     )

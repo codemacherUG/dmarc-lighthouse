@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'crypto'
 import { createServer } from 'http'
 import type { OAuthProvider } from '../shared/types'
 import { t } from '../shared/i18n'
+import { appFetch } from './http'
 import { openExternalSafe } from './open-external'
 
 export interface OAuthTokens {
@@ -177,7 +178,7 @@ async function exchangeToken(
   tokenUrl: string,
   body: Record<string, string>
 ): Promise<Record<string, unknown>> {
-  const res = await fetch(tokenUrl, {
+  const res = await appFetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(body).toString()
@@ -192,14 +193,14 @@ async function exchangeToken(
 
 async function fetchEmail(provider: OAuthProvider, accessToken: string): Promise<string> {
   if (provider === 'google') {
-    const res = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+    const res = await appFetch('https://openidconnect.googleapis.com/v1/userinfo', {
       headers: { Authorization: `Bearer ${accessToken}` }
     })
     const json = (await res.json()) as { email?: string }
     if (!res.ok || !json.email) throw new Error(t('oauth.emailMissing'))
     return json.email
   }
-  const res = await fetch('https://graph.microsoft.com/oidc/userinfo', {
+  const res = await appFetch('https://graph.microsoft.com/oidc/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` }
   })
   if (res.ok) {
