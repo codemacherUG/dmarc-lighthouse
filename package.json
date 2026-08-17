@@ -1,6 +1,6 @@
 {
   "name": "dmarc-lighthouse",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "DMARC Lighthouse — desktop app for IMAP/OAuth fetch, SQLite cache, aggregate and forensic DMARC analysis",
   "main": "./out/main/index.js",
   "author": "codemacher UG (haftungsbeschränkt)",
