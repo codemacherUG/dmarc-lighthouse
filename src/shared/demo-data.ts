@@ -303,7 +303,7 @@ export function buildDemoSettings(language: AppLocale = 'de'): SettingsPublic {
       oauthGoogleClientId: '',
       oauthMicrosoftClientId: '',
       enrichmentEnabled: true,
-      geoIpOnlineFallback: false,
+      geoIpOnlineFallback: true,
       maxmindLicenseKey: '',
       hasMaxmindLicenseKey: false,
       dnsblEnabled: true,

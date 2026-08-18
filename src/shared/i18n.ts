@@ -455,7 +455,7 @@ const de = {
   'settings.maxmindKeySaved': 'Schlüssel gespeichert — leer lassen zum Behalten',
   'settings.downloadGeoLite': 'GeoLite2 herunterladen',
   'settings.enrichmentHint':
-    'Offline zuerst (GeoLite2 unter userData/enrichment). Online-Fallback und RDAP sind opt-in bzw. on-demand. Cloud-Ranges und DNSBL nutzen öffentliche Listen bzw. DNS. PTR läuft unabhängig vom Master-Schalter.',
+    'Offline zuerst (GeoLite2 unter userData/enrichment). Online-Fallback ist standardmäßig an; RDAP on-demand. Cloud-Ranges und DNSBL nutzen öffentliche Listen bzw. DNS. PTR läuft unabhängig vom Master-Schalter.',
   'settings.geoLiteStatus': 'GeoLite2: City {city} · ASN {asn}',
   'settings.geoLiteDownloading': 'Lade GeoLite2…',
   'settings.language': 'Sprache',
@@ -1612,7 +1612,7 @@ const en: Dict = {
   'settings.maxmindKeySaved': 'Key saved — leave empty to keep it',
   'settings.downloadGeoLite': 'Download GeoLite2',
   'settings.enrichmentHint':
-    'Offline first (GeoLite2 under userData/enrichment). Online fallback and RDAP are opt-in / on demand. Cloud ranges and DNSBL use public lists or DNS. PTR runs regardless of the master switch.',
+    'Offline first (GeoLite2 under userData/enrichment). Online fallback is on by default; RDAP on demand. Cloud ranges and DNSBL use public lists or DNS. PTR runs regardless of the master switch.',
   'settings.geoLiteStatus': 'GeoLite2: City {city} · ASN {asn}',
   'settings.geoLiteDownloading': 'Downloading GeoLite2…',
   'settings.language': 'Language',

@@ -1224,16 +1224,16 @@
                   <span data-i18n="settings.rdapEnabled">RDAP / WHOIS on-demand</span>
                 </label>
                 <label class="checkbox">
-                  <input id="geoIpOnlineFallback" name="geoIpOnlineFallback" type="checkbox" />
+                  <input id="geoIpOnlineFallback" name="geoIpOnlineFallback" type="checkbox" checked />
                   <span data-i18n="settings.geoIpOnlineFallback"
                     >Geo-IP Online-Fallback (ipwho.is, HTTPS)</span
                   >
                 </label>
               </div>
               <p class="hint" data-i18n="settings.enrichmentHint">
-                Offline zuerst (GeoLite2 unter userData/enrichment). Online-Fallback und RDAP sind
-                opt-in bzw. on-demand. Cloud-Ranges und DNSBL nutzen öffentliche Listen bzw. DNS.
-                PTR läuft unabhängig vom Master-Schalter.
+                Offline zuerst (GeoLite2 unter userData/enrichment). Online-Fallback ist
+                standardmäßig an; RDAP on-demand. Cloud-Ranges und DNSBL nutzen öffentliche Listen
+                bzw. DNS. PTR läuft unabhängig vom Master-Schalter.
               </p>
             </fieldset>
 

@@ -114,7 +114,7 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   oauthGoogleClientId: '',
   oauthMicrosoftClientId: '',
   enrichmentEnabled: true,
-  geoIpOnlineFallback: false,
+  geoIpOnlineFallback: true,
   maxmindLicenseKey: '',
   hasMaxmindLicenseKey: false,
   dnsblEnabled: true,
@@ -432,7 +432,7 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     oauthMicrosoftClientId:
       g.oauthMicrosoftClientId?.trim() || process.env.DMARC_MS_CLIENT_ID?.trim() || '',
     enrichmentEnabled: g.enrichmentEnabled ?? GLOBAL_DEFAULTS.enrichmentEnabled,
-    geoIpOnlineFallback: Boolean(g.geoIpOnlineFallback),
+    geoIpOnlineFallback: g.geoIpOnlineFallback ?? GLOBAL_DEFAULTS.geoIpOnlineFallback,
     maxmindLicenseKey: '',
     hasMaxmindLicenseKey: Boolean(g.maxmindLicenseKeyEncrypted || g.maxmindLicenseKey?.trim()),
     dnsblEnabled: g.dnsblEnabled ?? GLOBAL_DEFAULTS.dnsblEnabled,
