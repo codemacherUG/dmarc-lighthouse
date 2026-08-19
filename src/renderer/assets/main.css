@@ -410,6 +410,23 @@ body {
   cursor: not-allowed;
 }
 
+.nav-link-icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+.nav-link-icon.nav-link-menu {
+  width: auto;
+  padding: 0 10px;
+}
+
+.nav-link-icon .btn-icon {
+  width: 22px;
+  height: 22px;
+}
+
 .nav-link-menu[aria-expanded='true'] {
   background: var(--nav-active-bg);
   color: var(--accent-deep);
@@ -1541,9 +1558,21 @@ input[type='checkbox']:focus-visible {
 
 .account-toolbar {
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  margin-bottom: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 68%, var(--accent) 32%);
+  border-left: 4px solid var(--accent);
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tint-accent) 75%, var(--bg-panel)), var(--bg-panel));
+  box-shadow: 0 6px 18px rgba(15, 23, 33, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.account-toolbar select,
+.account-toolbar .btn {
+  box-shadow: 0 1px 0 rgba(15, 23, 33, 0.05);
 }
 
 .account-setup-intro {

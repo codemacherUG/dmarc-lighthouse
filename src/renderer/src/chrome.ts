@@ -22,7 +22,6 @@ import {
   dnsDomainEl,
   infoDialog,
   languageEl,
-  navDashboard,
   navDns,
   navTools,
   progressEl,
@@ -302,10 +301,6 @@ export function initChrome(): void {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !toolsMenu.hasAttribute('hidden')) setToolsMenuOpen(false)
-  })
-
-  navDashboard.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   })
 
   const openDnsDialog = (): void => {

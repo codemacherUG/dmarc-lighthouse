@@ -50,7 +50,6 @@ export const btnIpNoise = document.getElementById('btn-ip-noise') as HTMLButtonE
 export const ipContextMenu = document.getElementById('ip-context-menu') as HTMLDivElement
 export const ipContextNoiseBtn = document.getElementById('ip-context-noise') as HTMLButtonElement
 
-export const navDashboard = document.getElementById('nav-dashboard') as HTMLButtonElement
 export const navTools = document.getElementById('nav-tools') as HTMLButtonElement
 export const toolsMenu = document.getElementById('tools-menu') as HTMLDivElement
 export const navDns = document.getElementById('nav-dns') as HTMLButtonElement
