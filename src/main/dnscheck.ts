@@ -27,19 +27,29 @@ function flattenTxt(records: string[][]): string[] {
   return records.map((parts) => parts.join(''))
 }
 
-function parseDmarcPolicy(records: string[]): {
+export function parseDmarcPolicy(records: string[]): {
   policy: string | null
   rua: string | null
   ruf: string | null
+  testing: boolean
+  np: string | null
+  psd: boolean
 } {
   const joined = records.find((r) => /v\s*=\s*DMARC1/i.test(r)) ?? records[0] ?? ''
   const policyMatch = joined.match(/(?:^|;)\s*p\s*=\s*([^;\s]+)/i)
   const ruaMatch = joined.match(/(?:^|;)\s*rua\s*=\s*([^;]+)/i)
   const rufMatch = joined.match(/(?:^|;)\s*ruf\s*=\s*([^;]+)/i)
+  const tMatch = joined.match(/(?:^|;)\s*t\s*=\s*([^;\s]+)/i)
+  const npMatch = joined.match(/(?:^|;)\s*np\s*=\s*([^;\s]+)/i)
+  const psdMatch = joined.match(/(?:^|;)\s*psd\s*=\s*([^;\s]+)/i)
   return {
     policy: policyMatch?.[1]?.trim() ?? null,
     rua: ruaMatch?.[1]?.trim() ?? null,
-    ruf: rufMatch?.[1]?.trim() ?? null
+    ruf: rufMatch?.[1]?.trim() ?? null,
+    // RFC 9989: t=y marks a testing rollout stage.
+    testing: (tMatch?.[1]?.trim() ?? '').toLowerCase() === 'y',
+    np: npMatch?.[1]?.trim() ?? null,
+    psd: (psdMatch?.[1]?.trim() ?? '').toLowerCase() === 'y'
   }
 }
 
@@ -90,9 +100,7 @@ export async function findAuthoritativeNs(domain: string): Promise<Authoritative
   for (const zone of ancestorZones(domain)) {
     try {
       const names = [
-        ...new Set(
-          (await resolveNsReliable(zone)).map((n) => n.replace(/\.$/, '').toLowerCase())
-        )
+        ...new Set((await resolveNsReliable(zone)).map((n) => n.replace(/\.$/, '').toLowerCase()))
       ]
       if (names.length === 0) continue
       const servers: string[] = []
@@ -119,6 +127,28 @@ async function resolveTxtRecords(name: string, auth: AuthResolver | null): Promi
     }
   }
   return resolveTxtReliable(name)
+}
+
+/**
+ * RFC 9989 policy discovery: try `_dmarc.{domain}` first, then walk up the ancestor
+ * zones until a record is found. `treeWalked` is true once we leave the exact domain.
+ */
+export async function discoverDmarcRecords(
+  domain: string,
+  auth: AuthResolver | null
+): Promise<{ zone: string; records: string[]; treeWalked: boolean; error?: string }> {
+  let lastError: string | undefined
+  for (const [index, zone] of ancestorZones(domain).entries()) {
+    try {
+      const records = flattenTxt(await resolveTxtRecords(`_dmarc.${zone}`, auth))
+      if (records.some((r) => /v\s*=\s*DMARC1/i.test(r))) {
+        return { zone, records, treeWalked: index > 0 }
+      }
+    } catch (err) {
+      if (!isEmptyDnsError(err)) lastError = err instanceof Error ? err.message : String(err)
+    }
+  }
+  return { zone: domain, records: [], treeWalked: false, error: lastError }
 }
 
 async function checkDkimSelector(
@@ -208,13 +238,19 @@ export async function checkDomainDns(
   }
 
   try {
-    const dmarcTxt = flattenTxt(await resolveTxtRecords(`_dmarc.${domain}`, auth))
-    result.dmarc.records = dmarcTxt
-    result.dmarc.found = dmarcTxt.some((r) => /v\s*=\s*DMARC1/i.test(r))
-    const parsed = parseDmarcPolicy(dmarcTxt)
+    const discovered = await discoverDmarcRecords(domain, auth)
+    result.dmarc.records = discovered.records
+    result.dmarc.found = discovered.records.some((r) => /v\s*=\s*DMARC1/i.test(r))
+    result.dmarc.host = `_dmarc.${discovered.zone}`
+    result.dmarc.treeWalked = discovered.treeWalked
+    const parsed = parseDmarcPolicy(discovered.records)
     result.dmarc.policy = parsed.policy
     result.dmarc.rua = parsed.rua
     result.dmarc.ruf = parsed.ruf
+    result.dmarc.testing = parsed.testing
+    result.dmarc.np = parsed.np
+    result.dmarc.psd = parsed.psd
+    if (discovered.error && !result.dmarc.found) result.dmarc.error = discovered.error
   } catch (err) {
     result.dmarc.error = err instanceof Error ? err.message : String(err)
   }

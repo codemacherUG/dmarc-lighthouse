@@ -237,7 +237,10 @@ export const builderDomainStatusEl = document.getElementById(
 ) as HTMLParagraphElement
 export const builderPolicyEl = document.getElementById('builder-policy') as HTMLSelectElement
 export const builderSpEl = document.getElementById('builder-sp') as HTMLSelectElement
+export const builderNpEl = document.getElementById('builder-np') as HTMLSelectElement
 export const builderPctEl = document.getElementById('builder-pct') as HTMLInputElement
+export const builderTestingEl = document.getElementById('builder-testing') as HTMLInputElement
+export const builderPsdEl = document.getElementById('builder-psd') as HTMLInputElement
 export const builderAdkimEl = document.getElementById('builder-adkim') as HTMLSelectElement
 export const builderAspfEl = document.getElementById('builder-aspf') as HTMLSelectElement
 export const builderRuaEl = document.getElementById('builder-rua') as HTMLInputElement

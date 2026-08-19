@@ -1685,11 +1685,50 @@
                 >
               </label>
               <label>
-                <span data-i18n="builder.policy.pct">Anteil (pct=)</span>
+                <span data-i18n="builder.policy.np">Nicht existierende Subdomains (np=)</span>
+                <select id="builder-np">
+                  <option value="same" data-i18n="builder.policy.spSame">wie p=</option>
+                  <option value="none" data-i18n="builder.policy.none">
+                    none — nur beobachten
+                  </option>
+                  <option value="quarantine" data-i18n="builder.policy.quarantine">
+                    quarantine — Spam/Junk
+                  </option>
+                  <option value="reject" data-i18n="builder.policy.reject">
+                    reject — ablehnen
+                  </option>
+                </select>
+                <span class="field-hint" data-i18n="builder.policy.npHint"
+                  >Policy für Subdomains, die es gar nicht gibt (RFC 9989). Ohne eigenen Eintrag
+                  gilt sp= bzw. p=.</span
+                >
+              </label>
+              <label>
+                <span data-i18n="builder.policy.pct">Anteil (pct=, veraltet)</span>
                 <input id="builder-pct" type="number" min="1" max="100" value="100" />
                 <span class="field-hint" data-i18n="builder.policy.pctHint"
-                  >Prozent der Mails, auf die quarantine/reject angewendet wird. Bei 100 (Standard)
-                  gelten sie für alle; niedriger ermöglicht einen schrittweisen Rollout.</span
+                  >Historisch (RFC 9989): Prozent der Mails, auf die quarantine/reject angewendet
+                  wird. Für einen Testbetrieb besser „Testbetrieb (t=y)” unten verwenden.</span
+                >
+              </label>
+              <label class="builder-checkbox-field">
+                <span class="builder-checkbox-row">
+                  <input id="builder-testing" type="checkbox" />
+                  <span data-i18n="builder.policy.testing">Testbetrieb (t=y)</span>
+                </span>
+                <span class="field-hint" data-i18n="builder.policy.testingHint"
+                  >Bittet Empfänger, während des Rollouts weiterhin auch fehlschlagende Mails
+                  zuzustellen (Ersatz für pct&lt;100, RFC 9989).</span
+                >
+              </label>
+              <label class="builder-checkbox-field">
+                <span class="builder-checkbox-row">
+                  <input id="builder-psd" type="checkbox" />
+                  <span data-i18n="builder.policy.psd">Public-Suffix-Domain (psd=y)</span>
+                </span>
+                <span class="field-hint" data-i18n="builder.policy.psdHint"
+                  >Nur setzen, wenn diese Domain selbst eine öffentliche Suffix-Domain ist (RFC
+                  9989 Tree-Walk).</span
                 >
               </label>
               <label>

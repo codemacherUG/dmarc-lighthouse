@@ -1,5 +1,25 @@
-import { describe, expect, it } from 'vitest'
-import { ancestorZones, normalizeDkimSelector } from '../src/main/dnscheck'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  ancestorZones,
+  discoverDmarcRecords,
+  normalizeDkimSelector,
+  parseDmarcPolicy
+} from '../src/main/dnscheck'
+
+vi.mock('../src/main/dns-env', async () => {
+  const actual = await vi.importActual<typeof import('../src/main/dns-env')>('../src/main/dns-env')
+  return {
+    ...actual,
+    resolveTxtReliable: vi.fn(async (name: string) => {
+      const zone = name.replace(/^_dmarc\./, '')
+      const record = txtByZone.get(zone)
+      if (!record) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' })
+      return [[record]]
+    })
+  }
+})
+
+let txtByZone = new Map<string, string>()
 
 describe('normalizeDkimSelector', () => {
   it('keeps a bare selector', () => {
@@ -32,5 +52,45 @@ describe('ancestorZones', () => {
       'example.com'
     ])
     expect(ancestorZones('EXAMPLE.COM.')).toEqual(['example.com'])
+  })
+})
+
+describe('parseDmarcPolicy', () => {
+  it('extracts the legacy p/rua/ruf tags', () => {
+    const parsed = parseDmarcPolicy(['v=DMARC1; p=reject; rua=mailto:a@example.com'])
+    expect(parsed).toMatchObject({ policy: 'reject', rua: 'mailto:a@example.com', testing: false })
+  })
+
+  it('extracts t=, np= and psd= (RFC 9989)', () => {
+    const parsed = parseDmarcPolicy(['v=DMARC1; p=quarantine; np=reject; t=y; psd=y'])
+    expect(parsed).toMatchObject({ policy: 'quarantine', np: 'reject', testing: true, psd: true })
+  })
+
+  it('defaults testing/psd to false and np to null when absent', () => {
+    const parsed = parseDmarcPolicy(['v=DMARC1; p=none'])
+    expect(parsed).toMatchObject({ testing: false, np: null, psd: false })
+  })
+})
+
+describe('discoverDmarcRecords', () => {
+  it('uses the exact domain record when present', async () => {
+    txtByZone = new Map([['mail.example.com', 'v=DMARC1; p=reject']])
+    const result = await discoverDmarcRecords('mail.example.com', null)
+    expect(result).toMatchObject({ zone: 'mail.example.com', treeWalked: false })
+    expect(result.records).toEqual(['v=DMARC1; p=reject'])
+  })
+
+  it('walks up to the organizational domain when the subdomain has no record', async () => {
+    txtByZone = new Map([['example.com', 'v=DMARC1; p=quarantine']])
+    const result = await discoverDmarcRecords('mail.example.com', null)
+    expect(result).toMatchObject({ zone: 'example.com', treeWalked: true })
+    expect(result.records).toEqual(['v=DMARC1; p=quarantine'])
+  })
+
+  it('reports no record found after walking the whole chain', async () => {
+    txtByZone = new Map()
+    const result = await discoverDmarcRecords('mail.foo.example.com', null)
+    expect(result.records).toEqual([])
+    expect(result.zone).toBe('mail.foo.example.com')
   })
 })

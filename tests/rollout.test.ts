@@ -114,7 +114,7 @@ function traffic(input: {
 }
 
 describe('readCurrentPolicy', () => {
-  it('reads policy, pct and rua from the published record', () => {
+  it('reads policy, legacy pct and rua from the published record', () => {
     const current = readCurrentPolicy(
       dns({ record: 'v=DMARC1; p=quarantine; pct=25; rua=mailto:d@example.com' })
     )
@@ -122,8 +122,16 @@ describe('readCurrentPolicy', () => {
       found: true,
       policy: 'quarantine',
       pct: 25,
+      testing: true,
       rua: 'd@example.com'
     })
+  })
+
+  it('reads t=y as testing on a full-pct record', () => {
+    const current = readCurrentPolicy(
+      dns({ record: 'v=DMARC1; p=quarantine; t=y; rua=mailto:d@example.com' })
+    )
+    expect(current).toMatchObject({ policy: 'quarantine', pct: 100, testing: true })
   })
 
   it('reports a missing record and unknown DNS', () => {
@@ -240,7 +248,7 @@ describe('assessRollout', () => {
       host: '_dmarc.example.com',
       record: 'v=DMARC1; p=reject; rua=mailto:a@example.com,mailto:b@x.test; adkim=s; aspf=r'
     })
-    expect(out.plan[3]?.record).toContain('pct=25')
+    expect(out.plan[3]?.record).toContain('t=y')
   })
 
   it('has nothing left to recommend at p=reject with full coverage', () => {

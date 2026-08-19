@@ -457,6 +457,16 @@ export interface DnsCheckResult {
     policy: string | null
     rua: string | null
     ruf: string | null
+    /** Host where the record was actually found (RFC 9989 tree walk may climb above `_dmarc.{domain}`). */
+    host?: string
+    /** True when no record existed at `_dmarc.{domain}` and an ancestor zone's record was used instead. */
+    treeWalked?: boolean
+    /** `t=y` — testing mode. */
+    testing?: boolean
+    /** `np=` — policy for non-existent subdomains. */
+    np?: string | null
+    /** `psd=y` — this record applies to a public suffix domain. */
+    psd?: boolean
     error?: string
   }
   spf: {

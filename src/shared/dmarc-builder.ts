@@ -12,8 +12,17 @@ export interface DmarcBuilderInput {
   domain: string
   policy: DmarcPolicy
   subdomainPolicy: SubdomainPolicyOption
-  /** 1–100; omitted from record when 100. */
+  /** `same` = omit `np=` (only applies to non-existent subdomains, RFC 9989). */
+  nonexistentSubdomainPolicy: SubdomainPolicyOption
+  /**
+   * 1–100; omitted from record when 100.
+   * @deprecated Historical per RFC 9989 — use `testing` (`t=y`) for a test rollout stage instead.
+   */
   pct: number
+  /** `t=y`: ask receivers to still deliver failing mail while it is emitted (RFC 9989 testing mode). */
+  testing: boolean
+  /** `psd=y`: this record applies to a public suffix domain (RFC 9989 tree walk). */
+  psd: boolean
   /** One or more report addresses (email or mailto:), comma/space separated. */
   rua: string
   ruf: string
@@ -33,13 +42,18 @@ export interface DmarcRecordResult {
   type: 'TXT'
   value: string
   tags: DmarcTag[]
+  /** Translation keys for issues worth surfacing (e.g. use of the deprecated `pct=`). */
+  warnings: string[]
 }
 
 export const DEFAULT_BUILDER_INPUT: DmarcBuilderInput = {
   domain: '',
   policy: 'none',
   subdomainPolicy: 'same',
+  nonexistentSubdomainPolicy: 'same',
   pct: 100,
+  testing: false,
+  psd: false,
   rua: '',
   ruf: '',
   fo: ['0'],
@@ -57,7 +71,10 @@ export function normalizeDomain(raw: string): string {
 
 export function isValidDomain(raw: string): boolean {
   const domain = normalizeDomain(raw)
-  return Boolean(domain) && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(domain)
+  return (
+    Boolean(domain) &&
+    /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(domain)
+  )
 }
 
 /** Suggested mailbox for rua=/ruf= (same address for both). */
@@ -110,6 +127,14 @@ export function normalizeFo(values: unknown): FailureOption[] {
   return filtered.length > 0 ? filtered : ['0']
 }
 
+export function normalizeTesting(value: unknown): boolean {
+  return value === true || value === 'y'
+}
+
+export function normalizePsd(value: unknown): boolean {
+  return value === true || value === 'y'
+}
+
 /** Build the TXT record and structured tags. */
 export function buildDmarcRecord(input: DmarcBuilderInput): DmarcRecordResult {
   const domain = normalizeDomain(input.domain)
@@ -122,9 +147,17 @@ export function buildDmarcRecord(input: DmarcBuilderInput): DmarcRecordResult {
     tags.push({ key: 'sp', value: normalizePolicy(input.subdomainPolicy) })
   }
 
+  const np = input.nonexistentSubdomainPolicy ?? 'same'
+  if (np !== 'same') {
+    tags.push({ key: 'np', value: normalizePolicy(np) })
+  }
+
+  const warnings: string[] = []
   const pct = normalizePct(input.pct)
   if (pct < 100) {
+    // RFC 9989: pct= is historical, kept for compatibility but should not drive new rollouts.
     tags.push({ key: 'pct', value: String(pct) })
+    warnings.push('builder.warning.pctDeprecated')
   }
 
   const rua = splitAddresses(input.rua).map(normalizeMailto).filter(Boolean)
@@ -146,13 +179,21 @@ export function buildDmarcRecord(input: DmarcBuilderInput): DmarcRecordResult {
   tags.push({ key: 'adkim', value: normalizeAlignment(input.adkim) })
   tags.push({ key: 'aspf', value: normalizeAlignment(input.aspf) })
 
+  if (normalizeTesting(input.testing)) {
+    tags.push({ key: 't', value: 'y' })
+  }
+  if (normalizePsd(input.psd)) {
+    tags.push({ key: 'psd', value: 'y' })
+  }
+
   const value = tags.map((t) => `${t.key}=${t.value}`).join('; ')
   return {
     domain,
     host: domain ? `_dmarc.${domain}` : '_dmarc',
     type: 'TXT',
     value,
-    tags
+    tags,
+    warnings
   }
 }
 
@@ -173,7 +214,12 @@ export function parseDmarcRecord(record: string): Partial<DmarcBuilderInput> {
   if (map.has('p')) out.policy = normalizePolicy(map.get('p'))
   if (map.has('sp')) out.subdomainPolicy = normalizePolicy(map.get('sp'))
   else out.subdomainPolicy = 'same'
+  if (map.has('np')) out.nonexistentSubdomainPolicy = normalizePolicy(map.get('np'))
+  else out.nonexistentSubdomainPolicy = 'same'
+  // Legacy tag (RFC 9989: historical) — still read for older records.
   if (map.has('pct')) out.pct = normalizePct(map.get('pct'))
+  if (map.has('t')) out.testing = normalizeTesting(map.get('t'))
+  if (map.has('psd')) out.psd = normalizePsd(map.get('psd'))
   if (map.has('rua')) {
     out.rua = map
       .get('rua')!

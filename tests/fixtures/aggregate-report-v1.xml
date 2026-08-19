@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feedback>
+  <version>1.0</version>
+  <report_metadata>
+    <org_name>legacy-sender.example</org_name>
+    <email>noreply@legacy-sender.example</email>
+    <report_id>legacy-report-0001</report_id>
+    <date_range>
+      <begin>1735689600</begin>
+      <end>1735776000</end>
+    </date_range>
+  </report_metadata>
+  <policy_published>
+    <domain>example.com</domain>
+    <adkim>r</adkim>
+    <aspf>r</aspf>
+    <p>quarantine</p>
+    <sp>quarantine</sp>
+    <pct>25</pct>
+  </policy_published>
+  <record>
+    <row>
+      <source_ip>198.51.100.7</source_ip>
+      <count>12</count>
+      <policy_evaluated>
+        <disposition>none</disposition>
+        <dkim>pass</dkim>
+        <spf>pass</spf>
+      </policy_evaluated>
+    </row>
+    <identifiers>
+      <header_from>example.com</header_from>
+    </identifiers>
+    <auth_results>
+      <dkim>
+        <domain>example.com</domain>
+        <selector>sel1</selector>
+        <result>pass</result>
+      </dkim>
+      <spf>
+        <domain>example.com</domain>
+        <result>pass</result>
+      </spf>
+    </auth_results>
+  </record>
+</feedback>

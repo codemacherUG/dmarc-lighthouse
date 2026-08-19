@@ -22,7 +22,8 @@ export type RolloutStageId =
 interface StageDef {
   id: RolloutStageId
   policy: DmarcPolicy
-  pct: number
+  /** `t=y` (RFC 9989): ask receivers to keep delivering failing mail while testing this rung. */
+  testing: boolean
   /** Days of observation recommended before entering this stage. */
   minDays: number
   /** Highest share (%) of legitimate-looking fails that may still be delivered. */
@@ -30,15 +31,22 @@ interface StageDef {
 }
 
 /**
- * The usual DMARC ladder. Each rung tightens either the policy or its coverage,
+ * The usual DMARC ladder. Each rung tightens either the policy or its testing flag,
  * never both at once, so a surprise stays traceable to a single change.
+ * RFC 9989 deprecated `pct=` for staged rollouts in favor of `t=y` (testing mode).
  */
 const LADDER: StageDef[] = [
-  { id: 'monitor', policy: 'none', pct: 100, minDays: 0, maxRiskRate: Number.POSITIVE_INFINITY },
-  { id: 'quarantinePartial', policy: 'quarantine', pct: 25, minDays: 14, maxRiskRate: 5 },
-  { id: 'quarantineFull', policy: 'quarantine', pct: 100, minDays: 14, maxRiskRate: 2 },
-  { id: 'rejectPartial', policy: 'reject', pct: 25, minDays: 14, maxRiskRate: 1 },
-  { id: 'rejectFull', policy: 'reject', pct: 100, minDays: 14, maxRiskRate: 0.5 }
+  {
+    id: 'monitor',
+    policy: 'none',
+    testing: false,
+    minDays: 0,
+    maxRiskRate: Number.POSITIVE_INFINITY
+  },
+  { id: 'quarantinePartial', policy: 'quarantine', testing: true, minDays: 14, maxRiskRate: 5 },
+  { id: 'quarantineFull', policy: 'quarantine', testing: false, minDays: 14, maxRiskRate: 2 },
+  { id: 'rejectPartial', policy: 'reject', testing: true, minDays: 14, maxRiskRate: 1 },
+  { id: 'rejectFull', policy: 'reject', testing: false, minDays: 14, maxRiskRate: 0.5 }
 ]
 
 export interface RolloutMetrics {
@@ -72,7 +80,10 @@ export interface RolloutRiskSource {
 export interface RolloutCurrentPolicy {
   found: boolean
   policy: DmarcPolicy | null
+  /** @deprecated Historical per RFC 9989; kept only to recognize older records already on a partial rollout. */
   pct: number
+  /** `t=y` on the published record, or a legacy `pct<100` treated as equivalent. */
+  testing: boolean
   rua: string
   spfOk: boolean | null
   dkimOk: boolean | null
@@ -100,7 +111,7 @@ export type RolloutStepState = 'done' | 'current' | 'next' | 'later'
 export interface RolloutStep {
   id: RolloutStageId
   policy: DmarcPolicy
-  pct: number
+  testing: boolean
   minDays: number
   maxRiskRate: number
   host: string
@@ -133,20 +144,23 @@ export function readCurrentPolicy(dns: DnsCheckResult | null | undefined): Rollo
   const record = dns?.dmarc.records?.[0] ?? ''
   const parsed = record ? parseDmarcRecord(record) : {}
   const selectors = dns?.dkim.selectors ?? []
+  const pct = normalizePct(parsed.pct ?? 100)
   return {
     found: Boolean(dns?.dmarc.found),
     policy: dns?.dmarc.found ? (parsed.policy ?? 'none') : null,
-    pct: normalizePct(parsed.pct ?? 100),
+    pct,
+    // A legacy pct<100 record is on a partial rollout even without t=y.
+    testing: Boolean(parsed.testing) || pct < 100,
     rua: parsed.rua ?? '',
     spfOk: dns ? dns.spf.found : null,
     dkimOk: !dns || selectors.length === 0 ? null : selectors.every((s) => s.found)
   }
 }
 
-function stageIndexFor(policy: DmarcPolicy | null, pct: number): number {
+function stageIndexFor(policy: DmarcPolicy | null, testing: boolean): number {
   if (!policy) return -1
   if (policy === 'none') return 0
-  const full = pct >= 100
+  const full = !testing
   if (policy === 'quarantine') return full ? 2 : 1
   return full ? 4 : 3
 }
@@ -267,7 +281,7 @@ export function reportsForRollout(
   })
 }
 
-/** Base record fields: keep the published alignment/reporting tags, only policy moves. */
+/** Base record fields: keep the published alignment/reporting tags, only policy/testing move. */
 function baseInput(
   domain: string,
   current: RolloutCurrentPolicy,
@@ -277,6 +291,8 @@ function baseInput(
     ...DEFAULT_BUILDER_INPUT,
     ...(record ? parseDmarcRecord(record) : {}),
     domain,
+    // The ladder drives partial rollout via t=y now; drop any legacy pct< 100 carried over.
+    pct: 100,
     rua: current.rua || defaultDmarcMailbox(domain)
   }
 }
@@ -293,7 +309,7 @@ export function assessRollout(input: RolloutInput): RolloutAssessment {
   const { metrics, riskSources } = collectMetrics(domain, reports, windowDays)
   const current = readCurrentPolicy(input.dns)
 
-  const currentIndex = stageIndexFor(current.policy, current.pct)
+  const currentIndex = stageIndexFor(current.policy, current.testing)
   const nextIndex = Math.min(currentIndex + 1, LADDER.length - 1)
   const next = currentIndex < LADDER.length - 1 ? LADDER[nextIndex] : null
 
@@ -322,7 +338,7 @@ export function assessRollout(input: RolloutInput): RolloutAssessment {
   const record = input.dns?.dmarc.records?.[0] ?? ''
   const base = baseInput(domain, current, record)
   const plan: RolloutStep[] = LADDER.map((stage, index) => {
-    const built = buildDmarcRecord({ ...base, policy: stage.policy, pct: stage.pct })
+    const built = buildDmarcRecord({ ...base, policy: stage.policy, testing: stage.testing })
     const state: RolloutStepState =
       index < currentIndex
         ? 'done'
@@ -334,7 +350,7 @@ export function assessRollout(input: RolloutInput): RolloutAssessment {
     return {
       id: stage.id,
       policy: stage.policy,
-      pct: stage.pct,
+      testing: stage.testing,
       minDays: stage.minDays,
       maxRiskRate: stage.maxRiskRate,
       host: built.host,

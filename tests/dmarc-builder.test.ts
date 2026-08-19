@@ -50,9 +50,7 @@ describe('dmarc-builder', () => {
       adkim: 'r',
       aspf: 'r'
     })
-    expect(result.value).toBe(
-      'v=DMARC1; p=none; rua=mailto:dmarc@example.com; adkim=r; aspf=r'
-    )
+    expect(result.value).toBe('v=DMARC1; p=none; rua=mailto:dmarc@example.com; adkim=r; aspf=r')
   })
 
   it('parses an existing record into form fields', () => {
@@ -66,6 +64,69 @@ describe('dmarc-builder', () => {
     expect(parsed.fo).toEqual(['1', 's'])
     expect(parsed.adkim).toBe('s')
     expect(parsed.aspf).toBe('s')
+  })
+
+  it('emits t=y for a testing rollout and warns about legacy pct', () => {
+    const tested = buildDmarcRecord({
+      domain: 'example.com',
+      policy: 'quarantine',
+      subdomainPolicy: 'same',
+      nonexistentSubdomainPolicy: 'same',
+      pct: 100,
+      testing: true,
+      psd: false,
+      rua: 'dmarc@example.com',
+      ruf: '',
+      fo: ['0'],
+      adkim: 'r',
+      aspf: 'r'
+    })
+    expect(tested.value).toContain('t=y')
+    expect(tested.warnings).toEqual([])
+
+    const legacy = buildDmarcRecord({
+      domain: 'example.com',
+      policy: 'quarantine',
+      subdomainPolicy: 'same',
+      nonexistentSubdomainPolicy: 'same',
+      pct: 25,
+      testing: false,
+      psd: false,
+      rua: 'dmarc@example.com',
+      ruf: '',
+      fo: ['0'],
+      adkim: 'r',
+      aspf: 'r'
+    })
+    expect(legacy.value).toContain('pct=25')
+    expect(legacy.warnings).toEqual(['builder.warning.pctDeprecated'])
+  })
+
+  it('emits np= and psd= when set', () => {
+    const result = buildDmarcRecord({
+      domain: 'example.com',
+      policy: 'reject',
+      subdomainPolicy: 'same',
+      nonexistentSubdomainPolicy: 'reject',
+      pct: 100,
+      testing: false,
+      psd: true,
+      rua: 'dmarc@example.com',
+      ruf: '',
+      fo: ['0'],
+      adkim: 'r',
+      aspf: 'r'
+    })
+    expect(result.value).toBe(
+      'v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@example.com; adkim=r; aspf=r; psd=y'
+    )
+  })
+
+  it('parses t, np and psd back from a record', () => {
+    const parsed = parseDmarcRecord('v=DMARC1; p=reject; np=quarantine; t=y; psd=y')
+    expect(parsed.nonexistentSubdomainPolicy).toBe('quarantine')
+    expect(parsed.testing).toBe(true)
+    expect(parsed.psd).toBe(true)
   })
 
   it('validates wizard steps', () => {

@@ -22,13 +22,16 @@ import {
   builderDomainStatusEl,
   builderFooterHintEl,
   builderLiveEl,
+  builderNpEl,
   builderPctEl,
   builderPolicyEl,
+  builderPsdEl,
   builderResultEl,
   builderRuaEl,
   builderRufEl,
   builderSpEl,
   builderStepsEl,
+  builderTestingEl,
   builderAdkimEl,
   builderAspfEl,
   btnBuilder,
@@ -60,11 +63,16 @@ function setFo(values: FailureOption[]): void {
 
 function readInput(): DmarcBuilderInput {
   const sp = builderSpEl.value as SubdomainPolicyOption
+  const np = builderNpEl.value as SubdomainPolicyOption
   return {
+    ...DEFAULT_BUILDER_INPUT,
     domain: normalizeDomain(builderDomainEl.value),
     policy: normalizePolicy(builderPolicyEl.value),
     subdomainPolicy: sp === 'same' ? 'same' : normalizePolicy(sp),
+    nonexistentSubdomainPolicy: np === 'same' ? 'same' : normalizePolicy(np),
     pct: normalizePct(builderPctEl.value),
+    testing: builderTestingEl.checked,
+    psd: builderPsdEl.checked,
     rua: builderRuaEl.value.trim(),
     ruf: builderRufEl.value.trim(),
     fo: readFo(),
@@ -77,7 +85,10 @@ function fillForm(input: Partial<DmarcBuilderInput>): void {
   if (input.domain != null) builderDomainEl.value = input.domain
   if (input.policy != null) builderPolicyEl.value = input.policy
   if (input.subdomainPolicy != null) builderSpEl.value = input.subdomainPolicy
+  builderNpEl.value = input.nonexistentSubdomainPolicy ?? 'same'
   if (input.pct != null) builderPctEl.value = String(input.pct)
+  builderTestingEl.checked = Boolean(input.testing)
+  builderPsdEl.checked = Boolean(input.psd)
   if (input.rua != null) builderRuaEl.value = input.rua
   if (input.ruf != null) builderRufEl.value = input.ruf
   if (input.fo != null) setFo(input.fo)
@@ -172,6 +183,13 @@ function renderResult(): void {
             .join('')}
         </div>
       </div>
+      ${
+        record.warnings.length > 0
+          ? `<div class="builder-result-warnings">
+        ${record.warnings.map((key) => `<p class="hint warning">${escapeHtml(t(key as MessageKey))}</p>`).join('')}
+      </div>`
+          : ''
+      }
     </article>`
 
   if (!liveDnsValue) {
@@ -296,8 +314,7 @@ export function initWizardUi(): void {
     if (!btn) return
     const value = btn.getAttribute('data-copy') ?? ''
     void navigator.clipboard.writeText(value).then(() => {
-      const labelKey = (btn.getAttribute('data-label-key') ||
-        'builder.result.copy') as MessageKey
+      const labelKey = (btn.getAttribute('data-label-key') || 'builder.result.copy') as MessageKey
       btn.textContent = t('builder.result.copied')
       if (copyResetTimer) clearTimeout(copyResetTimer)
       copyResetTimer = setTimeout(() => {

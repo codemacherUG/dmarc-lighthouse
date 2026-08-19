@@ -68,10 +68,10 @@ const de = {
   'rollout.current': 'Aktuell: {stage}',
   'rollout.currentNone': 'kein DMARC-Record veröffentlicht',
   'rollout.stage.monitor': 'p=none — nur beobachten',
-  'rollout.stage.quarantinePartial': 'p=quarantine für 25 %',
-  'rollout.stage.quarantineFull': 'p=quarantine für 100 %',
-  'rollout.stage.rejectPartial': 'p=reject für 25 %',
-  'rollout.stage.rejectFull': 'p=reject für 100 %',
+  'rollout.stage.quarantinePartial': 'p=quarantine; t=y (Testbetrieb)',
+  'rollout.stage.quarantineFull': 'p=quarantine',
+  'rollout.stage.rejectPartial': 'p=reject; t=y (Testbetrieb)',
+  'rollout.stage.rejectFull': 'p=reject',
   'rollout.verdict.ready': 'Bereit für {stage}',
   'rollout.verdict.readyBody':
     'Die Datenlage trägt den Schritt. Record setzen, danach die Reports der nächsten zwei Wochen beobachten.',
@@ -900,9 +900,18 @@ const de = {
   'builder.policy.spHint':
     'Eigene Policy für Subdomains (z. B. mail.example.com). „wie p=” übernimmt die Organisations-Policy.',
   'builder.policy.spSame': 'wie p=',
-  'builder.policy.pct': 'Anteil (pct=)',
+  'builder.policy.np': 'Nicht existierende Subdomains (np=)',
+  'builder.policy.npHint':
+    'Policy für Subdomains, die es gar nicht gibt (RFC 9989). Ohne eigenen Eintrag gilt sp= bzw. p=.',
+  'builder.policy.pct': 'Anteil (pct=, veraltet)',
   'builder.policy.pctHint':
-    'Prozent der Mails, auf die quarantine/reject angewendet wird. Bei 100 (Standard) gelten sie für alle; niedriger ermöglicht einen schrittweisen Rollout.',
+    'Historisch (RFC 9989): Prozent der Mails, auf die quarantine/reject angewendet wird. Für einen Testbetrieb besser „Testbetrieb (t=y)“ unten verwenden.',
+  'builder.policy.testing': 'Testbetrieb (t=y)',
+  'builder.policy.testingHint':
+    'Bittet Empfänger, während des Rollouts weiterhin auch fehlschlagende Mails zuzustellen (Ersatz für pct< 100, RFC 9989).',
+  'builder.policy.psd': 'Public-Suffix-Domain (psd=y)',
+  'builder.policy.psdHint':
+    'Nur setzen, wenn diese Domain selbst eine öffentliche Suffix-Domain ist (RFC 9989 Tree-Walk).',
   'builder.policy.adkim': 'DKIM-Alignment (adkim=)',
   'builder.policy.adkimHint':
     'relaxed: DKIM-Domain darf eine Subdomain der From-Domain sein. strict: Domains müssen exakt übereinstimmen.',
@@ -941,6 +950,8 @@ const de = {
   'builder.error.domain': 'Bitte eine gültige Domain eingeben (z. B. example.com).',
   'builder.error.rua': 'Bitte mindestens eine RUA-Adresse angeben.',
   'builder.error.pct': 'pct muss zwischen 1 und 100 liegen.',
+  'builder.warning.pctDeprecated':
+    'pct= gilt laut RFC 9989 als historisch. Für einen Testbetrieb besser t=y statt pct< 100 verwenden.',
 
   'spfBuilder.title': 'SPF-Record erzeugen',
   'spfBuilder.close': 'Schließen',
@@ -1249,10 +1260,10 @@ const en: Dict = {
   'rollout.current': 'Current: {stage}',
   'rollout.currentNone': 'no DMARC record published',
   'rollout.stage.monitor': 'p=none — monitor only',
-  'rollout.stage.quarantinePartial': 'p=quarantine for 25%',
-  'rollout.stage.quarantineFull': 'p=quarantine for 100%',
-  'rollout.stage.rejectPartial': 'p=reject for 25%',
-  'rollout.stage.rejectFull': 'p=reject for 100%',
+  'rollout.stage.quarantinePartial': 'p=quarantine; t=y (testing)',
+  'rollout.stage.quarantineFull': 'p=quarantine',
+  'rollout.stage.rejectPartial': 'p=reject; t=y (testing)',
+  'rollout.stage.rejectFull': 'p=reject',
   'rollout.verdict.ready': 'Ready for {stage}',
   'rollout.verdict.readyBody':
     'The data supports this step. Publish the record, then watch the reports for the next two weeks.',
@@ -2074,9 +2085,18 @@ const en: Dict = {
   'builder.policy.spHint':
     'Separate policy for subdomains (e.g. mail.example.com). “same as p=” inherits the organizational policy.',
   'builder.policy.spSame': 'same as p=',
-  'builder.policy.pct': 'Percentage (pct=)',
+  'builder.policy.np': 'Non-existent subdomains (np=)',
+  'builder.policy.npHint':
+    'Policy for subdomains that do not exist at all (RFC 9989). Without an entry, sp= or p= applies.',
+  'builder.policy.pct': 'Percentage (pct=, historical)',
   'builder.policy.pctHint':
-    'Percentage of mail to which quarantine/reject applies. At 100 (default) it applies to all; lower values allow a gradual rollout.',
+    'Historical (RFC 9989): percentage of mail to which quarantine/reject applies. Prefer "Testing (t=y)" below for a staged rollout.',
+  'builder.policy.testing': 'Testing (t=y)',
+  'builder.policy.testingHint':
+    'Asks receivers to keep delivering even failing mail during the rollout (replaces pct< 100, RFC 9989).',
+  'builder.policy.psd': 'Public suffix domain (psd=y)',
+  'builder.policy.psdHint':
+    'Only set this when the domain itself is a public suffix domain (RFC 9989 tree walk).',
   'builder.policy.adkim': 'DKIM alignment (adkim=)',
   'builder.policy.adkimHint':
     'relaxed: the DKIM domain may be a subdomain of From. strict: domains must match exactly.',
@@ -2115,6 +2135,8 @@ const en: Dict = {
   'builder.error.domain': 'Please enter a valid domain (e.g. example.com).',
   'builder.error.rua': 'Please provide at least one RUA address.',
   'builder.error.pct': 'pct must be between 1 and 100.',
+  'builder.warning.pctDeprecated':
+    'pct= is historical per RFC 9989. Prefer t=y instead of pct< 100 for a test rollout.',
 
   'spfBuilder.title': 'Generate SPF record',
   'spfBuilder.close': 'Close',

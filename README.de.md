@@ -75,11 +75,15 @@ Quell-IPs auf OpenStreetMap (GeoIP-Koordinaten); Klick auf einen Marker filtert 
 
 DMARC, SPF, DKIM-Selektoren und BIMI direkt beim autoritativen Nameserver — dazu TLS-RPT, MTA-STS (inkl. Policy-Datei und MX-Abdeckung) und DANE/TLSA der MX-Hosts. Fehlende Einträge lassen sich unter **Tools** geführt erzeugen (DMARC, SPF, TLS-RPT, MTA-STS, BIMI):
 
+Die DMARC-Policy-Discovery folgt dem RFC-9989-DNS-Tree-Walk (klettert bis zur Organisations-Domain hoch, wenn eine Subdomain keinen eigenen `_dmarc`-Record hat) und liest neben `p=`, `rua=` und `ruf=` auch `t=`, `np=` und `psd=`.
+
 ![DNS-Check mit Transport-Sicherheit](docs/screenshots/de/dns.png)
 
 ### Policy-Rollout
 
 Bewertet die letzten 30 Tage einer Domain, empfiehlt den nächsten Schritt auf dem Weg zu `p=reject` und liefert den Staging-Plan mit fertigen Records zum Kopieren:
+
+Der Staging-Plan folgt RFC 9989: `none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`. Das historische `pct=` wird aus bestehenden Records weiterhin gelesen, der DMARC-Record-Wizard warnt aber, wenn es beim Erzeugen eines neuen Records verwendet wird — für einen Testbetrieb stattdessen `t=y` nutzen.
 
 ![Policy-Rollout-Assistent mit Empfehlung und Staging-Plan](docs/screenshots/de/rollout.png)
 
@@ -108,18 +112,19 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Datei-Import**          | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop; Importe landen im Cache und stehen nach dem Neustart wieder bereit                                                                                                          |
 | **Lokaler Cache**         | SQLite für Aggregate- und Forensik-Reports; alte JSON-Caches werden einmalig migriert                                                                                                                                         |
 | **Forensik / RUF**        | ARF-Failure-Reports (bereinigte Header); eigene Tabelle in der UI                                                                                                                                                             |
+| **Aggregate-Report-Schema** | Verarbeitet sowohl das klassische (RFC 7489) als auch das neue RFC-9990-DMARC-2.0-Schema (neuer Namespace/Extensions), abgesichert durch Regressions-Fixtures                                                                    |
 | **Dashboard**             | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum                                                                                                                                                                          |
 | **Charts**                | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit                                                                                                               |
 | **Tabellen**              | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert; sortierbare Spalten, Tastaturnavigation und Virtualisierung langer Tabellen                                              |
 | **IP-Anreicherung**       | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand       |
 | **Fail-Kategorien**       | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              |
-| **Policy-Rollout**        | Empfehlung für den nächsten Schritt (`none` → `quarantine` → `reject`) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                                                            |
+| **Policy-Rollout**        | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                            |
 | **Quellenkarte**          | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
 | **Domain-Ampel**          | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain                                                                                                                                            |
 | **Filter**                | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain, angewandte Disposition (Reject / Nicht reject) sowie Drill-Down nach Org, Quell-IP und From-Domain                                                          |
 | **Mailbox-Rauschen**      | Optionaler Filter für Report-Echo von Gmail, Outlook, Yahoo, iCloud (Anbieter in Einstellungen → Rauschen abwählbar) **und konfigurierbare Empfänger-Scanner** (Vorgabe `cloud-sec-av.com`)                                    |
-| **DNS-Check**             | Live-Abfrage von DMARC (`p`, `rua`), SPF, DKIM-Selektoren (automatisch aus den Reports oder manuell) und BIMI (`l`, `a`)                                                                                                      |
-| **Record-Wizards**        | DMARC, SPF, TLS-RPT, MTA-STS und BIMI geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei)                                                                                                 |
+| **DNS-Check**             | Live-Abfrage von DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) über den RFC-9989-Tree-Walk, SPF, DKIM-Selektoren (automatisch aus den Reports oder manuell) und BIMI (`l`, `a`)                                                       |
+| **Record-Wizards**        | DMARC (inkl. `t=`/`np=`/`psd=`, Legacy-`pct=` mit Warnhinweis), SPF, TLS-RPT, MTA-STS und BIMI geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei)                                              |
 | **Transport-Sicherheit**  | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil                                                                                                        |
 | **E-Mail prüfen**         | `.eml` / `.msg` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil, PDF-Export. Nur lokal; Body ungelesen                                                      |
 | **Export**                | Aktuell gefilterte Daten als CSV oder JSON; einzelne Aggregate-Reports als ZIP (XML)                                                                                                                                          |
