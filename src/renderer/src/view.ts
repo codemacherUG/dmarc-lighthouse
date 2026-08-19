@@ -4,15 +4,26 @@ import {
   categorizeFailure,
   DOMAIN_HEALTH_WINDOW_DAYS,
   groupProblemSources,
-  isHarmonyIpInfo,
   isMailboxIpInfo,
   isMailboxNoiseAuthPattern,
+  isScannerNoiseIpInfo,
   mergeDomainHealth,
   normalizeDispositionFilter,
   parseSourceIpFilter,
   reportsForDomainHealth
 } from '../../shared/analyze'
 import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
+import {
+  DEFAULT_MAILBOX_NOISE_PROVIDERS,
+  parseMailboxNoiseProviders
+} from '../../shared/mailbox-ip'
+import {
+  appendScannerNoiseEntry,
+  DEFAULT_SCANNER_NOISE_HOSTS,
+  matchesScannerNoise,
+  parseScannerNoiseHosts,
+  suggestScannerNoiseEntry
+} from '../../shared/scanner-noise'
 import { t, type MessageKey } from '../../shared/i18n'
 import {
   DEFAULT_DATE_RANGE,
@@ -41,8 +52,11 @@ import {
   btnExport,
   btnFilterReset,
   btnIpFilter,
+  btnIpNoise,
   btnIpRdap,
   detailEl,
+  ipContextMenu,
+  ipContextNoiseBtn,
   dnsDomainEl,
   domainAmpelEl,
   tableProblemSources,
@@ -59,6 +73,7 @@ import {
   ipDetailBody,
   ipDetailDialog,
   reportsBody,
+  scannerNoiseHostsEl,
   tableFrom,
   tableIps,
   tableOrgs
@@ -623,10 +638,28 @@ function renderIpDetailBody(ip: string, rdapSummary?: string | null, rdapError?:
     </dl>`
 }
 
+function syncIpDetailNoiseButton(): void {
+  if (!btnIpNoise) return
+  const ip = state.selectedDetailIp
+  if (!ip) {
+    btnIpNoise.disabled = true
+    return
+  }
+  const info = state.ipLabelCache.get(ip)
+  const listed = matchesScannerNoise(ip, info?.ptr, scannerNoiseMatchers())
+  const entry = suggestScannerNoiseEntry(info?.ptr, ip, info?.senderKind)
+  btnIpNoise.disabled = listed || !entry
+  btnIpNoise.textContent = listed ? t('ipNoise.listed') : t('ipNoise.add')
+  btnIpNoise.title = listed
+    ? t('ipNoise.listed')
+    : t('ipNoise.addNamed', { entry: entry ?? ip })
+}
+
 export function openIpDetail(ip: string): void {
   if (!ip) return
   state.selectedDetailIp = ip
   renderIpDetailBody(ip)
+  syncIpDetailNoiseButton()
   ipDetailDialog.showModal()
 }
 
@@ -695,18 +728,38 @@ function renderDashboard(result: AnalyzeResult | null): void {
   void refreshDomainHealth(state.fullResult)
 }
 
+function enabledMailboxNoiseProviders() {
+  const text = state.settings?.global.mailboxNoiseProviders ?? DEFAULT_MAILBOX_NOISE_PROVIDERS
+  return parseMailboxNoiseProviders(text)
+}
+
 function collectMailboxIps(): Set<string> {
+  const enabled = enabledMailboxNoiseProviders()
   const set = new Set<string>()
   for (const [ip, info] of state.ipLabelCache) {
-    if (isMailboxIpInfo(info)) set.add(ip)
+    if (isMailboxIpInfo(info, enabled)) set.add(ip)
   }
   return set
 }
 
-function collectHarmonyIps(): Set<string> {
+function scannerNoiseMatchers() {
+  const text = state.settings?.global.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS
+  return parseScannerNoiseHosts(text)
+}
+
+function collectScannerNoiseIps(): Set<string> {
+  const matchers = scannerNoiseMatchers()
   const set = new Set<string>()
-  for (const [ip, info] of state.ipLabelCache) {
-    if (isHarmonyIpInfo(info)) set.add(ip)
+  const consider = (ip: string): void => {
+    if (!ip || set.has(ip)) return
+    const info = state.ipLabelCache.get(ip)
+    if (matchesScannerNoise(ip, info?.ptr, matchers)) set.add(ip)
+  }
+  for (const [ip] of state.ipLabelCache) consider(ip)
+  if (state.fullResult) {
+    for (const report of state.fullResult.reports) {
+      for (const rec of report.records) consider(rec.sourceIp)
+    }
   }
   return set
 }
@@ -717,15 +770,17 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
   if (!missing.length) return
   try {
     const infos = await window.api.resolveIps(missing)
+    const matchers = scannerNoiseMatchers()
+    const mailboxProviders = enabledMailboxNoiseProviders()
     let foundMailbox = false
-    let foundHarmony = false
+    let foundScannerNoise = false
     for (const info of infos) {
       state.ipLabelCache.set(info.ip, info)
-      if (isMailboxIpInfo(info)) foundMailbox = true
-      if (isHarmonyIpInfo(info)) foundHarmony = true
+      if (isMailboxIpInfo(info, mailboxProviders)) foundMailbox = true
+      if (isScannerNoiseIpInfo(info, matchers)) foundScannerNoise = true
     }
     // Re-filter once noise IPs are known so KPIs/charts/problem sources update together.
-    if (foundHarmony || (foundMailbox && filterHideMailboxNoiseEl.checked)) {
+    if (foundScannerNoise || (foundMailbox && filterHideMailboxNoiseEl.checked)) {
       applyView()
       return
     }
@@ -739,6 +794,10 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
       const selected =
         state.viewResult.reports.find((r) => r.reportId === state.selectedReportId) ?? null
       if (selected) renderDetail(selected)
+    }
+    if (state.selectedDetailIp && ipDetailDialog.open) {
+      renderIpDetailBody(state.selectedDetailIp)
+      syncIpDetailNoiseButton()
     }
   } catch {
     // Enrichment ist optional.
@@ -766,8 +825,9 @@ export function renderDetail(report: ReportRow | null): void {
           )
       const reasonCell = [cause, reasons].filter(Boolean).join('<br />') || '—'
       const ipMeta = formatIpMetaHtml(r.sourceIp)
+      const ipAttr = escapeHtml(r.sourceIp)
       return `
-      <tr${ipMeta ? ' class="has-ip-meta"' : ''}>
+      <tr data-name="${ipAttr}"${ipMeta ? ' class="has-ip-meta"' : ''}>
         <td class="ip-col">${formatIpCellHtml(r.sourceIp, null, null, { includeMeta: false })}</td>
         <td>${r.count}</td>
         <td>${escapeHtml(r.disposition ?? '—')}</td>
@@ -777,7 +837,7 @@ export function renderDetail(report: ReportRow | null): void {
         <td>${escapeHtml(r.headerFrom ?? '—')}</td>
         <td class="reasons">${reasonCell}</td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row"><td colspan="8">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${ipAttr}"><td colspan="8">${ipMeta}</td></tr>` : ''}`
     })
     .join('')
 
@@ -1003,7 +1063,8 @@ export function applyView(): void {
   }
 
   const hideMailboxNoise = filterHideMailboxNoiseEl.checked
-  const harmonyIps = collectHarmonyIps()
+  const scannerNoiseIps = collectScannerNoiseIps()
+  const mailboxNoiseProviders = enabledMailboxNoiseProviders()
   state.viewResult = applyDashboardFilter(state.fullResult, {
     range: filterRangeEl.value as DateRangePreset,
     from: filterFromEl.value || undefined,
@@ -1015,7 +1076,8 @@ export function applyView(): void {
     headerFrom: state.drill.headerFrom,
     hideMailboxNoise,
     mailboxIps: hideMailboxNoise ? collectMailboxIps() : undefined,
-    harmonyIps: harmonyIps.size ? harmonyIps : undefined
+    mailboxNoiseProviders,
+    scannerNoiseIps: scannerNoiseIps.size ? scannerNoiseIps : undefined
   })
   updateSummary(state.viewResult)
   renderDashboard(state.viewResult)
@@ -1185,6 +1247,10 @@ export function initView(): void {
     ipDetailDialog.close()
     setDrillFilter('sourceIp', state.selectedDetailIp)
   })
+  btnIpNoise?.addEventListener('click', () => {
+    void addIpToScannerNoise(state.selectedDetailIp ?? '')
+  })
+  initIpContextMenu()
   btnIpRdap.addEventListener('click', async () => {
     if (!state.selectedDetailIp) return
     const rdapEl = document.getElementById('ip-detail-rdap')
@@ -1227,5 +1293,100 @@ async function persistHideMailboxNoise(): Promise<void> {
     state.settings = next
   } catch {
     // Persistenz ist optional für den Dashboard-Filter.
+  }
+}
+
+let addingScannerNoise = false
+let contextNoiseIp = ''
+
+function hideIpContextMenu(): void {
+  if (!ipContextMenu) return
+  ipContextMenu.hidden = true
+  contextNoiseIp = ''
+}
+
+function showIpContextMenu(ev: MouseEvent, ip: string): void {
+  if (!ipContextMenu || !ipContextNoiseBtn || !ip) return
+  ev.preventDefault()
+  contextNoiseIp = ip
+  const info = state.ipLabelCache.get(ip)
+  const listed = matchesScannerNoise(ip, info?.ptr, scannerNoiseMatchers())
+  const entry = suggestScannerNoiseEntry(info?.ptr, ip, info?.senderKind)
+  ipContextNoiseBtn.disabled = listed || !entry
+  ipContextNoiseBtn.textContent = listed ? t('ipNoise.listed') : t('ipNoise.add')
+  ipContextMenu.hidden = false
+  ipContextMenu.style.left = `${ev.clientX}px`
+  ipContextMenu.style.top = `${ev.clientY}px`
+  const rect = ipContextMenu.getBoundingClientRect()
+  const dx = Math.min(0, window.innerWidth - 8 - rect.right)
+  const dy = Math.min(0, window.innerHeight - 8 - rect.bottom)
+  ipContextMenu.style.left = `${ev.clientX + dx}px`
+  ipContextMenu.style.top = `${ev.clientY + dy}px`
+}
+
+function ipFromContextRow(target: EventTarget | null): string | null {
+  const el = target instanceof Element ? target : (target as Node | null)?.parentElement
+  const tr = el?.closest('tr[data-name]')
+  if (!(tr instanceof HTMLTableRowElement)) return null
+  const raw = tr.dataset.name?.trim() ?? ''
+  return raw.split(',')[0]?.trim() || null
+}
+
+function initIpContextMenu(): void {
+  if (!ipContextMenu || !ipContextNoiseBtn) return
+  for (const body of [tableIps, tableProblemSources, detailEl]) {
+    body.addEventListener('contextmenu', (ev) => {
+      const ip = ipFromContextRow(ev.target)
+      if (!ip) return
+      showIpContextMenu(ev, ip)
+    })
+  }
+  ipContextNoiseBtn.addEventListener('click', () => {
+    const ip = contextNoiseIp
+    hideIpContextMenu()
+    void addIpToScannerNoise(ip)
+  })
+  document.addEventListener('pointerdown', (ev) => {
+    if (ipContextMenu.hidden) return
+    if (ipContextMenu.contains(ev.target as Node)) return
+    hideIpContextMenu()
+  })
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') hideIpContextMenu()
+  })
+  window.addEventListener('resize', hideIpContextMenu)
+  document.addEventListener('scroll', hideIpContextMenu, true)
+}
+
+async function addIpToScannerNoise(ip: string): Promise<void> {
+  if (!ip || !state.settings || addingScannerNoise) return
+  const info = state.ipLabelCache.get(ip)
+  const entry = suggestScannerNoiseEntry(info?.ptr, ip, info?.senderKind)
+  if (!entry) {
+    setStatus(t('ipNoise.unavailable'), 'error')
+    return
+  }
+  const current = state.settings.global.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS
+  const nextHosts = appendScannerNoiseEntry(current, entry)
+  if (nextHosts === current) {
+    setStatus(t('ipNoise.already', { entry }), 'ok')
+    syncIpDetailNoiseButton()
+    return
+  }
+  addingScannerNoise = true
+  try {
+    const next = await window.api.saveGlobalSettings({
+      ...state.settings.global,
+      scannerNoiseHosts: nextHosts
+    })
+    state.settings = next
+    scannerNoiseHostsEl.value = next.global.scannerNoiseHosts
+    applyView()
+    syncIpDetailNoiseButton()
+    setStatus(t('ipNoise.added', { entry }), 'ok')
+  } catch (err) {
+    setStatus(err instanceof Error ? err.message : String(err), 'error')
+  } finally {
+    addingScannerNoise = false
   }
 }

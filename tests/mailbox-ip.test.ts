@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isLikelyMailboxIp } from '../src/shared/mailbox-ip'
+import { isLikelyMailboxIp, type MailboxNoiseProvider } from '../src/shared/mailbox-ip'
 
 describe('isLikelyMailboxIp', () => {
   it('matches well-known Google, Microsoft, Yahoo and iCloud blocks', () => {
@@ -10,6 +10,13 @@ describe('isLikelyMailboxIp', () => {
     expect(isLikelyMailboxIp('74.6.0.1')).toBe(true)
     expect(isLikelyMailboxIp('17.57.10.1')).toBe(true)
     expect(isLikelyMailboxIp('2a01:111:f400::1')).toBe(true)
+  })
+
+  it('can restrict matching to selected provider families', () => {
+    const googleOnly = new Set<MailboxNoiseProvider>(['google'])
+    expect(isLikelyMailboxIp('66.249.64.1', googleOnly)).toBe(true)
+    expect(isLikelyMailboxIp('40.92.0.10', googleOnly)).toBe(false)
+    expect(isLikelyMailboxIp('40.92.0.10', new Set())).toBe(false)
   })
 
   it('leaves unrelated and empty addresses alone', () => {

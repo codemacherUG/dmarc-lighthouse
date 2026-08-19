@@ -13,6 +13,8 @@ import type {
   SettingsPublic
 } from '../shared/types'
 import { PROVIDER_PRESETS } from '../shared/types'
+import { DEFAULT_SCANNER_NOISE_HOSTS } from '../shared/scanner-noise'
+import { DEFAULT_MAILBOX_NOISE_PROVIDERS } from '../shared/mailbox-ip'
 import { resolveAccountLabel, suggestAccountName } from '../shared/account'
 import { detectSystemLocale, normalizeLocale, setLocale, t } from '../shared/i18n'
 import type { AppLocale } from '../shared/i18n'
@@ -73,6 +75,8 @@ interface StoredGlobal {
   /** @deprecated migrated to hideMailboxNoise */
   hideGoogleNoise?: boolean
   hideMailboxNoise?: boolean
+  mailboxNoiseProviders?: string
+  scannerNoiseHosts?: string
   pdfMonthlyEnabled?: boolean
   pdfMonthlyDir?: string
   /** Written by the scheduler, never by the settings form. */
@@ -121,6 +125,8 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   cloudRangesEnabled: true,
   rdapEnabled: true,
   hideMailboxNoise: false,
+  mailboxNoiseProviders: DEFAULT_MAILBOX_NOISE_PROVIDERS,
+  scannerNoiseHosts: DEFAULT_SCANNER_NOISE_HOSTS,
   pdfMonthlyEnabled: false,
   pdfMonthlyDir: '',
   pdfMonthlyLastRun: ''
@@ -439,6 +445,8 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     cloudRangesEnabled: g.cloudRangesEnabled ?? GLOBAL_DEFAULTS.cloudRangesEnabled,
     rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled,
     hideMailboxNoise: Boolean(g.hideMailboxNoise ?? g.hideGoogleNoise),
+    mailboxNoiseProviders: g.mailboxNoiseProviders ?? DEFAULT_MAILBOX_NOISE_PROVIDERS,
+    scannerNoiseHosts: g.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS,
     pdfMonthlyEnabled: Boolean(g.pdfMonthlyEnabled),
     pdfMonthlyDir: (g.pdfMonthlyDir ?? '').trim(),
     pdfMonthlyLastRun: g.pdfMonthlyLastRun ?? ''
@@ -621,6 +629,8 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     cloudRangesEnabled: input.cloudRangesEnabled !== false,
     rdapEnabled: input.rdapEnabled !== false,
     hideMailboxNoise: Boolean(input.hideMailboxNoise),
+    mailboxNoiseProviders: input.mailboxNoiseProviders ?? DEFAULT_MAILBOX_NOISE_PROVIDERS,
+    scannerNoiseHosts: input.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS,
     pdfMonthlyEnabled: Boolean(input.pdfMonthlyEnabled),
     pdfMonthlyDir: String(input.pdfMonthlyDir ?? '').trim(),
     // Owned by the scheduler: the form round-trips a display value only.

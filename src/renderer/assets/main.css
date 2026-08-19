@@ -1808,6 +1808,45 @@ tr.ip-meta-row .ip-meta {
   color: var(--accent-ink);
 }
 
+.ip-context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 16rem;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-float);
+}
+
+.ip-context-menu[hidden] {
+  display: none;
+}
+
+.ip-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-strong);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ip-context-menu button:hover:not(:disabled) {
+  background: var(--bg-muted);
+}
+
+.ip-context-menu button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
 .domain-health-panel,
 .problem-sources-panel,
 .ip-map-panel {

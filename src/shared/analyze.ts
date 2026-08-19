@@ -20,8 +20,11 @@ import type {
   VolumePoint
 } from './types'
 import { isRelaxedAligned } from './domain'
-import { isLikelyMailboxIp } from './mailbox-ip'
-import { isCheckPointHarmonyHost } from './sender'
+import {
+  isLikelyMailboxIp,
+  type MailboxNoiseProvider
+} from './mailbox-ip'
+import { matchesScannerNoise, type ScannerNoiseMatcher } from './scanner-noise'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
 
 type MailboxIpInfo = Pick<IpInfo, 'cloudProvider' | 'provider' | 'asn' | 'asOrg' | 'senderKind'>
@@ -37,29 +40,40 @@ export function isGoogleIpInfo(
   return false
 }
 
-/** True when enrichment labels the IP as a mailbox provider (Gmail, Outlook, Yahoo, iCloud, …). */
-export function isMailboxIpInfo(info: MailboxIpInfo | null | undefined): boolean {
-  if (!info) return false
-  if (info.senderKind === 'mailbox') return true
-  if (isGoogleIpInfo(info)) return true
+/** Which mailbox-noise family enrichment assigned, if any. */
+export function mailboxNoiseProviderFromInfo(
+  info: MailboxIpInfo | null | undefined
+): MailboxNoiseProvider | null {
+  if (!info) return null
+  if (isGoogleIpInfo(info)) return 'google'
   const provider = (info.provider ?? '').toLowerCase()
-  if (/\b(microsoft 365|outlook|yahoo|aol|icloud)\b/.test(provider)) return true
+  if (/\b(microsoft 365|outlook|hotmail)\b/.test(provider)) return 'microsoft'
+  if (/\b(yahoo|aol)\b/.test(provider)) return 'yahoo'
+  if (/\bicloud\b/.test(provider)) return 'apple'
   if (
     info.asn === 10310 ||
     info.asn === 26101 ||
     info.asn === 14778 ||
-    info.asn === 1668 ||
-    info.asn === 714
+    info.asn === 1668
   ) {
-    return true
+    return 'yahoo'
   }
-  if (
-    info.asOrg &&
-    /\b(yahoo|aol|oath|verizon media|apple|icloud|hotmail|outlook)\b/i.test(info.asOrg)
-  ) {
-    return true
-  }
-  return false
+  if (info.asn === 714) return 'apple'
+  if (info.asOrg && /\b(yahoo|aol|oath|verizon media)\b/i.test(info.asOrg)) return 'yahoo'
+  if (info.asOrg && /\b(apple|icloud)\b/i.test(info.asOrg)) return 'apple'
+  if (info.asOrg && /\b(hotmail|outlook)\b/i.test(info.asOrg)) return 'microsoft'
+  if (info.senderKind === 'mailbox') return 'other'
+  return null
+}
+
+/** True when enrichment labels the IP as an enabled mailbox provider. */
+export function isMailboxIpInfo(
+  info: MailboxIpInfo | null | undefined,
+  enabled?: ReadonlySet<MailboxNoiseProvider>
+): boolean {
+  const family = mailboxNoiseProviderFromInfo(info)
+  if (!family) return false
+  return !enabled || enabled.has(family)
 }
 
 /** Auth pattern of mailbox forwarding / report-echo noise (IP not checked). */
@@ -71,41 +85,44 @@ export function isMailboxNoiseAuthPattern(rec: SerializedRecord): boolean {
 }
 
 /**
- * Check Point Harmony re-injection: the hop after recipient-side scanning.
+ * Recipient-scanner re-injection: the hop after inline scanning.
  * Unlike mailbox forwarding, DKIM usually does not survive, so DMARC fails too.
  * Reject/quarantine stays visible — that is enforcement, not scanner echo.
  */
-export function isHarmonyNoiseAuthPattern(rec: SerializedRecord): boolean {
+export function isScannerNoiseAuthPattern(rec: SerializedRecord): boolean {
   if (rec.passesDmarc) return false
   const disp = (rec.disposition ?? 'none').toLowerCase()
   if (disp === 'reject' || disp === 'quarantine') return false
   return (rec.spfResult ?? '').toLowerCase() === 'fail'
 }
 
-/** True when enrichment labels the IP as Check Point Harmony (PTR / product name). */
-export function isHarmonyIpInfo(
-  info: Pick<IpInfo, 'provider' | 'ptr'> | null | undefined
+/** True when the IP is listed or its PTR matches the configured scanner-noise hosts. */
+export function isScannerNoiseIpInfo(
+  info: (Pick<IpInfo, 'ptr'> & Partial<Pick<IpInfo, 'ip'>>) | null | undefined,
+  matchers: readonly ScannerNoiseMatcher[]
 ): boolean {
-  if (!info) return false
-  if (info.provider === 'Check Point Harmony') return true
-  return isCheckPointHarmonyHost(info.ptr)
+  if (!info || matchers.length === 0) return false
+  return matchesScannerNoise(info.ip, info.ptr, matchers)
 }
 
 /**
  * Mailbox-provider hop / report-echo noise: SPF fails on a Gmail/Outlook/Yahoo/iCloud IP,
- * DKIM holds, DMARC passes. Also Check Point Harmony re-injection (SPF fail, usually
+ * DKIM holds, DMARC passes. Also recipient-scanner re-injection (SPF fail, usually
  * DKIM fail too) once enrichment has named the IP. Uses well-known mailbox prefixes
  * when enrichment is missing.
  */
 export function isMailboxNoiseRecord(
   rec: SerializedRecord,
   mailboxIps?: ReadonlySet<string>,
-  harmonyIps?: ReadonlySet<string>
+  scannerNoiseIps?: ReadonlySet<string>,
+  mailboxProviders?: ReadonlySet<MailboxNoiseProvider>
 ): boolean {
   if (isMailboxNoiseAuthPattern(rec)) {
-    if (mailboxIps?.has(rec.sourceIp) || isLikelyMailboxIp(rec.sourceIp)) return true
+    if (mailboxIps?.has(rec.sourceIp) || isLikelyMailboxIp(rec.sourceIp, mailboxProviders)) {
+      return true
+    }
   }
-  if (isHarmonyNoiseAuthPattern(rec) && harmonyIps?.has(rec.sourceIp)) return true
+  if (isScannerNoiseAuthPattern(rec) && scannerNoiseIps?.has(rec.sourceIp)) return true
   return false
 }
 
@@ -568,7 +585,8 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
   const headerFrom = filter.headerFrom?.trim()
   const hideMailboxNoise = Boolean(filter.hideMailboxNoise)
   const mailboxIps = filter.mailboxIps
-  const harmonyIps = filter.harmonyIps
+  const scannerNoiseIps = filter.scannerNoiseIps
+  const mailboxProviders = filter.mailboxNoiseProviders
   const disposition = normalizeDispositionFilter(filter.disposition)
   const filterDisposition = disposition !== 'all'
 
@@ -590,7 +608,12 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
       const records = r.records.filter((rec) => {
         if (sourceIp && !recordMatchesSourceIp(rec.sourceIp, sourceIp)) return false
         if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
-        if (hideMailboxNoise && isMailboxNoiseRecord(rec, mailboxIps, harmonyIps)) return false
+        if (
+          hideMailboxNoise &&
+          isMailboxNoiseRecord(rec, mailboxIps, scannerNoiseIps, mailboxProviders)
+        ) {
+          return false
+        }
         if (filterDisposition && !matchesDispositionFilter(rec.disposition, disposition)) {
           return false
         }
@@ -634,12 +657,12 @@ export function filterForensicReports(
   })
 }
 
-function dropHarmonyProblemSources(
+function dropScannerNoiseProblemSources(
   result: AnalyzeResult,
-  harmonyIps: ReadonlySet<string> | undefined
+  scannerNoiseIps: ReadonlySet<string> | undefined
 ): AnalyzeResult {
-  if (!harmonyIps?.size) return result
-  const next = result.dashboard.problemSources.filter((row) => !harmonyIps.has(row.sourceIp))
+  if (!scannerNoiseIps?.size) return result
+  const next = result.dashboard.problemSources.filter((row) => !scannerNoiseIps.has(row.sourceIp))
   if (next.length === result.dashboard.problemSources.length) return result
   return {
     ...result,
@@ -661,9 +684,9 @@ export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilte
     filtered.length === full.reports.length &&
     forensicReports.length === (full.forensicReports?.length ?? 0)
   ) {
-    return dropHarmonyProblemSources(full, filter.harmonyIps)
+    return dropScannerNoiseProblemSources(full, filter.scannerNoiseIps)
   }
-  return dropHarmonyProblemSources(
+  return dropScannerNoiseProblemSources(
     analyzeFromReports(filtered, {
       skipped: full.skipped,
       errors: full.errors,
@@ -672,7 +695,7 @@ export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilte
       newForensicReports: full.newForensicReports,
       forensicReports
     }),
-    filter.harmonyIps
+    filter.scannerNoiseIps
   )
 }
 

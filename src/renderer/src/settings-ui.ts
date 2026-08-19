@@ -47,10 +47,12 @@ import {
   geoliteStatusEl,
   hostEl,
   ignoredSourcesEl,
+  scannerNoiseHostsEl,
   infoDialog,
   languageEl,
   themeEl,
   mailboxEl,
+  mailboxListStatusEl,
   markSeenAfterFetchEl,
   maxmindLicenseKeyEl,
   notifyNewSourceEl,
@@ -87,17 +89,41 @@ import {
   tabBtnAppearance,
   tabBtnEnrichment,
   tabBtnGeneral,
+  tabBtnNoise,
   tabEnrichmentEl,
   tabGeneralEl,
+  tabNoiseEl,
   userEl
 } from './dom'
 import { escapeHtml, formatDate } from './format'
 import { state } from './state'
 import { applyView } from './view'
+import {
+  DEFAULT_MAILBOX_NOISE_PROVIDERS,
+  MAILBOX_NOISE_PROVIDERS,
+  parseMailboxNoiseProviders,
+  type MailboxNoiseProvider
+} from '../../shared/mailbox-ip'
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
-type SettingsTab = 'account' | 'appearance' | 'general' | 'enrichment'
+type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'enrichment'
+
+function mailboxNoiseCheckbox(id: MailboxNoiseProvider): HTMLInputElement | null {
+  return document.getElementById(`mailbox-noise-${id}`) as HTMLInputElement | null
+}
+
+function readMailboxNoiseProviders(): string {
+  return MAILBOX_NOISE_PROVIDERS.filter((id) => mailboxNoiseCheckbox(id)?.checked).join(',')
+}
+
+function fillMailboxNoiseProviders(text: string): void {
+  const enabled = parseMailboxNoiseProviders(text)
+  for (const id of MAILBOX_NOISE_PROVIDERS) {
+    const el = mailboxNoiseCheckbox(id)
+    if (el) el.checked = enabled.has(id)
+  }
+}
 
 /** Input that opened the create-mailbox dialog (mailbox or archive). */
 let createMailboxTarget: HTMLInputElement | null = null
@@ -328,30 +354,30 @@ async function loadMailboxOptions(options: { quiet?: boolean } = {}): Promise<bo
   const quiet = Boolean(options.quiet)
   if (!canListMailboxes()) return false
   if (typeof window.api.listMailboxes !== 'function') {
-    if (!quiet) settingsStatusEl.textContent = t('enrichment.preloadRestart')
+    if (!quiet) mailboxListStatusEl.textContent = t('enrichment.preloadRestart')
     return false
   }
   const token = ++mailboxLoadToken
-  if (!quiet) settingsStatusEl.textContent = t('settings.listingMailboxes')
+  if (!quiet) mailboxListStatusEl.textContent = t('settings.listingMailboxes')
   try {
     const result = await window.api.listMailboxes(readAccountForm())
     if (token !== mailboxLoadToken) return false
     if (!result.ok) {
       if (!quiet) {
-        settingsStatusEl.textContent = result.message
+        mailboxListStatusEl.textContent = result.message
         setStatus(result.message, 'error')
       }
       return false
     }
     fillMailboxOptions(result.mailboxes.map((m) => m.path))
-    settingsStatusEl.textContent = result.message
+    mailboxListStatusEl.textContent = result.message
     if (!quiet) setStatus(result.message, 'ok')
     return true
   } catch (err) {
     if (token !== mailboxLoadToken) return false
     if (!quiet) {
       const msg = err instanceof Error ? err.message : String(err)
-      settingsStatusEl.textContent = msg
+      mailboxListStatusEl.textContent = msg
       setStatus(msg, 'error')
     }
     return false
@@ -387,6 +413,8 @@ export function readGlobalForm(): GlobalSettings {
     cloudRangesEnabled: cloudRangesEnabledEl.checked,
     rdapEnabled: rdapEnabledEl.checked,
     hideMailboxNoise: filterHideMailboxNoiseEl.checked,
+    mailboxNoiseProviders: readMailboxNoiseProviders(),
+    scannerNoiseHosts: scannerNoiseHostsEl.value,
     pdfMonthlyEnabled: pdfMonthlyEnabledEl.checked,
     pdfMonthlyDir: pdfMonthlyDirEl.value.trim(),
     // Owned by the scheduler in the main process; sent back unchanged.
@@ -452,6 +480,7 @@ export function fillAccountForm(account: AccountPublic | null): void {
   }
   syncAuthModeUi()
   syncArchiveMailboxClear()
+  mailboxListStatusEl.textContent = ''
   settingsStatusEl.textContent = ''
 }
 
@@ -465,6 +494,8 @@ export function fillGlobalForm(global: GlobalSettings): void {
   notifyNewSourceEl.checked = Boolean(global.notifyNewSource)
   passRateAlertThresholdEl.value = String(global.passRateAlertThreshold ?? 0)
   ignoredSourcesEl.value = global.ignoredSources ?? ''
+  fillMailboxNoiseProviders(global.mailboxNoiseProviders ?? DEFAULT_MAILBOX_NOISE_PROVIDERS)
+  scannerNoiseHostsEl.value = global.scannerNoiseHosts ?? ''
   runInTrayEl.checked = Boolean(global.runInTray)
   openAtLoginEl.checked = Boolean(global.openAtLogin)
   languageEl.value = normalizeLocale(global.language)
@@ -540,6 +571,7 @@ export function showSettingsTab(which: SettingsTab): void {
   const tabs: Array<{ id: SettingsTab; btn: HTMLButtonElement; panel: HTMLElement }> = [
     { id: 'account', btn: tabBtnAccount, panel: tabAccountEl },
     { id: 'appearance', btn: tabBtnAppearance, panel: tabAppearanceEl },
+    { id: 'noise', btn: tabBtnNoise, panel: tabNoiseEl },
     { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
     { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
   ]
@@ -579,6 +611,7 @@ export function initSettingsUi(): void {
   btnCloseSettings.addEventListener('click', () => settingsDialog.close())
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
   tabBtnAppearance.addEventListener('click', () => showSettingsTab('appearance'))
+  tabBtnNoise.addEventListener('click', () => showSettingsTab('noise'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())

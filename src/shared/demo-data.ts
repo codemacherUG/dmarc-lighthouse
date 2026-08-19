@@ -1,6 +1,8 @@
 import { inspectEmail } from './email-inspect'
 import { analyzeFromReports } from './analyze'
 import type { AppLocale } from './i18n'
+import { DEFAULT_SCANNER_NOISE_HOSTS } from './scanner-noise'
+import { DEFAULT_MAILBOX_NOISE_PROVIDERS } from './mailbox-ip'
 import type {
   AnalyzeResult,
   DnsCheckResult,
@@ -310,6 +312,8 @@ export function buildDemoSettings(language: AppLocale = 'de'): SettingsPublic {
       cloudRangesEnabled: true,
       rdapEnabled: true,
       hideMailboxNoise: false,
+      mailboxNoiseProviders: DEFAULT_MAILBOX_NOISE_PROVIDERS,
+      scannerNoiseHosts: DEFAULT_SCANNER_NOISE_HOSTS,
       pdfMonthlyEnabled: true,
       pdfMonthlyDir: '',
       pdfMonthlyLastRun: '2026-08-01T06:00:00.000Z'

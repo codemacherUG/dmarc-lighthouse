@@ -7,12 +7,14 @@ import {
   filterReports,
   groupProblemSources,
   isGoogleIpInfo,
-  isHarmonyIpInfo,
   isMailboxIpInfo,
   isMailboxNoiseRecord,
+  isScannerNoiseIpInfo,
   matchesDispositionFilter,
   recordMatchesSourceIp
 } from '../src/shared/analyze'
+import type { MailboxNoiseProvider } from '../src/shared/mailbox-ip'
+import { DEFAULT_SCANNER_NOISE_HOSTS, parseScannerNoiseHosts } from '../src/shared/scanner-noise'
 import type { ForensicReportRow, ReportRow, SerializedRecord } from '../src/shared/types'
 
 function record(overrides: Partial<SerializedRecord> = {}): SerializedRecord {
@@ -391,6 +393,18 @@ describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
         senderKind: 'infra'
       })
     ).toBe(false)
+    expect(
+      isMailboxIpInfo(
+        {
+          cloudProvider: 'Google',
+          provider: 'Google',
+          asn: 15169,
+          asOrg: 'GOOGLE',
+          senderKind: 'mailbox'
+        },
+        new Set<MailboxNoiseProvider>(['microsoft'])
+      )
+    ).toBe(false)
   })
 
   it('matches only SPF-fail + DKIM-pass + DMARC-pass on mailbox IPs', () => {
@@ -414,6 +428,19 @@ describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
         })
       )
     ).toBe(true)
+    expect(
+      isMailboxNoiseRecord(
+        record({
+          sourceIp: '2a00:1450:4864:20::346',
+          spfResult: 'fail',
+          dkimResult: 'pass',
+          passesDmarc: true
+        }),
+        undefined,
+        undefined,
+        new Set<MailboxNoiseProvider>(['microsoft'])
+      )
+    ).toBe(false)
     expect(
       isMailboxNoiseRecord(
         record({
@@ -483,13 +510,17 @@ describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
         new Set(['3.5.140.1'])
       )
     ).toBe(false)
+    const defaults = parseScannerNoiseHosts(DEFAULT_SCANNER_NOISE_HOSTS)
     expect(
-      isHarmonyIpInfo({ provider: 'Check Point Harmony', ptr: 'ec2.amazonaws.com' })
+      isScannerNoiseIpInfo({ ptr: 'mail.eu.cloud-sec-av.com' }, defaults)
     ).toBe(true)
-    expect(
-      isHarmonyIpInfo({ provider: 'AWS', ptr: 'mail.eu.cloud-sec-av.com' })
-    ).toBe(true)
-    expect(isHarmonyIpInfo({ provider: 'AWS', ptr: 'ec2.amazonaws.com' })).toBe(false)
+    expect(isScannerNoiseIpInfo({ ptr: 'ec2.amazonaws.com' }, defaults)).toBe(false)
+    expect(isScannerNoiseIpInfo({ ptr: 'mail.eu.cloud-sec-av.com' }, [])).toBe(false)
+    const listedIp = parseScannerNoiseHosts('203.0.113.5')
+    expect(isScannerNoiseIpInfo({ ip: '203.0.113.5', ptr: 'ec2.amazonaws.com' }, listedIp)).toBe(true)
+    expect(isScannerNoiseIpInfo({ ip: '198.51.100.9', ptr: 'ec2.amazonaws.com' }, listedIp)).toBe(
+      false
+    )
   })
 })
 
@@ -792,7 +823,7 @@ describe('applyDashboardFilter', () => {
     const out = applyDashboardFilter(full, {
       range: 'all',
       domain: '',
-      harmonyIps: new Set([harmonyIp])
+      scannerNoiseIps: new Set([harmonyIp])
     })
     expect(out.dashboard.problemSources.map((s) => s.sourceIp)).toEqual([otherIp])
     expect(out.aggregate.failing).toBe(6)
@@ -826,7 +857,7 @@ describe('applyDashboardFilter', () => {
       range: 'all',
       domain: '',
       hideMailboxNoise: true,
-      harmonyIps: new Set([harmonyIp])
+      scannerNoiseIps: new Set([harmonyIp])
     })
     expect(out.aggregate.total).toBe(3)
     expect(out.aggregate.failing).toBe(0)

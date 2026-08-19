@@ -276,10 +276,10 @@ const de = {
     'Nur den Selektor, z. B. default — nicht default._domainkey. Kommagetrennt; leer = aus den Reports',
   'filter.clickToFilter': 'Klicken zum Filtern',
   'filter.removeChip': 'Filter entfernen',
-  'filter.hideMailboxNoise': 'Mailbox-Rauschen ausblenden',
+  'filter.hideMailboxNoise': 'Mail-Rauschen ausblenden',
   'filter.hideMailboxNoiseHint':
-    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (Mailbox-IP, SPF fail, DKIM pass, DMARC pass) sowie Empfänger-Scanner von Check Point Harmony (cloud-sec-av.com). Echte Absender bleiben sichtbar.',
-  'filter.hideMailboxNoiseHintLabel': 'Was ist Mailbox-Rauschen?',
+    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (Mailbox-IP, SPF fail, DKIM pass, DMARC pass) sowie konfigurierte Empfänger-Scanner (PTR-Domain, Vorgabe: cloud-sec-av.com). Echte Absender bleiben sichtbar.',
+  'filter.hideMailboxNoiseHintLabel': 'Was ist Mail-Rauschen?',
   'filter.reset': 'Zurücksetzen',
   'filter.resetTitle': 'Alle Filter zurücksetzen',
 
@@ -343,6 +343,7 @@ const de = {
   'settings.close': 'Schließen',
   'settings.tabAccount': 'Konto-Verwaltung',
   'settings.tabAppearance': 'Erscheinungsbild',
+  'settings.tabNoise': 'Rauschen',
   'settings.tabGeneral': 'Abruf & Benachrichtigungen',
   'settings.tabEnrichment': 'Anreicherung',
   'settings.accountSetupHint':
@@ -442,6 +443,20 @@ const de = {
   'settings.ignoredPlaceholder': 'Eine IP pro Zeile, z. B. 203.0.113.5 oder 66.249.* für Präfixe',
   'settings.ignoredHint':
     'Diese IPs lösen keinen „Neue Quelle"-Alert aus. Präfixe mit * am Ende, z. B. 66.249.*.',
+  'settings.scannerNoise': 'Empfänger-Scanner',
+  'settings.noiseIntro':
+    'Zwei Arten von Report-Rauschen. Mailbox-Weiterleitung nur mit dem Dashboard-Filter; Empfänger-Scanner immer aus den Problemquellen.',
+  'settings.mailboxNoise': 'Mailbox-Weiterleitung',
+  'settings.mailboxNoiseGoogle': 'Gmail / Google',
+  'settings.mailboxNoiseMicrosoft': 'Outlook / Microsoft 365',
+  'settings.mailboxNoiseYahoo': 'Yahoo / AOL',
+  'settings.mailboxNoiseApple': 'iCloud',
+  'settings.mailboxNoiseOther': 'Weitere Mailbox-Anbieter (Zoho, Proton, GMX, …)',
+  'settings.mailboxNoiseHint':
+    'SPF fail, DKIM pass, DMARC pass auf deren IPs. Wirkt nur, wenn „Mail-Rauschen ausblenden“ an ist. Nicht in den Problemquellen (DMARC ist dort pass).',
+  'settings.scannerNoisePlaceholder': 'cloud-sec-av.com',
+  'settings.scannerNoiseHint':
+    'PTR-Domains oder einzelne IPs, die als Empfänger-Scanner gelten: nicht in den Problemquellen, und mit „Mail-Rauschen ausblenden“ auch nicht in den Kennzahlen. Eine Domain oder IP pro Zeile. Optional /regex/i. Leer = keine. Vorgabe: cloud-sec-av.com (Check Point Harmony). In der IP-Liste per Rechtsklick übernehmbar.',
   'settings.enrichment': 'Anreicherung',
   'settings.enrichmentFeatures': 'Quellen & Dienste',
   'settings.enrichmentGeoLite': 'GeoLite2 (offline)',
@@ -540,7 +555,7 @@ const de = {
   'sender.kind.infra': 'Hosting/Cloud',
   'ipMark.spf': 'SPF',
   'table.ipsHint':
-    'Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain liegen.',
+    'Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain liegen. Rechtsklick blendet einen Absender als Mail-Rauschen aus.',
 
   'ipDetail.title': 'IP-Details',
   'ipDetail.loadRdap': 'WHOIS / RDAP laden',
@@ -555,6 +570,12 @@ const de = {
   'ipDetail.loadingRdap': 'Lade RDAP…',
   'ipDetail.none': '—',
   'ipDetail.openHint': 'Details / RDAP',
+  'ipNoise.add': 'Als Mail-Rauschen ausblenden',
+  'ipNoise.addNamed': '„{entry}“ als Mail-Rauschen ausblenden',
+  'ipNoise.listed': 'Bereits als Mail-Rauschen ausgeblendet',
+  'ipNoise.added': '{entry} als Mail-Rauschen aufgenommen.',
+  'ipNoise.already': '{entry} ist bereits als Mail-Rauschen ausgeblendet.',
+  'ipNoise.unavailable': 'Dieser Absender lässt sich nicht als Mail-Rauschen ausblenden.',
 
   'enrichment.maxmindKeyMissing': 'Bitte einen MaxMind License-Key eintragen und speichern.',
   'enrichment.geoLiteDownloaded': 'GeoLite2 City und ASN wurden heruntergeladen.',
@@ -1434,10 +1455,10 @@ const en: Dict = {
     'Selector only, e.g. default — not default._domainkey. Comma-separated; empty = from reports',
   'filter.clickToFilter': 'Click to filter',
   'filter.removeChip': 'Remove filter',
-  'filter.hideMailboxNoise': 'Hide mailbox noise',
+  'filter.hideMailboxNoise': 'Hide mail noise',
   'filter.hideMailboxNoiseHint':
-    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (mailbox IP, SPF fail, DKIM pass, DMARC pass) and recipient-side Check Point Harmony scanners (cloud-sec-av.com). Real senders stay visible.',
-  'filter.hideMailboxNoiseHintLabel': 'What is mailbox noise?',
+    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (mailbox IP, SPF fail, DKIM pass, DMARC pass) and configured recipient-side scanners (PTR domain, default: cloud-sec-av.com). Real senders stay visible.',
+  'filter.hideMailboxNoiseHintLabel': 'What is mail noise?',
   'filter.reset': 'Reset',
   'filter.resetTitle': 'Reset all filters',
 
@@ -1501,6 +1522,7 @@ const en: Dict = {
   'settings.close': 'Close',
   'settings.tabAccount': 'Accounts',
   'settings.tabAppearance': 'Appearance',
+  'settings.tabNoise': 'Noise',
   'settings.tabGeneral': 'Fetch & notifications',
   'settings.tabEnrichment': 'Enrichment',
   'settings.accountSetupHint':
@@ -1599,6 +1621,20 @@ const en: Dict = {
   'settings.ignoredPlaceholder': 'One IP per line, e.g. 203.0.113.5 or 66.249.* for prefixes',
   'settings.ignoredHint':
     'These IPs will not trigger a “new source” alert. Prefixes end with *, e.g. 66.249.*.',
+  'settings.scannerNoise': 'Recipient scanners',
+  'settings.noiseIntro':
+    'Two kinds of report noise. Mailbox forwarding only with the dashboard filter; recipient scanners always omitted from problem sources.',
+  'settings.mailboxNoise': 'Mailbox forwarding',
+  'settings.mailboxNoiseGoogle': 'Gmail / Google',
+  'settings.mailboxNoiseMicrosoft': 'Outlook / Microsoft 365',
+  'settings.mailboxNoiseYahoo': 'Yahoo / AOL',
+  'settings.mailboxNoiseApple': 'iCloud',
+  'settings.mailboxNoiseOther': 'Other mailbox providers (Zoho, Proton, GMX, …)',
+  'settings.mailboxNoiseHint':
+    'SPF fail, DKIM pass, DMARC pass on their IPs. Applies only when “Hide mail noise” is on. Not listed as problem sources (DMARC passes there).',
+  'settings.scannerNoisePlaceholder': 'cloud-sec-av.com',
+  'settings.scannerNoiseHint':
+    'PTR domains or individual IPs treated as recipient-side scanners: omitted from problem sources, and hidden from KPIs when “Hide mail noise” is on. One domain or IP per line. Optional /regex/i. Empty = none. Default: cloud-sec-av.com (Check Point Harmony). Add from the IP list via right-click.',
   'settings.enrichment': 'Enrichment',
   'settings.enrichmentFeatures': 'Sources & services',
   'settings.enrichmentGeoLite': 'GeoLite2 (offline)',
@@ -1694,7 +1730,8 @@ const en: Dict = {
   'sender.kind.gateway': 'Mail gateway',
   'sender.kind.infra': 'Hosting/cloud',
   'ipMark.spf': 'SPF',
-  'table.ipsHint': 'The “SPF” badge marks sender IPs covered by the domain’s expanded SPF record.',
+  'table.ipsHint':
+    'The “SPF” badge marks sender IPs covered by the domain’s expanded SPF record. Right-click hides a sender as mail noise.',
 
   'ipDetail.title': 'IP details',
   'ipDetail.loadRdap': 'Load WHOIS / RDAP',
@@ -1709,6 +1746,12 @@ const en: Dict = {
   'ipDetail.loadingRdap': 'Loading RDAP…',
   'ipDetail.none': '—',
   'ipDetail.openHint': 'Details / RDAP',
+  'ipNoise.add': 'Hide as mail noise',
+  'ipNoise.addNamed': 'Hide “{entry}” as mail noise',
+  'ipNoise.listed': 'Already hidden as mail noise',
+  'ipNoise.added': 'Added {entry} as mail noise.',
+  'ipNoise.already': '{entry} is already hidden as mail noise.',
+  'ipNoise.unavailable': 'This sender cannot be hidden as mail noise.',
 
   'enrichment.maxmindKeyMissing': 'Please enter a MaxMind license key and save.',
   'enrichment.geoLiteDownloaded': 'GeoLite2 City and ASN have been downloaded.',

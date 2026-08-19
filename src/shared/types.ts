@@ -1,4 +1,5 @@
 import type { AppLocale } from './i18n'
+import type { MailboxNoiseProvider } from './mailbox-ip'
 import type { SenderKind } from './sender'
 import type { AppTheme } from './theme'
 
@@ -162,6 +163,17 @@ export interface GlobalSettings {
   rdapEnabled: boolean
   /** Persist dashboard filter: hide mailbox-provider SPF-fail / DKIM-pass noise. */
   hideMailboxNoise: boolean
+  /**
+   * Built-in mailbox families for the noise filter (`google,microsoft,yahoo,apple,other`).
+   * Missing setting loads all; empty means none.
+   */
+  mailboxNoiseProviders: string
+  /**
+   * PTR domains or source IPs treated as recipient-side scanner noise
+   * (one suffix, IP, or `/regex/` per line).
+   * Missing setting loads the shipped default; empty means none.
+   */
+  scannerNoiseHosts: string
   /** Write a PDF management report for the finished month, once per month. */
   pdfMonthlyEnabled: boolean
   /** Output folder for monthly reports; empty = Documents/DMARC Lighthouse. */
@@ -647,17 +659,19 @@ export interface DashboardFilter {
   /**
    * Hide mailbox-provider forwarding / report-echo artifacts:
    * Gmail/Outlook/Yahoo/iCloud source IP + SPF fail + DKIM pass + DMARC pass,
-   * plus Check Point Harmony re-injection (`harmonyIps`, SPF fail, DMARC fail).
-   * Uses well-known prefixes; `mailboxIps` / `harmonyIps` from enrichment are optional extra.
+   * plus recipient-scanner re-injection (`scannerNoiseIps`, SPF fail, DMARC fail).
+   * Uses well-known prefixes; `mailboxIps` / `scannerNoiseIps` from enrichment are optional extra.
    */
   hideMailboxNoise?: boolean
   /** Extra source IPs identified as mailbox providers (cloud / PTR / ASN / sender kind). */
   mailboxIps?: ReadonlySet<string>
+  /** Which built-in mailbox families the noise filter may hide. Omitted = all. */
+  mailboxNoiseProviders?: ReadonlySet<MailboxNoiseProvider>
   /**
-   * Source IPs identified as Check Point Harmony (PTR cloud-sec-av.com).
+   * Source IPs listed as scanner noise or whose PTR matches the configured hosts.
    * Hidden by the mailbox-noise filter, and always omitted from problem sources.
    */
-  harmonyIps?: ReadonlySet<string>
+  scannerNoiseIps?: ReadonlySet<string>
 }
 
 export function emptyDashboard(): DashboardData {

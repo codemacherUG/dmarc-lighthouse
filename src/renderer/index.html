@@ -389,13 +389,13 @@
                   type="checkbox"
                   aria-describedby="filter-mailbox-noise-tip"
                 />
-                <span data-i18n="filter.hideMailboxNoise">Mailbox-Rauschen ausblenden</span>
+                <span data-i18n="filter.hideMailboxNoise">Mail-Rauschen ausblenden</span>
               </label>
               <button
                 type="button"
                 class="filter-hint"
                 data-i18n-aria="filter.hideMailboxNoiseHintLabel"
-                aria-label="Was ist Mailbox-Rauschen?"
+                aria-label="Was ist Mail-Rauschen?"
                 aria-describedby="filter-mailbox-noise-tip"
               >
                 ?
@@ -523,7 +523,7 @@
                 <h2 data-i18n="table.ips">Quellen (IP)</h2>
                 <p class="hint" data-i18n="table.ipsHint">
                   Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain
-                  liegen.
+                  liegen. Rechtsklick blendet einen Absender als Mail-Rauschen aus.
                 </p>
               </div>
               <div class="table-scroll">
@@ -699,6 +699,17 @@
             data-i18n="settings.tabAppearance"
           >
             Erscheinungsbild
+          </button>
+          <button
+            type="button"
+            id="tab-btn-noise"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-noise"
+            data-i18n="settings.tabNoise"
+          >
+            Rauschen
           </button>
           <button
             type="button"
@@ -997,6 +1008,7 @@
                   >
                 </label>
               </div>
+              <p id="mailbox-list-status" class="hint" role="status"></p>
             </fieldset>
 
             <div class="account-actions">
@@ -1196,6 +1208,74 @@
             </fieldset>
           </section>
 
+          <section id="tab-noise" class="tab-panel hidden" role="tabpanel">
+            <p class="hint" data-i18n="settings.noiseIntro">
+              Zwei Arten von Report-Rauschen. Mailbox-Weiterleitung nur mit dem Dashboard-Filter;
+              Empfänger-Scanner immer aus den Problemquellen.
+            </p>
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.mailboxNoise">Mailbox-Weiterleitung</legend>
+              <div class="settings-grid">
+                <label class="checkbox">
+                  <input
+                    id="mailbox-noise-google"
+                    name="mailboxNoiseGoogle"
+                    type="checkbox"
+                    checked
+                  />
+                  <span data-i18n="settings.mailboxNoiseGoogle">Gmail / Google</span>
+                </label>
+                <label class="checkbox">
+                  <input
+                    id="mailbox-noise-microsoft"
+                    name="mailboxNoiseMicrosoft"
+                    type="checkbox"
+                    checked
+                  />
+                  <span data-i18n="settings.mailboxNoiseMicrosoft">Outlook / Microsoft 365</span>
+                </label>
+                <label class="checkbox">
+                  <input id="mailbox-noise-yahoo" name="mailboxNoiseYahoo" type="checkbox" checked />
+                  <span data-i18n="settings.mailboxNoiseYahoo">Yahoo / AOL</span>
+                </label>
+                <label class="checkbox">
+                  <input id="mailbox-noise-apple" name="mailboxNoiseApple" type="checkbox" checked />
+                  <span data-i18n="settings.mailboxNoiseApple">iCloud</span>
+                </label>
+                <label class="checkbox span-2">
+                  <input id="mailbox-noise-other" name="mailboxNoiseOther" type="checkbox" checked />
+                  <span data-i18n="settings.mailboxNoiseOther"
+                    >Weitere Mailbox-Anbieter (Zoho, Proton, GMX, …)</span
+                  >
+                </label>
+              </div>
+              <p class="hint" data-i18n="settings.mailboxNoiseHint">
+                SPF fail, DKIM pass, DMARC pass auf deren IPs. Wirkt nur, wenn „Mail-Rauschen
+                ausblenden“ an ist. Nicht in den Problemquellen (DMARC ist dort pass).
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.scannerNoise">Empfänger-Scanner</legend>
+              <label class="stacked">
+                <textarea
+                  id="scannerNoiseHosts"
+                  name="scannerNoiseHosts"
+                  rows="4"
+                  data-i18n-placeholder="settings.scannerNoisePlaceholder"
+                  placeholder="cloud-sec-av.com"
+                ></textarea>
+              </label>
+              <p class="hint" data-i18n="settings.scannerNoiseHint">
+                PTR-Domains oder einzelne IPs, die als Empfänger-Scanner gelten: nicht in den
+                Problemquellen, und mit „Mail-Rauschen ausblenden“ auch nicht in den Kennzahlen.
+                Eine Domain oder IP pro Zeile. Optional /regex/i. Leer = keine. Vorgabe:
+                cloud-sec-av.com (Check Point Harmony). In der IP-Liste per Rechtsklick
+                übernehmbar.
+              </p>
+            </fieldset>
+          </section>
+
           <section id="tab-enrichment" class="tab-panel hidden" role="tabpanel">
             <fieldset class="settings-group">
               <legend data-i18n="settings.enrichmentFeatures">Quellen &amp; Dienste</legend>
@@ -1349,6 +1429,9 @@
           <div class="dialog-actions">
             <button type="button" id="btn-ip-rdap" class="btn" data-i18n="ipDetail.loadRdap">
               WHOIS / RDAP laden
+            </button>
+            <button type="button" id="btn-ip-noise" class="btn" data-i18n="ipNoise.add">
+              Als Mail-Rauschen ausblenden
             </button>
             <button
               type="button"
@@ -2497,6 +2580,12 @@
         </footer>
       </div>
     </dialog>
+
+    <div id="ip-context-menu" class="ip-context-menu" hidden role="menu">
+      <button type="button" id="ip-context-noise" role="menuitem" data-i18n="ipNoise.add">
+        Als Mail-Rauschen ausblenden
+      </button>
+    </div>
 
     <footer id="status-bar" class="status-bar">
       <div id="status" class="status" role="status" aria-live="polite"></div>

@@ -85,70 +85,110 @@ const YAHOO_V4_RANGES = toV4Ranges([
 /** iCloud Mail ranges inside Apple's 17.0.0.0/8 (not the whole Apple net). */
 const APPLE_V4_RANGES = toV4Ranges(['17.42.0.0/16', '17.57.0.0/16', '17.58.0.0/16'])
 
-const MAILBOX_V4_RANGES = [
-  ...GOOGLE_V4_RANGES,
-  ...MICROSOFT_V4_RANGES,
-  ...YAHOO_V4_RANGES,
-  ...APPLE_V4_RANGES
-]
+/**
+ * Built-in mailbox-forwarding families. `other` is enrichment-only (Zoho, Proton, …).
+ */
+export const MAILBOX_NOISE_PROVIDERS = ['google', 'microsoft', 'yahoo', 'apple', 'other'] as const
+export type MailboxNoiseProvider = (typeof MAILBOX_NOISE_PROVIDERS)[number]
+export type MailboxIpFamily = Exclude<MailboxNoiseProvider, 'other'>
+
+export const DEFAULT_MAILBOX_NOISE_PROVIDERS = MAILBOX_NOISE_PROVIDERS.join(',')
+
+const MAILBOX_V4: Record<MailboxIpFamily, Array<{ start: number; end: number }>> = {
+  google: GOOGLE_V4_RANGES,
+  microsoft: MICROSOFT_V4_RANGES,
+  yahoo: YAHOO_V4_RANGES,
+  apple: APPLE_V4_RANGES
+}
 
 /**
  * Well-known mailbox IPv6 prefixes as lowercase string starts.
  * Handles compressed forms like 2a00:1450:4864:20::346.
  */
-const MAILBOX_V6_PREFIXES = [
-  // Google
-  '2001:4860:',
-  '2404:6800:',
-  '2404:f340:',
-  '2600:1900:',
-  '2607:f8b0:',
-  '2620:120:',
-  '2800:3f0:',
-  '2a00:1450:',
-  '2c0f:fb50:',
-  // Microsoft 365 / Outlook
-  '2a01:111:f400:',
-  '2a01:111:f403:',
-  '2603:1006:',
-  '2603:1016:',
-  '2603:1026:',
-  '2603:1036:',
-  '2603:1046:',
-  '2603:1056:',
-  '2603:1096:',
-  '2603:1097:',
-  '2603:1098:',
-  '2603:1099:',
-  '2603:10b6:',
-  '2603:10d6:',
-  '2620:1ec:',
-  // Yahoo
-  '2001:4998:',
-  '2406:8600:',
-  // Apple iCloud
-  '2620:149:',
-  '2a01:b740:'
-]
+const MAILBOX_V6: Record<MailboxIpFamily, string[]> = {
+  google: [
+    '2001:4860:',
+    '2404:6800:',
+    '2404:f340:',
+    '2600:1900:',
+    '2607:f8b0:',
+    '2620:120:',
+    '2800:3f0:',
+    '2a00:1450:',
+    '2c0f:fb50:'
+  ],
+  microsoft: [
+    '2a01:111:f400:',
+    '2a01:111:f403:',
+    '2603:1006:',
+    '2603:1016:',
+    '2603:1026:',
+    '2603:1036:',
+    '2603:1046:',
+    '2603:1056:',
+    '2603:1096:',
+    '2603:1097:',
+    '2603:1098:',
+    '2603:1099:',
+    '2603:10b6:',
+    '2603:10d6:',
+    '2620:1ec:'
+  ],
+  yahoo: ['2001:4998:', '2406:8600:'],
+  apple: ['2620:149:', '2a01:b740:']
+}
 
-function isLikelyMailboxIpv6(ip: string): boolean {
+const ALL_MAILBOX_PROVIDERS = new Set<MailboxNoiseProvider>(MAILBOX_NOISE_PROVIDERS)
+
+function ipv6MatchesPrefixes(ip: string, prefixes: string[]): boolean {
   const lower = ip.toLowerCase()
-  for (const prefix of MAILBOX_V6_PREFIXES) {
+  for (const prefix of prefixes) {
     if (lower.startsWith(prefix)) return true
   }
-  for (const prefix of MAILBOX_V6_PREFIXES) {
+  for (const prefix of prefixes) {
     const bare = prefix.slice(0, -1)
     if (lower === bare || lower.startsWith(`${bare}::`)) return true
   }
   return false
 }
 
-/** True when the IP is in a well-known mailbox-provider address block. */
-export function isLikelyMailboxIp(ip: string): boolean {
+export function isMailboxNoiseProvider(value: string): value is MailboxNoiseProvider {
+  return (MAILBOX_NOISE_PROVIDERS as readonly string[]).includes(value)
+}
+
+/** Parse the settings value. Empty → none; unknown tokens ignored. */
+export function parseMailboxNoiseProviders(text: string): Set<MailboxNoiseProvider> {
+  const set = new Set<MailboxNoiseProvider>()
+  for (const part of text.split(/[\n,;]+/)) {
+    const id = part.trim().toLowerCase()
+    if (isMailboxNoiseProvider(id)) set.add(id)
+  }
+  return set
+}
+
+export function mailboxIpFamily(ip: string): MailboxIpFamily | null {
   const trimmed = ip.trim()
-  if (!trimmed) return false
-  if (trimmed.includes(':')) return isLikelyMailboxIpv6(trimmed)
+  if (!trimmed) return null
+  if (trimmed.includes(':')) {
+    for (const family of ['google', 'microsoft', 'yahoo', 'apple'] as const) {
+      if (ipv6MatchesPrefixes(trimmed, MAILBOX_V6[family])) return family
+    }
+    return null
+  }
   const n = ipv4ToInt(trimmed)
-  if (n == null) return false
-  return MAILBOX_V4_RANGES.some((r) => n >= r.start && n <= r.end)
+  if (n == null) return null
+  for (const family of ['google', 'microsoft', 'yahoo', 'apple'] as const) {
+    if (MAILBOX_V4[family].some((r) => n >= r.start && n <= r.end)) return family
+  }
+  return null
+}
+
+/** True when the IP is in a well-known mailbox-provider address block. */
+export function isLikelyMailboxIp(
+  ip: string,
+  enabled?: ReadonlySet<MailboxNoiseProvider>
+): boolean {
+  const family = mailboxIpFamily(ip)
+  if (!family) return false
+  return (enabled ?? ALL_MAILBOX_PROVIDERS).has(family)
 }

@@ -46,6 +46,9 @@ export const ipDetailBody = document.getElementById('ip-detail-body') as HTMLDiv
 export const btnCloseIpDetail = document.getElementById('btn-close-ip-detail') as HTMLButtonElement
 export const btnIpRdap = document.getElementById('btn-ip-rdap') as HTMLButtonElement
 export const btnIpFilter = document.getElementById('btn-ip-filter') as HTMLButtonElement
+export const btnIpNoise = document.getElementById('btn-ip-noise') as HTMLButtonElement
+export const ipContextMenu = document.getElementById('ip-context-menu') as HTMLDivElement
+export const ipContextNoiseBtn = document.getElementById('ip-context-noise') as HTMLButtonElement
 
 export const navDashboard = document.getElementById('nav-dashboard') as HTMLButtonElement
 export const navTools = document.getElementById('nav-tools') as HTMLButtonElement
@@ -129,6 +132,9 @@ export const btnExportCsv = document.getElementById('btn-export-csv') as HTMLBut
 export const btnExportJson = document.getElementById('btn-export-json') as HTMLButtonElement
 export const btnExportPdf = document.getElementById('btn-export-pdf') as HTMLButtonElement
 export const passwordHintEl = document.getElementById('password-hint') as HTMLParagraphElement
+export const mailboxListStatusEl = document.getElementById(
+  'mailbox-list-status'
+) as HTMLParagraphElement
 export const settingsStatusEl = document.getElementById('settings-status') as HTMLParagraphElement
 export const aboutVersionEl = document.getElementById('about-version') as HTMLSpanElement
 export const updateCheckStatusEl = document.getElementById(
@@ -148,10 +154,12 @@ export const btnDeleteAccount = document.getElementById('btn-delete-account') as
 export const tabBtnAccount = document.getElementById('tab-btn-account') as HTMLButtonElement
 export const tabBtnAppearance = document.getElementById('tab-btn-appearance') as HTMLButtonElement
 export const tabBtnGeneral = document.getElementById('tab-btn-general') as HTMLButtonElement
+export const tabBtnNoise = document.getElementById('tab-btn-noise') as HTMLButtonElement
 export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as HTMLButtonElement
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 export const tabAppearanceEl = document.getElementById('tab-appearance') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
+export const tabNoiseEl = document.getElementById('tab-noise') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
 
 export const providerEl = document.getElementById('provider') as HTMLSelectElement
@@ -196,6 +204,9 @@ export const passRateAlertThresholdEl = document.getElementById(
   'passRateAlertThreshold'
 ) as HTMLInputElement
 export const ignoredSourcesEl = document.getElementById('ignoredSources') as HTMLTextAreaElement
+export const scannerNoiseHostsEl = document.getElementById(
+  'scannerNoiseHosts'
+) as HTMLTextAreaElement
 export const languageEl = document.getElementById('language') as HTMLSelectElement
 export const themeEl = document.getElementById('theme') as HTMLSelectElement
 export const oauthGoogleClientIdEl = document.getElementById(
