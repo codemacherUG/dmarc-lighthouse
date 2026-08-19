@@ -1564,7 +1564,7 @@ input[type='checkbox']:focus-visible {
   margin-bottom: 14px;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--line) 68%, var(--accent) 32%);
-  border-left: 4px solid var(--accent);
+  border-left: 1px solid var(--accent);
   border-radius: 14px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--tint-accent) 75%, var(--bg-panel)), var(--bg-panel));
   box-shadow: 0 6px 18px rgba(15, 23, 33, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.3);
