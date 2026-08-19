@@ -144,6 +144,12 @@ body {
   min-width: 0;
 }
 
+.dashboard-grid {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
 .panel,
 .chart-card,
 .table-card,
@@ -745,6 +751,7 @@ body {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
+  height: 507px;
 }
 
 /* Linke Spalte: Höhe nur von .tables-side; IP füllt den Slot absolut. */
@@ -755,8 +762,8 @@ body {
 }
 
 .tables-side {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 275px) minmax(0, 220px);
   gap: 12px;
   min-width: 0;
 }
@@ -770,6 +777,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .table-card--ips {
@@ -793,15 +801,27 @@ body {
 @media (max-width: 900px) {
   .tables-row {
     grid-template-columns: 1fr;
+    height: auto;
   }
 
   .tables-ip-slot {
     position: static;
+    height: auto;
   }
 
   .table-card--ips {
     position: static;
+    height: 452px;
     overflow: visible;
+  }
+
+  .tables-side {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .table-card {
+    min-height: 220px;
   }
 
   .table-card--ips .table-scroll {
@@ -821,6 +841,10 @@ td {
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
+}
+
+table.ip-enriched tbody tr:first-child td {
+  border-top: 1px solid var(--line);
 }
 
 th {
@@ -876,6 +900,14 @@ tr.row-spacer:hover {
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
   gap: 14px;
   align-items: stretch;
+}
+
+.results-panel[data-widget='reports'] {
+  height: 450px;
+}
+
+.results-panel[data-widget='reports'] .results-layout {
+  height: 420px;
 }
 
 .table-wrap {
@@ -1351,6 +1383,10 @@ input[type='checkbox']:focus-visible {
   min-height: 0;
 }
 
+.filter-panel .filter-mailbox-noise > span {
+  transform: translateY(1px);
+}
+
 .filter-hint {
   appearance: none;
   width: 18px;
@@ -1434,6 +1470,8 @@ input[type='checkbox']:focus-visible {
   gap: 6px 10px;
   padding: 6px 12px;
   border-radius: 0 0 12px 12px;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: color-mix(in srgb, var(--tint-accent) 55%, var(--bg-panel));
   box-shadow: var(--shadow-float);
 }
 
@@ -1525,7 +1563,7 @@ input[type='checkbox']:focus-visible {
 
 .chip {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
   padding: 3px 6px 3px 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
@@ -1564,7 +1602,7 @@ input[type='checkbox']:focus-visible {
   margin-bottom: 14px;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--line) 68%, var(--accent) 32%);
-  border-left: 1px solid var(--accent);
+  border-left: 4px solid var(--accent);
   border-radius: 14px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--tint-accent) 75%, var(--bg-panel)), var(--bg-panel));
   box-shadow: 0 6px 18px rgba(15, 23, 33, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -2984,6 +3022,11 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 @media (max-width: 1100px) {
   .results-layout {
     grid-template-columns: 1fr;
+  }
+
+  .results-panel[data-widget='reports'],
+  .results-panel[data-widget='reports'] .results-layout {
+    height: auto;
   }
 
   .detail-wrap {

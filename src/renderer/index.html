@@ -301,7 +301,7 @@
                   d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
                 />
               </svg>
-            </button> 
+            </button>
           </nav>
 
           <div class="header-actions">
@@ -354,17 +354,22 @@
         <section id="filter-panel" class="panel filter-panel">
           <div class="panel-heading">
             <h2 data-i18n="filter.title">Filter</h2>
-            <button
-              type="button"
-              id="btn-filter-reset"
-              class="btn ghost"
-              disabled
-              data-i18n="filter.reset"
-              data-i18n-title="filter.resetTitle"
-              title="Alle Filter zurücksetzen"
-            >
-              Zurücksetzen
-            </button>
+            <div class="panel-heading-actions">
+              <button type="button" id="btn-dashboard-layout-toggle" class="btn ghost small">
+                Widgets
+              </button>
+              <button
+                type="button"
+                id="btn-filter-reset"
+                class="btn ghost"
+                disabled
+                data-i18n="filter.reset"
+                data-i18n-title="filter.resetTitle"
+                title="Alle Filter zurücksetzen"
+              >
+                Zurücksetzen
+              </button>
+            </div>
           </div>
           <div class="filter-row">
             <label>
@@ -430,10 +435,20 @@
             </div>
           </div>
           <div id="filter-chips" class="filter-chips hidden"></div>
+          <div id="widget-layout-menu" class="widget-layout-menu hidden" aria-live="polite">
+            <div class="widget-layout-menu-header">
+              <strong>Widgets</strong>
+              <button type="button" id="btn-dashboard-layout-reset" class="btn ghost small">
+                Zurücksetzen
+              </button>
+            </div>
+            <div id="widget-layout-options" class="widget-layout-options"></div>
+          </div>
         </section>
       </div>
 
-      <section class="panel kpi-panel">
+      <div id="dashboard-grid" class="dashboard-grid">
+      <section class="panel kpi-panel dashboard-widget" data-widget="summary">
         <div id="summary" class="summary-grid">
           <div class="stat">
             <span class="stat-label" data-i18n="kpi.reports">Reports</span>
@@ -462,7 +477,7 @@
         </div>
       </section>
 
-      <section class="panel domain-health-panel">
+      <section class="panel domain-health-panel dashboard-widget" data-widget="health">
         <div class="panel-heading">
           <h2 data-i18n="health.title">Domain-Ampel</h2>
           <p class="hint" data-i18n="health.hint">
@@ -476,7 +491,7 @@
         </div>
       </section>
 
-      <section class="panel problem-sources-panel">
+      <section class="panel problem-sources-panel dashboard-widget" data-widget="problemSources">
         <div class="panel-heading">
           <h2 data-i18n="problems.title">Problemquellen</h2>
           <p class="hint" data-i18n="problems.hint">
@@ -508,7 +523,7 @@
         </div>
       </section>
 
-      <section class="panel charts-panel">
+      <section class="panel charts-panel dashboard-widget" data-widget="charts">
         <div class="charts-row pies">
           <div class="chart-card">
             <h2 data-i18n="chart.dmarc">DMARC Alignment</h2>
@@ -533,7 +548,7 @@
         </div>
       </section>
 
-      <section class="panel tables-panel">
+      <section class="panel tables-panel dashboard-widget" data-widget="tables">
         <div class="tables-row">
           <div class="tables-ip-slot">
             <div class="table-card table-card--ips">
@@ -551,11 +566,12 @@
                       <th class="ip-col" data-i18n="table.ipSender">IP / Absender</th>
                       <th data-i18n="table.msgs">Msgs</th>
                       <th data-i18n="table.passPct">Pass %</th>
+                      <th data-i18n="table.delivered">Zugestellt</th>
                     </tr>
                   </thead>
                   <tbody id="table-ips">
                     <tr class="empty">
-                      <td colspan="3" data-i18n="table.noDataYet">Noch keine Daten</td>
+                      <td colspan="4" data-i18n="table.noDataYet">Noch keine Daten</td>
                     </tr>
                   </tbody>
                 </table>
@@ -605,7 +621,7 @@
         </div>
       </section>
 
-      <section class="panel results-panel">
+      <section class="panel results-panel dashboard-widget" data-widget="reports">
         <div class="results-layout">
           <div class="table-wrap">
             <h2 data-i18n="table.reports">Einzelne Reports</h2>
@@ -642,7 +658,7 @@
         </div>
       </section>
 
-      <section class="panel results-panel">
+      <section class="panel results-panel dashboard-widget" data-widget="forensic">
         <div class="table-wrap">
           <h2 data-i18n="table.forensic">Forensik / RUF (Failure-Reports)</h2>
           <table id="forensic-table">
@@ -666,7 +682,7 @@
         </div>
       </section>
 
-      <section class="panel ip-map-panel">
+      <section class="panel ip-map-panel dashboard-widget" data-widget="ipMap">
         <div class="panel-heading">
           <h2 data-i18n="ipMap.title">Quellen auf der Karte</h2>
           <p class="hint" data-i18n="ipMap.hint">

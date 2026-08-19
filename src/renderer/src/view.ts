@@ -202,7 +202,7 @@ function renderBucketTable(
     onRowClick?: (name: string) => void
   } = {}
 ): void {
-  const cols = 3
+  const cols = options.withIpMeta ? 4 : 3
   if (!rows.length) {
     tbody.innerHTML = `<tr class="empty"><td colspan="${cols}">${escapeHtml(t('table.noData'))}</td></tr>`
     return
@@ -230,6 +230,10 @@ function renderBucketTable(
         <td>
           <span class="rate-bar"><span style="width:${Math.min(100, r.passRate)}%"></span></span>
           ${r.passRate.toFixed(1)}%
+        </td>
+        <td>
+          <span class="rate-bar"><span style="width:${r.count ? Math.min(100, (r.delivered / r.count) * 100) : 0}%"></span></span>
+          ${r.count ? ((r.delivered / r.count) * 100).toFixed(1) : '0.0'}%
         </td>
       </tr>
       ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(r.name)}"${metaClickAttrs}><td colspan="${cols}">${ipMeta}</td></tr>` : ''}`

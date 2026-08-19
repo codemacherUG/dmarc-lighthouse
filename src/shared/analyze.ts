@@ -138,21 +138,23 @@ function alignmentBucket(value: string | null | undefined): keyof AlignmentBreak
 }
 
 function bumpNamed(
-  map: Map<string, { count: number; passing: number; failing: number }>,
+  map: Map<string, { count: number; passing: number; failing: number; delivered: number }>,
   name: string,
   count: number,
-  passes: boolean
+  passes: boolean,
+  delivered: boolean
 ): void {
   const key = name || '(unbekannt)'
-  const cur = map.get(key) ?? { count: 0, passing: 0, failing: 0 }
+  const cur = map.get(key) ?? { count: 0, passing: 0, failing: 0, delivered: 0 }
   cur.count += count
   if (passes) cur.passing += count
   else cur.failing += count
+  if (delivered) cur.delivered += count
   map.set(key, cur)
 }
 
 function toNamedBuckets(
-  map: Map<string, { count: number; passing: number; failing: number }>,
+  map: Map<string, { count: number; passing: number; failing: number; delivered: number }>,
   limit = 25
 ): NamedBucket[] {
   return [...map.entries()]
@@ -161,6 +163,7 @@ function toNamedBuckets(
       count: v.count,
       passing: v.passing,
       failing: v.failing,
+      delivered: v.delivered,
       passRate: v.count ? Math.round((v.passing / v.count) * 1000) / 10 : 0
     }))
     .sort((a, b) => b.count - a.count)
@@ -400,10 +403,10 @@ export function buildDashboard(reports: ReportRow[]): DashboardData {
   const dmarc: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
   const spf: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
   const dkim: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
-  const dispositionMap = new Map<string, { count: number; passing: number; failing: number }>()
-  const byOrg = new Map<string, { count: number; passing: number; failing: number }>()
-  const bySourceIp = new Map<string, { count: number; passing: number; failing: number }>()
-  const byHeaderFrom = new Map<string, { count: number; passing: number; failing: number }>()
+  const dispositionMap = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
+  const byOrg = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
+  const bySourceIp = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
+  const byHeaderFrom = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
   const volumeMap = new Map<string, VolumePoint>()
 
   for (const report of reports) {
@@ -426,10 +429,11 @@ export function buildDashboard(reports: ReportRow[]): DashboardData {
       dmarc[rec.passesDmarc ? 'pass' : 'fail'] += n
       spf[alignmentBucket(rec.spfResult)] += n
       dkim[alignmentBucket(rec.dkimResult)] += n
-      bumpNamed(dispositionMap, rec.disposition ?? 'none', n, rec.passesDmarc)
-      bumpNamed(byOrg, report.orgName, n, rec.passesDmarc)
-      bumpNamed(bySourceIp, rec.sourceIp, n, rec.passesDmarc)
-      bumpNamed(byHeaderFrom, rec.headerFrom ?? '(unbekannt)', n, rec.passesDmarc)
+      const delivered = (rec.disposition ?? 'none') === 'none'
+      bumpNamed(dispositionMap, rec.disposition ?? 'none', n, rec.passesDmarc, delivered)
+      bumpNamed(byOrg, report.orgName, n, rec.passesDmarc, delivered)
+      bumpNamed(bySourceIp, rec.sourceIp, n, rec.passesDmarc, delivered)
+      bumpNamed(byHeaderFrom, rec.headerFrom ?? '(unbekannt)', n, rec.passesDmarc, delivered)
     }
   }
 

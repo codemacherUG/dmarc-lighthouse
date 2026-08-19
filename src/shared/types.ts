@@ -260,6 +260,7 @@ export interface NamedBucket {
   count: number
   passing: number
   failing: number
+  delivered: number
   passRate: number
   /** Optional labels for IP rows (PTR / known provider). */
   label?: string | null
