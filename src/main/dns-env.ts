@@ -126,6 +126,13 @@ export async function resolveTxtReliable(name: string): Promise<string[][]> {
   )
 }
 
+export async function resolveCnameReliable(name: string): Promise<string[]> {
+  return withPublicFallback(
+    () => dnsPromises.resolveCname(name),
+    (r) => r.resolveCname(name)
+  )
+}
+
 export async function resolveNsReliable(name: string): Promise<string[]> {
   return withPublicFallback(
     () => dnsPromises.resolveNs(name),

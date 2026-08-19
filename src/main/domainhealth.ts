@@ -1,11 +1,19 @@
 import type { DomainHealth, DomainHealthStatus, DnsCheckResult, ReportRow } from '../shared/types'
 import { buildDomainStats, mergeDomainHealth, reportsForDomainHealth } from '../shared/analyze'
-import { checkDomainDns } from './dnscheck'
+import { checkDomainDns, normalizeDkimSelector } from './dnscheck'
 import { getDnsHealthCache, upsertDnsHealthCache } from './cache'
 
 async function dnsForDomain(domain: string, selectors: string[]): Promise<DnsCheckResult> {
   const cached = getDnsHealthCache(domain)
-  if (cached) return cached
+  const requestedSelectors = selectors
+    .map(normalizeDkimSelector)
+    .filter((selector): selector is string => Boolean(selector))
+    .sort()
+  const cachedSelectors = cached?.dkim.selectors.map(({ selector }) => selector).sort() ?? []
+  const cachedMissingDkim = cached?.dkim.selectors.some(({ found }) => !found) ?? false
+  if (cached && !cachedMissingDkim && requestedSelectors.join('|') === cachedSelectors.join('|')) {
+    return cached
+  }
   const result = await checkDomainDns(domain, selectors)
   upsertDnsHealthCache(domain, result)
   return result

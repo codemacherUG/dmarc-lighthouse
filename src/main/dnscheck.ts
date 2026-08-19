@@ -86,7 +86,7 @@ async function resolveHostIps(host: string): Promise<string[]> {
   return ips
 }
 
-type AuthResolver = ReturnType<typeof createResolverForServers>
+type AuthResolver = Pick<ReturnType<typeof createResolverForServers>, 'resolveTxt' | 'resolveCname'>
 
 export interface AuthoritativeNs {
   zone: string
@@ -112,19 +112,32 @@ export async function findAuthoritativeNs(domain: string): Promise<Authoritative
       }
       if (servers.length > 0) return { zone, names, servers }
     } catch {
-      continue
     }
   }
   return null
 }
 
-async function resolveTxtRecords(name: string, auth: AuthResolver | null): Promise<string[][]> {
+export async function resolveTxtRecords(
+  name: string,
+  auth: AuthResolver | null
+): Promise<string[][]> {
   if (auth) {
     try {
-      return await withDnsTimeout(auth.resolveTxt(name))
+      const records = await withDnsTimeout(auth.resolveTxt(name))
+      if (records.length > 0) return records
     } catch (err) {
-      if (isEmptyDnsError(err)) throw err
+      if (!isEmptyDnsError(err)) return resolveTxtReliable(name)
     }
+
+    // An authoritative server returns a CNAME but does not follow it into another zone.
+    // Continue through a recursive resolver, which is required for providers such as M365.
+    try {
+      const aliases = await withDnsTimeout(auth.resolveCname(name))
+      if (aliases[0]) return resolveTxtReliable(aliases[0])
+    } catch (err) {
+      if (!isEmptyDnsError(err)) return resolveTxtReliable(name)
+    }
+    return []
   }
   return resolveTxtReliable(name)
 }

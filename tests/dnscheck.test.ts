@@ -3,7 +3,8 @@ import {
   ancestorZones,
   discoverDmarcRecords,
   normalizeDkimSelector,
-  parseDmarcPolicy
+  parseDmarcPolicy,
+  resolveTxtRecords
 } from '../src/main/dnscheck'
 
 vi.mock('../src/main/dns-env', async () => {
@@ -11,6 +12,8 @@ vi.mock('../src/main/dns-env', async () => {
   return {
     ...actual,
     resolveTxtReliable: vi.fn(async (name: string) => {
+      const directRecord = txtByHost.get(name)
+      if (directRecord) return [[directRecord]]
       const zone = name.replace(/^_dmarc\./, '')
       const record = txtByZone.get(zone)
       if (!record) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' })
@@ -20,6 +23,7 @@ vi.mock('../src/main/dns-env', async () => {
 })
 
 let txtByZone = new Map<string, string>()
+let txtByHost = new Map<string, string>()
 
 describe('normalizeDkimSelector', () => {
   it('keeps a bare selector', () => {
@@ -40,6 +44,21 @@ describe('normalizeDkimSelector', () => {
     expect(normalizeDkimSelector('._domainkey')).toBeNull()
     expect(normalizeDkimSelector('_domainkey.example.com')).toBeNull()
     expect(normalizeDkimSelector('bad selector')).toBeNull()
+  })
+})
+
+describe('resolveTxtRecords', () => {
+  it('follows an authoritative CNAME to a TXT record in another zone', async () => {
+    const target = 'selector1-example-com._domainkey.example.onmicrosoft.com'
+    txtByHost = new Map([[target, 'v=DKIM1; k=rsa; p=test']])
+    const auth = {
+      resolveTxt: vi.fn(async () => []),
+      resolveCname: vi.fn(async () => [target])
+    }
+
+    await expect(resolveTxtRecords('selector1._domainkey.example.com', auth)).resolves.toEqual([
+      ['v=DKIM1; k=rsa; p=test']
+    ])
   })
 })
 
