@@ -14,6 +14,7 @@ import {
   dnsDialog,
   dnsDomainEl,
   dnsResultEl,
+  diagnosisDialog,
   emailInspectDialog,
   filterRangeEl,
   rolloutDialog,
@@ -25,7 +26,14 @@ import { renderTransportSecurity } from './transport-view'
 import { applySettings, fillGlobalForm, openSettings, showSettingsTab } from './settings-ui'
 import { clearDrill, state } from './state'
 import { applyTheme } from './theme'
-import { applyView, renderDetail, renderDomainAmpel, renderReports, showResult } from './view'
+import {
+  applyView,
+  openDiagnosis,
+  renderDetail,
+  renderDomainAmpel,
+  renderReports,
+  showResult
+} from './view'
 
 function fillDnsDemo(): void {
   dnsDomainEl.value = 'example.com'
@@ -58,6 +66,7 @@ export function installScreenshotApi(): void {
       if (dnsDialog.open) dnsDialog.close()
       if (rolloutDialog.open) rolloutDialog.close()
       if (emailInspectDialog.open) emailInspectDialog.close()
+      if (diagnosisDialog.open) diagnosisDialog.close()
       document.documentElement.classList.remove('screenshot-full', 'screenshot-dialog')
       document.body.classList.remove('screenshot-full')
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
@@ -147,7 +156,8 @@ export function installScreenshotApi(): void {
           lon: 4.9041,
           dnsblHits: ['spamhaus-zen']
         })
-        demoIp('203.0.113.80', null, null, {
+        demoIp('203.0.113.80', 'o1.em1234.sendgrid.net', 'SendGrid', {
+          senderKind: 'esp',
           countryCode: 'FR',
           city: 'Paris',
           lat: 48.8566,
@@ -208,6 +218,12 @@ export function installScreenshotApi(): void {
     },
     closeDns(): void {
       dnsDialog.close()
+    },
+    openDiagnosisDemo(): void {
+      openDiagnosis(['203.0.113.80'])
+    },
+    closeDiagnosis(): void {
+      diagnosisDialog.close()
     },
     openRolloutDemo(): void {
       seedRolloutDns('example.com', DEMO_ROLLOUT_DNS)

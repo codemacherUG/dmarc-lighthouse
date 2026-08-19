@@ -196,6 +196,11 @@ async function captureLocaleSet(
   await capture(win, join(outDir, 'settings.png'))
   await api(win, 'api.closeSettings()')
 
+  await api(win, 'api.openDiagnosisDemo()')
+  await wait(500)
+  await capture(win, join(outDir, 'diagnosis.png'))
+  await api(win, 'api.closeDiagnosis()')
+
   await api(win, `api.setTheme('light')`)
   await api(win, 'api.openRolloutDemo()')
   await wait(500)

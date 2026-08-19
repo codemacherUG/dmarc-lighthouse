@@ -65,6 +65,12 @@ Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne 
 
 ![Tabellen mit Organisationen, IPs, Domains und Report-Details](docs/screenshots/de/tables.png)
 
+### Diagnose — „Warum ist das fehlgeschlagen?“
+
+Klick auf das **?** neben dem Ursache-Badge einer Problemquelle liefert eine Diagnose in Klartext: ein Urteil (legitimer Sender, Fremddienst oder verdächtig), den erkannten Versanddienst, die rohen SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Handlungsempfehlung (z. B. „DKIM-Signing für `example.com` einrichten“). Basiert vollständig auf bereits vorhandenen Report-Daten — Sender-Klassifizierung, Alignment und Auth-Ergebnisse — ganz ohne KI.
+
+![Diagnose-Dialog erklärt, warum eine Quelle fehlgeschlagen ist](docs/screenshots/de/diagnosis.png)
+
 ### Quellenkarte
 
 Quell-IPs auf OpenStreetMap (GeoIP-Koordinaten); Klick auf einen Marker filtert nach IP:
@@ -117,8 +123,7 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Charts**                | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit                                                                                                               |
 | **Tabellen**              | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert; sortierbare Spalten, Tastaturnavigation und Virtualisierung langer Tabellen                                              |
 | **IP-Anreicherung**       | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand       |
-| **Fail-Kategorien**       | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              |
-| **Policy-Rollout**        | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                            |
+| **Fail-Kategorien**       | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              || **Diagnose**              | Pro Problemquelle ein Urteil in Klartext plus erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Empfehlung (z. B. DKIM-Signing einrichten) — aus vorhandenen Report-Daten abgeleitet, ohne KI          || **Policy-Rollout**        | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                            |
 | **Quellenkarte**          | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
 | **Domain-Ampel**          | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain                                                                                                                                            |
 | **Filter**                | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain, angewandte Disposition (Reject / Nicht reject) sowie Drill-Down nach Org, Quell-IP und From-Domain                                                          |

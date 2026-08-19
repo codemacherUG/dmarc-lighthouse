@@ -88,6 +88,8 @@ declare global {
       closeRollout: () => void
       openDnsDemo: () => void
       closeDns: () => void
+      openDiagnosisDemo: () => void
+      closeDiagnosis: () => void
       openEmailInspectDemo: () => { width: number; height: number }
       closeEmailInspect: () => void
       setTheme: (theme: AppTheme) => void

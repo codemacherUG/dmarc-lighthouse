@@ -65,6 +65,12 @@ Reporting organizations, source IPs (including reverse DNS), From domains, indiv
 
 ![Tables with organizations, IPs, domains, and report details](docs/screenshots/en/tables.png)
 
+### Diagnosis — “why did this fail?”
+
+Click the **?** next to a problem source’s cause badge for a plain-language diagnosis: a verdict (legitimate sender, third party, or suspicious), the detected sending service, the raw SPF/DKIM results with their alignment, and a concrete next step (e.g. “set up DKIM signing for `example.com`”). Built entirely from data already in the report — sender classification, alignment, and auth results — no AI involved.
+
+![Diagnosis dialog explaining why a source failed DMARC](docs/screenshots/en/diagnosis.png)
+
 ### Source map
 
 Source IPs on OpenStreetMap (GeoIP coordinates); click a marker to filter by IP:
@@ -118,6 +124,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Tables**                | Organizations, source IPs, From domains, individual reports + record details; click a row to filter; sortable columns, keyboard navigation, and virtualized long tables                                                          |
 | **IP enrichment**         | Reverse DNS, identified sending service (ESP, mailbox provider, SaaS, gateway, hosting), cloud IP ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optional online fallback), DNSBL/DNSWL, on-demand RDAP/WHOIS         |
 | **Failure categories**    | Problem sources name the cause: forwarding, third party, configuration, own sender, or no auth at all                                                                                                                            |
+| **Diagnosis**             | Per problem source, a plain-language verdict plus detected sender, raw SPF/DKIM results with alignment, and a concrete recommendation (e.g. set up DKIM signing) — derived from existing report data, no AI                     |
 | **Policy rollout**        | Recommends the next step (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) with thresholds, open items, and a staging plan of ready-to-copy records                                                 |
 | **Source map**            | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP                                                                                                                                                 |
 | **Domain health**         | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter                                                                                                                                              |
