@@ -548,11 +548,62 @@ const de = {
     'Die IP liegt im eigenen SPF, das Alignment fehlt aber. Return-Path auf die eigene Domain setzen oder ausgerichtet mit DKIM signieren.',
   'problems.catHint.unauthenticated':
     'Weder DKIM noch SPF liefern eine Domain. Häufig Spoofing oder ein unkonfigurierter Versender.',
+  'problems.diagnoseHint': 'Warum ist das fehlgeschlagen?',
   'sender.kind.esp': 'Massen-/Transaktionsversand',
   'sender.kind.mailbox': 'Mailbox-Anbieter',
   'sender.kind.saas': 'SaaS-Anwendung',
   'sender.kind.gateway': 'Mail-Gateway',
   'sender.kind.infra': 'Hosting/Cloud',
+
+  'diagnosis.title': 'Diagnose',
+  'diagnosis.empty': 'Keine Rohdaten für diese Quelle im aktuellen Zeitraum gefunden.',
+  'diagnosis.sampleCount': 'Basis: {count} Nachrichten für {domain}',
+  'diagnosis.verdict.likelyLegit': 'Wahrscheinlich legitimer Sender',
+  'diagnosis.verdict.possiblyLegit': 'Möglicherweise legitimer Sender',
+  'diagnosis.verdict.suspicious': 'Verdächtig',
+  'diagnosis.verdict.forwarded': 'Weiterleitung erkannt',
+  'diagnosis.verdictHint.likelyLegit':
+    'Die IP ist über die eigene SPF-Policy autorisiert und der Absender wurde als bekannter Dienst erkannt. Das eigentliche Problem liegt sehr wahrscheinlich an der DMARC-Ausrichtung (Alignment), nicht am Absender selbst — der Versand ist gewollt, nur die Konfiguration passt noch nicht.',
+  'diagnosis.verdictHint.possiblyLegit':
+    'Absender und From-Domain passen inhaltlich zusammen, aber weder SPF noch DKIM sind vollständig ausgerichtet. Das ist typisch für Dienstleister, die im Namen der Domain versenden, ohne dass Alignment eingerichtet wurde. Prüfen, ob dieser Versand gewollt ist.',
+  'diagnosis.verdictHint.suspicious':
+    'Weder SPF noch DKIM liefern eine authentifizierte Domain, und die IP ist nicht als eigener Sender autorisiert. Das ist das typische Muster für Spoofing — kann aber auch ein neuer, noch unkonfigurierter Versender sein.',
+  'diagnosis.verdictHint.forwarded':
+    'Der Report nennt einen Weiterleitungsgrund (z. B. Mailingliste oder trusted_forwarder). DKIM- und ARC-Signaturen überleben einen solchen Hop häufig nicht — in der Regel ist hier kein Handlungsbedarf.',
+  'diagnosis.section.sender': 'Erkannter Sender',
+  'diagnosis.section.auth': 'SPF & DKIM',
+  'diagnosis.section.recommendation': 'Empfehlung',
+  'diagnosis.senderNone': 'Konnte anhand von PTR/ASN nicht identifiziert werden.',
+  'diagnosis.senderDetected': '{name} erkannt',
+  'diagnosis.senderKindDetected': '{kind} erkannt',
+  'diagnosis.spf.passAligned':
+    'SPF pass und aligned — SPF authentifiziert bereits die richtige, ausgerichtete Domain.',
+  'diagnosis.spf.passNotAligned':
+    'SPF pass, aber nicht aligned — die SPF-geprüfte Domain stimmt nicht mit der From-Domain überein.',
+  'diagnosis.spf.fail': 'SPF fail ({domain}) — die Prüfung gegen {domain} schlägt fehl.',
+  'diagnosis.spf.missing':
+    'Kein SPF-Ergebnis — es wurde keine SPF-authentifizierte Domain gemeldet.',
+  'diagnosis.dkim.passAligned':
+    'DKIM pass und aligned — die Signatur ist gültig und auf die From-Domain ausgerichtet.',
+  'diagnosis.dkim.passNotAligned':
+    'DKIM pass, aber nicht aligned — die signierende Domain stimmt nicht mit der From-Domain überein.',
+  'diagnosis.dkim.fail':
+    'DKIM-Signatur ungültig ({domain}) — Schlüssel, Selector oder Nachricht wurden verändert.',
+  'diagnosis.dkim.missing': 'DKIM fehlt — es wurde keine DKIM-Signatur gefunden.',
+  'diagnosis.action.checkDkimSigning': 'DKIM-Signing für {domain} einrichten und ausrichten.',
+  'diagnosis.action.checkSpfAlignment':
+    'Return-Path/Envelope-From auf {domain} ausrichten oder DKIM auf {domain} signieren.',
+  'diagnosis.action.fixSpfAuth':
+    'SPF-Eintrag von {domain} prüfen — die IP ist offenbar nicht (mehr) autorisiert.',
+  'diagnosis.action.fixDkimAuth':
+    'DKIM-Schlüssel/Selector von {domain} prüfen — die Signatur ist ungültig oder abgelaufen.',
+  'diagnosis.action.addSenderToSpf':
+    'Diesen Dienst in die SPF-Policy von {domain} aufnehmen oder DKIM-Signing aktivieren.',
+  'diagnosis.action.reviewForwarder':
+    'Weiterleitung/Mailingliste — in der Regel kein Handlungsbedarf.',
+  'diagnosis.action.investigateSpoof':
+    'Kein SPF, kein DKIM für {domain} — mögliche Spoofing-Quelle, IP nicht autorisiert.',
+  'diagnosis.action.noAction': 'Keine Aktion notwendig.',
   'ipMark.spf': 'SPF',
   'table.ipsHint':
     'Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain liegen. Rechtsklick blendet einen Absender als Mail-Rauschen aus.',
@@ -1735,11 +1786,60 @@ const en: Dict = {
     'The IP is covered by your SPF record but alignment is missing. Point the return-path at your domain or sign with an aligned DKIM domain.',
   'problems.catHint.unauthenticated':
     'Neither DKIM nor SPF report a domain. Often spoofing or an entirely unconfigured sender.',
+  'problems.diagnoseHint': 'Why did this fail?',
   'sender.kind.esp': 'Bulk/transactional sender',
   'sender.kind.mailbox': 'Mailbox provider',
   'sender.kind.saas': 'SaaS application',
   'sender.kind.gateway': 'Mail gateway',
   'sender.kind.infra': 'Hosting/cloud',
+
+  'diagnosis.title': 'Diagnosis',
+  'diagnosis.empty': 'No raw data for this source in the current range.',
+  'diagnosis.sampleCount': 'Based on {count} messages for {domain}',
+  'diagnosis.verdict.likelyLegit': 'Likely a legitimate sender',
+  'diagnosis.verdict.possiblyLegit': 'Possibly a legitimate sender',
+  'diagnosis.verdict.suspicious': 'Suspicious',
+  'diagnosis.verdict.forwarded': 'Forwarding detected',
+  'diagnosis.verdictHint.likelyLegit':
+    'The IP is authorized by your own SPF policy and the sender was recognized as a known service. The real problem is very likely DMARC alignment, not the sender itself — the mail is expected, only the configuration is not yet correct.',
+  'diagnosis.verdictHint.possiblyLegit':
+    'The sender and the From domain look related, but neither SPF nor DKIM are fully aligned. This is typical for providers sending on behalf of the domain without alignment set up. Confirm this sender is expected.',
+  'diagnosis.verdictHint.suspicious':
+    'Neither SPF nor DKIM authenticate a domain, and the IP is not authorized as an own sender. This is the classic spoofing pattern — it could also be a new, not-yet-configured sender.',
+  'diagnosis.verdictHint.forwarded':
+    'The report states a forwarding reason (e.g. mailing list or trusted_forwarder). DKIM/ARC signatures often do not survive that hop — usually no action is needed.',
+  'diagnosis.section.sender': 'Detected sender',
+  'diagnosis.section.auth': 'SPF & DKIM',
+  'diagnosis.section.recommendation': 'Recommendation',
+  'diagnosis.senderNone': 'Could not be identified from PTR/ASN.',
+  'diagnosis.senderDetected': '{name} detected',
+  'diagnosis.senderKindDetected': '{kind} detected',
+  'diagnosis.spf.passAligned':
+    'SPF pass and aligned — SPF already authenticates the correct, aligned domain.',
+  'diagnosis.spf.passNotAligned':
+    'SPF pass, but not aligned — the SPF-checked domain does not match the From domain.',
+  'diagnosis.spf.fail': 'SPF fail ({domain}) — the check against {domain} fails.',
+  'diagnosis.spf.missing': 'No SPF result — no SPF-authenticated domain was reported.',
+  'diagnosis.dkim.passAligned':
+    'DKIM pass and aligned — the signature is valid and aligned with the From domain.',
+  'diagnosis.dkim.passNotAligned':
+    'DKIM pass, but not aligned — the signing domain does not match the From domain.',
+  'diagnosis.dkim.fail':
+    'DKIM signature invalid ({domain}) — the key, selector, or message was altered.',
+  'diagnosis.dkim.missing': 'DKIM missing — no DKIM signature was found.',
+  'diagnosis.action.checkDkimSigning': 'Set up and align DKIM signing for {domain}.',
+  'diagnosis.action.checkSpfAlignment':
+    'Align the return-path/envelope-from with {domain}, or sign DKIM for {domain}.',
+  'diagnosis.action.fixSpfAuth':
+    'Check the SPF record for {domain} — the IP no longer appears authorized.',
+  'diagnosis.action.fixDkimAuth':
+    'Check the DKIM key/selector for {domain} — the signature is invalid or expired.',
+  'diagnosis.action.addSenderToSpf':
+    'Add this service to the SPF policy for {domain}, or enable DKIM signing.',
+  'diagnosis.action.reviewForwarder': 'Forwarding/mailing list — usually no action needed.',
+  'diagnosis.action.investigateSpoof':
+    'No SPF, no DKIM for {domain} — possible spoofing source, IP not authorized.',
+  'diagnosis.action.noAction': 'No action needed.',
   'ipMark.spf': 'SPF',
   'table.ipsHint':
     'The “SPF” badge marks sender IPs covered by the domain’s expanded SPF record. Right-click hides a sender as mail noise.',

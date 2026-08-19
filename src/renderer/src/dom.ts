@@ -49,6 +49,10 @@ export const btnIpFilter = document.getElementById('btn-ip-filter') as HTMLButto
 export const btnIpNoise = document.getElementById('btn-ip-noise') as HTMLButtonElement
 export const ipContextMenu = document.getElementById('ip-context-menu') as HTMLDivElement
 export const ipContextNoiseBtn = document.getElementById('ip-context-noise') as HTMLButtonElement
+export const diagnosisDialog = document.getElementById('diagnosis-dialog') as HTMLDialogElement
+export const diagnosisBody = document.getElementById('diagnosis-body') as HTMLDivElement
+export const btnCloseDiagnosis = document.getElementById('btn-close-diagnosis') as HTMLButtonElement
+export const btnDiagnosisClose = document.getElementById('btn-diagnosis-close') as HTMLButtonElement
 
 export const navTools = document.getElementById('nav-tools') as HTMLButtonElement
 export const toolsMenu = document.getElementById('tools-menu') as HTMLDivElement

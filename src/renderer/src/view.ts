@@ -4,6 +4,7 @@ import {
   categorizeFailure,
   DOMAIN_HEALTH_WINDOW_DAYS,
   groupProblemSources,
+  isHealthyDmarcOutcome,
   isMailboxIpInfo,
   isMailboxNoiseAuthPattern,
   isScannerNoiseIpInfo,
@@ -12,6 +13,7 @@ import {
   parseSourceIpFilter,
   reportsForDomainHealth
 } from '../../shared/analyze'
+import { diagnoseSource, type FailureDiagnosis } from '../../shared/diagnosis'
 import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
 import {
   DEFAULT_MAILBOX_NOISE_PROVIDERS,
@@ -34,7 +36,8 @@ import {
   type ForensicReportRow,
   type NamedBucket,
   type ProblemSourceRow,
-  type ReportRow
+  type ReportRow,
+  type SerializedRecord
 } from '../../shared/types'
 import {
   chartDkim,
@@ -49,12 +52,16 @@ import {
 import { setBusy, setStatus } from './chrome'
 import {
   btnCloseIpDetail,
+  btnCloseDiagnosis,
+  btnDiagnosisClose,
   btnExport,
   btnFilterReset,
   btnIpFilter,
   btnIpNoise,
   btnIpRdap,
   detailEl,
+  diagnosisBody,
+  diagnosisDialog,
   ipContextMenu,
   ipContextNoiseBtn,
   dnsDomainEl,
@@ -114,6 +121,16 @@ function bindIpDetailButtons(root: ParentNode): void {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation()
       openIpDetail(btn.dataset.ipDetail ?? '')
+    })
+  }
+}
+
+function bindDiagnoseButtons(root: ParentNode): void {
+  for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-diagnose]')) {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation()
+      const ips = (btn.dataset.diagnose ?? '').split(',').filter(Boolean)
+      openDiagnosis(ips)
     })
   }
 }
@@ -356,7 +373,9 @@ function categoryBadgeHtml(category: DisplayCategory): string {
 }
 
 function problemCategoryHtml(row: ProblemSourceRow): string {
-  return categoryBadgeHtml(problemCategory(row))
+  const ips = [row.sourceIp, ...(row.extraIps ?? [])]
+  const diagnoseBtn = `<button type="button" class="diagnose-btn" data-diagnose="${escapeHtml(ips.join(','))}" title="${escapeHtml(t('problems.diagnoseHint'))}" aria-label="${escapeHtml(t('problems.diagnoseHint'))}">?</button>`
+  return `${categoryBadgeHtml(problemCategory(row))}${diagnoseBtn}`
 }
 
 function renderProblemSources(rows: ProblemSourceRow[]): void {
@@ -388,13 +407,14 @@ function renderProblemSources(rows: ProblemSourceRow[]): void {
   for (const tr of tableProblemSources.querySelectorAll<HTMLTableRowElement>('tr[data-name]')) {
     tr.addEventListener('click', (ev) => {
       const target = ev.target as HTMLElement
-      if (target.closest('[data-ip-detail]')) {
+      if (target.closest('[data-ip-detail]') || target.closest('[data-diagnose]')) {
         return
       }
       setDrillFilter('sourceIp', tr.dataset.name ?? '')
     })
   }
   bindIpDetailButtons(tableProblemSources)
+  bindDiagnoseButtons(tableProblemSources)
 }
 
 function renderFilterChips(): void {
@@ -654,9 +674,7 @@ function syncIpDetailNoiseButton(): void {
   const entry = suggestScannerNoiseEntry(info?.ptr, ip, info?.senderKind)
   btnIpNoise.disabled = listed || !entry
   btnIpNoise.textContent = listed ? t('ipNoise.listed') : t('ipNoise.add')
-  btnIpNoise.title = listed
-    ? t('ipNoise.listed')
-    : t('ipNoise.addNamed', { entry: entry ?? ip })
+  btnIpNoise.title = listed ? t('ipNoise.listed') : t('ipNoise.addNamed', { entry: entry ?? ip })
 }
 
 export function openIpDetail(ip: string): void {
@@ -665,6 +683,95 @@ export function openIpDetail(ip: string): void {
   renderIpDetailBody(ip)
   syncIpDetailNoiseButton()
   ipDetailDialog.showModal()
+}
+
+/** Gather the raw (already delivered, non-passing) records for a problem-source IP group. */
+function collectDiagnosisRecords(ips: string[]): {
+  records: SerializedRecord[]
+  policyDomain: string
+} {
+  const records: SerializedRecord[] = []
+  const domainCounts = new Map<string, number>()
+  for (const report of state.viewResult?.reports ?? []) {
+    for (const rec of report.records) {
+      if (!ips.includes(rec.sourceIp) || isHealthyDmarcOutcome(rec)) continue
+      records.push(rec)
+      domainCounts.set(report.domain, (domainCounts.get(report.domain) ?? 0) + rec.count)
+    }
+  }
+  let policyDomain = ''
+  let best = -1
+  for (const [domain, count] of domainCounts) {
+    if (count > best) {
+      best = count
+      policyDomain = domain
+    }
+  }
+  return { records, policyDomain }
+}
+
+function mechanismLine(kind: 'spf' | 'dkim', facts: FailureDiagnosis['spf']): string {
+  if (!facts.domain) return t(`diagnosis.${kind}.missing`)
+  if (facts.raw === 'pass') {
+    return t(facts.aligned ? `diagnosis.${kind}.passAligned` : `diagnosis.${kind}.passNotAligned`)
+  }
+  return t(`diagnosis.${kind}.fail`, { domain: facts.domain })
+}
+
+const DIAGNOSIS_VERDICT_BADGE: Record<FailureDiagnosis['verdict'], string> = {
+  likelyLegit: 'badge',
+  possiblyLegit: 'badge warn',
+  suspicious: 'badge bad',
+  forwarded: 'badge'
+}
+
+function renderDiagnosisBody(ips: string[]): void {
+  const { records, policyDomain } = collectDiagnosisRecords(ips)
+  if (!records.length || !policyDomain) {
+    diagnosisBody.innerHTML = `<p class="muted">${escapeHtml(t('diagnosis.empty'))}</p>`
+    return
+  }
+  const meta = state.ipLabelCache.get(ips[0])
+  const sender = meta?.provider ? { name: meta.provider, kind: meta.senderKind } : null
+  const isOwn = ips.some((ip) => isAuthorizedSender(ip, state.spfPrefixes))
+  const diag = diagnoseSource(records, policyDomain, sender, isOwn)
+  if (!diag) {
+    diagnosisBody.innerHTML = `<p class="muted">${escapeHtml(t('diagnosis.empty'))}</p>`
+    return
+  }
+
+  const senderLine = diag.senderName
+    ? t('diagnosis.senderDetected', { name: diag.senderName })
+    : diag.senderKind
+      ? t('diagnosis.senderKindDetected', { kind: t(`sender.kind.${diag.senderKind}`) })
+      : t('diagnosis.senderNone')
+
+  diagnosisBody.innerHTML = `
+    <p class="diagnosis-title">
+      <span class="${DIAGNOSIS_VERDICT_BADGE[diag.verdict]}">${escapeHtml(t(`diagnosis.verdict.${diag.verdict}`))}</span>
+    </p>
+    <p class="hint">${escapeHtml(t(`diagnosis.verdictHint.${diag.verdict}`))}</p>
+    <fieldset class="settings-group">
+      <legend>${escapeHtml(t('diagnosis.section.sender'))}</legend>
+      <p>${escapeHtml(senderLine)}</p>
+    </fieldset>
+    <fieldset class="settings-group">
+      <legend>${escapeHtml(t('diagnosis.section.auth'))}</legend>
+      <p>${escapeHtml(mechanismLine('spf', diag.spf))}</p>
+      <p>${escapeHtml(mechanismLine('dkim', diag.dkim))}</p>
+    </fieldset>
+    <fieldset class="settings-group">
+      <legend>${escapeHtml(t('diagnosis.section.recommendation'))}</legend>
+      <p><strong>${escapeHtml(t(`diagnosis.action.${diag.action}`, { domain: diag.domain }))}</strong></p>
+    </fieldset>
+    <p class="hint">${escapeHtml(t('diagnosis.sampleCount', { count: diag.sampleCount, domain: diag.domain }))}</p>
+  `
+}
+
+export function openDiagnosis(ips: string[]): void {
+  if (!ips.length) return
+  renderDiagnosisBody(ips)
+  diagnosisDialog.showModal()
 }
 
 function renderDashboard(result: AnalyzeResult | null): void {
@@ -1246,6 +1353,8 @@ export function initView(): void {
   setVolumeDayClickHandler(filterVolumeByDay)
 
   btnCloseIpDetail.addEventListener('click', () => ipDetailDialog.close())
+  btnCloseDiagnosis?.addEventListener('click', () => diagnosisDialog.close())
+  btnDiagnosisClose?.addEventListener('click', () => diagnosisDialog.close())
   btnIpFilter.addEventListener('click', () => {
     if (!state.selectedDetailIp) return
     ipDetailDialog.close()

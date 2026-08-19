@@ -34,6 +34,8 @@ function serializeReport(report: DmarcReport): ReportRow {
         (rec.dkimAuth ?? []).map((a) => a.selector?.trim()).filter((s): s is string => Boolean(s))
       )
     ],
+    spfRawResult: rec.spfAuth?.[0]?.result ?? null,
+    dkimRawResult: rec.dkimAuth?.[0]?.result ?? null,
     passesDmarc: recordPassesDmarc(rec),
     reasons: (rec.reasons ?? []).map((r) => ({ type: r.type, comment: r.comment }))
   }))

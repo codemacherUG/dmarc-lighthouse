@@ -1881,6 +1881,58 @@ tr.ip-meta-row .ip-meta {
   color: var(--accent-ink);
 }
 
+.diagnose-btn {
+  display: inline;
+  margin: 0 0 0 0.25em;
+  padding: 0 0.4em;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: 3px;
+  background: var(--tint-accent);
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.85em;
+  line-height: inherit;
+  vertical-align: 0.05em;
+}
+
+.diagnose-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.diagnosis-body {
+  display: grid;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.diagnosis-body > p {
+  margin: 0;
+}
+
+.diagnosis-title {
+  margin: 0;
+}
+
+.diagnosis-body .settings-group {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.diagnosis-body .settings-group p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+
+.diagnosis-body .hint {
+  margin: 0;
+}
+
+
 .ip-context-menu {
   position: fixed;
   z-index: 200;
@@ -2169,6 +2221,8 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #dns-dialog,
 #create-mailbox-dialog,
 #status-log-dialog,
+#ip-detail-dialog,
+#diagnosis-dialog,
 #email-inspect-dialog {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -2954,6 +3008,8 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #dns-dialog::backdrop,
 #create-mailbox-dialog::backdrop,
 #status-log-dialog::backdrop,
+#ip-detail-dialog::backdrop,
+#diagnosis-dialog::backdrop,
 #email-inspect-dialog::backdrop {
   background: rgba(20, 28, 38, 0.45);
 }

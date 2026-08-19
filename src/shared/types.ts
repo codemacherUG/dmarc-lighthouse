@@ -213,6 +213,10 @@ export interface SerializedRecord {
   spfDomain: string | null
   /** DKIM selectors seen in auth_results (for DNS checks). */
   dkimSelectors: string[]
+  /** Raw (unaligned) SPF auth_results outcome for `spfDomain`, e.g. "pass"/"fail"/"none". */
+  spfRawResult?: string | null
+  /** Raw (unaligned) DKIM auth_results outcome for `dkimDomain`. */
+  dkimRawResult?: string | null
   passesDmarc: boolean
   reasons: SerializedReason[]
 }
