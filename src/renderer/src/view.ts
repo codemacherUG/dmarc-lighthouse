@@ -4,6 +4,7 @@ import {
   categorizeFailure,
   DOMAIN_HEALTH_WINDOW_DAYS,
   groupProblemSources,
+  isHarmonyIpInfo,
   isMailboxIpInfo,
   isMailboxNoiseAuthPattern,
   mergeDomainHealth,
@@ -702,6 +703,14 @@ function collectMailboxIps(): Set<string> {
   return set
 }
 
+function collectHarmonyIps(): Set<string> {
+  const set = new Set<string>()
+  for (const [ip, info] of state.ipLabelCache) {
+    if (isHarmonyIpInfo(info)) set.add(ip)
+  }
+  return set
+}
+
 async function enrichIpLabels(ips: string[]): Promise<void> {
   // When the mailbox-noise filter is on, resolve those candidates first (up to 40).
   const missing = ips.filter((ip) => !state.ipLabelCache.has(ip)).slice(0, 40)
@@ -709,12 +718,14 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
   try {
     const infos = await window.api.resolveIps(missing)
     let foundMailbox = false
+    let foundHarmony = false
     for (const info of infos) {
       state.ipLabelCache.set(info.ip, info)
       if (isMailboxIpInfo(info)) foundMailbox = true
+      if (isHarmonyIpInfo(info)) foundHarmony = true
     }
-    // Re-filter once mailbox IPs are known so KPIs/charts/Ampel all update together.
-    if (foundMailbox && filterHideMailboxNoiseEl.checked) {
+    // Re-filter once noise IPs are known so KPIs/charts/problem sources update together.
+    if (foundHarmony || (foundMailbox && filterHideMailboxNoiseEl.checked)) {
       applyView()
       return
     }
@@ -992,6 +1003,7 @@ export function applyView(): void {
   }
 
   const hideMailboxNoise = filterHideMailboxNoiseEl.checked
+  const harmonyIps = collectHarmonyIps()
   state.viewResult = applyDashboardFilter(state.fullResult, {
     range: filterRangeEl.value as DateRangePreset,
     from: filterFromEl.value || undefined,
@@ -1002,7 +1014,8 @@ export function applyView(): void {
     sourceIp: state.drill.sourceIp,
     headerFrom: state.drill.headerFrom,
     hideMailboxNoise,
-    mailboxIps: hideMailboxNoise ? collectMailboxIps() : undefined
+    mailboxIps: hideMailboxNoise ? collectMailboxIps() : undefined,
+    harmonyIps: harmonyIps.size ? harmonyIps : undefined
   })
   updateSummary(state.viewResult)
   renderDashboard(state.viewResult)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isRelaxedAligned, organizationalDomain } from '../src/shared/domain'
-import { identifySender, identifySenderFromSpfInclude } from '../src/shared/sender'
+import { identifySender, identifySenderFromSpfInclude, isCheckPointHarmonyHost } from '../src/shared/sender'
 import { categorizeFailure } from '../src/shared/analyze'
 import type { SerializedRecord } from '../src/shared/types'
 
@@ -60,6 +60,18 @@ describe('isRelaxedAligned', () => {
 })
 
 describe('identifySender', () => {
+  it('identifies Check Point Harmony before the AWS network it runs on', () => {
+    expect(
+      identifySender({ ptr: 'mail-1.eu.cloud-sec-av.com', asOrg: 'Amazon.com, Inc.' })
+    ).toEqual({ name: 'Check Point Harmony', kind: 'gateway' })
+    expect(identifySender({ ptr: 'au.cloud-sec-av.com' })).toEqual({
+      name: 'Check Point Harmony',
+      kind: 'gateway'
+    })
+    expect(isCheckPointHarmonyHost('us.cloud-sec-av.com')).toBe(true)
+    expect(isCheckPointHarmonyHost('ec2.amazonaws.com')).toBe(false)
+  })
+
   it('prefers the product over the network it runs on', () => {
     expect(
       identifySender({ ptr: 'o1.email-smtp.us-east-1.amazonses.com', asOrg: 'Amazon.com' })

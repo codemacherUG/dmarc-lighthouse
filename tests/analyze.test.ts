@@ -7,6 +7,7 @@ import {
   filterReports,
   groupProblemSources,
   isGoogleIpInfo,
+  isHarmonyIpInfo,
   isMailboxIpInfo,
   isMailboxNoiseRecord,
   matchesDispositionFilter,
@@ -446,6 +447,50 @@ describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
       )
     ).toBe(true)
   })
+
+  it('treats Check Point Harmony re-injection as noise once the IP is known', () => {
+    const harmony = record({
+      sourceIp: '3.5.140.1',
+      spfResult: 'fail',
+      dkimResult: 'fail',
+      passesDmarc: false,
+      disposition: 'none'
+    })
+    expect(isMailboxNoiseRecord(harmony)).toBe(false)
+    expect(isMailboxNoiseRecord(harmony, undefined, new Set(['3.5.140.1']))).toBe(true)
+    expect(
+      isMailboxNoiseRecord(
+        record({
+          sourceIp: '3.5.140.1',
+          spfResult: 'fail',
+          dkimResult: 'fail',
+          passesDmarc: true
+        }),
+        undefined,
+        new Set(['3.5.140.1'])
+      )
+    ).toBe(false)
+    expect(
+      isMailboxNoiseRecord(
+        record({
+          sourceIp: '3.5.140.1',
+          spfResult: 'fail',
+          dkimResult: 'fail',
+          passesDmarc: false,
+          disposition: 'reject'
+        }),
+        undefined,
+        new Set(['3.5.140.1'])
+      )
+    ).toBe(false)
+    expect(
+      isHarmonyIpInfo({ provider: 'Check Point Harmony', ptr: 'ec2.amazonaws.com' })
+    ).toBe(true)
+    expect(
+      isHarmonyIpInfo({ provider: 'AWS', ptr: 'mail.eu.cloud-sec-av.com' })
+    ).toBe(true)
+    expect(isHarmonyIpInfo({ provider: 'AWS', ptr: 'ec2.amazonaws.com' })).toBe(false)
+  })
 })
 
 describe('buildDashboard', () => {
@@ -716,5 +761,75 @@ describe('applyDashboardFilter', () => {
     expect(out).not.toBe(full)
     expect(out.aggregate.total).toBe(2)
     expect(out.dashboard.dispositions.map((b) => b.name)).toEqual(['reject'])
+  })
+
+  it('drops Check Point Harmony IPs from problem sources without hiding other fails', () => {
+    const harmonyIp = '3.5.140.1'
+    const otherIp = '203.0.113.9'
+    const full = analyzeFromReports([
+      report({
+        records: [
+          record({
+            sourceIp: harmonyIp,
+            count: 4,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail'
+          }),
+          record({
+            sourceIp: otherIp,
+            count: 2,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail'
+          })
+        ]
+      })
+    ])
+    expect(full.dashboard.problemSources.map((s) => s.sourceIp)).toEqual([harmonyIp, otherIp])
+    const out = applyDashboardFilter(full, {
+      range: 'all',
+      domain: '',
+      harmonyIps: new Set([harmonyIp])
+    })
+    expect(out.dashboard.problemSources.map((s) => s.sourceIp)).toEqual([otherIp])
+    expect(out.aggregate.failing).toBe(6)
+  })
+
+  it('hides Harmony re-injection from KPIs when mailbox noise is on', () => {
+    const harmonyIp = '3.5.140.1'
+    const ownIp = '159.195.74.209'
+    const full = analyzeFromReports([
+      report({
+        records: [
+          record({
+            sourceIp: ownIp,
+            count: 3,
+            spfResult: 'pass',
+            dkimResult: 'pass',
+            passesDmarc: true
+          }),
+          record({
+            sourceIp: harmonyIp,
+            count: 2,
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            passesDmarc: false,
+            disposition: 'none'
+          })
+        ]
+      })
+    ])
+    const out = applyDashboardFilter(full, {
+      range: 'all',
+      domain: '',
+      hideMailboxNoise: true,
+      harmonyIps: new Set([harmonyIp])
+    })
+    expect(out.aggregate.total).toBe(3)
+    expect(out.aggregate.failing).toBe(0)
+    expect(out.dashboard.problemSources).toEqual([])
   })
 })

@@ -278,7 +278,7 @@ const de = {
   'filter.removeChip': 'Filter entfernen',
   'filter.hideMailboxNoise': 'Mailbox-Rauschen ausblenden',
   'filter.hideMailboxNoiseHint':
-    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (deren IP, SPF fail, DKIM pass, DMARC pass). Echte Absender bleiben sichtbar.',
+    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (Mailbox-IP, SPF fail, DKIM pass, DMARC pass) sowie Empfänger-Scanner von Check Point Harmony (cloud-sec-av.com). Echte Absender bleiben sichtbar.',
   'filter.hideMailboxNoiseHintLabel': 'Was ist Mailbox-Rauschen?',
   'filter.reset': 'Zurücksetzen',
   'filter.resetTitle': 'Alle Filter zurücksetzen',
@@ -1436,7 +1436,7 @@ const en: Dict = {
   'filter.removeChip': 'Remove filter',
   'filter.hideMailboxNoise': 'Hide mailbox noise',
   'filter.hideMailboxNoiseHint':
-    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (their IP, SPF fail, DKIM pass, DMARC pass). Real senders stay visible.',
+    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (mailbox IP, SPF fail, DKIM pass, DMARC pass) and recipient-side Check Point Harmony scanners (cloud-sec-av.com). Real senders stay visible.',
   'filter.hideMailboxNoiseHintLabel': 'What is mailbox noise?',
   'filter.reset': 'Reset',
   'filter.resetTitle': 'Reset all filters',

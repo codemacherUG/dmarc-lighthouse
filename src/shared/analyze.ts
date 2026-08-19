@@ -21,6 +21,7 @@ import type {
 } from './types'
 import { isRelaxedAligned } from './domain'
 import { isLikelyMailboxIp } from './mailbox-ip'
+import { isCheckPointHarmonyHost } from './sender'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
 
 type MailboxIpInfo = Pick<IpInfo, 'cloudProvider' | 'provider' | 'asn' | 'asOrg' | 'senderKind'>
@@ -70,16 +71,42 @@ export function isMailboxNoiseAuthPattern(rec: SerializedRecord): boolean {
 }
 
 /**
+ * Check Point Harmony re-injection: the hop after recipient-side scanning.
+ * Unlike mailbox forwarding, DKIM usually does not survive, so DMARC fails too.
+ * Reject/quarantine stays visible — that is enforcement, not scanner echo.
+ */
+export function isHarmonyNoiseAuthPattern(rec: SerializedRecord): boolean {
+  if (rec.passesDmarc) return false
+  const disp = (rec.disposition ?? 'none').toLowerCase()
+  if (disp === 'reject' || disp === 'quarantine') return false
+  return (rec.spfResult ?? '').toLowerCase() === 'fail'
+}
+
+/** True when enrichment labels the IP as Check Point Harmony (PTR / product name). */
+export function isHarmonyIpInfo(
+  info: Pick<IpInfo, 'provider' | 'ptr'> | null | undefined
+): boolean {
+  if (!info) return false
+  if (info.provider === 'Check Point Harmony') return true
+  return isCheckPointHarmonyHost(info.ptr)
+}
+
+/**
  * Mailbox-provider hop / report-echo noise: SPF fails on a Gmail/Outlook/Yahoo/iCloud IP,
- * DKIM holds, DMARC passes. Uses enrichment labels when available, otherwise well-known prefixes.
+ * DKIM holds, DMARC passes. Also Check Point Harmony re-injection (SPF fail, usually
+ * DKIM fail too) once enrichment has named the IP. Uses well-known mailbox prefixes
+ * when enrichment is missing.
  */
 export function isMailboxNoiseRecord(
   rec: SerializedRecord,
-  mailboxIps?: ReadonlySet<string>
+  mailboxIps?: ReadonlySet<string>,
+  harmonyIps?: ReadonlySet<string>
 ): boolean {
-  if (!isMailboxNoiseAuthPattern(rec)) return false
-  if (mailboxIps?.has(rec.sourceIp)) return true
-  return isLikelyMailboxIp(rec.sourceIp)
+  if (isMailboxNoiseAuthPattern(rec)) {
+    if (mailboxIps?.has(rec.sourceIp) || isLikelyMailboxIp(rec.sourceIp)) return true
+  }
+  if (isHarmonyNoiseAuthPattern(rec) && harmonyIps?.has(rec.sourceIp)) return true
+  return false
 }
 
 function dayKey(iso: string): string {
@@ -541,6 +568,7 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
   const headerFrom = filter.headerFrom?.trim()
   const hideMailboxNoise = Boolean(filter.hideMailboxNoise)
   const mailboxIps = filter.mailboxIps
+  const harmonyIps = filter.harmonyIps
   const disposition = normalizeDispositionFilter(filter.disposition)
   const filterDisposition = disposition !== 'all'
 
@@ -562,7 +590,7 @@ export function filterReports(reports: ReportRow[], filter: DashboardFilter): Re
       const records = r.records.filter((rec) => {
         if (sourceIp && !recordMatchesSourceIp(rec.sourceIp, sourceIp)) return false
         if (headerFrom && (rec.headerFrom ?? UNKNOWN) !== headerFrom) return false
-        if (hideMailboxNoise && isMailboxNoiseRecord(rec, mailboxIps)) return false
+        if (hideMailboxNoise && isMailboxNoiseRecord(rec, mailboxIps, harmonyIps)) return false
         if (filterDisposition && !matchesDispositionFilter(rec.disposition, disposition)) {
           return false
         }
@@ -606,6 +634,19 @@ export function filterForensicReports(
   })
 }
 
+function dropHarmonyProblemSources(
+  result: AnalyzeResult,
+  harmonyIps: ReadonlySet<string> | undefined
+): AnalyzeResult {
+  if (!harmonyIps?.size) return result
+  const next = result.dashboard.problemSources.filter((row) => !harmonyIps.has(row.sourceIp))
+  if (next.length === result.dashboard.problemSources.length) return result
+  return {
+    ...result,
+    dashboard: { ...result.dashboard, problemSources: next }
+  }
+}
+
 export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilter): AnalyzeResult {
   const filtered = filterReports(full.reports, filter)
   const forensicReports = filterForensicReports(full.forensicReports ?? [], filter)
@@ -620,16 +661,19 @@ export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilte
     filtered.length === full.reports.length &&
     forensicReports.length === (full.forensicReports?.length ?? 0)
   ) {
-    return full
+    return dropHarmonyProblemSources(full, filter.harmonyIps)
   }
-  return analyzeFromReports(filtered, {
-    skipped: full.skipped,
-    errors: full.errors,
-    fromCache: full.fromCache,
-    newReports: full.newReports,
-    newForensicReports: full.newForensicReports,
-    forensicReports
-  })
+  return dropHarmonyProblemSources(
+    analyzeFromReports(filtered, {
+      skipped: full.skipped,
+      errors: full.errors,
+      fromCache: full.fromCache,
+      newReports: full.newReports,
+      newForensicReports: full.newForensicReports,
+      forensicReports
+    }),
+    filter.harmonyIps
+  )
 }
 
 /**

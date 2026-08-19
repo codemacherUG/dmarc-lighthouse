@@ -65,6 +65,8 @@ const SENDER_PATTERNS: SenderPattern[] = [
   { name: 'Mailbox.org', kind: 'mailbox', pattern: /\bmailbox\.org\b/i },
   { name: 'Posteo', kind: 'mailbox', pattern: /\bposteo\b/i },
   { name: 'Fastmail', kind: 'mailbox', pattern: /\b(fastmail|messagingengine)\b/i },
+  // Recipient-side Check Point Harmony (Avanan) re-injection — before AWS.
+  { name: 'Check Point Harmony', kind: 'gateway', pattern: /\bcloud-sec-av\.com\b|\bavanan\b/i },
   { name: 'Proofpoint', kind: 'gateway', pattern: /\b(pphosted|proofpoint)\b/i },
   { name: 'Mimecast', kind: 'gateway', pattern: /\bmimecast\b/i },
   { name: 'Barracuda', kind: 'gateway', pattern: /\b(barracuda|barracudanetworks)\b/i },
@@ -90,6 +92,11 @@ const SENDER_PATTERNS: SenderPattern[] = [
   { name: 'DomainFactory', kind: 'infra', pattern: /\bdomainfactory\b/i },
   { name: 'Telekom', kind: 'infra', pattern: /\b(t-online|deutsche telekom|telekom)\b/i }
 ]
+
+/** True when PTR / org names Check Point Harmony Email (cloud-sec-av.com, formerly Avanan). */
+export function isCheckPointHarmonyHost(value: string | null | undefined): boolean {
+  return Boolean(value && /\bcloud-sec-av\.com\b|\bavanan\b/i.test(value))
+}
 
 /**
  * Identify the sending service from reverse DNS and the AS organization.

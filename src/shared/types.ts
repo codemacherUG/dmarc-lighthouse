@@ -646,12 +646,18 @@ export interface DashboardFilter {
   disposition?: DispositionFilter
   /**
    * Hide mailbox-provider forwarding / report-echo artifacts:
-   * Gmail/Outlook/Yahoo/iCloud source IP + SPF fail + DKIM pass + DMARC pass.
-   * Uses well-known prefixes; `mailboxIps` from enrichment is optional extra.
+   * Gmail/Outlook/Yahoo/iCloud source IP + SPF fail + DKIM pass + DMARC pass,
+   * plus Check Point Harmony re-injection (`harmonyIps`, SPF fail, DMARC fail).
+   * Uses well-known prefixes; `mailboxIps` / `harmonyIps` from enrichment are optional extra.
    */
   hideMailboxNoise?: boolean
   /** Extra source IPs identified as mailbox providers (cloud / PTR / ASN / sender kind). */
   mailboxIps?: ReadonlySet<string>
+  /**
+   * Source IPs identified as Check Point Harmony (PTR cloud-sec-av.com).
+   * Hidden by the mailbox-noise filter, and always omitted from problem sources.
+   */
+  harmonyIps?: ReadonlySet<string>
 }
 
 export function emptyDashboard(): DashboardData {
