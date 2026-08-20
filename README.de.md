@@ -39,11 +39,12 @@ DMARC-Aggregate-Reports (RUA) und Failure-Reports (RUF) landen oft in einem eige
 - ob **DMARC-, SPF- und DKIM-Alignment** stimmen
 - welche **Quellen (IPs)**, **From-Domains** und **Reporting-Organisationen** auffällig sind
 - wie sich Volumen und Pass-Rate **über die Zeit** entwickeln
+- welche DNS-Einträge sich über die Zeit geändert haben — inkl. **DMARC-/SPF-/DKIM-/BIMI-/MTA-STS-/TLS-RPT-Drift** und Korrelation mit späteren Report-Failures
 - optionale **Alerts** bei steigenden Failures, niedriger Pass-Rate oder neu gesehenen Quell-IPs
 - **Forensik / RUF** als bereinigte Tabelle (nur Header — keine Nachrichteninhalte)
 - eine gespeicherte **.eml** oder Outlook-**.msg** (oder eingefügte Header): Transportweg, SPF/DKIM/DMARC/TLS/ARC und Gesamturteil
 
-Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Electron-`userData`-Ordner, verschlüsselt mit `safeStorage`. Der Report-Cache nutzt **SQLite**. Es gibt keinen Cloud-Account und keine Telemetrie. Die Oberfläche ist auf **Deutsch** und **Englisch** verfügbar.
+Alles läuft lokal auf dem Rechner: Zugangsdaten und OAuth-Tokens bleiben im Electron-`userData`-Ordner, verschlüsselt mit `safeStorage`. Report-Caches und die dauerhafte DNS-Historie nutzen **SQLite**. Es gibt keinen Cloud-Account und keine Telemetrie. Die Oberfläche ist auf **Deutsch** und **Englisch** verfügbar.
 
 ---
 
@@ -83,6 +84,8 @@ DMARC, SPF, DKIM-Selektoren und BIMI direkt beim autoritativen Nameserver — da
 
 Die DMARC-Policy-Discovery folgt dem RFC-9989-DNS-Tree-Walk (klettert bis zur Organisations-Domain hoch, wenn eine Subdomain keinen eigenen `_dmarc`-Record hat) und liest neben `p=`, `rua=` und `ruf=` auch `t=`, `np=` und `psd=`.
 
+Jeder echte DNS- und Transport-Check wird dauerhaft lokal versioniert, getrennt vom Cache. Die App erkennt Drift wie „DMARC geändert“, „SPF include entfernt“, „neuer DKIM-Key“, „TLS-RPT geändert“ und „MTA-STS Policy geändert“ und korreliert Änderungen mit lokal gespeicherten DMARC-Reports, wenn danach eine höhere Fail-Rate sichtbar wird.
+
 ![DNS-Check mit Transport-Sicherheit](docs/screenshots/de/dns.png)
 
 ### Policy-Rollout
@@ -109,38 +112,39 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 
 ## Funktionen
 
-| Bereich                   | Details                                                                                                                                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IMAP-Abruf**            | Gmail, Outlook/Microsoft 365 oder beliebiger IMAP-Server; inkrementell über UIDs                                                                                                                                              |
-| **Archiv-Ordner**         | Optional „nach Abruf verschieben“ (aus IMAP-Liste wählbar; fehlende Ordner anlegbar); Inbox bleibt überwacht, Reports landen z. B. in `Archive/Aggregate`                                                                     |
-| **Anmeldung**             | App-Passwort **oder** OAuth (PKCE) für Gmail und Microsoft 365 IMAP                                                                                                                                                           |
-| **Mehrere Konten**        | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; eigene Bezeichnung (Standard: E-Mail-Domain); Umschalten in der Toolbar                                                                                                 |
-| **Datei-Import**          | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop; Importe landen im Cache und stehen nach dem Neustart wieder bereit                                                                                                          |
-| **Lokaler Cache**         | SQLite für Aggregate- und Forensik-Reports; alte JSON-Caches werden einmalig migriert                                                                                                                                         |
-| **Forensik / RUF**        | ARF-Failure-Reports (bereinigte Header); eigene Tabelle in der UI                                                                                                                                                             |
-| **Aggregate-Report-Schema** | Verarbeitet sowohl das klassische (RFC 7489) als auch das neue RFC-9990-DMARC-2.0-Schema (neuer Namespace/Extensions), abgesichert durch Regressions-Fixtures                                                                    |
-| **Dashboard**             | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum                                                                                                                                                                          |
-| **Charts**                | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit                                                                                                               |
-| **Tabellen**              | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert; sortierbare Spalten, Tastaturnavigation und Virtualisierung langer Tabellen                                              |
-| **IP-Anreicherung**       | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand       |
-| **Fail-Kategorien**       | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              || **Diagnose**              | Pro Problemquelle ein Urteil in Klartext plus erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Empfehlung (z. B. DKIM-Signing einrichten) — aus vorhandenen Report-Daten abgeleitet, ohne KI          || **Policy-Rollout**        | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                            |
-| **Quellenkarte**          | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
-| **Domain-Ampel**          | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain                                                                                                                                            |
-| **Filter**                | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain, angewandte Disposition (Reject / Nicht reject) sowie Drill-Down nach Org, Quell-IP und From-Domain                                                          |
-| **Mailbox-Rauschen**      | Optionaler Filter für Report-Echo von Gmail, Outlook, Yahoo, iCloud (Anbieter in Einstellungen → Rauschen abwählbar) **und konfigurierbare Empfänger-Scanner** (Vorgabe `cloud-sec-av.com`)                                    |
-| **DNS-Check**             | Live-Abfrage von DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) über den RFC-9989-Tree-Walk, SPF, DKIM-Selektoren (automatisch aus den Reports oder manuell) und BIMI (`l`, `a`)                                                       |
-| **Record-Wizards**        | DMARC (inkl. `t=`/`np=`/`psd=`, Legacy-`pct=` mit Warnhinweis), SPF, TLS-RPT, MTA-STS und BIMI geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei)                                              |
-| **Transport-Sicherheit**  | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil                                                                                                        |
-| **E-Mail prüfen**         | `.eml` / `.msg` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil, PDF-Export. Nur lokal; Body ungelesen                                                      |
-| **Export**                | Aktuell gefilterte Daten als CSV oder JSON; einzelne Aggregate-Reports als ZIP (XML)                                                                                                                                          |
-| **PDF-Managementbericht** | Druckfertiger A4-Bericht (Kennzahlen, Bewertung, Alignment, Verlauf, Domain-Status, Problemquellen) — manuell für die aktuelle Ansicht oder automatisch einmal pro Monat **ein PDF pro Domain**, im Hintergrund aus dem Cache |
-| **Auto-Abruf**            | Optionales Intervall über alle Konten + Desktop-Benachrichtigung bei steigenden Failures                                                                                                                                      |
-| **Alerts**                | Pass-Rate-Schwelle (7 Tage) und „neue Quelle erkannt“ mit Ignorieren-Liste für bekannte IPs                                                                                                                                   |
-| **System-Tray**           | Optional im Hintergrund weiterlaufen; Abruf und Benachrichtigungen auch bei geschlossenem Fenster                                                                                                                             |
-| **Autostart**             | Optionaler Start beim System-Login; mit Tray kann die App versteckt im Hintergrund starten                                                                                                                                    |
-| **Sprache**               | Deutsch und Englisch umschaltbar (Einstellungen → Erscheinungsbild)                                                                                                                                                           |
-| **Erscheinungsbild**      | Hell, Dunkel oder System (folgt dem Betriebssystem)                                                                                                                                                                           |
-| **Auto-Update**           | Prüfung auf GitHub Releases (NSIS, AppImage, macOS-ZIP)                                                                                                                                                                       |
+| Bereich                     | Details                                                                                                                                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **IMAP-Abruf**              | Gmail, Outlook/Microsoft 365 oder beliebiger IMAP-Server; inkrementell über UIDs                                                                                                                                              |
+| **Archiv-Ordner**           | Optional „nach Abruf verschieben“ (aus IMAP-Liste wählbar; fehlende Ordner anlegbar); Inbox bleibt überwacht, Reports landen z. B. in `Archive/Aggregate`                                                                     |
+| **Anmeldung**               | App-Passwort **oder** OAuth (PKCE) für Gmail und Microsoft 365 IMAP                                                                                                                                                           |
+| **Mehrere Konten**          | Beliebig viele IMAP-Konten/Profile mit eigenem Cache; eigene Bezeichnung (Standard: E-Mail-Domain); Umschalten in der Toolbar                                                                                                 |
+| **Datei-Import**            | XML, GZ, ZIP, EML/MIME — Dialog oder Drag & Drop; Importe landen im Cache und stehen nach dem Neustart wieder bereit                                                                                                          |
+| **Lokaler Cache**           | SQLite für Aggregate- und Forensik-Reports; alte JSON-Caches werden einmalig migriert                                                                                                                                         |
+| **Forensik / RUF**          | ARF-Failure-Reports (bereinigte Header); eigene Tabelle in der UI                                                                                                                                                             |
+| **Aggregate-Report-Schema** | Verarbeitet sowohl das klassische (RFC 7489) als auch das neue RFC-9990-DMARC-2.0-Schema (neuer Namespace/Extensions), abgesichert durch Regressions-Fixtures                                                                 |
+| **Dashboard**               | Reports, Nachrichten, Pass/Fail, Pass-Rate, Zeitraum                                                                                                                                                                          |
+| **Charts**                  | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit                                                                                                               |
+| **Tabellen**                | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert; sortierbare Spalten, Tastaturnavigation und Virtualisierung langer Tabellen                                              |
+| **IP-Anreicherung**         | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand       |
+| **Fail-Kategorien**         | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              |     | **Diagnose** | Pro Problemquelle ein Urteil in Klartext plus erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Empfehlung (z. B. DKIM-Signing einrichten) — aus vorhandenen Report-Daten abgeleitet, ohne KI |     | **Policy-Rollout** | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records |
+| **Quellenkarte**            | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
+| **Domain-Ampel**            | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain                                                                                                                                            |
+| **Filter**                  | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain, angewandte Disposition (Reject / Nicht reject) sowie Drill-Down nach Org, Quell-IP und From-Domain                                                          |
+| **Mailbox-Rauschen**        | Optionaler Filter für Report-Echo von Gmail, Outlook, Yahoo, iCloud (Anbieter in Einstellungen → Rauschen abwählbar) **und konfigurierbare Empfänger-Scanner** (Vorgabe `cloud-sec-av.com`)                                   |
+| **DNS-Check**               | Live-Abfrage von DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) über den RFC-9989-Tree-Walk, SPF, DKIM-Selektoren (automatisch aus den Reports oder manuell) und BIMI (`l`, `a`)                                                 |
+| **DNS-Historie & Drift**    | Dauerhafte lokale Versionen von DMARC-, SPF-, DKIM-, BIMI-, TLS-RPT- und MTA-STS-Checks; erkennt Record-Drift und korreliert Änderungen mit späteren DMARC-Fail-Rate-Anstiegen aus gespeicherten Reports                      |
+| **Record-Wizards**          | DMARC (inkl. `t=`/`np=`/`psd=`, Legacy-`pct=` mit Warnhinweis), SPF, TLS-RPT, MTA-STS und BIMI geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei)                                        |
+| **Transport-Sicherheit**    | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil                                                                                                        |
+| **E-Mail prüfen**           | `.eml` / `.msg` öffnen oder Header einfügen: Received-Pfad, SPF/DKIM/DMARC/Alignment, TLS vs. lokale Stationen, ARC, Gesamturteil, PDF-Export. Nur lokal; Body ungelesen                                                      |
+| **Export**                  | Aktuell gefilterte Daten als CSV oder JSON; einzelne Aggregate-Reports als ZIP (XML)                                                                                                                                          |
+| **PDF-Managementbericht**   | Druckfertiger A4-Bericht (Kennzahlen, Bewertung, Alignment, Verlauf, Domain-Status, Problemquellen) — manuell für die aktuelle Ansicht oder automatisch einmal pro Monat **ein PDF pro Domain**, im Hintergrund aus dem Cache |
+| **Auto-Abruf**              | Optionales Intervall über alle Konten + Desktop-Benachrichtigung bei steigenden Failures                                                                                                                                      |
+| **Alerts**                  | Pass-Rate-Schwelle (7 Tage) und „neue Quelle erkannt“ mit Ignorieren-Liste für bekannte IPs                                                                                                                                   |
+| **System-Tray**             | Optional im Hintergrund weiterlaufen; Abruf und Benachrichtigungen auch bei geschlossenem Fenster                                                                                                                             |
+| **Autostart**               | Optionaler Start beim System-Login; mit Tray kann die App versteckt im Hintergrund starten                                                                                                                                    |
+| **Sprache**                 | Deutsch und Englisch umschaltbar (Einstellungen → Erscheinungsbild)                                                                                                                                                           |
+| **Erscheinungsbild**        | Hell, Dunkel oder System (folgt dem Betriebssystem)                                                                                                                                                                           |
+| **Auto-Update**             | Prüfung auf GitHub Releases (NSIS, AppImage, macOS-ZIP)                                                                                                                                                                       |
 
 ---
 
@@ -187,7 +191,7 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** Auto-Abruf, Alerts, System-Tray und Autostart konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
 4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, **Disposition** (Reject / Nicht reject), Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Mailbox-Rauschen ausblenden**, um Report-Echo-Hops von Gmail, Outlook, Yahoo und iCloud zu entfernen. Charts, Aggregate-Tabellen, Forensik-/RUF-Tabelle und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Reports als ZIP laden.
-5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF, DKIM-Selektoren aus den Reports oder manuell sowie BIMI).
+5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF, DKIM-Selektoren aus den Reports oder manuell sowie BIMI). Jeder echte Check wird lokal versioniert; das Ergebnis zeigt aktuelle DNS-Drifts und passende Report-Korrelationen, z. B. einen späteren Fail-Rate-Sprung nach einer SPF-Änderung.
 6. Unter **Tools → E-Mail prüfen** eine `.eml` oder `.msg` laden (auf den Dialog ziehen) oder Header einfügen. Weg, TLS vs. lokale Stationen sowie SPF/DKIM/DMARC/ARC prüfen. Lokaler Versand mit `Authentication-Results: none` ist „unbekannt“, kein Spoofing.
 7. Unter **Tools → Policy-Rollout** den nächsten Schritt zu `p=reject` planen: Empfehlung, offene Punkte, zu klärende Absender und Staging-Plan mit kopierbaren Records.
 8. Für Berichte an die Leitung im **Export**-Dialog **PDF-Bericht** wählen — oder in den Einstellungen den **Monatsbericht** aktivieren: für jede Domain im abgelaufenen Monat entsteht ein eigenes PDF.
@@ -219,7 +223,7 @@ IMAP-Postfach/-Postfächer / lokale Dateien
   Analyse → KPIs, Charts, Tabellen
         │
         ├── Filter (Zeitraum, Domain, Disposition, Drill-Down Org / IP / From)
-        ├── DNS-Check (DMARC / SPF / DKIM / BIMI)
+        ├── DNS-Check + Historie (DMARC / SPF / DKIM / BIMI, Drift-Korrelation)
         ├── Record-Wizards (DMARC / SPF / TLS-RPT / MTA-STS / BIMI)
         ├── E-Mail prüfen (.eml / .msg / Einfügen: Weg, TLS, SPF/DKIM/DMARC/ARC)
         ├── Policy-Rollout (nächster Schritt + Staging-Plan)
@@ -299,7 +303,8 @@ npm run release
 - Outlook-`.msg` ohne Internet-Transport-Header (typisch bei Entwürfen) liefert nur Absender/Betreff, keinen Received-Pfad.
 - Nachrichten ohne gültigen DMARC-Anhang werden übersprungen und gezählt.
 - Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
-- Cache leeren: Einstellungen → Konto-Verwaltung → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles).
+- Die DNS-Historie wird getrennt von Report-Caches gespeichert und bleibt erhalten, wenn ein Konto-Cache geleert wird.
+- Cache leeren: Einstellungen → Konto-Verwaltung → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles; DNS-Historie wird nicht gelöscht).
 - Optional können abgerufene Nachrichten als gelesen markiert (`\Seen`) und/oder nach dem Import in einen Archiv-Ordner verschoben werden.
 - Mit aktivem System-Tray blendet das Schließen des Fensters die App nur aus — vollständig beenden über **Beenden** im Tray-Menü. Das Tray-Icon zeigt eine Markierung, wenn neue Reports eingegangen sind, während das Fenster verborgen war; beim Öffnen verschwindet sie wieder.
 - Bestehende Einzelkonto-Einstellungen älterer Versionen werden automatisch ins Multi-Konto-Format migriert.

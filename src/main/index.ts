@@ -27,8 +27,11 @@ import {
   LOCAL_IMPORT_ACCOUNT_KEY,
   accountKeyFor,
   clearCache,
+  getDnsHistory,
   getDnsHealthCache,
-  loadCachedReports
+  loadCachedReports,
+  recordDnsHistory,
+  recordTransportHistory
 } from './cache'
 import { analyzeFromReports } from '../shared/analyze'
 import {
@@ -770,9 +773,11 @@ function registerIpc(): void {
     return lookupRdap(ip ?? '')
   })
 
-  ipcMain.handle('dns:check', async (_event, domain: string, selectors?: string[]) =>
-    checkDomainDns(domain, selectors ?? [])
-  )
+  ipcMain.handle('dns:check', async (_event, domain: string, selectors?: string[]) => {
+    const result = await checkDomainDns(domain, selectors ?? [])
+    recordDnsHistory(result)
+    return result
+  })
 
   ipcMain.handle('dns:bimi', async (_event, domain: string, selector?: string) =>
     checkBimiDns(domain ?? '', selector)
@@ -782,9 +787,13 @@ function registerIpc(): void {
     expandSpf(domain ?? '', { record: record ?? null })
   )
 
-  ipcMain.handle('dns:transport', async (_event, domain: string) =>
-    checkTransportSecurity(domain ?? '')
-  )
+  ipcMain.handle('dns:transport', async (_event, domain: string) => {
+    const result = await checkTransportSecurity(domain ?? '')
+    recordTransportHistory(result)
+    return result
+  })
+
+  ipcMain.handle('dns:history', (_event, domain: string) => getDnsHistory(domain ?? ''))
 
   ipcMain.handle('dns:healthBatch', async (_event, reports: ReportRow[]) =>
     buildDomainHealth(Array.isArray(reports) ? reports : [])

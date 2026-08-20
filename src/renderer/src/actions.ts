@@ -1,5 +1,5 @@
 import { t } from '../../shared/i18n'
-import type { AnalyzeResult } from '../../shared/types'
+import type { AnalyzeResult, DnsHistoryResult } from '../../shared/types'
 import { applyProgress, setBusy, setStatus, setTopProgress } from './chrome'
 import {
   accountSelectEl,
@@ -22,7 +22,7 @@ import {
   settingsStatusEl
 } from './dom'
 import { inspectDroppedFile, isEmailInspectOpen } from './email-inspect-ui'
-import { escapeHtml } from './format'
+import { escapeHtml, formatDate } from './format'
 import {
   accountHasAuth,
   activeAccount,
@@ -54,6 +54,40 @@ function showImportResult(result: AnalyzeResult): void {
       replacedNote
     })
   )
+}
+
+function renderDnsHistory(history: DnsHistoryResult): string {
+  if (history.snapshots.length === 0) return ''
+  const latestDrift = history.drifts[0]
+  const strongestCorrelation = history.correlations
+    .slice()
+    .sort((a, b) => b.deltaPercentagePoints - a.deltaPercentagePoints)[0]
+  const parts = [escapeHtml(t('dns.historySnapshots', { count: history.snapshots.length }))]
+  if (latestDrift) {
+    parts.push(
+      escapeHtml(
+        t('dns.historyLastDrift', {
+          title: latestDrift.title,
+          date: formatDate(latestDrift.checkedAt)
+        })
+      )
+    )
+  }
+  if (strongestCorrelation) {
+    parts.push(
+      escapeHtml(
+        t('dns.historyCorrelation', {
+          date: formatDate(strongestCorrelation.driftAt),
+          before: strongestCorrelation.beforeFailRate.toFixed(1),
+          after: strongestCorrelation.afterFailRate.toFixed(1),
+          hours: strongestCorrelation.hoursAfter.toFixed(1)
+        })
+      )
+    )
+  }
+  return `<div class="dns-history"><strong>${escapeHtml(t('dns.historyTitle'))}</strong><ul>${parts
+    .map((part) => `<li>${part}</li>`)
+    .join('')}</ul></div>`
 }
 
 /** Copy the active account's domain into the DNS-check field after a switch. */
@@ -203,6 +237,7 @@ export function initActions(): void {
     const transport = runTransportCheck(domain)
     try {
       const result = await window.api.checkDns(domain, selectors)
+      const history = await window.api.dnsHistory(result.domain)
       const dmarcLine = result.dmarc.found
         ? t('dns.dmarcFound', {
             policy: result.dmarc.policy ?? '?',
@@ -253,7 +288,7 @@ export function initActions(): void {
               zone: result.resolver.zone ?? result.domain
             })
           : t('dns.resolverRecursive')
-      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}`
+      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}${renderDnsHistory(history)}`
       dnsResultEl.className = 'dns-result ok'
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)

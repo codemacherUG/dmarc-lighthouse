@@ -4,6 +4,7 @@ import type {
   AnalyzeResult,
   BimiCheckResult,
   DnsCheckResult,
+  DnsHistoryResult,
   DomainHealth,
   SpfExpandResult,
   GeoLiteDownloadResult,
@@ -44,6 +45,7 @@ export interface DmarcLighthouseApi {
   checkBimi: (domain: string, selector?: string) => Promise<BimiCheckResult>
   expandSpf: (domain: string, record?: string | null) => Promise<SpfExpandResult>
   checkTransport: (domain: string) => Promise<TransportSecurityResult>
+  dnsHistory: (domain: string) => Promise<DnsHistoryResult>
   healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>

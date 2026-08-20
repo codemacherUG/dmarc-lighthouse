@@ -721,6 +721,11 @@ const de = {
   'dns.bimiMissing': 'BIMI: nicht gefunden',
   'dns.resolverAuth': 'Direkt bei {ns} (Zone {zone})',
   'dns.resolverRecursive': 'System-Resolver (kein autoritativer NS gefunden)',
+  'dns.historyTitle': 'DNS-History',
+  'dns.historySnapshots': '{count} gespeicherte Version(en)',
+  'dns.historyLastDrift': 'Letzte Änderung: {title} am {date}',
+  'dns.historyCorrelation':
+    'Korrelation: Änderung am {date}; danach Fail von {before}% auf {after}% nach {hours} h.',
 
   'transport.title': 'Transport-Sicherheit',
   'transport.checking': 'Prüfe TLS-RPT, MTA-STS und DANE für {domain}…',
@@ -1955,6 +1960,11 @@ const en: Dict = {
   'dns.bimiMissing': 'BIMI: not found',
   'dns.resolverAuth': 'Authoritative via {ns} (zone {zone})',
   'dns.resolverRecursive': 'System resolver (no authoritative NS found)',
+  'dns.historyTitle': 'DNS history',
+  'dns.historySnapshots': '{count} stored version(s)',
+  'dns.historyLastDrift': 'Last change: {title} on {date}',
+  'dns.historyCorrelation':
+    'Correlation: change on {date}; fail then rose from {before}% to {after}% after {hours} h.',
 
   'transport.title': 'Transport security',
   'transport.checking': 'Checking TLS-RPT, MTA-STS and DANE for {domain}…',

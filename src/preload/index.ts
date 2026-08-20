@@ -5,6 +5,7 @@ import type {
   AnalyzeResult,
   BimiCheckResult,
   DnsCheckResult,
+  DnsHistoryResult,
   DomainHealth,
   SpfExpandResult,
   GeoLiteDownloadResult,
@@ -62,6 +63,8 @@ const api = {
     ipcRenderer.invoke('dns:expandSpf', domain, record ?? null),
   checkTransport: (domain: string): Promise<TransportSecurityResult> =>
     ipcRenderer.invoke('dns:transport', domain),
+  dnsHistory: (domain: string): Promise<DnsHistoryResult> =>
+    ipcRenderer.invoke('dns:history', domain),
   healthBatch: (reports: ReportRow[]): Promise<DomainHealth[]> =>
     ipcRenderer.invoke('dns:healthBatch', reports),
   geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),

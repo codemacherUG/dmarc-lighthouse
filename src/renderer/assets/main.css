@@ -1756,6 +1756,20 @@ textarea:focus {
   border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
 }
 
+.dns-history {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.dns-history ul {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+}
+
 .ip-meta {
   margin-top: 2px;
   font-size: 0.75rem;
@@ -1927,11 +1941,9 @@ tr.ip-meta-row .ip-meta {
   line-height: 1.4;
 }
 
-
 .diagnosis-body .hint {
   margin: 0;
 }
-
 
 .ip-context-menu {
   position: fixed;

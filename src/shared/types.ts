@@ -487,6 +487,61 @@ export interface DnsCheckResult {
   checkedAt: string
 }
 
+export type DnsHistorySnapshotKind = 'dns' | 'transport'
+
+export interface DnsHistorySnapshot {
+  id: number
+  domain: string
+  kind: DnsHistorySnapshotKind
+  checkedAt: string
+  dns: DnsCheckResult | null
+  transport: TransportSecurityResult | null
+}
+
+export type DnsDriftKind =
+  | 'dmarc-changed'
+  | 'spf-changed'
+  | 'spf-include-removed'
+  | 'dkim-key-added'
+  | 'dkim-key-removed'
+  | 'dkim-key-changed'
+  | 'bimi-changed'
+  | 'tls-rpt-changed'
+  | 'mta-sts-policy-changed'
+
+export interface DnsDriftEvent {
+  id: number
+  domain: string
+  kind: DnsDriftKind
+  checkedAt: string
+  title: string
+  detail: string
+  before: string | null
+  after: string | null
+  selector?: string
+}
+
+export interface DnsReportCorrelation {
+  driftId: number
+  domain: string
+  driftAt: string
+  beforeReportId: string
+  afterReportId: string
+  beforeWindowEnd: string
+  afterWindowBegin: string
+  beforeFailRate: number
+  afterFailRate: number
+  deltaPercentagePoints: number
+  hoursAfter: number
+}
+
+export interface DnsHistoryResult {
+  domain: string
+  snapshots: DnsHistorySnapshot[]
+  drifts: DnsDriftEvent[]
+  correlations: DnsReportCorrelation[]
+}
+
 /** TXT at `{selector}._bimi.{domain}` (BIMI assertion record). */
 export interface BimiCheckResult {
   domain: string
