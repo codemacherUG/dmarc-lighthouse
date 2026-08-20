@@ -60,6 +60,10 @@ Dasselbe Dashboard im Dark Mode (Einstellungen → Erscheinungsbild; bei „Syst
 
 ![Dashboard im Dark Mode](docs/screenshots/de/dashboard-dark.png)
 
+Für die Rollout-Planung eine Domain wählen und **Simulation** auf `p=reject`, strict DKIM-Alignment oder `sp=reject` stellen. Der Dashboard-Hintergrund wird orange und alle Kennzahlen, Charts, Tabellen, Dispositions und Problemquellen werden aus simulierten lokalen Reportdaten neu berechnet:
+
+![Dashboard im Simulationsmodus für p=reject](docs/screenshots/de/simulation.png)
+
 ### Aggregation & Details
 
 Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne Reports und Record-Details — Klick auf eine Tabellenzeile filtert weiter; Report als ZIP herunterladen:
@@ -90,9 +94,9 @@ Jeder echte DNS- und Transport-Check wird dauerhaft lokal versioniert, getrennt 
 
 ### Policy-Rollout
 
-Bewertet die letzten 30 Tage einer Domain, empfiehlt den nächsten Schritt auf dem Weg zu `p=reject` und liefert den Staging-Plan mit fertigen Records zum Kopieren:
+Bewertet die letzten 30 Tage einer Domain, empfiehlt den nächsten Schritt auf dem Weg zu `p=reject`, simuliert Policy-Varianten und liefert den Staging-Plan mit fertigen Records zum Kopieren:
 
-Der Staging-Plan folgt RFC 9989: `none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`. Das historische `pct=` wird aus bestehenden Records weiterhin gelesen, der DMARC-Record-Wizard warnt aber, wenn es beim Erzeugen eines neuen Records verwendet wird — für einen Testbetrieb stattdessen `t=y` nutzen.
+Der Staging-Plan folgt RFC 9989: `none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`. Der What-if-Simulator schätzt „Was passiert bei `p=reject`?“, strict DKIM-Alignment und `sp=reject`, inklusive betroffener legitimer Quellen und Rest-Risiko nach dem Beheben der wichtigsten Sender. Das historische `pct=` wird aus bestehenden Records weiterhin gelesen, der DMARC-Record-Wizard warnt aber, wenn es beim Erzeugen eines neuen Records verwendet wird — für einen Testbetrieb stattdessen `t=y` nutzen.
 
 ![Policy-Rollout-Assistent mit Empfehlung und Staging-Plan](docs/screenshots/de/rollout.png)
 
@@ -126,7 +130,10 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Charts**                  | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit                                                                                                               |
 | **Tabellen**                | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert; sortierbare Spalten, Tastaturnavigation und Virtualisierung langer Tabellen                                              |
 | **IP-Anreicherung**         | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand       |
-| **Fail-Kategorien**         | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              |     | **Diagnose** | Pro Problemquelle ein Urteil in Klartext plus erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Empfehlung (z. B. DKIM-Signing einrichten) — aus vorhandenen Report-Daten abgeleitet, ohne KI |     | **Policy-Rollout** | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records |
+| **Fail-Kategorien**         | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              |
+| **Diagnose**                | Pro Problemquelle ein Urteil in Klartext plus erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Empfehlung (z. B. DKIM-Signing einrichten) — aus vorhandenen Report-Daten abgeleitet, ohne KI     |
+| **Policy-Rollout**          | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                |
+| **What-if-Simulation**      | Dashboard-Simulation für eine Domain (`p=reject`, strict DKIM, `sp=reject`): Kennzahlen, Charts, Tabellen, Dispositions und Problemquellen werden aus simulierten lokalen Reportdaten neu berechnet                           |
 | **Quellenkarte**            | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
 | **Domain-Ampel**            | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain                                                                                                                                            |
 | **Filter**                  | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain, angewandte Disposition (Reject / Nicht reject) sowie Drill-Down nach Org, Quell-IP und From-Domain                                                          |

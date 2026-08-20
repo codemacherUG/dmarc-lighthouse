@@ -60,6 +60,10 @@ Same dashboard in dark mode (Settings → Appearance; follows the OS when set to
 
 ![Dashboard in dark mode](docs/screenshots/en/dashboard-dark.png)
 
+For rollout planning, choose one domain and switch **Simulation** to `p=reject`, strict DKIM alignment, or `sp=reject`. The dashboard background turns orange and all KPIs, charts, tables, dispositions, and problem sources are recalculated from simulated local report data:
+
+![Dashboard simulation mode for p=reject](docs/screenshots/en/simulation.png)
+
 ### Aggregation & details
 
 Reporting organizations, source IPs (including reverse DNS), From domains, individual reports and record details — click a table row to drill down; download a report as ZIP:
@@ -90,9 +94,9 @@ Every real DNS and transport check is stored as a permanent local version, separ
 
 ### Policy rollout
 
-Reviews the last 30 days of a domain, recommends the next step towards `p=reject`, and lays out the staging plan with ready-to-copy records:
+Reviews the last 30 days of a domain, recommends the next step towards `p=reject`, simulates policy variants, and lays out the staging plan with ready-to-copy records:
 
-The staging plan follows RFC 9989: `none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`. The historical `pct=` tag is still read from existing records, but the DMARC record wizard warns when it is used to build a new one — use `t=y` for a test rollout stage instead.
+The staging plan follows RFC 9989: `none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`. The what-if simulator estimates “what happens with `p=reject`?”, strict DKIM alignment, and `sp=reject`, including which legitimate sources would be affected and how much risk remains after fixing the top senders first. The historical `pct=` tag is still read from existing records, but the DMARC record wizard warns when it is used to build a new one — use `t=y` for a test rollout stage instead.
 
 ![Policy rollout assistant with recommendation and staging plan](docs/screenshots/en/rollout.png)
 
@@ -129,6 +133,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Failure categories**      | Problem sources name the cause: forwarding, third party, configuration, own sender, or no auth at all                                                                                                                            |
 | **Diagnosis**               | Per problem source, a plain-language verdict plus detected sender, raw SPF/DKIM results with alignment, and a concrete recommendation (e.g. set up DKIM signing) — derived from existing report data, no AI                      |
 | **Policy rollout**          | Recommends the next step (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) with thresholds, open items, and a staging plan of ready-to-copy records                                                 |
+| **What-if simulation**      | Dashboard-level simulation for one domain (`p=reject`, strict DKIM, `sp=reject`): KPIs, charts, tables, dispositions, and problem sources are recalculated from simulated local report data                                      |
 | **Source map**              | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP                                                                                                                                                 |
 | **Domain health**           | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter                                                                                                                                              |
 | **Filters**                 | Date range (7 / 30 / 90 days / all / custom), domain, applied disposition (Reject / Not reject), plus drill-down by org, source IP, and From domain                                                                              |

@@ -1,4 +1,5 @@
 import type { CloudPrefix } from '../../shared/ipcidr'
+import type { RolloutSimulationMode } from '../../shared/rollout'
 import type { AnalyzeResult, DomainHealth, IpInfo, SettingsPublic } from '../../shared/types'
 
 export type DrillFilters = { org?: string; sourceIp?: string; headerFrom?: string }
@@ -17,6 +18,8 @@ export const state = {
   ipLabelCache: new Map<string, IpInfo>(),
   selectedDetailIp: null as string | null,
   domainHealthCache: [] as DomainHealth[],
+  simulationMode: 'off' as RolloutSimulationMode,
+  simulationDomain: '' as string,
   domainHealthToken: 0,
   /** Merged SPF CIDR prefixes for report domains (for IP badges). */
   spfPrefixes: [] as CloudPrefix[],

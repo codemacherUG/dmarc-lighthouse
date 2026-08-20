@@ -154,6 +154,12 @@ async function captureLocaleSet(
 
   await capture(win, join(outDir, 'dashboard.png'))
 
+  await api(win, 'api.openSimulationDemo()')
+  await wait(300)
+  await capture(win, join(outDir, 'simulation.png'))
+  await api(win, 'api.closeSimulationDemo()')
+  await wait(200)
+
   await api(
     win,
     `api.setTheme('dark')
@@ -241,9 +247,7 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
   }
 
   console.log(
-    wantsFullAppCapture()
-      ? 'Full-app screenshot capture complete.'
-      : 'Screenshot capture complete.'
+    wantsFullAppCapture() ? 'Full-app screenshot capture complete.' : 'Screenshot capture complete.'
   )
   app.exit(0)
 }

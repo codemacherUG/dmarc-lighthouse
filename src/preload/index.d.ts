@@ -92,6 +92,8 @@ declare global {
       closeDns: () => void
       openDiagnosisDemo: () => void
       closeDiagnosis: () => void
+      openSimulationDemo: () => void
+      closeSimulationDemo: () => void
       openEmailInspectDemo: () => { width: number; height: number }
       closeEmailInspect: () => void
       setTheme: (theme: AppTheme) => void

@@ -353,11 +353,8 @@
         <div class="filter-slot-ph" hidden aria-hidden="true"></div>
         <section id="filter-panel" class="panel filter-panel">
           <div class="panel-heading">
-            <h2 data-i18n="filter.title">Filter</h2>
+            <h2 data-i18n="filter.title">Ansicht</h2>
             <div class="panel-heading-actions">
-              <button type="button" id="btn-dashboard-layout-toggle" class="btn ghost small">
-                Widgets
-              </button>
               <button
                 type="button"
                 id="btn-filter-reset"
@@ -405,6 +402,19 @@
                 </option>
               </select>
             </label>
+            <label>
+              <span data-i18n="simulation.mode">Simulation</span>
+              <select id="simulation-mode">
+                <option value="off" selected data-i18n="simulation.off">Aus (echte Reports)</option>
+                <option value="reject" data-i18n="simulation.reject">p=reject simulieren</option>
+                <option value="strictDkim" data-i18n="simulation.strictDkim">
+                  Strict DKIM simulieren
+                </option>
+                <option value="subdomainReject" data-i18n="simulation.subdomainReject">
+                  sp=reject für Subdomains simulieren
+                </option>
+              </select>
+            </label>
             <div class="filter-mailbox-noise-wrap">
               <label class="checkbox filter-mailbox-noise">
                 <input
@@ -435,15 +445,6 @@
             </div>
           </div>
           <div id="filter-chips" class="filter-chips hidden"></div>
-          <div id="widget-layout-menu" class="widget-layout-menu hidden" aria-live="polite">
-            <div class="widget-layout-menu-header">
-              <strong>Widgets</strong>
-              <button type="button" id="btn-dashboard-layout-reset" class="btn ghost small">
-                Zurücksetzen
-              </button>
-            </div>
-            <div id="widget-layout-options" class="widget-layout-options"></div>
-          </div>
         </section>
       </div>
 

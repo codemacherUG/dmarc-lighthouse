@@ -6,7 +6,8 @@ import {
   ROLLOUT_WINDOW_DAYS,
   type RolloutAssessment,
   type RolloutBlocker,
-  type RolloutStep
+  type RolloutStep,
+  type RolloutWhatIfScenario
 } from '../../shared/rollout'
 import type { DnsCheckResult } from '../../shared/types'
 import {
@@ -103,6 +104,55 @@ function verdictHtml(assessment: RolloutAssessment): string {
   </section>`
 }
 
+function whatIfHtml(scenario: RolloutWhatIfScenario): string {
+  const tone = scenario.affectedRate >= 1 ? 'bad' : scenario.affectedRate > 0 ? 'warn' : 'ok'
+  const sources = scenario.affectedSources.length
+    ? `<ul class="rollout-whatif-sources">
+        ${scenario.affectedSources
+          .map(
+            (s) => `<li>
+              <code class="mono">${escapeHtml(s.sourceIp)}</code>
+              <span>${escapeHtml(t('rollout.whatIf.source', { count: s.count, rate: s.shareRate.toFixed(2), from: s.headerFrom ?? '—' }))}</span>
+            </li>`
+          )
+          .join('')}
+      </ul>`
+    : `<p class="hint">${escapeHtml(t('rollout.whatIf.none'))}</p>`
+  const fixPlan = scenario.fixPlan
+  const fix = fixPlan
+    ? `<p class="rollout-whatif-fix">${escapeHtml(
+        t('rollout.whatIf.fix', {
+          sources: fixPlan.sourceCount,
+          count: fixPlan.messageCount,
+          before: scenario.affectedRate.toFixed(2),
+          after: fixPlan.riskRateAfter.toFixed(2)
+        })
+      )}</p>`
+    : ''
+  return `<article class="rollout-whatif-card ${tone}">
+    <div class="rollout-whatif-head">
+      <h5>${escapeHtml(t(`rollout.whatIf.${scenario.id}` as MessageKey))}</h5>
+      <span class="badge ${tone === 'bad' ? 'bad' : tone === 'warn' ? 'warn' : ''}">${escapeHtml(
+        t('rollout.whatIf.affected', {
+          count: scenario.affected,
+          rate: scenario.affectedRate.toFixed(2)
+        })
+      )}</span>
+    </div>
+    <p class="hint">${escapeHtml(t(`rollout.whatIf.${scenario.id}.hint` as MessageKey))}</p>
+    ${sources}
+    ${fix}
+  </article>`
+}
+
+function whatIfSection(assessment: RolloutAssessment): string {
+  return `<section class="rollout-section">
+    <h4>${escapeHtml(t('rollout.whatIf.title'))}</h4>
+    <p class="hint">${escapeHtml(t('rollout.whatIf.hint'))}</p>
+    <div class="rollout-whatif-grid">${assessment.whatIf.map(whatIfHtml).join('')}</div>
+  </section>`
+}
+
 function render(assessment: RolloutAssessment): void {
   lastAssessment = assessment
   const m = assessment.metrics
@@ -141,6 +191,7 @@ function render(assessment: RolloutAssessment): void {
       ${metricTile('rollout.metric.days', String(m.daysObserved))}
       ${metricTile('rollout.metric.orgs', String(m.reportingOrgs))}
     </div>
+    ${whatIfSection(assessment)}
     ${blockers}
     ${sources}
     <section class="rollout-section">

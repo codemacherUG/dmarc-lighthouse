@@ -1,4 +1,5 @@
 import { categorizeFailure, isHealthyDmarcOutcome } from './analyze'
+import { isRelaxedAligned, normalizeHost, organizationalDomain } from './domain'
 import {
   buildDmarcRecord,
   DEFAULT_BUILDER_INPUT,
@@ -9,7 +10,13 @@ import {
   type DmarcBuilderInput,
   type DmarcPolicy
 } from './dmarc-builder'
-import type { DnsCheckResult, FailCategory, FailCategoryCounts, ReportRow } from './types'
+import type {
+  DnsCheckResult,
+  FailCategory,
+  FailCategoryCounts,
+  ReportRow,
+  SerializedRecord
+} from './types'
 
 /** Reports older than this add little to a rollout decision. */
 export const ROLLOUT_WINDOW_DAYS = 30
@@ -77,6 +84,27 @@ export interface RolloutRiskSource {
   headerFrom: string | null
 }
 
+export type RolloutWhatIfScenarioId = 'reject' | 'strictDkim' | 'subdomainReject'
+export type RolloutSimulationMode = 'off' | RolloutWhatIfScenarioId
+
+export interface RolloutWhatIfAffectedSource extends RolloutRiskSource {
+  shareRate: number
+}
+
+export interface RolloutWhatIfFixPlan {
+  sourceCount: number
+  messageCount: number
+  riskRateAfter: number
+}
+
+export interface RolloutWhatIfScenario {
+  id: RolloutWhatIfScenarioId
+  affected: number
+  affectedRate: number
+  affectedSources: RolloutWhatIfAffectedSource[]
+  fixPlan: RolloutWhatIfFixPlan | null
+}
+
 export interface RolloutCurrentPolicy {
   found: boolean
   policy: DmarcPolicy | null
@@ -128,6 +156,7 @@ export interface RolloutAssessment {
   ready: boolean
   blockers: RolloutBlocker[]
   riskSources: RolloutRiskSource[]
+  whatIf: RolloutWhatIfScenario[]
   plan: RolloutStep[]
 }
 
@@ -177,7 +206,7 @@ function collectMetrics(
   domain: string,
   reports: ReportRow[],
   windowDays: number
-): { metrics: RolloutMetrics; riskSources: RolloutRiskSource[] } {
+): { metrics: RolloutMetrics; riskSources: RolloutRiskSource[]; whatIf: RolloutWhatIfScenario[] } {
   type SourceAcc = {
     count: number
     categories: FailCategoryCounts
@@ -261,8 +290,235 @@ function collectMetrics(
       firstSeen,
       lastSeen
     },
-    riskSources
+    riskSources,
+    whatIf: buildWhatIfScenarios(domain, reports, messages)
   }
+}
+
+type WhatIfSourceAcc = {
+  count: number
+  categories: FailCategoryCounts
+  fromCounts: Map<string, number>
+}
+
+function isStrictAligned(
+  authDomain: string | null | undefined,
+  fromDomain: string | null
+): boolean {
+  const auth = normalizeHost(authDomain)
+  const from = normalizeHost(fromDomain)
+  return Boolean(auth && from && auth === from)
+}
+
+function isSubdomainOf(domain: string | null | undefined, orgDomain: string): boolean {
+  const host = normalizeHost(domain)
+  return Boolean(host && host !== orgDomain && organizationalDomain(host) === orgDomain)
+}
+
+function wouldFailStrictDkim(rec: SerializedRecord, policyDomain: string): boolean {
+  if (!rec.passesDmarc) return false
+  const from = rec.headerFrom || policyDomain
+  const dkimPass = (rec.dkimResult ?? '').toLowerCase() === 'pass'
+  const spfPass = (rec.spfResult ?? '').toLowerCase() === 'pass'
+  const strictDkimPass = dkimPass && isStrictAligned(rec.dkimDomain, from)
+  const relaxedSpfPass = spfPass && isRelaxedAligned(rec.spfDomain, from)
+  return !strictDkimPass && !relaxedSpfPass
+}
+
+function wouldFailSubdomainReject(rec: SerializedRecord, domain: string): boolean {
+  if (!isSubdomainOf(rec.headerFrom, domain)) return false
+  if (isHealthyDmarcOutcome(rec)) return false
+  return categorizeFailure(rec, domain) !== 'unauthenticated'
+}
+
+function addWhatIfSource(
+  sources: Map<string, WhatIfSourceAcc>,
+  rec: SerializedRecord,
+  policyDomain: string,
+  count: number
+): void {
+  const ip = (rec.sourceIp || '').trim() || '—'
+  const acc = sources.get(ip) ?? { count: 0, categories: {}, fromCounts: new Map() }
+  const category = categorizeFailure(rec, policyDomain)
+  acc.count += count
+  acc.categories[category] = (acc.categories[category] ?? 0) + count
+  const from = (rec.headerFrom || '').trim()
+  if (from) acc.fromCounts.set(from, (acc.fromCounts.get(from) ?? 0) + count)
+  sources.set(ip, acc)
+}
+
+function whatIfSources(
+  sources: Map<string, WhatIfSourceAcc>,
+  messages: number
+): RolloutWhatIfAffectedSource[] {
+  return [...sources.entries()]
+    .map(([sourceIp, acc]) => {
+      let category: FailCategory = 'broken'
+      let best = 0
+      for (const [cat, count] of Object.entries(acc.categories) as Array<[FailCategory, number]>) {
+        if (count > best) {
+          best = count
+          category = cat
+        }
+      }
+      let headerFrom: string | null = null
+      let bestFrom = 0
+      for (const [from, count] of acc.fromCounts) {
+        if (count > bestFrom) {
+          bestFrom = count
+          headerFrom = from
+        }
+      }
+      return {
+        sourceIp,
+        count: acc.count,
+        category,
+        headerFrom,
+        shareRate: messages ? Math.round((acc.count / messages) * 10_000) / 100 : 0
+      }
+    })
+    .sort((a, b) => b.count - a.count)
+}
+
+function buildFixPlan(
+  affected: number,
+  sources: RolloutWhatIfAffectedSource[],
+  messages: number
+): RolloutWhatIfFixPlan | null {
+  if (affected <= 0 || sources.length === 0) return null
+  const fixed = sources.slice(0, 3)
+  const fixedMessages = fixed.reduce((sum, source) => sum + source.count, 0)
+  const remaining = Math.max(0, affected - fixedMessages)
+  return {
+    sourceCount: fixed.length,
+    messageCount: fixedMessages,
+    riskRateAfter: messages ? Math.round((remaining / messages) * 10_000) / 100 : 0
+  }
+}
+
+function scenario(
+  id: RolloutWhatIfScenarioId,
+  affected: number,
+  sources: Map<string, WhatIfSourceAcc>,
+  messages: number
+): RolloutWhatIfScenario {
+  const affectedSources = whatIfSources(sources, messages)
+  return {
+    id,
+    affected,
+    affectedRate: messages ? Math.round((affected / messages) * 10_000) / 100 : 0,
+    affectedSources: affectedSources.slice(0, 4),
+    fixPlan: buildFixPlan(affected, affectedSources, messages)
+  }
+}
+
+function buildWhatIfScenarios(
+  domain: string,
+  reports: ReportRow[],
+  messages: number
+): RolloutWhatIfScenario[] {
+  const rejectSources = new Map<string, WhatIfSourceAcc>()
+  const strictDkimSources = new Map<string, WhatIfSourceAcc>()
+  const subdomainSources = new Map<string, WhatIfSourceAcc>()
+  let reject = 0
+  let strictDkim = 0
+  let subdomainReject = 0
+
+  for (const report of reports) {
+    for (const rec of report.records) {
+      const count = rec.count || 0
+      if (count <= 0) continue
+      const category = categorizeFailure(rec, report.domain)
+      if (!isHealthyDmarcOutcome(rec) && category !== 'unauthenticated') {
+        reject += count
+        addWhatIfSource(rejectSources, rec, report.domain, count)
+      }
+      if (wouldFailStrictDkim(rec, report.domain)) {
+        strictDkim += count
+        addWhatIfSource(strictDkimSources, rec, report.domain, count)
+      }
+      if (wouldFailSubdomainReject(rec, domain)) {
+        subdomainReject += count
+        addWhatIfSource(subdomainSources, rec, report.domain, count)
+      }
+    }
+  }
+
+  return [
+    scenario('reject', reject, rejectSources, messages),
+    scenario('strictDkim', strictDkim, strictDkimSources, messages),
+    scenario('subdomainReject', subdomainReject, subdomainSources, messages)
+  ]
+}
+
+function simulatedRecord(
+  rec: SerializedRecord,
+  reportDomain: string,
+  targetDomain: string,
+  mode: RolloutSimulationMode
+): SerializedRecord {
+  if (mode === 'off') return rec
+  if (mode === 'reject') {
+    const category = categorizeFailure(rec, reportDomain)
+    if (!isHealthyDmarcOutcome(rec) && category !== 'unauthenticated') {
+      return { ...rec, disposition: 'reject' }
+    }
+    return rec
+  }
+  if (mode === 'strictDkim') {
+    if (!wouldFailStrictDkim(rec, reportDomain)) return rec
+    return {
+      ...rec,
+      passesDmarc: false,
+      disposition: 'none',
+      dkimResult: 'fail',
+      reasons: [
+        ...(rec.reasons ?? []),
+        { type: 'simulated_policy', comment: 'strict DKIM alignment' }
+      ]
+    }
+  }
+  if (mode === 'subdomainReject' && wouldFailSubdomainReject(rec, targetDomain)) {
+    return { ...rec, disposition: 'reject' }
+  }
+  return rec
+}
+
+function reportWithSimulatedRecords(report: ReportRow, records: SerializedRecord[]): ReportRow {
+  let total = 0
+  let passing = 0
+  for (const rec of records) {
+    total += rec.count || 0
+    if (rec.passesDmarc) passing += rec.count || 0
+  }
+  return {
+    ...report,
+    records,
+    total,
+    passing,
+    failing: total - passing,
+    passRate: total ? Math.round((passing / total) * 1000) / 10 : 0
+  }
+}
+
+export function simulateRolloutReports(
+  reports: ReportRow[],
+  domainRaw: string,
+  mode: RolloutSimulationMode
+): ReportRow[] {
+  const domain = normalizeDomain(domainRaw)
+  if (!domain || mode === 'off') return reports
+  return reports.map((report) => {
+    const applies = mode === 'subdomainReject' || normalizeDomain(report.domain || '') === domain
+    if (!applies) return report
+    let changed = false
+    const records = report.records.map((rec) => {
+      const next = simulatedRecord(rec, report.domain, domain, mode)
+      if (next !== rec) changed = true
+      return next
+    })
+    return changed ? reportWithSimulatedRecords(report, records) : report
+  })
 }
 
 /** Reports of one domain inside the rollout window, newest window first. */
@@ -306,7 +562,7 @@ export function assessRollout(input: RolloutInput): RolloutAssessment {
   const domain = normalizeDomain(input.domain)
   const windowDays = input.windowDays ?? ROLLOUT_WINDOW_DAYS
   const reports = reportsForRollout(input.reports, domain, { now: input.now, windowDays })
-  const { metrics, riskSources } = collectMetrics(domain, reports, windowDays)
+  const { metrics, riskSources, whatIf } = collectMetrics(domain, reports, windowDays)
   const current = readCurrentPolicy(input.dns)
 
   const currentIndex = stageIndexFor(current.policy, current.testing)
@@ -367,6 +623,7 @@ export function assessRollout(input: RolloutInput): RolloutAssessment {
     ready: Boolean(next) && blockers.length === 0,
     blockers,
     riskSources: riskSources.slice(0, 8),
+    whatIf,
     plan
   }
 }

@@ -133,6 +133,11 @@ body {
   line-height: 1.45;
 }
 
+body.simulation-mode {
+  --bg: #f1570f;
+  --bg-wash: #f97316;
+}
+
 #app {
   width: 100%;
   max-width: 100%;
@@ -2380,6 +2385,63 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.rollout-whatif-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.rollout-whatif-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ok);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 60%, var(--bg-panel));
+}
+
+.rollout-whatif-card.warn {
+  border-left-color: var(--warn);
+}
+
+.rollout-whatif-card.bad {
+  border-left-color: var(--bad);
+}
+
+.rollout-whatif-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rollout-whatif-head h5 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.rollout-whatif-sources {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.84rem;
+}
+
+.rollout-whatif-sources li {
+  min-width: 0;
+}
+
+.rollout-whatif-fix {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--ok);
 }
 
 .rollout-plan {

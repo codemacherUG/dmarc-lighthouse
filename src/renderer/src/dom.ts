@@ -23,6 +23,7 @@ export const filterDomainEl = document.getElementById('filter-domain') as HTMLSe
 export const filterDispositionEl = document.getElementById(
   'filter-disposition'
 ) as HTMLSelectElement
+export const simulationModeEl = document.getElementById('simulation-mode') as HTMLSelectElement
 export const filterHideMailboxNoiseEl = document.getElementById(
   'filter-hide-mailbox-noise'
 ) as HTMLInputElement

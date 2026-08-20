@@ -17,6 +17,8 @@ import {
   diagnosisDialog,
   emailInspectDialog,
   filterRangeEl,
+  filterDomainEl,
+  simulationModeEl,
   rolloutDialog,
   settingsDialog
 } from './dom'
@@ -224,6 +226,19 @@ export function installScreenshotApi(): void {
     },
     closeDiagnosis(): void {
       diagnosisDialog.close()
+    },
+    openSimulationDemo(): void {
+      if (settingsDialog.open) settingsDialog.close()
+      if (dnsDialog.open) dnsDialog.close()
+      if (rolloutDialog.open) rolloutDialog.close()
+      filterDomainEl.value = 'example.com'
+      simulationModeEl.value = 'reject'
+      applyView()
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    },
+    closeSimulationDemo(): void {
+      simulationModeEl.value = 'off'
+      applyView()
     },
     openRolloutDemo(): void {
       seedRolloutDns('example.com', DEMO_ROLLOUT_DNS)

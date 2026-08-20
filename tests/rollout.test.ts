@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { assessRollout, readCurrentPolicy, reportsForRollout } from '../src/shared/rollout'
+import {
+  assessRollout,
+  readCurrentPolicy,
+  reportsForRollout,
+  simulateRolloutReports
+} from '../src/shared/rollout'
 import type { DnsCheckResult, ReportRow, SerializedRecord } from '../src/shared/types'
 
 const NOW = new Date('2026-08-01T00:00:00.000Z')
@@ -274,5 +279,156 @@ describe('assessRollout', () => {
     expect(out.riskSources).toEqual([
       { sourceIp: '203.0.113.7', count: 40, category: 'thirdParty', headerFrom: 'example.com' }
     ])
+  })
+
+  it('simulates p=reject and the effect of fixing the top risky senders first', () => {
+    const out = assessRollout({
+      domain: 'example.com',
+      reports: [
+        report({
+          records: [
+            rec({ count: 960 }),
+            rec({
+              sourceIp: '203.0.113.10',
+              count: 30,
+              passesDmarc: false,
+              dkimResult: 'fail',
+              spfResult: 'fail',
+              dkimDomain: 'esp.example',
+              spfDomain: 'esp.example'
+            }),
+            rec({
+              sourceIp: '203.0.113.11',
+              count: 8,
+              passesDmarc: false,
+              dkimResult: 'fail',
+              spfResult: 'fail',
+              dkimDomain: 'mail.example.com',
+              spfDomain: 'example.com'
+            }),
+            rec({
+              sourceIp: '198.51.100.1',
+              count: 2,
+              passesDmarc: false,
+              dkimResult: 'fail',
+              spfResult: 'fail',
+              dkimDomain: null,
+              spfDomain: null
+            })
+          ]
+        })
+      ],
+      dns: dns(),
+      now: NOW
+    })
+
+    const reject = out.whatIf.find((s) => s.id === 'reject')
+    expect(reject).toMatchObject({
+      affected: 38,
+      affectedRate: 3.8,
+      fixPlan: { sourceCount: 2, messageCount: 38, riskRateAfter: 0 }
+    })
+    expect(reject?.affectedSources.map((s) => s.sourceIp)).toEqual(['203.0.113.10', '203.0.113.11'])
+  })
+
+  it('simulates strict DKIM alignment and sp=reject for otherwise passing traffic', () => {
+    const out = assessRollout({
+      domain: 'example.com',
+      reports: [
+        report({
+          records: [
+            rec({
+              sourceIp: '203.0.113.20',
+              count: 12,
+              headerFrom: 'example.com',
+              dkimDomain: 'mail.example.com',
+              spfResult: 'fail',
+              spfDomain: null
+            }),
+            rec({
+              sourceIp: '203.0.113.21',
+              count: 7,
+              headerFrom: 'news.example.com',
+              passesDmarc: false,
+              dkimResult: 'fail',
+              dkimDomain: null,
+              spfResult: 'fail',
+              spfDomain: 'mail.example.net'
+            }),
+            rec({ count: 981 })
+          ]
+        })
+      ],
+      dns: dns(),
+      now: NOW
+    })
+
+    expect(out.whatIf.find((s) => s.id === 'strictDkim')).toMatchObject({ affected: 12 })
+    expect(out.whatIf.find((s) => s.id === 'subdomainReject')).toMatchObject({
+      affected: 7,
+      affectedRate: 0.7
+    })
+  })
+
+  it('rewrites reports for dashboard p=reject simulation', () => {
+    const [simulated] = simulateRolloutReports(
+      traffic({ pass: 960, risk: 40, spoof: 10 }),
+      'example.com',
+      'reject'
+    )
+    const rejected = simulated.records.find((r) => r.sourceIp === '203.0.113.7')
+    const spoof = simulated.records.find((r) => r.sourceIp === '198.51.100.9')
+
+    expect(rejected).toMatchObject({ passesDmarc: false, disposition: 'reject' })
+    expect(spoof).toMatchObject({ passesDmarc: false, disposition: 'none' })
+    expect(simulated.total).toBe(1010)
+    expect(simulated.failing).toBe(50)
+  })
+
+  it('rewrites reports for dashboard strict DKIM simulation', () => {
+    const rows = [
+      report({
+        records: [
+          rec({
+            count: 12,
+            dkimDomain: 'mail.example.com',
+            spfResult: 'fail',
+            spfDomain: null
+          }),
+          rec({ count: 88 })
+        ]
+      })
+    ]
+
+    const [simulated] = simulateRolloutReports(rows, 'example.com', 'strictDkim')
+
+    expect(simulated.passing).toBe(88)
+    expect(simulated.failing).toBe(12)
+    expect(simulated.records[0]).toMatchObject({ passesDmarc: false, dkimResult: 'fail' })
+  })
+
+  it('rewrites subdomain failures for dashboard sp=reject simulation', () => {
+    const rows = [
+      report({
+        records: [
+          rec({
+            sourceIp: '203.0.113.21',
+            count: 7,
+            headerFrom: 'news.example.com',
+            passesDmarc: false,
+            dkimResult: 'fail',
+            dkimDomain: null,
+            spfResult: 'fail',
+            spfDomain: 'mail.example.net'
+          }),
+          rec({ count: 93 })
+        ]
+      })
+    ]
+
+    const [simulated] = simulateRolloutReports(rows, 'example.com', 'subdomainReject')
+
+    expect(simulated.records[0]).toMatchObject({ passesDmarc: false, disposition: 'reject' })
+    expect(simulated.failing).toBe(7)
   })
 })

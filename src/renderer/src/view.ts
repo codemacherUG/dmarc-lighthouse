@@ -1,5 +1,6 @@
 import {
   applyDashboardFilter,
+  analyzeFromReports,
   buildDomainStats,
   categorizeFailure,
   DOMAIN_HEALTH_WINDOW_DAYS,
@@ -27,6 +28,7 @@ import {
   suggestScannerNoiseEntry
 } from '../../shared/scanner-noise'
 import { t, type MessageKey } from '../../shared/i18n'
+import { simulateRolloutReports, type RolloutSimulationMode } from '../../shared/rollout'
 import {
   DEFAULT_DATE_RANGE,
   type AnalyzeResult,
@@ -73,6 +75,7 @@ import {
   filterHideMailboxNoiseEl,
   filterPanelEl,
   filterRangeEl,
+  simulationModeEl,
   filterToEl,
   filterCustomWrap,
   filterDispositionEl,
@@ -472,6 +475,7 @@ function hasActiveFilters(): boolean {
     Boolean(filterToEl.value) ||
     Boolean(filterDomainEl.value) ||
     filterDispositionEl.value !== 'all' ||
+    simulationModeEl.value !== 'off' ||
     filterHideMailboxNoiseEl.checked ||
     Boolean(state.drill.org || state.drill.sourceIp || state.drill.headerFrom)
   )
@@ -488,12 +492,55 @@ export function resetFilters(): void {
   filterToEl.value = ''
   filterDomainEl.value = ''
   filterDispositionEl.value = 'all'
+  simulationModeEl.value = 'off'
   filterHideMailboxNoiseEl.checked = false
   rangeBeforeDayFilter = null
   clearDrill()
   syncCustomRangeVisibility()
   applyView()
   if (noiseWasOn) void persistHideMailboxNoise()
+}
+
+function normalizeSimulationMode(value: string): RolloutSimulationMode {
+  return value === 'reject' || value === 'strictDkim' || value === 'subdomainReject' ? value : 'off'
+}
+
+function simulationInput(result: AnalyzeResult): {
+  result: AnalyzeResult
+  mode: RolloutSimulationMode
+  domain: string
+} {
+  const mode = normalizeSimulationMode(simulationModeEl.value)
+  const domain = filterDomainEl.value.trim().toLowerCase()
+  if (mode === 'off' || !domain) return { result, mode: 'off', domain: '' }
+  const simulatedReports = simulateRolloutReports(result.reports, domain, mode)
+  if (simulatedReports === result.reports) return { result, mode: 'off', domain: '' }
+  const simulatedResult = analyzeFromReports(simulatedReports, {
+    skipped: result.skipped,
+    errors: result.errors,
+    fromCache: result.fromCache,
+    newReports: result.newReports,
+    newForensicReports: result.newForensicReports,
+    forensicReports: result.forensicReports
+  })
+  return {
+    result: simulatedResult,
+    mode,
+    domain
+  }
+}
+
+function syncSimulationUi(mode: RolloutSimulationMode, domain: string): void {
+  state.simulationMode = mode
+  state.simulationDomain = domain
+  const active = mode !== 'off' && Boolean(domain)
+  document.body.classList.toggle('simulation-mode', active)
+}
+
+function ensureSimulationDomain(): void {
+  if (simulationModeEl.value === 'off' || filterDomainEl.value) return
+  const domain = state.fullResult?.aggregate.domains[0] ?? ''
+  if (domain) filterDomainEl.value = domain
 }
 
 /** Filter dashboard to the volume-chart day, or restore the previous range on a second click. */
@@ -1173,10 +1220,12 @@ export function applyView(): void {
     return
   }
 
+  const simulated = simulationInput(state.fullResult)
+  syncSimulationUi(simulated.mode, simulated.domain)
   const hideMailboxNoise = filterHideMailboxNoiseEl.checked
   const scannerNoiseIps = collectScannerNoiseIps()
   const mailboxNoiseProviders = enabledMailboxNoiseProviders()
-  state.viewResult = applyDashboardFilter(state.fullResult, {
+  state.viewResult = applyDashboardFilter(simulated.result, {
     range: filterRangeEl.value as DateRangePreset,
     from: filterFromEl.value || undefined,
     to: filterToEl.value || undefined,
@@ -1387,8 +1436,15 @@ export function initView(): void {
   })
   filterFromEl.addEventListener('change', () => applyView())
   filterToEl.addEventListener('change', () => applyView())
-  filterDomainEl.addEventListener('change', () => applyView())
+  filterDomainEl.addEventListener('change', () => {
+    if (!filterDomainEl.value && simulationModeEl.value !== 'off') simulationModeEl.value = 'off'
+    applyView()
+  })
   filterDispositionEl.addEventListener('change', () => applyView())
+  simulationModeEl.addEventListener('change', () => {
+    ensureSimulationDomain()
+    applyView()
+  })
   filterHideMailboxNoiseEl.addEventListener('change', () => {
     applyView()
     void persistHideMailboxNoise()

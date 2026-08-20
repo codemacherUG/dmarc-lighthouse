@@ -103,6 +103,23 @@ const de = {
   'rollout.blocker.dkimMissing': 'Mindestens ein DKIM-Selektor aus den Reports fehlt im DNS.',
   'rollout.sources': 'Diese Absender zuerst klären',
   'rollout.sourceMeta': '{count} Msgs · From {from}',
+  'rollout.whatIf.title': 'What-if-Simulator',
+  'rollout.whatIf.hint':
+    'Schätzt, welche heute zugestellten legitimen Nachrichten bei strengeren Regeln betroffen wären.',
+  'rollout.whatIf.reject': 'Was passiert bei p=reject?',
+  'rollout.whatIf.reject.hint':
+    'Zählt zugestellte DMARC-Fails von Quellen, die nicht wie Spoofing aussehen.',
+  'rollout.whatIf.strictDkim': 'Was passiert bei strict DKIM alignment?',
+  'rollout.whatIf.strictDkim.hint':
+    'Zählt aktuell passendes Mail, das nur über relaxed DKIM oder relaxed SPF hält.',
+  'rollout.whatIf.subdomainReject': 'Was passiert mit sp=reject?',
+  'rollout.whatIf.subdomainReject.hint':
+    'Zählt Subdomain-Mail, die bei eigener Subdomain-Enforcement-Policy keinen aligned Auth-Pass hätte.',
+  'rollout.whatIf.affected': '{count} Msgs · {rate} %',
+  'rollout.whatIf.source': '{count} Msgs · {rate} % · From {from}',
+  'rollout.whatIf.fix':
+    'Wenn du diese {sources} Sender vorher behebst ({count} Msgs), sinkt das Enforcement-Risiko von {before} % auf {after} %.',
+  'rollout.whatIf.none': 'Keine betroffenen legitimen Quellen in diesem Szenario.',
   'rollout.plan': 'Staging-Plan',
   'rollout.stepCondition': 'Ab {days} Tagen Daten und Risiko-Anteil ≤ {limit} %.',
   'rollout.stepConditionStart': 'Startpunkt: nur beobachten, nichts wird blockiert.',
@@ -250,7 +267,7 @@ const de = {
   'update.noneVersion': 'Keine neueren Updates (aktuell {version}).',
   'update.error': 'Update-Fehler: {message}',
 
-  'filter.title': 'Filter',
+  'filter.title': 'Ansicht',
   'filter.account': 'Konto',
   'filter.range': 'Zeitraum',
   'filter.rangeAll': 'Gesamt',
@@ -265,6 +282,11 @@ const de = {
   'filter.dispositionAll': 'Alle',
   'filter.dispositionReject': 'Reject',
   'filter.dispositionNotReject': 'Nicht reject',
+  'simulation.mode': 'Simulation',
+  'simulation.off': 'Aus (echte Reports)',
+  'simulation.reject': 'p=reject simulieren',
+  'simulation.strictDkim': 'Strict DKIM simulieren',
+  'simulation.subdomainReject': 'sp=reject für Subdomains simulieren',
   'filter.dns': 'DNS-Check',
   'filter.dnsCheck': 'Prüfen',
   'filter.dnsHint':
@@ -1351,6 +1373,23 @@ const en: Dict = {
   'rollout.blocker.dkimMissing': 'At least one DKIM selector from the reports is missing in DNS.',
   'rollout.sources': 'Fix these senders first',
   'rollout.sourceMeta': '{count} msgs · From {from}',
+  'rollout.whatIf.title': 'What-if simulator',
+  'rollout.whatIf.hint':
+    'Estimates which currently delivered legitimate messages would be affected by stricter rules.',
+  'rollout.whatIf.reject': 'What happens with p=reject?',
+  'rollout.whatIf.reject.hint':
+    'Counts delivered DMARC fails from sources that do not look like spoofing.',
+  'rollout.whatIf.strictDkim': 'What happens with strict DKIM alignment?',
+  'rollout.whatIf.strictDkim.hint':
+    'Counts currently passing mail that only survives through relaxed DKIM or relaxed SPF.',
+  'rollout.whatIf.subdomainReject': 'What happens with sp=reject?',
+  'rollout.whatIf.subdomainReject.hint':
+    'Counts subdomain mail that would have no aligned auth pass under subdomain enforcement.',
+  'rollout.whatIf.affected': '{count} msgs · {rate}%',
+  'rollout.whatIf.source': '{count} msgs · {rate}% · From {from}',
+  'rollout.whatIf.fix':
+    'If you fix these {sources} senders first ({count} msgs), enforcement risk drops from {before}% to {after}%.',
+  'rollout.whatIf.none': 'No affected legitimate sources in this scenario.',
   'rollout.plan': 'Staging plan',
   'rollout.stepCondition': 'From {days} days of data and a risky share ≤ {limit}%.',
   'rollout.stepConditionStart': 'Starting point: monitor only, nothing gets blocked.',
@@ -1496,7 +1535,7 @@ const en: Dict = {
   'update.noneVersion': 'No newer updates (current {version}).',
   'update.error': 'Update error: {message}',
 
-  'filter.title': 'Filters',
+  'filter.title': 'View',
   'filter.account': 'Account',
   'filter.range': 'Date range',
   'filter.rangeAll': 'All time',
@@ -1511,6 +1550,11 @@ const en: Dict = {
   'filter.dispositionAll': 'All',
   'filter.dispositionReject': 'Reject',
   'filter.dispositionNotReject': 'Not reject',
+  'simulation.mode': 'Simulation',
+  'simulation.off': 'Off (real reports)',
+  'simulation.reject': 'Simulate p=reject',
+  'simulation.strictDkim': 'Simulate strict DKIM',
+  'simulation.subdomainReject': 'Simulate sp=reject for subdomains',
   'filter.dns': 'DNS check',
   'filter.dnsCheck': 'Check',
   'filter.dnsHint':
