@@ -704,6 +704,7 @@ body.simulation-mode {
 
 .new-sources-banner-head h2 {
   margin-bottom: 0;
+  font-size: 1rem;
 }
 
 .new-sources-heading-text {
@@ -713,6 +714,7 @@ body.simulation-mode {
   min-width: 0;
   min-height: 18px;
   gap: 12px;
+  transform: translateY(2px);
 }
 
 .new-sources-heading-text .new-sources-collapsed-info {
@@ -2376,6 +2378,7 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
+  padding-top: 0.25rem;
 }
 
 .ampel-card {
