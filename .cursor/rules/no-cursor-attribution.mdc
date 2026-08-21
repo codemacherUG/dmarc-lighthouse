@@ -1,12 +1,12 @@
 ---
-description: Keine Cursor-Attribution in Commits/PRs — nur Thomas Rokohl
+description: Keine Cursor-Attribution in Commits/PRs
 alwaysApply: true
 ---
 
 # Keine Cursor-Attribution
 
-- Commits und PRs ausschließlich unter **Thomas Rokohl** (`thomas.rokohl@codemacher.de`).
 - Niemals `Co-authored-by: Cursor`, `Made-with: Cursor` oder ähnliche Cursor-/Agent-Trailers hinzufügen.
 - Kein `git commit --trailer` mit Cursor-Attribution.
 - Commit-Messages nur mit Subject/Body — keine Co-Author-Zeilen.
 - Wenn die Umgebung trotzdem Attribution anhängt: vor dem Push entfernen (amend/rebase oder Hook).
+5
