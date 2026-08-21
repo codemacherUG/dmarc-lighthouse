@@ -7,6 +7,7 @@ import type {
   ImapConnectionInput,
   ListMailboxesResult,
   MailboxListEntry,
+  NewSendingSourceGroup,
   ReportRow,
   TestConnectionResult
 } from '../shared/types'
@@ -18,12 +19,19 @@ import {
 } from './analyze'
 import {
   accountKeyFor,
+  addPendingSourceIps,
+  clearKnownIpsResetPending,
+  getIpEnrichment,
+  listSendingServices,
   loadCachedReports,
   mergeForensicReports,
   mergeReports,
+  reseedKnownIps,
   saveCache
 } from './cache'
 import { t } from '../shared/i18n'
+import { resolveIps } from './ipinfo'
+import { groupNewSendingSources } from '../shared/sending-services'
 
 export type ProgressCallback = (progress: AnalyzeProgress) => void
 
@@ -38,6 +46,42 @@ interface MailboxFetchResult {
 
 function emptyMailboxFetch(maxUid: number): MailboxFetchResult {
   return { reports: [], forensicReports: [], skipped: 0, errors: [], uidList: [], maxUid }
+}
+
+/**
+ * Names new source IPs by recognized service + From domain (e.g. "Microsoft 365" for
+ * "example.de") instead of the raw, often ephemeral cloud IP, and resolves each group
+ * against the persistent sending-service inventory.
+ */
+async function resolveNewSendingSources(
+  newSourceIps: string[],
+  freshReports: ReportRow[]
+): Promise<NewSendingSourceGroup[]> {
+  if (newSourceIps.length === 0) return []
+  const domainByIp = new Map<string, string | null>()
+  for (const report of freshReports) {
+    for (const rec of report.records) {
+      if (!domainByIp.has(rec.sourceIp)) {
+        domainByIp.set(rec.sourceIp, rec.headerFrom ?? report.domain ?? null)
+      }
+    }
+  }
+  const infoByIp = getIpEnrichment(newSourceIps)
+  try {
+    for (const info of await resolveIps(newSourceIps)) infoByIp.set(info.ip, info)
+  } catch {
+    // Persisted enrichment or the raw IP/domain still yields a reviewable group.
+  }
+  const entries = newSourceIps.map((ip) => {
+    const info = infoByIp.get(ip)
+    return {
+      ip,
+      provider: info?.provider ?? null,
+      domain: domainByIp.get(ip) ?? null,
+      asn: info?.asn ?? null
+    }
+  })
+  return groupNewSendingSources(entries, listSendingServices())
 }
 
 function createClient(settings: ImapConnectionInput): ImapFlow {
@@ -241,14 +285,17 @@ export async function createMailbox(
   }
 }
 
-export function loadCachedAnalyzeResult(settings: ImapConnectionInput): AnalyzeResult {
+export async function loadCachedAnalyzeResult(settings: ImapConnectionInput): Promise<AnalyzeResult> {
   const key = accountKeyFor(settings.user, settings.host, settings.mailbox)
-  const { reports, forensicReports } = loadCachedReports(key)
-  return analyzeFromReports(reports, {
+  const { reports, forensicReports, meta } = loadCachedReports(key)
+  const result = analyzeFromReports(reports, {
     fromCache: true,
     newReports: 0,
     forensicReports
   })
+  result.newSourceIps = []
+  result.newSendingSources = await resolveNewSendingSources(meta.pendingSourceIps, reports)
+  return result
 }
 
 async function fetchFromMailbox(
@@ -522,20 +569,39 @@ export async function fetchAndAnalyze(
           skipped: 0,
           message: notes.length ? `${base} ${notes.join(' ')}` : base
         })
-        return analyzeFromReports(cached.reports, {
+        const cachedResult = analyzeFromReports(cached.reports, {
           fromCache: true,
           newReports: 0,
           forensicReports: cached.forensicReports
         })
+        if (cached.meta.knownIpsResetPending) {
+          const allIps = new Set<string>()
+          for (const r of cached.reports) for (const rec of r.records) allIps.add(rec.sourceIp)
+          for (const f of cached.forensicReports) if (f.sourceIp) allIps.add(f.sourceIp)
+          const ips = [...allIps].sort()
+          cachedResult.newSourceIps = ips
+          addPendingSourceIps(accountKey, ips)
+          reseedKnownIps(accountKey, allIps)
+        }
+        const pendingIps = [
+          ...new Set([...cached.meta.pendingSourceIps, ...(cachedResult.newSourceIps ?? [])])
+        ]
+        cachedResult.newSendingSources = await resolveNewSendingSources(
+          pendingIps,
+          cached.reports
+        )
+        return cachedResult
       }
 
       const merged = mergeReports(cached.reports, freshReports)
       const mergedForensic = mergeForensicReports(cached.forensicReports, freshForensic)
 
-      // Detect source IPs never seen for this account before. When the cache
-      // predates this feature (reports but no known IPs), seed silently.
+      // Detect source IPs never seen for this account before. When the cache predates this
+      // feature (reports but no known IPs), seed silently. An explicit reset skips that silent
+      // seed on purpose — the whole point is a one-time "everything counts as new" review.
+      const resetPending = cached.meta.knownIpsResetPending
       const known = new Set(cached.meta.knownSourceIps)
-      const seedOnly = known.size === 0
+      const seedOnly = known.size === 0 && !resetPending
       if (seedOnly) {
         for (const r of cached.reports) for (const rec of r.records) known.add(rec.sourceIp)
       }
@@ -544,11 +610,22 @@ export async function fetchAndAnalyze(
       for (const f of freshForensic) {
         if (f.sourceIp) freshIps.add(f.sourceIp)
       }
-      const newSourceIps =
-        cached.reports.length === 0 || seedOnly
-          ? []
-          : [...freshIps].filter((ip) => !known.has(ip)).sort()
-      for (const ip of freshIps) known.add(ip)
+
+      let newSourceIps: string[]
+      let persistedKnownIps: Iterable<string>
+      if (cached.reports.length === 0 || seedOnly) {
+        newSourceIps = []
+        for (const ip of freshIps) known.add(ip)
+        persistedKnownIps = known
+      } else if (resetPending) {
+        const allIps = new Set(freshIps)
+        for (const r of cached.reports) for (const rec of r.records) allIps.add(rec.sourceIp)
+        newSourceIps = [...allIps].sort()
+        persistedKnownIps = allIps
+      } else {
+        newSourceIps = [...freshIps].filter((ip) => !known.has(ip)).sort()
+        persistedKnownIps = freshIps
+      }
 
       const result = analyzeFromReports(merged, {
         skipped,
@@ -559,6 +636,9 @@ export async function fetchAndAnalyze(
         forensicReports: mergedForensic
       })
       result.newSourceIps = newSourceIps
+      addPendingSourceIps(accountKey, newSourceIps)
+      const pendingIps = [...new Set([...cached.meta.pendingSourceIps, ...newSourceIps])]
+      result.newSendingSources = await resolveNewSendingSources(pendingIps, merged)
 
       saveCache({
         accountKey,
@@ -567,8 +647,9 @@ export async function fetchAndAnalyze(
         lastUid: sourceFetch.maxUid,
         lastUidArchive: archiveMailbox ? archiveFetch.maxUid : lastUidArchive,
         lastFailingTotal: result.aggregate.failing,
-        knownSourceIps: seedOnly ? [...known] : [...freshIps]
+        knownSourceIps: [...persistedKnownIps]
       })
+      if (resetPending) clearKnownIpsResetPending(accountKey)
 
       const notes: string[] = []
 

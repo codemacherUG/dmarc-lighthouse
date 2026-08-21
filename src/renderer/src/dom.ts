@@ -29,6 +29,9 @@ export const filterHideMailboxNoiseEl = document.getElementById(
 ) as HTMLInputElement
 export const filterChipsEl = document.getElementById('filter-chips') as HTMLDivElement
 export const filterPanelEl = document.getElementById('filter-panel') as HTMLElement
+export const newSendingSourcesBannerEl = document.getElementById(
+  'new-sending-sources-banner'
+) as HTMLDivElement
 export const btnFilterReset = document.getElementById('btn-filter-reset') as HTMLButtonElement
 export const accountFieldEl = document.getElementById('account-field') as HTMLLabelElement
 export const accountSelectEl = document.getElementById('account-select') as HTMLSelectElement
@@ -50,6 +53,9 @@ export const btnIpFilter = document.getElementById('btn-ip-filter') as HTMLButto
 export const btnIpNoise = document.getElementById('btn-ip-noise') as HTMLButtonElement
 export const ipContextMenu = document.getElementById('ip-context-menu') as HTMLDivElement
 export const ipContextNoiseBtn = document.getElementById('ip-context-noise') as HTMLButtonElement
+export const ipContextSendingServiceBtn = document.getElementById(
+  'ip-context-sending-service'
+) as HTMLButtonElement
 export const diagnosisDialog = document.getElementById('diagnosis-dialog') as HTMLDialogElement
 export const diagnosisBody = document.getElementById('diagnosis-body') as HTMLDivElement
 export const btnCloseDiagnosis = document.getElementById('btn-close-diagnosis') as HTMLButtonElement
@@ -132,6 +138,9 @@ export const btnOpenLicenses = document.getElementById('btn-open-licenses') as H
 export const btnCheckUpdate = document.getElementById('btn-check-update') as HTMLButtonElement
 export const btnTest = document.getElementById('btn-test') as HTMLButtonElement
 export const btnClearCache = document.getElementById('btn-clear-cache') as HTMLButtonElement
+export const btnResetKnownSources = document.getElementById(
+  'btn-reset-known-sources'
+) as HTMLButtonElement
 export const btnExportCsv = document.getElementById('btn-export-csv') as HTMLButtonElement
 export const btnExportJson = document.getElementById('btn-export-json') as HTMLButtonElement
 export const btnExportPdf = document.getElementById('btn-export-pdf') as HTMLButtonElement
@@ -159,12 +168,47 @@ export const tabBtnAccount = document.getElementById('tab-btn-account') as HTMLB
 export const tabBtnAppearance = document.getElementById('tab-btn-appearance') as HTMLButtonElement
 export const tabBtnGeneral = document.getElementById('tab-btn-general') as HTMLButtonElement
 export const tabBtnNoise = document.getElementById('tab-btn-noise') as HTMLButtonElement
+export const tabBtnSendingServices = document.getElementById(
+  'tab-btn-sending-services'
+) as HTMLButtonElement
 export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as HTMLButtonElement
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 export const tabAppearanceEl = document.getElementById('tab-appearance') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 export const tabNoiseEl = document.getElementById('tab-noise') as HTMLElement
+export const tabSendingServicesEl = document.getElementById('tab-sending-services') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
+
+export const sendingServiceProviderEl = document.getElementById(
+  'sending-service-provider'
+) as HTMLInputElement
+export const sendingServiceDomainEl = document.getElementById(
+  'sending-service-domain'
+) as HTMLInputElement
+export const sendingServiceCidrEl = document.getElementById(
+  'sending-service-cidr'
+) as HTMLInputElement
+export const sendingServiceAsnEl = document.getElementById(
+  'sending-service-asn'
+) as HTMLInputElement
+export const sendingServiceStatusEl = document.getElementById(
+  'sending-service-status'
+) as HTMLSelectElement
+export const sendingServiceTeamEl = document.getElementById(
+  'sending-service-team'
+) as HTMLInputElement
+export const sendingServiceNoteEl = document.getElementById(
+  'sending-service-note'
+) as HTMLInputElement
+export const btnAddSendingService = document.getElementById(
+  'btn-add-sending-service'
+) as HTMLButtonElement
+export const sendingServicesBodyEl = document.getElementById(
+  'sending-services-body'
+) as HTMLTableSectionElement
+export const sendingServicesStatusEl = document.getElementById(
+  'sending-services-status'
+) as HTMLElement
 
 export const providerEl = document.getElementById('provider') as HTMLSelectElement
 export const authModeEl = document.getElementById('authMode') as HTMLSelectElement

@@ -3,19 +3,29 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  acknowledgePendingSourceIps,
+  accountKeyFor,
+  addPendingSourceIps,
   LOCAL_IMPORT_ACCOUNT_KEY,
   clearCache,
+  clearKnownIpsResetPending,
   closeCacheDb,
+  getIpEnrichment,
   getDnsHistory,
   importReports,
   loadCachedReports,
   mergeReports,
   recordDnsHistory,
   recordTransportHistory,
+  reseedKnownIps,
+  resetKnownSourceIps,
   saveCache,
-  setCacheUserDataForTests
+  setCacheUserDataForTests,
+  upsertIpEnrichment
 } from '../src/main/cache'
 import type { DnsCheckResult, ReportRow, TransportSecurityResult } from '../src/shared/types'
+import { loadCachedAnalyzeResult } from '../src/main/imap'
+import { clearIpInfoMemoryCache } from '../src/main/ipinfo'
 
 function sampleReport(id: string): ReportRow {
   return {
@@ -129,6 +139,7 @@ describe('sqlite cache', () => {
   let dir: string
 
   afterEach(() => {
+    clearIpInfoMemoryCache()
     closeCacheDb()
     setCacheUserDataForTests(null)
     if (dir) rmSync(dir, { recursive: true, force: true })
@@ -175,6 +186,91 @@ describe('sqlite cache', () => {
     expect(loaded.forensicReports[0].sourceIp).toBe('203.0.113.1')
   })
 
+  it('persists pending source IPs until they are acknowledged or the cache is cleared', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [sampleReport('r1')],
+      lastUid: 42,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+
+    addPendingSourceIps('acct1', ['203.0.113.10', '203.0.113.20'])
+    closeCacheDb()
+    expect(loadCachedReports('acct1').meta.pendingSourceIps).toEqual([
+      '203.0.113.10',
+      '203.0.113.20'
+    ])
+
+    acknowledgePendingSourceIps('acct1', ['203.0.113.10'])
+    expect(loadCachedReports('acct1').meta.pendingSourceIps).toEqual(['203.0.113.20'])
+
+    clearCache('acct1')
+    expect(loadCachedReports('acct1').meta.pendingSourceIps).toEqual([])
+  })
+
+  it('reconstructs pending sending sources when cached analysis is loaded after restart', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    const settings = {
+      provider: 'custom' as const,
+      host: 'imap.example.com',
+      port: 993,
+      secure: true,
+      user: 'user@example.com',
+      authMode: 'password' as const,
+      mailbox: 'INBOX',
+      archiveMailbox: '',
+      subjectFilter: '',
+      markSeenAfterFetch: false
+    }
+    const accountKey = accountKeyFor(settings.user, settings.host, settings.mailbox)
+    saveCache({
+      accountKey,
+      reports: [sampleReport('r1')],
+      lastUid: 42,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+    addPendingSourceIps(accountKey, ['192.0.2.1'])
+    upsertIpEnrichment([
+      {
+        ip: '192.0.2.1',
+        ptr: 'mail.example.net',
+        provider: 'Example Mail',
+        senderKind: 'esp',
+        country: null,
+        countryCode: null,
+        city: null,
+        lat: null,
+        lon: null,
+        asn: 64500,
+        asOrg: 'Example Network',
+        cloudProvider: null,
+        dnsblHits: [],
+        geoSource: 'none'
+      }
+    ])
+    closeCacheDb()
+    clearIpInfoMemoryCache()
+
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual(['192.0.2.1'])
+    expect(getIpEnrichment(['192.0.2.1']).get('192.0.2.1')?.provider).toBe('Example Mail')
+    const result = await loadCachedAnalyzeResult(settings)
+    expect(result.newSourceIps).toEqual([])
+    expect(result.newSendingSources).toEqual([
+      {
+        provider: 'Example Mail',
+        domain: 'example.com',
+        ips: ['192.0.2.1'],
+        status: 'unknown',
+        asn: 64500
+      }
+    ])
+  })
+
   it('migrates legacy JSON cache files', () => {
     dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
     const cacheDir = join(dir, 'cache')
@@ -213,6 +309,48 @@ describe('sqlite cache', () => {
     const loaded = loadCachedReports('acct1')
     expect(loaded.reports).toEqual([])
     expect(loaded.meta.lastUid).toBe(0)
+  })
+
+  it('resets known source IPs and flags a pending reset until reseeded', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [sampleReport('r1')],
+      lastUid: 5,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+
+    resetKnownSourceIps('acct1')
+    let loaded = loadCachedReports('acct1')
+    expect(loaded.meta.knownSourceIps).toEqual([])
+    expect(loaded.meta.knownIpsResetPending).toBe(true)
+    // Reports and the UID watermark stay untouched by a reset.
+    expect(loaded.reports).toHaveLength(1)
+    expect(loaded.meta.lastUid).toBe(5)
+
+    reseedKnownIps('acct1', ['192.0.2.1', '198.51.100.9'])
+    loaded = loadCachedReports('acct1')
+    expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1', '198.51.100.9'])
+    expect(loaded.meta.knownIpsResetPending).toBe(false)
+  })
+
+  it('clearKnownIpsResetPending clears the flag without touching known IPs', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [sampleReport('r1')],
+      lastUid: 5,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+    resetKnownSourceIps('acct1')
+    clearKnownIpsResetPending('acct1')
+    const loaded = loadCachedReports('acct1')
+    expect(loaded.meta.knownIpsResetPending).toBe(false)
+    expect(loaded.meta.knownSourceIps).toEqual([])
   })
 
   it('merges reports by reportId', () => {

@@ -1,9 +1,23 @@
 import type { AppLocale } from './i18n'
 import type { MailboxNoiseProvider } from './mailbox-ip'
 import type { SenderKind } from './sender'
+import type {
+  NewSendingSourceGroup,
+  SendingService,
+  SendingServiceInput,
+  SendingServiceStatus
+} from './sending-services'
 import type { AppTheme } from './theme'
 
-export type { AppLocale, AppTheme, SenderKind }
+export type {
+  AppLocale,
+  AppTheme,
+  SenderKind,
+  SendingService,
+  SendingServiceInput,
+  SendingServiceStatus,
+  NewSendingSourceGroup
+}
 
 export type ProviderPreset = 'gmail' | 'outlook' | 'microsoft' | 'custom'
 
@@ -358,6 +372,8 @@ export interface AnalyzeResult {
   newForensicReports?: number
   /** Source IPs that were not seen in any earlier fetch of this account. */
   newSourceIps?: string[]
+  /** New source IPs grouped by recognized provider + From domain, with inventory status. */
+  newSendingSources?: NewSendingSourceGroup[]
   /** Account this result belongs to (set for IMAP fetches). */
   accountId?: string
   /** Set for local file imports. */

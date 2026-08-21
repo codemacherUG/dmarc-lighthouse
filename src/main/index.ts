@@ -20,18 +20,26 @@ import type {
   AppTheme,
   EmailInspectResult,
   GlobalSettings,
-  ReportRow
+  NewSendingSourceGroup,
+  ReportRow,
+  SendingServiceInput
 } from '../shared/types'
+import { alertableSendingSources } from '../shared/sending-services'
 import { normalizeTheme } from '../shared/theme'
 import {
   LOCAL_IMPORT_ACCOUNT_KEY,
+  acknowledgePendingSourceIps,
   accountKeyFor,
   clearCache,
+  deleteSendingService,
   getDnsHistory,
   getDnsHealthCache,
+  listSendingServices,
   loadCachedReports,
   recordDnsHistory,
-  recordTransportHistory
+  recordTransportHistory,
+  resetKnownSourceIps,
+  upsertSendingService
 } from './cache'
 import { analyzeFromReports } from '../shared/analyze'
 import {
@@ -120,6 +128,13 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
   // Avoid Chromium FATAL on /dev/shm shared-memory create (ESRCH) when spawning windows.
   app.commandLine.appendSwitch('disable-dev-shm-usage')
+}
+if (is.dev) {
+  // Native DevTools windows need a real compositor; without one, use a browser instead:
+  // open http://localhost:9223 and click "inspect" on the app's page.
+  app.commandLine.appendSwitch('remote-debugging-port', '9223')
+  // Chromium 111+ drops the CDP connection unless the caller's origin is allow-listed.
+  app.commandLine.appendSwitch('remote-allow-origins', '*')
 }
 configureDnsEnvironment()
 
@@ -211,6 +226,15 @@ function createWindow(): BrowserWindow {
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    // DMARC_DEMO=1 npm run dev loads the demo data (incl. simulated new sending sources)
+    // without needing DevTools, whose window some Linux setups never surface.
+    if (process.env['DMARC_DEMO']) {
+      win.webContents.once('did-finish-load', () => {
+        void win.webContents.executeJavaScript(
+          "window.__dmarcScreenshot && window.__dmarcScreenshot.prepareDemo('de')"
+        )
+      })
+    }
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -319,6 +343,19 @@ function passRateLastDays(reports: ReportRow[], days: number): number | null {
   return Math.round((passing / total) * 1000) / 10
 }
 
+/**
+ * Names a new-source alert group by service, not by IP: "Microsoft 365 for example.de"
+ * reads as actionable; "40.x.x.x" does not.
+ */
+function describeSendingSourceGroup(group: NewSendingSourceGroup): string {
+  const provider = group.provider
+    ? group.provider.replace(/\s+/g, '-')
+    : t('main.alertUnknownProvider')
+  return group.domain
+    ? t('main.alertSendingSourceItem', { provider, domain: group.domain })
+    : t('main.alertSendingSourceItemNoDomain', { provider })
+}
+
 function runAlerts(account: AccountPublic, prevFailing: number, result: AnalyzeResult): void {
   const global = loadSettings().global
   const suffix = loadSettings().accounts.length > 1 ? ` (${account.label})` : ''
@@ -349,11 +386,26 @@ function runAlerts(account: AccountPublic, prevFailing: number, result: AnalyzeR
 
   if (global.notifyNewSource && result.newSourceIps && result.newSourceIps.length > 0) {
     const matchers = parseIgnoredSources(global.ignoredSources)
-    const relevant = result.newSourceIps.filter((ip) => !isIgnoredSource(ip, matchers))
-    if (relevant.length > 0) {
-      const shown = relevant.slice(0, 3).join(', ')
-      const more = relevant.length > 3 ? t('main.alertMore', { count: relevant.length - 3 }) : ''
-      notify(t('main.alertNewSource', { shown, more, suffix }))
+    const freshIps = new Set(result.newSourceIps)
+    const groups = alertableSendingSources(result.newSendingSources ?? [])
+      .map((g) => ({
+        ...g,
+        ips: g.ips.filter((ip) => freshIps.has(ip) && !isIgnoredSource(ip, matchers))
+      }))
+      .filter((g) => g.ips.length > 0)
+
+    if (groups.length > 0) {
+      const shown = groups.slice(0, 3).map(describeSendingSourceGroup).join(', ')
+      const more = groups.length > 3 ? t('main.alertMore', { count: groups.length - 3 }) : ''
+      notify(t('main.alertNewSendingSource', { shown, more, suffix }))
+    } else if (!result.newSendingSources) {
+      // Fallback for the rare case sending-service enrichment failed for this fetch.
+      const relevant = result.newSourceIps.filter((ip) => !isIgnoredSource(ip, matchers))
+      if (relevant.length > 0) {
+        const shown = relevant.slice(0, 3).join(', ')
+        const more = relevant.length > 3 ? t('main.alertMore', { count: relevant.length - 3 }) : ''
+        notify(t('main.alertNewSource', { shown, more, suffix }))
+      }
     }
   }
 }
@@ -716,14 +768,14 @@ function registerIpc(): void {
 
   ipcMain.handle('oauth:disconnect', (_event, accountId: string) => disconnectOAuth(accountId))
 
-  ipcMain.handle('cache:load', (_event, accountId?: string | null) => {
+  ipcMain.handle('cache:load', async (_event, accountId?: string | null) => {
     try {
       const settingsPub = loadSettings()
       const id = accountId ?? settingsPub.activeAccountId
       const account = settingsPub.accounts.find((a) => a.id === id)
       // No usable account yet: show reports that were imported from files.
       if (!account?.user || !account.host) return loadLocalImportResult()
-      const result = loadCachedAnalyzeResult({
+      const result = await loadCachedAnalyzeResult({
         provider: account.provider,
         host: account.host,
         port: account.port,
@@ -755,7 +807,42 @@ function registerIpc(): void {
     return { ok: true, message: t('main.cacheCleared') }
   })
 
+  ipcMain.handle('cache:resetKnownSources', (_event, accountId?: string | null) => {
+    const settingsPub = loadSettings()
+    const id = accountId ?? settingsPub.activeAccountId
+    const account = settingsPub.accounts.find((a) => a.id === id)
+    const key = account
+      ? accountKeyFor(account.user, account.host, account.mailbox)
+      : LOCAL_IMPORT_ACCOUNT_KEY
+    resetKnownSourceIps(key)
+    return { ok: true, message: t('main.knownSourcesReset') }
+  })
+
+  ipcMain.handle(
+    'cache:acknowledgePendingSources',
+    (_event, ips?: string[], accountId?: string | null) => {
+      const settingsPub = loadSettings()
+      const id = accountId ?? settingsPub.activeAccountId
+      const account = settingsPub.accounts.find((a) => a.id === id)
+      const key = account
+        ? accountKeyFor(account.user, account.host, account.mailbox)
+        : LOCAL_IMPORT_ACCOUNT_KEY
+      acknowledgePendingSourceIps(key, ips)
+    }
+  )
+
   ipcMain.handle('ip:resolve', async (_event, ips: string[]) => resolveIps(ips ?? []))
+
+  ipcMain.handle('sendingServices:list', () => listSendingServices())
+
+  ipcMain.handle('sendingServices:upsert', (_event, input: SendingServiceInput) =>
+    upsertSendingService(input)
+  )
+
+  ipcMain.handle('sendingServices:delete', (_event, id: string) => {
+    deleteSendingService(id)
+    return listSendingServices()
+  })
 
   ipcMain.handle('ip:rdap', async (_event, ip: string) => {
     const settingsPub = loadSettings()

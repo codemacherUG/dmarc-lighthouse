@@ -368,6 +368,7 @@ const de = {
   'settings.tabNoise': 'Rauschen',
   'settings.tabGeneral': 'Abruf & Benachrichtigungen',
   'settings.tabEnrichment': 'Anreicherung',
+  'settings.tabSendingServices': 'Sende-Dienste',
   'settings.accountSetupHint':
     'Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die Verbindung testen.',
   'settings.newAccount': 'Neues Konto',
@@ -433,6 +434,9 @@ const de = {
   'settings.markSeen': 'Nachrichten nach Abruf als gelesen markieren',
   'settings.test': 'Verbindung testen',
   'settings.clearCache': 'Cache dieses Kontos leeren',
+  'settings.resetKnownSources': 'Bekannte Quellen zurücksetzen',
+  'settings.resetKnownSourcesHint':
+    'Der nächste Abruf zeigt alle aktuell aktiven Absender einmalig als neue Quelle — Reports und Cache bleiben erhalten.',
   'settings.autoFetch': 'Automatischer Abruf',
   'settings.autoFetchMinutes': 'Auto-Abruf (Minuten)',
   'settings.autoFetchTitle': '0 = aus',
@@ -519,6 +523,86 @@ const de = {
   'settings.saveAccountFirst': 'Konto zuerst speichern.',
   'settings.testing': 'Teste Verbindung…',
   'settings.confirmDelete': 'Konto „{label}" wirklich löschen? Der lokale Cache wird entfernt.',
+
+  'sendingServices.hint':
+    'Persistentes Inventar erkannter Sende-Dienste (Microsoft 365, Google Workspace, Amazon SES, …) statt einzelner IPs. Ein Alert heißt dann „neue Microsoft-365-Quelle für example.de“ statt „neue IP 40.x.x.x“ — Status „Bekannt“ unterdrückt den Alert für diese Kombination aus Dienst und Domain dauerhaft.',
+  'sendingServices.colProvider': 'Dienst',
+  'sendingServices.colDomain': 'Domain',
+  'sendingServices.colScope': 'CIDR / ASN',
+  'sendingServices.colStatus': 'Status',
+  'sendingServices.colTeam': 'Team',
+  'sendingServices.colNote': 'Notiz',
+  'sendingServices.status.known': 'Bekannt',
+  'sendingServices.status.unknown': 'Unbekannt',
+  'sendingServices.status.retired': 'Stillgelegt',
+  'sendingServices.status.investigate': 'Prüfen',
+  'sendingServices.empty':
+    'Noch keine Einträge — Einträge entstehen automatisch aus neuen Quellen oder werden unten manuell angelegt.',
+  'sendingServices.addTitle': 'Neuer Eintrag',
+  'sendingServices.providerLabel': 'Dienst',
+  'sendingServices.providerPlaceholder': 'Dienst, z. B. Microsoft 365',
+  'sendingServices.providerHint':
+    'Name, wie er im Alert/Banner steht. Muss exakt zum automatisch erkannten Dienstnamen passen; bei unbekannten Diensten frei wählbar (dann zählen nur CIDR/ASN).',
+  'sendingServices.domainLabel': 'Domain',
+  'sendingServices.domainPlaceholder': 'Domain(s), leer = alle',
+  'sendingServices.domainHint':
+    'Die Header-From-Domain(s), für die dieser Dienst sendet, z. B. example.de. Mehrere Domains kommagetrennt (z. B. example.de, example.com). Leer = gilt für alle eigenen Domains.',
+  'sendingServices.cidrLabel': 'CIDR / IP-Bereiche',
+  'sendingServices.cidrPlaceholder': 'z. B. 40.92.0.0/14, 203.0.113.10/32',
+  'sendingServices.cidrHint':
+    'Optional. Einzelne IPs oder Netzbereiche in CIDR-Schreibweise, mehrere durch Komma getrennt. Leer = nicht auf ein Netz eingeschränkt.',
+  'sendingServices.asnLabel': 'ASN',
+  'sendingServices.asnPlaceholder': 'z. B. 8075 (ohne „AS“)',
+  'sendingServices.asnHint':
+    'Optional. Nummer des Autonomen Systems (Netzbetreiber) ohne „AS“-Präfix, z. B. 8075 für Microsoft. Bleibt oft gleich, auch wenn sich die IP ändert.',
+  'sendingServices.statusLabel': 'Status',
+  'sendingServices.statusHint':
+    'Bekannt: kein Alert mehr für diese Kombination. Unbekannt: Standard, weiter Alerts. Prüfen: du bist dran, weiter Alerts. Stillgelegt: sollte nicht mehr senden — taucht der Dienst wieder auf, alarmiert die App bewusst.',
+  'sendingServices.teamLabel': 'Team',
+  'sendingServices.teamPlaceholder': 'Team (optional)',
+  'sendingServices.noteLabel': 'Notiz',
+  'sendingServices.notePlaceholder': 'Notiz (optional)',
+  'sendingServices.add': 'Hinzufügen',
+  'sendingServices.delete': 'Löschen',
+  'sendingServices.deleteTitle': 'Eintrag löschen',
+  'sendingServices.providerRequired': 'Bitte einen Dienstnamen angeben.',
+  'sendingServices.saved': 'Sende-Dienst gespeichert.',
+  'sendingServices.deleted': 'Eintrag gelöscht.',
+
+  'newSources.title': 'Neue Sende-Quellen',
+  'newSources.hint':
+    'Bekannt beendet den Hinweis. Prüfen bleibt offen und alarmiert weiter. Stillgelegt bedeutet, dass der Dienst nicht mehr senden darf — weiteres Auftauchen alarmiert bewusst. Löschen verwirft den Hinweis ohne Sende-Dienst.',
+  'newSources.markKnown': 'Als bekannt markieren',
+  'newSources.marked': 'Als bekannt markiert — künftig kein Alert mehr dafür.',
+  'newSources.applyStatus': 'Status übernehmen',
+  'newSources.statusSaved': 'Gespeichert',
+  'newSources.investigateSaved':
+    'Als „Prüfen“ gespeichert — die Quelle bleibt offen und alarmiert weiter.',
+  'newSources.retiredSaved':
+    'Als „Stillgelegt“ gespeichert — weiteres Senden wird weiterhin bewusst alarmiert.',
+  'newSources.dismiss': 'Ausblenden',
+  'newSources.show': 'Einblenden',
+  'newSources.hiddenCount': 'Ausgeblendete Quellen: {count}',
+  'newSources.itemWithDomain': '{provider} für {domain}',
+  'newSources.itemNoDomain': '{provider} (unbekannte Domain)',
+  'newSources.unknownProvider': 'unbekannter Dienst',
+  'newSources.ipCount': '{count} IP(s)',
+  'newSources.reviewIp': '{count} IP ansehen',
+  'newSources.reviewIps': '{count} IPs ansehen',
+  'newSources.dialogHint':
+    '{count} erkannte Quell-IP(s). Metadaten prüfen, einzelne IPs filtern, ohne Dienst verwerfen oder eine Auswahl als eigenen Sende-Dienst übernehmen.',
+  'newSources.ipDetails': 'Details',
+  'newSources.noService': 'Keinen Dienst zuweisen',
+  'newSources.ipRemoved': 'IP aus den offenen Sende-Quellen entfernt.',
+  'newSources.selectAll': 'Alle auswählen',
+  'newSources.selectIp': 'IP {ip} auswählen',
+  'newSources.selectedCount': '{count} ausgewählt',
+  'newSources.addSelectedService': 'Aus Auswahl anlegen ({count})',
+  'newSources.addService': 'Sende-Dienst anlegen …',
+  'newSources.deleteGroup': 'Löschen',
+  'newSources.groupDeleted': 'Unbekannte Sende-Quelle gelöscht.',
+  'newSources.notePrefillIps':
+    'Bisher gesehene IPs: {ips} — CIDR ggf. anpassen, falls das Netz weiter reicht.',
 
   'health.title': 'Domain-Ampel',
   'health.hint':
@@ -649,6 +733,8 @@ const de = {
   'ipNoise.added': '{entry} als Mail-Rauschen aufgenommen.',
   'ipNoise.already': '{entry} ist bereits als Mail-Rauschen ausgeblendet.',
   'ipNoise.unavailable': 'Dieser Absender lässt sich nicht als Mail-Rauschen ausblenden.',
+
+  'ipSendingService.add': 'Als Sende-Dienst hinzufügen …',
 
   'enrichment.maxmindKeyMissing': 'Bitte einen MaxMind License-Key eintragen und speichern.',
   'enrichment.geoLiteDownloaded': 'GeoLite2 City und ASN wurden heruntergeladen.',
@@ -872,6 +958,8 @@ const de = {
   'main.noAccount': 'Kein IMAP-Konto konfiguriert.',
   'main.noAccountSelected': 'Kein Konto ausgewählt.',
   'main.cacheCleared': 'Cache geleert.',
+  'main.knownSourcesReset':
+    'Bekannte Quellen zurückgesetzt. Der nächste Abruf zeigt alle aktuellen Absender als neue Quelle.',
   'main.openReports': 'DMARC-Reports öffnen',
   'main.openEmail': 'E-Mail öffnen',
   'main.saveExport': 'Export speichern',
@@ -901,6 +989,10 @@ const de = {
     'Pass-Rate der letzten 7 Tage bei {rate}% — unter Schwelle von {threshold}%{suffix}.',
   'main.alertNewSource': 'Neue Quelle erkannt: {shown}{more}{suffix}.',
   'main.alertMore': ' und {count} weitere',
+  'main.alertNewSendingSource': 'Neue Sende-Quelle erkannt: {shown}{more}{suffix}.',
+  'main.alertUnknownProvider': 'unbekannter Dienst',
+  'main.alertSendingSourceItem': '{provider}-Quelle für {domain}',
+  'main.alertSendingSourceItemNoDomain': '{provider}-Quelle (unbekannte Domain)',
   'main.trayShow': 'DMARC Lighthouse anzeigen',
   'main.trayFetch': 'Jetzt abrufen',
   'main.trayQuit': 'Beenden',
@@ -1636,6 +1728,7 @@ const en: Dict = {
   'settings.tabNoise': 'Noise',
   'settings.tabGeneral': 'Fetch & notifications',
   'settings.tabEnrichment': 'Enrichment',
+  'settings.tabSendingServices': 'Sending services',
   'settings.accountSetupHint':
     'Set up Gmail, Microsoft 365/Outlook, or a custom IMAP account and test the connection.',
   'settings.newAccount': 'New account',
@@ -1700,6 +1793,9 @@ const en: Dict = {
   'settings.markSeen': 'Mark messages as read after fetch',
   'settings.test': 'Test connection',
   'settings.clearCache': 'Clear this account’s cache',
+  'settings.resetKnownSources': 'Reset known sources',
+  'settings.resetKnownSourcesHint':
+    'The next fetch will show every currently active sender as a new source once — reports and cache stay intact.',
   'settings.autoFetch': 'Automatic fetch',
   'settings.autoFetchMinutes': 'Auto-fetch (minutes)',
   'settings.autoFetchTitle': '0 = off',
@@ -1784,6 +1880,86 @@ const en: Dict = {
   'settings.saveAccountFirst': 'Save the account first.',
   'settings.testing': 'Testing connection…',
   'settings.confirmDelete': 'Really delete account “{label}"? Its local cache will be removed.',
+
+  'sendingServices.hint':
+    'A persistent inventory of recognized sending services (Microsoft 365, Google Workspace, Amazon SES, …) instead of individual IPs. An alert then reads “new Microsoft 365 source for example.com” instead of “new IP 40.x.x.x” — status “Known” permanently suppresses the alert for that service/domain pairing.',
+  'sendingServices.colProvider': 'Service',
+  'sendingServices.colDomain': 'Domain',
+  'sendingServices.colScope': 'CIDR / ASN',
+  'sendingServices.colStatus': 'Status',
+  'sendingServices.colTeam': 'Team',
+  'sendingServices.colNote': 'Note',
+  'sendingServices.status.known': 'Known',
+  'sendingServices.status.unknown': 'Unknown',
+  'sendingServices.status.retired': 'Retired',
+  'sendingServices.status.investigate': 'Investigate',
+  'sendingServices.empty':
+    'No entries yet — entries appear automatically from new sources or can be added manually below.',
+  'sendingServices.addTitle': 'New entry',
+  'sendingServices.providerLabel': 'Service',
+  'sendingServices.providerPlaceholder': 'Service, e.g. Microsoft 365',
+  'sendingServices.providerHint':
+    'Name as shown in the alert/banner. Must match the automatically recognized service name exactly; free text for unrecognized services (then only CIDR/ASN count).',
+  'sendingServices.domainLabel': 'Domain',
+  'sendingServices.domainPlaceholder': 'Domain(s), empty = all',
+  'sendingServices.domainHint':
+    'The header-From domain(s) this service sends for, e.g. example.com. Multiple domains comma-separated (e.g. example.com, example.net). Empty = applies to all your domains.',
+  'sendingServices.cidrLabel': 'CIDR / IP ranges',
+  'sendingServices.cidrPlaceholder': 'e.g. 40.92.0.0/14, 203.0.113.10/32',
+  'sendingServices.cidrHint':
+    'Optional. Individual IPs or network ranges in CIDR notation, separated by commas. Empty = not restricted to a network.',
+  'sendingServices.asnLabel': 'ASN',
+  'sendingServices.asnPlaceholder': 'e.g. 8075 (without “AS”)',
+  'sendingServices.asnHint':
+    'Optional. The autonomous system (network operator) number without the “AS” prefix, e.g. 8075 for Microsoft. Often stays the same even when the IP changes.',
+  'sendingServices.statusLabel': 'Status',
+  'sendingServices.statusHint':
+    'Known: no more alerts for this combination. Unknown: default, alerts continue. Investigate: you are looking into it, alerts continue. Retired: should no longer send — if it reappears, the app deliberately alerts.',
+  'sendingServices.teamLabel': 'Team',
+  'sendingServices.teamPlaceholder': 'Team (optional)',
+  'sendingServices.noteLabel': 'Note',
+  'sendingServices.notePlaceholder': 'Note (optional)',
+  'sendingServices.add': 'Add',
+  'sendingServices.delete': 'Delete',
+  'sendingServices.deleteTitle': 'Delete entry',
+  'sendingServices.providerRequired': 'Please enter a service name.',
+  'sendingServices.saved': 'Sending service saved.',
+  'sendingServices.deleted': 'Entry deleted.',
+
+  'newSources.title': 'New sending sources',
+  'newSources.hint':
+    'Known closes the alert. Investigate remains pending and continues to alert. Retired means the service must no longer send — any reappearance deliberately alerts. Delete discards the alert without a sending service.',
+  'newSources.markKnown': 'Mark as known',
+  'newSources.marked': 'Marked as known — no more alerts for this combination.',
+  'newSources.applyStatus': 'Apply status',
+  'newSources.statusSaved': 'Saved',
+  'newSources.investigateSaved':
+    'Saved as “Investigate” — the source remains pending and continues to alert.',
+  'newSources.retiredSaved':
+    'Saved as “Retired” — continued sending deliberately continues to alert.',
+  'newSources.dismiss': 'Dismiss',
+  'newSources.show': 'Show',
+  'newSources.hiddenCount': 'Hidden sources: {count}',
+  'newSources.itemWithDomain': '{provider} for {domain}',
+  'newSources.itemNoDomain': '{provider} (unknown domain)',
+  'newSources.unknownProvider': 'unknown service',
+  'newSources.ipCount': '{count} IP(s)',
+  'newSources.reviewIp': 'Review {count} IP',
+  'newSources.reviewIps': 'Review {count} IPs',
+  'newSources.dialogHint':
+    '{count} detected source IP(s). Review metadata, filter individual IPs, discard them without a service, or use a selection as a separate sending service.',
+  'newSources.ipDetails': 'Details',
+  'newSources.noService': 'Assign no service',
+  'newSources.ipRemoved': 'IP removed from pending sending sources.',
+  'newSources.selectAll': 'Select all',
+  'newSources.selectIp': 'Select IP {ip}',
+  'newSources.selectedCount': '{count} selected',
+  'newSources.addSelectedService': 'Add from selection ({count})',
+  'newSources.addService': 'Add sending service…',
+  'newSources.deleteGroup': 'Delete',
+  'newSources.groupDeleted': 'Unknown sending source deleted.',
+  'newSources.notePrefillIps':
+    'IPs seen so far: {ips} — widen the CIDR if the network reaches further.',
 
   'health.title': 'Domain health',
   'health.hint':
@@ -1912,6 +2088,8 @@ const en: Dict = {
   'ipNoise.added': 'Added {entry} as mail noise.',
   'ipNoise.already': '{entry} is already hidden as mail noise.',
   'ipNoise.unavailable': 'This sender cannot be hidden as mail noise.',
+
+  'ipSendingService.add': 'Add as sending service…',
 
   'enrichment.maxmindKeyMissing': 'Please enter a MaxMind license key and save.',
   'enrichment.geoLiteDownloaded': 'GeoLite2 City and ASN have been downloaded.',
@@ -2134,6 +2312,8 @@ const en: Dict = {
   'main.noAccount': 'No IMAP account configured.',
   'main.noAccountSelected': 'No account selected.',
   'main.cacheCleared': 'Cache cleared.',
+  'main.knownSourcesReset':
+    'Known sources reset. The next fetch will show every current sender as a new source.',
   'main.openReports': 'Open DMARC reports',
   'main.openEmail': 'Open email',
   'main.saveExport': 'Save export',
@@ -2162,6 +2342,10 @@ const en: Dict = {
   'main.alertPassRate': '7-day pass rate at {rate}% — below threshold of {threshold}%{suffix}.',
   'main.alertNewSource': 'New source detected: {shown}{more}{suffix}.',
   'main.alertMore': ' and {count} more',
+  'main.alertNewSendingSource': 'New sending source detected: {shown}{more}{suffix}.',
+  'main.alertUnknownProvider': 'unknown service',
+  'main.alertSendingSourceItem': '{provider} source for {domain}',
+  'main.alertSendingSourceItemNoDomain': '{provider} source (unknown domain)',
   'main.trayShow': 'Show DMARC Lighthouse',
   'main.trayFetch': 'Fetch now',
   'main.trayQuit': 'Quit',

@@ -7,7 +7,7 @@ import {
 } from '../../shared/demo-data'
 import { t, type AppLocale } from '../../shared/i18n'
 import type { AppTheme } from '../../shared/theme'
-import { DEFAULT_DATE_RANGE, type IpInfo } from '../../shared/types'
+import { DEFAULT_DATE_RANGE, type IpInfo, type NewSendingSourceGroup } from '../../shared/types'
 import { applyUiLocale } from './chrome'
 import { escapeHtml } from './format'
 import {
@@ -79,7 +79,34 @@ export function installScreenshotApi(): void {
       state.selectedReportId = null
       clearDrill()
       filterRangeEl.value = DEFAULT_DATE_RANGE
-      showResult(buildDemoAnalyzeResult(), t('status.cached', { count: 12 }))
+      const demoResult = buildDemoAnalyzeResult()
+      // Shows the "new sending sources" banner: one recognized service to accept,
+      // one previously retired service reappearing, and one unrecognized provider.
+      demoResult.newSourceIps = ['40.92.4.10', '40.92.4.11', '203.0.113.90', '198.51.100.77']
+      demoResult.newSendingSources = [
+        {
+          provider: 'Microsoft 365',
+          domain: 'example.com',
+          ips: ['40.92.4.10', '40.92.4.11'],
+          status: 'unknown',
+          asn: 8075
+        },
+        {
+          provider: 'Old ESP',
+          domain: 'example.com',
+          ips: ['203.0.113.90'],
+          status: 'retired',
+          asn: null
+        },
+        {
+          provider: null,
+          domain: 'contoso.example',
+          ips: ['198.51.100.77'],
+          status: 'unknown',
+          asn: null
+        }
+      ] satisfies NewSendingSourceGroup[]
+      showResult(demoResult, t('status.cached', { count: 12 }))
       fillDnsDemo()
       // Seed PTR / Geo labels without calling the network.
       const seedDemoIps = (): void => {

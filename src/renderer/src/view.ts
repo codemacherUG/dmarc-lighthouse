@@ -37,10 +37,13 @@ import {
   type FailCategory,
   type ForensicReportRow,
   type NamedBucket,
+  type NewSendingSourceGroup,
   type ProblemSourceRow,
   type ReportRow,
+  type SendingServiceStatus,
   type SerializedRecord
 } from '../../shared/types'
+import { alertableSendingSources, parseDomainList } from '../../shared/sending-services'
 import {
   chartDkim,
   chartDmarc,
@@ -66,6 +69,7 @@ import {
   diagnosisDialog,
   ipContextMenu,
   ipContextNoiseBtn,
+  ipContextSendingServiceBtn,
   dnsDomainEl,
   domainAmpelEl,
   tableProblemSources,
@@ -82,15 +86,23 @@ import {
   forensicBody,
   ipDetailBody,
   ipDetailDialog,
+  newSendingSourcesBannerEl,
   reportsBody,
   scannerNoiseHostsEl,
   tableFrom,
   tableIps,
-  tableOrgs
+  tableOrgs,
+  sendingServiceAsnEl,
+  sendingServiceCidrEl,
+  sendingServiceDomainEl,
+  sendingServiceNoteEl,
+  sendingServiceProviderEl,
+  sendingServiceStatusEl
 } from './dom'
 import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
 import { renderIpMap, setIpMapFilterHandler } from './ip-map'
 import { clearDrill, state, type DrillFilters } from './state'
+import { openSettings, setNextSendingServiceCreatedHandler, showSettingsTab } from './settings-ui'
 import {
   compareIp,
   compareNumber,
@@ -879,6 +891,9 @@ function renderDashboard(result: AnalyzeResult | null): void {
       }
     }
   }
+  for (const group of state.fullResult?.newSendingSources ?? []) {
+    for (const ip of group.ips) pushIp(ip)
+  }
   for (const row of d.bySourceIp) pushIp(row.name)
   for (const row of d.problemSources ?? []) pushIp(row.sourceIp)
   void enrichIpLabels(enrichIps)
@@ -947,6 +962,7 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
       renderProblemSources(state.viewResult.dashboard.problemSources ?? [])
       renderIpMap(state.viewResult.dashboard.bySourceIp)
     }
+    refreshNewSourceIpMetadata()
     // Refresh open record details so geo/ASN/DNSBL appear once enrichment lands.
     if (state.selectedReportId && state.viewResult) {
       const selected =
@@ -1205,6 +1221,480 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
   }
 }
 
+/** Names a group by service, not by IP: "Microsoft 365 for example.de" is actionable. */
+function describeNewSourceGroup(group: NewSendingSourceGroup): string {
+  const provider = group.provider ?? t('newSources.unknownProvider')
+  return group.domain
+    ? t('newSources.itemWithDomain', { provider, domain: group.domain })
+    : t('newSources.itemNoDomain', { provider })
+}
+
+/** A single IPv4/IPv6 address as its narrowest CIDR, for prefilling the inventory form. */
+function singleIpCidr(ip: string): string {
+  return ip.includes(':') ? `${ip}/128` : `${ip}/32`
+}
+
+/**
+ * Opens Settings on the "Sende-Dienste" tab with domain/CIDR/ASN prefilled from the group,
+ * leaving the service name blank — the user must confirm/name it explicitly before saving.
+ */
+function openSendingServiceFormFor(
+  group: NewSendingSourceGroup,
+  selectedIps?: string[],
+  status: SendingServiceStatus = 'known'
+): void {
+  const ips = selectedIps ?? group.ips
+  openSettings()
+  showSettingsTab('sendingServices')
+  setNextSendingServiceCreatedHandler(async (savedService) => {
+    const selected = new Set(ips)
+    const remainingIps = group.ips.filter((ip) => !selected.has(ip))
+    if (savedService.status === 'known') {
+      await window.api.acknowledgePendingSources(ips)
+      group.ips = remainingIps
+    } else if (remainingIps.length === 0) {
+      group.provider = savedService.provider
+      group.status = savedService.status
+    } else {
+      group.ips = remainingIps
+      const groups = state.fullResult?.newSendingSources
+      const groupIndex = groups?.indexOf(group) ?? -1
+      if (groups && groupIndex >= 0) {
+        groups.splice(groupIndex + 1, 0, {
+          ...group,
+          provider: savedService.provider,
+          ips: [...ips],
+          status: savedService.status
+        })
+      }
+    }
+    renderNewSendingSourcesBanner(state.fullResult)
+  })
+  sendingServiceProviderEl.value = ''
+  sendingServiceDomainEl.value = group.domain ?? ''
+  sendingServiceCidrEl.value = selectedIps
+    ? ips.map(singleIpCidr).join(', ')
+    : ips.length === 1
+      ? singleIpCidr(ips[0]!)
+      : ''
+  sendingServiceAsnEl.value = selectedIps ? '' : group.asn != null ? String(group.asn) : ''
+  sendingServiceStatusEl.value = status
+  sendingServiceNoteEl.value =
+    ips.length > 1 ? t('newSources.notePrefillIps', { ips: ips.join(', ') }) : ''
+  sendingServiceProviderEl.focus()
+}
+
+function removeNewSourceItem(row: HTMLDivElement): void {
+  row.remove()
+  if (!newSendingSourcesBannerEl.querySelector('.new-source-item')) {
+    newSendingSourcesBannerEl.classList.add('hidden')
+    newSendingSourcesBannerEl.innerHTML = ''
+  }
+}
+
+function reviewIpsLabel(count: number): string {
+  return t(count === 1 ? 'newSources.reviewIp' : 'newSources.reviewIps', { count })
+}
+
+function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
+  const row = document.createElement('div')
+  row.className = 'new-source-item'
+
+  const label = document.createElement('div')
+  label.className = 'new-source-label'
+  const labelText = document.createElement('span')
+  labelText.textContent = describeNewSourceGroup(group)
+  label.appendChild(labelText)
+  const statusBadge = document.createElement('span')
+  statusBadge.className = 'badge new-source-status-badge hidden'
+  label.appendChild(statusBadge)
+  syncNewSourceStatusBadge(statusBadge, group.status)
+  row.appendChild(label)
+
+  const reviewBtn = document.createElement('button')
+  reviewBtn.type = 'button'
+  reviewBtn.className = 'btn secondary new-source-ips'
+  reviewBtn.textContent = reviewIpsLabel(group.ips.length)
+  row.appendChild(reviewBtn)
+
+  const dialog = document.createElement('dialog')
+  dialog.className = 'new-source-ip-dialog'
+  const form = document.createElement('div')
+  form.className = 'settings-form'
+
+  const header = document.createElement('header')
+  header.className = 'dialog-header'
+  const title = document.createElement('h2')
+  title.textContent = describeNewSourceGroup(group)
+  header.appendChild(title)
+  const closeBtn = document.createElement('button')
+  closeBtn.type = 'button'
+  closeBtn.className = 'btn ghost'
+  closeBtn.textContent = '✕'
+  closeBtn.setAttribute('aria-label', t('settings.close'))
+  closeBtn.addEventListener('click', () => dialog.close())
+  header.appendChild(closeBtn)
+  form.appendChild(header)
+
+  const body = document.createElement('div')
+  body.className = 'dialog-body new-source-dialog-body'
+  const hint = document.createElement('p')
+  hint.className = 'hint new-source-dialog-hint'
+  hint.textContent = t('newSources.dialogHint', { count: group.ips.length })
+  body.appendChild(hint)
+
+  const selectionBar = document.createElement('div')
+  selectionBar.className = 'new-source-selection-bar'
+  const selectAllLabel = document.createElement('label')
+  selectAllLabel.className = 'checkbox'
+  const selectAll = document.createElement('input')
+  selectAll.type = 'checkbox'
+  const selectAllText = document.createElement('span')
+  selectAllText.textContent = t('newSources.selectAll')
+  selectAllLabel.append(selectAll, selectAllText)
+  selectionBar.appendChild(selectAllLabel)
+  body.appendChild(selectionBar)
+
+  const ipList = document.createElement('div')
+  ipList.className = 'new-source-ip-list'
+  body.appendChild(ipList)
+  form.appendChild(body)
+
+  const footer = document.createElement('footer')
+  footer.className = 'dialog-footer'
+  const selectedLabel = document.createElement('span')
+  selectedLabel.className = 'hint'
+  selectedLabel.textContent = t('newSources.selectedCount', { count: 0 })
+  footer.appendChild(selectedLabel)
+  const actions = document.createElement('div')
+  actions.className = 'dialog-actions'
+  const selectedStatus = createNewSourceStatusSelect()
+  selectedStatus.classList.add('new-source-selected-status')
+  actions.appendChild(selectedStatus)
+  const cancelBtn = document.createElement('button')
+  cancelBtn.type = 'button'
+  cancelBtn.className = 'btn secondary'
+  cancelBtn.textContent = t('settings.close')
+  cancelBtn.addEventListener('click', () => dialog.close())
+  actions.appendChild(cancelBtn)
+  const createSelectedBtn = document.createElement('button')
+  createSelectedBtn.type = 'button'
+  createSelectedBtn.className = 'btn primary'
+  createSelectedBtn.disabled = true
+  createSelectedBtn.textContent = t('newSources.addSelectedService', { count: 0 })
+  actions.appendChild(createSelectedBtn)
+  footer.appendChild(actions)
+  form.appendChild(footer)
+  dialog.appendChild(form)
+  row.appendChild(dialog)
+
+  const ipCheckboxes: HTMLInputElement[] = []
+  const syncSelection = (): void => {
+    const activeCheckboxes = ipCheckboxes.filter((checkbox) => checkbox.isConnected)
+    const selectedCount = activeCheckboxes.filter((checkbox) => checkbox.checked).length
+    selectAll.checked = activeCheckboxes.length > 0 && selectedCount === activeCheckboxes.length
+    selectAll.indeterminate = selectedCount > 0 && selectedCount < activeCheckboxes.length
+    createSelectedBtn.disabled = selectedCount === 0
+    createSelectedBtn.textContent = t('newSources.addSelectedService', { count: selectedCount })
+    selectedLabel.textContent = t('newSources.selectedCount', { count: selectedCount })
+  }
+
+  const syncGroupCount = (): void => {
+    reviewBtn.textContent = reviewIpsLabel(group.ips.length)
+    hint.textContent = t('newSources.dialogHint', { count: group.ips.length })
+    if (group.ips.length === 0) {
+      dialog.close()
+      removeNewSourceItem(row)
+    }
+  }
+
+  for (const ip of group.ips) {
+    const ipRow = document.createElement('div')
+    ipRow.className = 'new-source-ip-row'
+
+    const selectIp = document.createElement('input')
+    selectIp.type = 'checkbox'
+    selectIp.value = ip
+    selectIp.setAttribute('aria-label', t('newSources.selectIp', { ip }))
+    selectIp.addEventListener('change', syncSelection)
+    ipCheckboxes.push(selectIp)
+    ipRow.appendChild(selectIp)
+
+    const address = document.createElement('span')
+    address.className = 'mono'
+    address.textContent = ip
+    ipRow.appendChild(address)
+
+    const metadata = document.createElement('div')
+    metadata.className = 'new-source-ip-meta'
+    metadata.dataset.sourceIpMeta = ip
+    metadata.innerHTML = formatIpMetaHtml(ip)
+
+    const ipActions = document.createElement('div')
+    ipActions.className = 'new-source-ip-actions'
+
+    const filterBtn = document.createElement('button')
+    filterBtn.type = 'button'
+    filterBtn.className = 'btn secondary'
+    filterBtn.textContent = t('ipDetail.filter')
+    filterBtn.addEventListener('click', () => {
+      dialog.close()
+      setDrillFilter('sourceIp', ip)
+    })
+    ipActions.appendChild(filterBtn)
+
+    const detailBtn = document.createElement('button')
+    detailBtn.type = 'button'
+    detailBtn.className = 'btn secondary'
+    detailBtn.textContent = t('newSources.ipDetails')
+    detailBtn.addEventListener('click', () => openIpDetail(ip))
+    ipActions.appendChild(detailBtn)
+
+    const rejectBtn = document.createElement('button')
+    rejectBtn.type = 'button'
+    rejectBtn.className = 'btn danger'
+    rejectBtn.textContent = t('newSources.noService')
+    rejectBtn.addEventListener('click', () => {
+      rejectBtn.disabled = true
+      void window.api
+        .acknowledgePendingSources([ip])
+        .then(() => {
+          group.ips = group.ips.filter((candidate) => candidate !== ip)
+          ipRow.remove()
+          syncSelection()
+          syncGroupCount()
+          setStatus(t('newSources.ipRemoved'), 'ok')
+        })
+        .catch((err: unknown) => {
+          rejectBtn.disabled = false
+          setStatus(err instanceof Error ? err.message : String(err), 'error')
+        })
+    })
+    ipActions.appendChild(rejectBtn)
+
+    ipRow.appendChild(ipActions)
+    ipRow.appendChild(metadata)
+
+    ipList.appendChild(ipRow)
+  }
+  selectAll.addEventListener('change', () => {
+    for (const checkbox of ipCheckboxes.filter((item) => item.isConnected)) {
+      checkbox.checked = selectAll.checked
+    }
+    syncSelection()
+  })
+  createSelectedBtn.addEventListener('click', () => {
+    const selectedIps = ipCheckboxes
+      .filter((checkbox) => checkbox.isConnected && checkbox.checked)
+      .map((checkbox) => checkbox.value)
+    if (selectedIps.length) {
+      dialog.close()
+      openSendingServiceFormFor(group, selectedIps, selectedStatus.value as SendingServiceStatus)
+    }
+  })
+  reviewBtn.addEventListener('click', () => dialog.showModal())
+
+  if (group.provider) {
+    const statusAction = document.createElement('div')
+    statusAction.className = 'new-source-main-action new-source-status-action'
+    const statusSelect = createNewSourceStatusSelect(group.status)
+    statusAction.appendChild(statusSelect)
+    const applyStatusBtn = document.createElement('button')
+    applyStatusBtn.type = 'button'
+    applyStatusBtn.className = 'btn secondary'
+    applyStatusBtn.textContent = t('newSources.applyStatus')
+    const syncStatusAction = (): void => {
+      const isSaved = group.status !== 'unknown' && statusSelect.value === group.status
+      applyStatusBtn.disabled = isSaved
+      applyStatusBtn.textContent = t(isSaved ? 'newSources.statusSaved' : 'newSources.applyStatus')
+    }
+    statusSelect.addEventListener('change', syncStatusAction)
+    applyStatusBtn.addEventListener('click', () => {
+      statusSelect.disabled = true
+      applyStatusBtn.disabled = true
+      void saveSendingSourceStatus(group, row, statusSelect, statusBadge, syncStatusAction)
+    })
+    syncStatusAction()
+    statusAction.appendChild(applyStatusBtn)
+    row.appendChild(statusAction)
+  } else {
+    // No recognized service name to match on — offer a prefilled manual entry instead.
+    const addBtn = document.createElement('button')
+    addBtn.type = 'button'
+    addBtn.className = 'btn secondary new-source-main-action new-source-service-action'
+    addBtn.textContent = t('newSources.addService')
+    addBtn.addEventListener('click', () => openSendingServiceFormFor(group))
+    row.appendChild(addBtn)
+  }
+
+  const deleteBtn = document.createElement('button')
+  deleteBtn.type = 'button'
+  deleteBtn.className = 'btn danger new-source-delete'
+  deleteBtn.textContent = t('newSources.deleteGroup')
+  deleteBtn.addEventListener('click', () => {
+    deleteBtn.disabled = true
+    void window.api
+      .acknowledgePendingSources(group.ips)
+      .then(() => {
+        group.ips = []
+        removeNewSourceItem(row)
+        setStatus(t('newSources.groupDeleted'), 'ok')
+      })
+      .catch((err: unknown) => {
+        deleteBtn.disabled = false
+        setStatus(err instanceof Error ? err.message : String(err), 'error')
+      })
+  })
+  row.appendChild(deleteBtn)
+
+  return row
+}
+
+function createNewSourceStatusSelect(initial: SendingServiceStatus = 'known'): HTMLSelectElement {
+  const select = document.createElement('select')
+  select.setAttribute('aria-label', t('sendingServices.statusLabel'))
+  select.title = t('sendingServices.statusHint')
+  for (const status of ['known', 'investigate', 'retired'] as const) {
+    const option = document.createElement('option')
+    option.value = status
+    option.textContent = t(`sendingServices.status.${status}`)
+    option.selected = status === initial
+    select.appendChild(option)
+  }
+  return select
+}
+
+function syncNewSourceStatusBadge(badge: HTMLSpanElement, status: SendingServiceStatus): void {
+  badge.classList.remove('hidden', 'warn', 'bad')
+  if (status === 'investigate') {
+    badge.classList.add('warn')
+  } else if (status === 'retired') {
+    badge.classList.add('bad')
+  } else {
+    badge.classList.add('hidden')
+    return
+  }
+  badge.textContent = t(`sendingServices.status.${status}`)
+}
+
+function refreshNewSourceIpMetadata(): void {
+  for (const metadata of newSendingSourcesBannerEl.querySelectorAll<HTMLElement>(
+    '[data-source-ip-meta]'
+  )) {
+    metadata.innerHTML = formatIpMetaHtml(metadata.dataset.sourceIpMeta ?? '')
+  }
+}
+
+/** Reuses an existing plain provider+domain entry instead of creating a duplicate row. */
+async function saveSendingSourceStatus(
+  group: NewSendingSourceGroup,
+  row: HTMLDivElement,
+  select: HTMLSelectElement,
+  statusBadge: HTMLSpanElement,
+  syncStatusAction: () => void
+): Promise<void> {
+  try {
+    const status = select.value as SendingServiceStatus
+    const existing = await window.api.listSendingServices()
+    const groupDomain = (group.domain ?? '').trim().toLowerCase()
+    // Only reuse an exact single-domain (or exact wildcard) entry — never a multi-domain
+    // list, since overwriting its `domain` here would silently drop the other domains.
+    const match = existing.find((svc) => {
+      if (svc.provider.toLowerCase() !== (group.provider ?? '').toLowerCase()) return false
+      if (svc.cidr || svc.asn != null) return false
+      const domains = parseDomainList(svc.domain)
+      return groupDomain ? domains.length === 1 && domains[0] === groupDomain : domains.length === 0
+    })
+    await window.api.saveSendingService({
+      id: match?.id,
+      provider: group.provider!,
+      domain: group.domain,
+      cidr: null,
+      asn: null,
+      status,
+      team: match?.team ?? null,
+      note: match?.note ?? null
+    })
+    group.status = status
+    if (status === 'known') {
+      await window.api.acknowledgePendingSources(group.ips)
+      setStatus(t('newSources.marked'), 'ok')
+      group.ips = []
+      removeNewSourceItem(row)
+      return
+    }
+    select.disabled = false
+    syncNewSourceStatusBadge(statusBadge, status)
+    syncStatusAction()
+    setStatus(
+      t(status === 'investigate' ? 'newSources.investigateSaved' : 'newSources.retiredSaved'),
+      status === 'investigate' ? 'ok' : 'error'
+    )
+  } catch (err) {
+    select.disabled = false
+    syncStatusAction()
+    setStatus(err instanceof Error ? err.message : String(err), 'error')
+  }
+}
+
+let newSendingSourcesCollapsed = false
+
+/** Dashboard banner naming freshly seen (provider, domain) pairs not yet inventoried as known. */
+function renderNewSendingSourcesBanner(result: AnalyzeResult | null): void {
+  const groups = alertableSendingSources(result?.newSendingSources ?? [])
+  newSendingSourcesBannerEl.innerHTML = ''
+  if (groups.length === 0) {
+    newSendingSourcesCollapsed = false
+    newSendingSourcesBannerEl.classList.add('hidden')
+    return
+  }
+  newSendingSourcesBannerEl.classList.remove('hidden')
+
+  const head = document.createElement('div')
+  head.className = 'new-sources-banner-head'
+  const headingText = document.createElement('div')
+  headingText.className = 'new-sources-heading-text'
+  const title = document.createElement('h2')
+  title.textContent = t('newSources.title')
+  headingText.appendChild(title)
+  const collapsedInfo = document.createElement('span')
+  collapsedInfo.className = 'hint new-sources-collapsed-info'
+  collapsedInfo.textContent = t('newSources.hiddenCount', { count: groups.length })
+  collapsedInfo.classList.toggle('is-placeholder', !newSendingSourcesCollapsed)
+  collapsedInfo.setAttribute('aria-hidden', String(!newSendingSourcesCollapsed))
+  headingText.appendChild(collapsedInfo)
+  head.appendChild(headingText)
+
+  const toggleBtn = document.createElement('button')
+  toggleBtn.type = 'button'
+  toggleBtn.className = 'btn secondary new-sources-toggle'
+  const toggleLabel = t(newSendingSourcesCollapsed ? 'newSources.show' : 'newSources.dismiss')
+  toggleBtn.title = toggleLabel
+  toggleBtn.setAttribute('aria-label', toggleLabel)
+  toggleBtn.setAttribute('aria-expanded', String(!newSendingSourcesCollapsed))
+  toggleBtn.textContent = newSendingSourcesCollapsed ? '▾' : '▴'
+  toggleBtn.addEventListener('click', () => {
+    newSendingSourcesCollapsed = !newSendingSourcesCollapsed
+    renderNewSendingSourcesBanner(result)
+  })
+  head.appendChild(toggleBtn)
+  newSendingSourcesBannerEl.appendChild(head)
+
+  if (newSendingSourcesCollapsed) return
+
+  const hint = document.createElement('p')
+  hint.className = 'hint'
+  hint.textContent = t('newSources.hint')
+  newSendingSourcesBannerEl.appendChild(hint)
+
+  const list = document.createElement('div')
+  list.className = 'new-sources-list'
+  for (const group of groups) {
+    list.appendChild(renderNewSourceItem(group))
+  }
+  newSendingSourcesBannerEl.appendChild(list)
+}
+
 export function applyView(): void {
   renderFilterChips()
   syncFilterResetButton()
@@ -1216,6 +1706,7 @@ export function applyView(): void {
     renderDashboard(null)
     renderReports(null)
     renderForensic(null)
+    renderNewSendingSourcesBanner(null)
     btnExport.disabled = true
     return
   }
@@ -1251,6 +1742,7 @@ export function showResult(result: AnalyzeResult, statusMessage?: string): void 
   state.fullResult = result
   fillDomainFilter(result)
   applyView()
+  renderNewSendingSourcesBanner(result)
   if (statusMessage) {
     setStatus(statusMessage, 'ok')
   } else {
@@ -1501,6 +1993,33 @@ function ipFromContextRow(target: EventTarget | null): string | null {
   return raw.split(',')[0]?.trim() || null
 }
 
+/** Distinct header-From domains seen for this IP across the loaded reports. */
+function domainsForIp(ip: string): string[] {
+  const domains = new Set<string>()
+  for (const report of state.fullResult?.reports ?? []) {
+    for (const rec of report.records) {
+      if (rec.sourceIp !== ip) continue
+      domains.add(rec.headerFrom || report.domain)
+    }
+  }
+  return [...domains].filter(Boolean).sort()
+}
+
+/** Opens Settings on "Sende-Dienste" with everything prefilled from a known IP's context menu. */
+function openSendingServiceFormForIp(ip: string): void {
+  if (!ip) return
+  const info = state.ipLabelCache.get(ip)
+  openSettings()
+  showSettingsTab('sendingServices')
+  sendingServiceProviderEl.value = info?.provider ?? ''
+  sendingServiceDomainEl.value = domainsForIp(ip).join(', ')
+  sendingServiceCidrEl.value = singleIpCidr(ip)
+  sendingServiceAsnEl.value = info?.asn != null ? String(info.asn) : ''
+  sendingServiceStatusEl.value = 'known'
+  sendingServiceNoteEl.value = ''
+  sendingServiceProviderEl.focus()
+}
+
 function initIpContextMenu(): void {
   if (!ipContextMenu || !ipContextNoiseBtn) return
   for (const body of [tableIps, tableProblemSources, detailEl]) {
@@ -1514,6 +2033,11 @@ function initIpContextMenu(): void {
     const ip = contextNoiseIp
     hideIpContextMenu()
     void addIpToScannerNoise(ip)
+  })
+  ipContextSendingServiceBtn?.addEventListener('click', () => {
+    const ip = contextNoiseIp
+    hideIpContextMenu()
+    openSendingServiceFormForIp(ip)
   })
   document.addEventListener('pointerdown', (ev) => {
     if (ipContextMenu.hidden) return

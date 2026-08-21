@@ -448,6 +448,12 @@
         </section>
       </div>
 
+      <div
+        id="new-sending-sources-banner"
+        class="new-sources-banner hidden panel"
+        role="status"
+      ></div>
+
       <div id="dashboard-grid" class="dashboard-grid">
       <section class="panel kpi-panel dashboard-widget" data-widget="summary">
         <div id="summary" class="summary-grid">
@@ -745,6 +751,17 @@
             data-i18n="settings.tabNoise"
           >
             Rauschen
+          </button>
+          <button
+            type="button"
+            id="tab-btn-sending-services"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-sending-services"
+            data-i18n="settings.tabSendingServices"
+          >
+            Sende-Dienste
           </button>
           <button
             type="button"
@@ -1058,6 +1075,16 @@
               >
                 Cache dieses Kontos leeren
               </button>
+              <button
+                type="button"
+                id="btn-reset-known-sources"
+                class="btn secondary"
+                data-i18n="settings.resetKnownSources"
+                data-i18n-title="settings.resetKnownSourcesHint"
+                title="Der nächste Abruf zeigt alle aktuell aktiven Absender einmalig als neue Quelle — Reports und Cache bleiben erhalten."
+              >
+                Bekannte Quellen zurücksetzen
+              </button>
             </div>
           </section>
 
@@ -1309,6 +1336,137 @@
                 übernehmbar.
               </p>
             </fieldset>
+          </section>
+
+          <section id="tab-sending-services" class="tab-panel hidden" role="tabpanel">
+            <p class="hint" data-i18n="sendingServices.hint">
+              Persistentes Inventar erkannter Sende-Dienste (Microsoft 365, Google Workspace,
+              Amazon SES, …) statt einzelner IPs. Ein Alert heißt dann „neue
+              Microsoft-365-Quelle für example.de“ statt „neue IP 40.x.x.x“ — Status „Bekannt“
+              unterdrückt den Alert für diese Kombination aus Dienst und Domain dauerhaft.
+            </p>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="sendingServices.addTitle">Neuer Eintrag</legend>
+              <div class="settings-grid" id="sending-service-form">
+                <label>
+                  <span data-i18n="sendingServices.providerLabel">Dienst</span>
+                  <input
+                    id="sending-service-provider"
+                    type="text"
+                    data-i18n-placeholder="sendingServices.providerPlaceholder"
+                    placeholder="Dienst, z. B. Microsoft 365"
+                    data-i18n-title="sendingServices.providerHint"
+                    title="Name, wie er im Alert/Banner steht. Muss exakt zum automatisch erkannten Dienstnamen passen; bei unbekannten Diensten frei wählbar (dann zählen nur CIDR/ASN unten)."
+                  />
+                </label>
+                <label>
+                  <span data-i18n="sendingServices.domainLabel">Domain</span>
+                  <input
+                    id="sending-service-domain"
+                    type="text"
+                    data-i18n-placeholder="sendingServices.domainPlaceholder"
+                    placeholder="Domain(s), leer = alle"
+                    data-i18n-title="sendingServices.domainHint"
+                    title="Die Header-From-Domain(s), für die dieser Dienst sendet, z. B. example.de. Mehrere Domains kommagetrennt. Leer = gilt für alle eigenen Domains."
+                  />
+                </label>
+                <label>
+                  <span data-i18n="sendingServices.cidrLabel">CIDR / IP-Bereiche</span>
+                  <input
+                    id="sending-service-cidr"
+                    type="text"
+                    data-i18n-placeholder="sendingServices.cidrPlaceholder"
+                    placeholder="z. B. 40.92.0.0/14, 203.0.113.10/32"
+                    data-i18n-title="sendingServices.cidrHint"
+                    title="Optional. Einzelne IPs oder Netzbereiche in CIDR-Schreibweise, mehrere durch Komma getrennt. Leer = nicht auf ein Netz eingeschränkt."
+                  />
+                </label>
+                <label>
+                  <span data-i18n="sendingServices.asnLabel">ASN</span>
+                  <input
+                    id="sending-service-asn"
+                    type="number"
+                    min="0"
+                    data-i18n-placeholder="sendingServices.asnPlaceholder"
+                    placeholder="z. B. 8075 (ohne „AS“)"
+                    data-i18n-title="sendingServices.asnHint"
+                    title="Optional. Nummer des Autonomen Systems (Netzbetreiber) ohne „AS“-Präfix, z. B. 8075 für Microsoft. Bleibt oft gleich, auch wenn sich die IP ändert."
+                  />
+                </label>
+                <label>
+                  <span data-i18n="sendingServices.statusLabel">Status</span>
+                  <select
+                    id="sending-service-status"
+                    data-i18n-title="sendingServices.statusHint"
+                    title="Bekannt: kein Alert mehr für diese Kombination. Unbekannt: Standard, weiter Alerts. Prüfen: du bist dran, weiter Alerts. Stillgelegt: sollte nicht mehr senden — taucht der Dienst wieder auf, alarmiert die App bewusst."
+                  >
+                    <option value="known" data-i18n="sendingServices.status.known">Bekannt</option>
+                    <option value="unknown" selected data-i18n="sendingServices.status.unknown">
+                      Unbekannt
+                    </option>
+                    <option value="investigate" data-i18n="sendingServices.status.investigate">
+                      Prüfen
+                    </option>
+                    <option value="retired" data-i18n="sendingServices.status.retired">
+                      Stillgelegt
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="sendingServices.teamLabel">Team</span>
+                  <input
+                    id="sending-service-team"
+                    type="text"
+                    data-i18n-placeholder="sendingServices.teamPlaceholder"
+                    placeholder="Team (optional)"
+                  />
+                </label>
+                <label class="span-2">
+                  <span data-i18n="sendingServices.noteLabel">Notiz</span>
+                  <input
+                    id="sending-service-note"
+                    type="text"
+                    data-i18n-placeholder="sendingServices.notePlaceholder"
+                    placeholder="Notiz (optional)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  id="btn-add-sending-service"
+                  class="btn secondary"
+                  data-i18n="sendingServices.add"
+                >
+                  Hinzufügen
+                </button>
+              </div>
+              <p class="hint" data-i18n="sendingServices.cidrHint">
+                Optional. Einzelne IP (z. B. 40.92.4.10) oder Netzbereich in CIDR-Schreibweise
+                (z. B. 40.92.0.0/14 deckt 40.92.0.0–40.95.255.255 ab). Leer = nicht auf ein Netz
+                eingeschränkt.
+              </p>
+              <p class="hint" data-i18n="sendingServices.statusHint">
+                Bekannt: kein Alert mehr für diese Kombination. Unbekannt: Standard, weiter
+                Alerts. Prüfen: du bist dran, weiter Alerts. Stillgelegt: sollte nicht mehr
+                senden — taucht der Dienst wieder auf, alarmiert die App bewusst.
+              </p>
+            </fieldset>
+
+            <table class="sending-services-table">
+              <thead>
+                <tr>
+                  <th data-i18n="sendingServices.colProvider">Dienst</th>
+                  <th data-i18n="sendingServices.colDomain">Domain</th>
+                  <th data-i18n="sendingServices.colScope">CIDR / ASN</th>
+                  <th data-i18n="sendingServices.colStatus">Status</th>
+                  <th data-i18n="sendingServices.colTeam">Team</th>
+                  <th data-i18n="sendingServices.colNote">Notiz</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="sending-services-body"></tbody>
+            </table>
+            <p id="sending-services-status" class="hint" role="status"></p>
           </section>
 
           <section id="tab-enrichment" class="tab-panel hidden" role="tabpanel">
@@ -2681,6 +2839,14 @@
     <div id="ip-context-menu" class="ip-context-menu" hidden role="menu">
       <button type="button" id="ip-context-noise" role="menuitem" data-i18n="ipNoise.add">
         Als Mail-Rauschen ausblenden
+      </button>
+      <button
+        type="button"
+        id="ip-context-sending-service"
+        role="menuitem"
+        data-i18n="ipSendingService.add"
+      >
+        Als Sende-Dienst hinzufügen …
       </button>
     </div>
 

@@ -21,7 +21,9 @@ import type {
   TransportSecurityResult,
   UpdateStatusPayload,
   EmailInspectResponse,
-  EmailInspectResult
+  EmailInspectResult,
+  SendingService,
+  SendingServiceInput
 } from '../shared/types'
 
 export interface DmarcLighthouseApi {
@@ -39,7 +41,12 @@ export interface DmarcLighthouseApi {
   fetchSaved: (accountId?: string | null) => Promise<AnalyzeResult>
   loadCache: (accountId?: string | null) => Promise<AnalyzeResult | null>
   clearCache: (accountId?: string | null) => Promise<{ ok: boolean; message: string }>
+  resetKnownSources: (accountId?: string | null) => Promise<{ ok: boolean; message: string }>
+  acknowledgePendingSources: (ips?: string[], accountId?: string | null) => Promise<void>
   resolveIps: (ips: string[]) => Promise<IpInfo[]>
+  listSendingServices: () => Promise<SendingService[]>
+  saveSendingService: (input: SendingServiceInput) => Promise<SendingService>
+  deleteSendingService: (id: string) => Promise<SendingService[]>
   lookupRdap: (ip: string) => Promise<RdapInfo>
   checkDns: (domain: string, selectors?: string[]) => Promise<DnsCheckResult>
   checkBimi: (domain: string, selector?: string) => Promise<BimiCheckResult>

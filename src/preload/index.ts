@@ -22,7 +22,9 @@ import type {
   TransportSecurityResult,
   UpdateStatusPayload,
   EmailInspectResponse,
-  EmailInspectResult
+  EmailInspectResult,
+  SendingService,
+  SendingServiceInput
 } from '../shared/types'
 
 const api = {
@@ -53,7 +55,16 @@ const api = {
     ipcRenderer.invoke('cache:load', accountId ?? null),
   clearCache: (accountId?: string | null): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('cache:clear', accountId ?? null),
+  resetKnownSources: (accountId?: string | null): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('cache:resetKnownSources', accountId ?? null),
+  acknowledgePendingSources: (ips?: string[], accountId?: string | null): Promise<void> =>
+    ipcRenderer.invoke('cache:acknowledgePendingSources', ips, accountId ?? null),
   resolveIps: (ips: string[]): Promise<IpInfo[]> => ipcRenderer.invoke('ip:resolve', ips),
+  listSendingServices: (): Promise<SendingService[]> => ipcRenderer.invoke('sendingServices:list'),
+  saveSendingService: (input: SendingServiceInput): Promise<SendingService> =>
+    ipcRenderer.invoke('sendingServices:upsert', input),
+  deleteSendingService: (id: string): Promise<SendingService[]> =>
+    ipcRenderer.invoke('sendingServices:delete', id),
   lookupRdap: (ip: string): Promise<RdapInfo> => ipcRenderer.invoke('ip:rdap', ip),
   checkDns: (domain: string, selectors?: string[]): Promise<DnsCheckResult> =>
     ipcRenderer.invoke('dns:check', domain, selectors ?? []),

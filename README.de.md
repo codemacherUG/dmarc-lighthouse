@@ -312,7 +312,7 @@ npm run release
 - Einstellungen und Report-Caches liegen unter dem Electron-`userData`-Pfad (nicht im Repo); jedes IMAP-Konto hat einen eigenen Cache.
 - Die DNS-Historie wird getrennt von Report-Caches gespeichert und bleibt erhalten, wenn ein Konto-Cache geleert wird.
 - Cache leeren: Einstellungen → Konto-Verwaltung → **Cache dieses Kontos leeren** (nächster Abruf holt für dieses Konto wieder alles; DNS-Historie wird nicht gelöscht).
-- Optional können abgerufene Nachrichten als gelesen markiert (`\Seen`) und/oder nach dem Import in einen Archiv-Ordner verschoben werden.
+window.__dmarcScreenshot.prepareDemo('de')- Optional können abgerufene Nachrichten als gelesen markiert (`\Seen`) und/oder nach dem Import in einen Archiv-Ordner verschoben werden.
 - Mit aktivem System-Tray blendet das Schließen des Fensters die App nur aus — vollständig beenden über **Beenden** im Tray-Menü. Das Tray-Icon zeigt eine Markierung, wenn neue Reports eingegangen sind, während das Fenster verborgen war; beim Öffnen verschwindet sie wieder.
 - Bestehende Einzelkonto-Einstellungen älterer Versionen werden automatisch ins Multi-Konto-Format migriert.
 

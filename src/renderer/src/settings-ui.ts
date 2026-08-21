@@ -1,5 +1,5 @@
 import { suggestAccountName } from '../../shared/account'
-import { normalizeLocale, t } from '../../shared/i18n'
+import { normalizeLocale, t, type MessageKey } from '../../shared/i18n'
 import { normalizeTheme } from '../../shared/theme'
 import type {
   AccountPublic,
@@ -7,6 +7,8 @@ import type {
   AuthMode,
   GlobalSettings,
   ProviderPreset,
+  SendingService,
+  SendingServiceStatus,
   SettingsPublic
 } from '../../shared/types'
 import { PROVIDER_PRESETS } from '../../shared/types'
@@ -19,6 +21,7 @@ import {
   archiveMailboxEl,
   authModeEl,
   autoFetchMinutesEl,
+  btnAddSendingService,
   btnCancelCreateMailbox,
   btnClearArchiveMailbox,
   btnClearCache,
@@ -34,6 +37,7 @@ import {
   btnOauthLogin,
   btnPdfDir,
   btnPdfNow,
+  btnResetKnownSources,
   btnSettings,
   btnTest,
   cloudRangesEnabledEl,
@@ -78,6 +82,15 @@ import {
   rdapEnabledEl,
   runInTrayEl,
   secureEl,
+  sendingServiceAsnEl,
+  sendingServiceCidrEl,
+  sendingServiceDomainEl,
+  sendingServiceNoteEl,
+  sendingServiceProviderEl,
+  sendingServiceStatusEl,
+  sendingServiceTeamEl,
+  sendingServicesBodyEl,
+  sendingServicesStatusEl,
   settingsAccountSelectEl,
   settingsDialog,
   settingsForm,
@@ -90,9 +103,11 @@ import {
   tabBtnEnrichment,
   tabBtnGeneral,
   tabBtnNoise,
+  tabBtnSendingServices,
   tabEnrichmentEl,
   tabGeneralEl,
   tabNoiseEl,
+  tabSendingServicesEl,
   userEl
 } from './dom'
 import { escapeHtml, formatDate } from './format'
@@ -107,7 +122,7 @@ import {
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
-type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'enrichment'
+type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'sendingServices' | 'enrichment'
 
 function mailboxNoiseCheckbox(id: MailboxNoiseProvider): HTMLInputElement | null {
   return document.getElementById(`mailbox-noise-${id}`) as HTMLInputElement | null
@@ -572,6 +587,7 @@ export function showSettingsTab(which: SettingsTab): void {
     { id: 'account', btn: tabBtnAccount, panel: tabAccountEl },
     { id: 'appearance', btn: tabBtnAppearance, panel: tabAppearanceEl },
     { id: 'noise', btn: tabBtnNoise, panel: tabNoiseEl },
+    { id: 'sendingServices', btn: tabBtnSendingServices, panel: tabSendingServicesEl },
     { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
     { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
   ]
@@ -581,6 +597,7 @@ export function showSettingsTab(which: SettingsTab): void {
     tab.btn.setAttribute('aria-selected', String(active))
     tab.panel.classList.toggle('hidden', !active)
   }
+  if (which === 'sendingServices') void loadSendingServices()
 }
 
 export function openSettings(): void {
@@ -606,16 +623,203 @@ export function refreshSettingsLocale(): void {
   }
 }
 
+const STATUS_KEYS: Record<SendingServiceStatus, MessageKey> = {
+  known: 'sendingServices.status.known',
+  unknown: 'sendingServices.status.unknown',
+  investigate: 'sendingServices.status.investigate',
+  retired: 'sendingServices.status.retired'
+}
+
+let sendingServices: SendingService[] = []
+let nextSendingServiceCreatedHandler: ((service: SendingService) => Promise<void>) | null = null
+
+export function setNextSendingServiceCreatedHandler(
+  handler: ((service: SendingService) => Promise<void>) | null
+): void {
+  nextSendingServiceCreatedHandler = handler
+}
+
+async function loadSendingServices(): Promise<void> {
+  try {
+    sendingServices = await window.api.listSendingServices()
+    renderSendingServices()
+  } catch (err) {
+    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  }
+}
+
+function renderSendingServices(): void {
+  sendingServicesBodyEl.innerHTML = ''
+  if (sendingServices.length === 0) {
+    const tr = document.createElement('tr')
+    const td = document.createElement('td')
+    td.colSpan = 7
+    td.className = 'hint'
+    td.textContent = t('sendingServices.empty')
+    tr.appendChild(td)
+    sendingServicesBodyEl.appendChild(tr)
+    return
+  }
+  for (const service of sendingServices) {
+    sendingServicesBodyEl.appendChild(renderSendingServiceRow(service))
+  }
+}
+
+function renderSendingServiceRow(service: SendingService): HTMLTableRowElement {
+  const tr = document.createElement('tr')
+
+  const providerTd = document.createElement('td')
+  providerTd.textContent = service.provider
+  tr.appendChild(providerTd)
+
+  const domainTd = document.createElement('td')
+  domainTd.textContent = service.domain || '—'
+  tr.appendChild(domainTd)
+
+  const scopeTd = document.createElement('td')
+  scopeTd.textContent = [service.cidr, service.asn != null ? `AS${service.asn}` : null]
+    .filter(Boolean)
+    .join(' · ')
+  tr.appendChild(scopeTd)
+
+  const statusTd = document.createElement('td')
+  const statusSelect = document.createElement('select')
+  for (const [value, key] of Object.entries(STATUS_KEYS) as Array<
+    [SendingServiceStatus, MessageKey]
+  >) {
+    const opt = document.createElement('option')
+    opt.value = value
+    opt.textContent = t(key)
+    if (value === service.status) opt.selected = true
+    statusSelect.appendChild(opt)
+  }
+  statusSelect.addEventListener('change', () => {
+    void saveSendingServiceEdit(service, { status: statusSelect.value as SendingServiceStatus })
+  })
+  statusTd.appendChild(statusSelect)
+  tr.appendChild(statusTd)
+
+  const teamTd = document.createElement('td')
+  const teamInput = document.createElement('input')
+  teamInput.type = 'text'
+  teamInput.value = service.team ?? ''
+  teamInput.addEventListener('change', () => {
+    void saveSendingServiceEdit(service, { team: teamInput.value.trim() || null })
+  })
+  teamTd.appendChild(teamInput)
+  tr.appendChild(teamTd)
+
+  const noteTd = document.createElement('td')
+  const noteInput = document.createElement('input')
+  noteInput.type = 'text'
+  noteInput.value = service.note ?? ''
+  noteInput.addEventListener('change', () => {
+    void saveSendingServiceEdit(service, { note: noteInput.value.trim() || null })
+  })
+  noteTd.appendChild(noteInput)
+  tr.appendChild(noteTd)
+
+  const actionsTd = document.createElement('td')
+  const deleteBtn = document.createElement('button')
+  deleteBtn.type = 'button'
+  deleteBtn.className = 'btn secondary'
+  deleteBtn.textContent = t('sendingServices.delete')
+  deleteBtn.title = t('sendingServices.deleteTitle')
+  deleteBtn.addEventListener('click', () => void removeSendingService(service.id))
+  actionsTd.appendChild(deleteBtn)
+  tr.appendChild(actionsTd)
+
+  return tr
+}
+
+async function saveSendingServiceEdit(
+  service: SendingService,
+  changes: Partial<Pick<SendingService, 'status' | 'team' | 'note'>>
+): Promise<void> {
+  try {
+    await window.api.saveSendingService({ ...service, ...changes })
+    sendingServicesStatusEl.textContent = t('sendingServices.saved')
+    await loadSendingServices()
+  } catch (err) {
+    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  }
+}
+
+async function removeSendingService(id: string): Promise<void> {
+  try {
+    sendingServices = await window.api.deleteSendingService(id)
+    sendingServicesStatusEl.textContent = t('sendingServices.deleted')
+    renderSendingServices()
+  } catch (err) {
+    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
+  }
+}
+
+function hasSendingServiceDraft(): boolean {
+  return Boolean(
+    sendingServiceProviderEl.value.trim() ||
+    sendingServiceDomainEl.value.trim() ||
+    sendingServiceCidrEl.value.trim() ||
+    sendingServiceAsnEl.value.trim() ||
+    sendingServiceTeamEl.value.trim() ||
+    sendingServiceNoteEl.value.trim() ||
+    sendingServiceStatusEl.value !== 'unknown'
+  )
+}
+
+async function addSendingServiceFromForm(): Promise<boolean> {
+  const provider = sendingServiceProviderEl.value.trim()
+  if (!provider) {
+    sendingServicesStatusEl.textContent = t('sendingServices.providerRequired')
+    return false
+  }
+  const asnRaw = sendingServiceAsnEl.value.trim()
+  const asn = asnRaw ? Number(asnRaw) : null
+  try {
+    const savedService = await window.api.saveSendingService({
+      provider,
+      domain: sendingServiceDomainEl.value.trim() || null,
+      cidr: sendingServiceCidrEl.value.trim() || null,
+      asn: asn != null && Number.isFinite(asn) ? asn : null,
+      status: sendingServiceStatusEl.value as SendingServiceStatus,
+      team: sendingServiceTeamEl.value.trim() || null,
+      note: sendingServiceNoteEl.value.trim() || null
+    })
+    sendingServiceProviderEl.value = ''
+    sendingServiceDomainEl.value = ''
+    sendingServiceCidrEl.value = ''
+    sendingServiceAsnEl.value = ''
+    sendingServiceTeamEl.value = ''
+    sendingServiceNoteEl.value = ''
+    sendingServiceStatusEl.value = 'unknown'
+    sendingServicesStatusEl.textContent = t('sendingServices.saved')
+    await loadSendingServices()
+    const createdHandler = nextSendingServiceCreatedHandler
+    nextSendingServiceCreatedHandler = null
+    await createdHandler?.(savedService)
+    return true
+  } catch (err) {
+    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    return false
+  }
+}
+
 export function initSettingsUi(): void {
   btnSettings.addEventListener('click', () => openSettings())
   btnCloseSettings.addEventListener('click', () => settingsDialog.close())
+  settingsDialog.addEventListener('close', () => {
+    nextSendingServiceCreatedHandler = null
+  })
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
   tabBtnAppearance.addEventListener('click', () => showSettingsTab('appearance'))
   tabBtnNoise.addEventListener('click', () => showSettingsTab('noise'))
+  tabBtnSendingServices.addEventListener('click', () => showSettingsTab('sendingServices'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
+
+  btnAddSendingService.addEventListener('click', () => void addSendingServiceFromForm())
 
   btnDownloadGeolite.addEventListener('click', async () => {
     if (typeof window.api.downloadGeoLite !== 'function') {
@@ -853,11 +1057,32 @@ export function initSettingsUi(): void {
     }
   })
 
+  btnResetKnownSources.addEventListener('click', async () => {
+    if (state.busy) return
+    if (state.dialogAccountId == null) {
+      settingsStatusEl.textContent = t('settings.saveAccountFirst')
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await window.api.resetKnownSources(state.dialogAccountId)
+      settingsStatusEl.textContent = result.message
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      setBusy(false)
+    }
+  })
+
   settingsForm.addEventListener('submit', async (event) => {
     event.preventDefault()
     if (state.busy) return
     setBusy(true)
     try {
+      if (hasSendingServiceDraft()) {
+        showSettingsTab('sendingServices')
+        if (!(await addSendingServiceFromForm())) return
+      }
       const accountInput = readAccountForm()
       // Always persist the edited account when one is selected (incl. display name only).
       const wantsAccountSave =

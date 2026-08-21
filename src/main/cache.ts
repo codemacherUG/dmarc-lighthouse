@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from 'fs'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
@@ -15,6 +15,8 @@ import type {
   IpInfo,
   ReportRow,
   SenderKind,
+  SendingService,
+  SendingServiceInput,
   SerializedRecord,
   TransportSecurityResult
 } from '../shared/types'
@@ -27,6 +29,10 @@ export interface CacheMeta {
   lastFetchAt: string | null
   lastFailingTotal: number
   knownSourceIps: string[]
+  /** Newly discovered source IPs that have not been dismissed or accepted yet. */
+  pendingSourceIps: string[]
+  /** Set by `resetKnownSourceIps`; the next fetch treats every current sender as new once. */
+  knownIpsResetPending: boolean
 }
 
 interface LegacyCacheFile {
@@ -103,6 +109,13 @@ function openDb(): DatabaseSync {
     CREATE TABLE IF NOT EXISTS known_source_ips (
       account_key TEXT NOT NULL,
       source_ip TEXT NOT NULL,
+      PRIMARY KEY (account_key, source_ip)
+    );
+
+    CREATE TABLE IF NOT EXISTS pending_source_ips (
+      account_key TEXT NOT NULL,
+      source_ip TEXT NOT NULL,
+      discovered_at TEXT NOT NULL,
       PRIMARY KEY (account_key, source_ip)
     );
 
@@ -214,6 +227,19 @@ function openDb(): DatabaseSync {
 
     CREATE INDEX IF NOT EXISTS dns_drift_events_domain_idx
       ON dns_drift_events(domain, checked_at DESC, id DESC);
+
+    CREATE TABLE IF NOT EXISTS sending_services (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      domain TEXT,
+      cidr TEXT,
+      asn INTEGER,
+      status TEXT NOT NULL,
+      note TEXT,
+      team TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `)
   db.prepare(
     `INSERT INTO schema_meta(key, value) VALUES('version', '1')
@@ -350,6 +376,50 @@ function migrateSchema(database: DatabaseSync): void {
     version = 7
     setSchemaVersion(database, version)
   }
+  // v8: persistent sending-service inventory (known/unknown/retired/investigate).
+  if (version < 8) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS sending_services (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        domain TEXT,
+        cidr TEXT,
+        asn INTEGER,
+        status TEXT NOT NULL,
+        note TEXT,
+        team TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `)
+    version = 8
+    setSchemaVersion(database, version)
+  }
+  // v9: explicit "reset known sources" so the reset request survives until the next fetch.
+  if (version < 9) {
+    try {
+      database.exec(
+        'ALTER TABLE cache_meta ADD COLUMN known_ips_reset_pending INTEGER NOT NULL DEFAULT 0'
+      )
+    } catch {
+      // Column may already exist on partially migrated DBs.
+    }
+    version = 9
+    setSchemaVersion(database, version)
+  }
+  // v10: keep unresolved new-source alerts across app restarts.
+  if (version < 10) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS pending_source_ips (
+        account_key TEXT NOT NULL,
+        source_ip TEXT NOT NULL,
+        discovered_at TEXT NOT NULL,
+        PRIMARY KEY (account_key, source_ip)
+      );
+    `)
+    version = 10
+    setSchemaVersion(database, version)
+  }
 }
 
 /** One-time import of legacy per-account `*.json` cache files. */
@@ -438,7 +508,9 @@ function emptyMeta(accountKey: string): CacheMeta {
     lastUidArchive: 0,
     lastFetchAt: null,
     lastFailingTotal: 0,
-    knownSourceIps: []
+    knownSourceIps: [],
+    pendingSourceIps: [],
+    knownIpsResetPending: false
   }
 }
 
@@ -601,6 +673,7 @@ function writeAccountCache(
   database.prepare('DELETE FROM reports WHERE account_key = ?').run(input.accountKey)
   database.prepare('DELETE FROM forensic_reports WHERE account_key = ?').run(input.accountKey)
   database.prepare('DELETE FROM known_source_ips WHERE account_key = ?').run(input.accountKey)
+  database.prepare('DELETE FROM pending_source_ips WHERE account_key = ?').run(input.accountKey)
   database.prepare('DELETE FROM cache_meta WHERE account_key = ?').run(input.accountKey)
 
   database
@@ -707,7 +780,7 @@ export function loadCachedReports(accountKey: string): {
   const database = openDb()
   const metaRow = database
     .prepare(
-      `SELECT last_uid, last_uid_archive, last_fetch_at, last_failing_total
+      `SELECT last_uid, last_uid_archive, last_fetch_at, last_failing_total, known_ips_reset_pending
        FROM cache_meta WHERE account_key = ?`
     )
     .get(accountKey) as
@@ -716,6 +789,7 @@ export function loadCachedReports(accountKey: string): {
         last_uid_archive: number | null
         last_fetch_at: string | null
         last_failing_total: number
+        known_ips_reset_pending: number | null
       }
     | undefined
 
@@ -728,6 +802,13 @@ export function loadCachedReports(accountKey: string): {
       .prepare('SELECT source_ip FROM known_source_ips WHERE account_key = ? ORDER BY source_ip')
       .all(accountKey) as Array<{ source_ip: string }>
   ).map((r) => r.source_ip)
+  const pendingIps = (
+    database
+      .prepare(
+        'SELECT source_ip FROM pending_source_ips WHERE account_key = ? ORDER BY discovered_at, source_ip'
+      )
+      .all(accountKey) as Array<{ source_ip: string }>
+  ).map((r) => r.source_ip)
 
   return {
     reports: loadReports(database, accountKey),
@@ -738,7 +819,9 @@ export function loadCachedReports(accountKey: string): {
       lastUidArchive: metaRow.last_uid_archive ?? 0,
       lastFetchAt: metaRow.last_fetch_at,
       lastFailingTotal: metaRow.last_failing_total,
-      knownSourceIps: ips
+      knownSourceIps: ips,
+      pendingSourceIps: pendingIps,
+      knownIpsResetPending: Boolean(metaRow.known_ips_reset_pending)
     }
   }
 }
@@ -953,8 +1036,74 @@ export function saveCache(input: {
     lastUidArchive,
     lastFetchAt,
     lastFailingTotal: input.lastFailingTotal,
-    knownSourceIps: input.knownSourceIps
+    knownSourceIps: input.knownSourceIps,
+    pendingSourceIps: [],
+    knownIpsResetPending: false
   }
+}
+
+/** Adds newly discovered source IPs to the durable review queue. */
+export function addPendingSourceIps(accountKey: string, ips: Iterable<string>): void {
+  const database = openDb()
+  const statement = database.prepare(
+    `INSERT INTO pending_source_ips(account_key, source_ip, discovered_at) VALUES (?, ?, ?)
+     ON CONFLICT(account_key, source_ip) DO NOTHING`
+  )
+  const discoveredAt = new Date().toISOString()
+  withTransaction(database, () => {
+    for (const ip of ips) {
+      if (ip) statement.run(accountKey, ip, discoveredAt)
+    }
+  })
+}
+
+/** Removes selected pending sources, or the complete review queue when no IPs are supplied. */
+export function acknowledgePendingSourceIps(accountKey: string, ips?: Iterable<string>): void {
+  const database = openDb()
+  if (ips == null) {
+    database.prepare('DELETE FROM pending_source_ips WHERE account_key = ?').run(accountKey)
+    return
+  }
+  const statement = database.prepare(
+    'DELETE FROM pending_source_ips WHERE account_key = ? AND source_ip = ?'
+  )
+  withTransaction(database, () => {
+    for (const ip of ips) statement.run(accountKey, ip)
+  })
+}
+
+/** Clears the "seen" IP baseline so the next fetch treats every current sender as new once. */
+export function resetKnownSourceIps(accountKey: string): void {
+  const database = openDb()
+  withTransaction(database, () => {
+    database.prepare('DELETE FROM known_source_ips WHERE account_key = ?').run(accountKey)
+    database
+      .prepare(
+        `INSERT INTO cache_meta(account_key, last_uid, last_uid_archive, last_fetch_at, last_failing_total, known_ips_reset_pending)
+         VALUES (?, 0, 0, NULL, 0, 1)
+         ON CONFLICT(account_key) DO UPDATE SET known_ips_reset_pending = 1`
+      )
+      .run(accountKey)
+  })
+}
+
+/** Clears the pending reset flag without touching the known-IP set (normal fetch already saved it). */
+export function clearKnownIpsResetPending(accountKey: string): void {
+  const database = openDb()
+  database
+    .prepare('UPDATE cache_meta SET known_ips_reset_pending = 0 WHERE account_key = ?')
+    .run(accountKey)
+}
+
+/** Re-seeds the known-IP set and clears the pending flag in one go (no-new-mail fetch path). */
+export function reseedKnownIps(accountKey: string, ips: Iterable<string>): void {
+  const database = openDb()
+  withTransaction(database, () => {
+    upsertKnownIps(database, accountKey, ips)
+    database
+      .prepare('UPDATE cache_meta SET known_ips_reset_pending = 0 WHERE account_key = ?')
+      .run(accountKey)
+  })
 }
 
 /**
@@ -1022,6 +1171,109 @@ export function clearCache(accountKey: string): void {
 
 const IP_ENRICHMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const DNS_HEALTH_TTL_MS = 6 * 60 * 60 * 1000
+
+function rowToSendingService(row: {
+  id: string
+  provider: string
+  domain: string | null
+  cidr: string | null
+  asn: number | null
+  status: string
+  note: string | null
+  team: string | null
+  created_at: string
+  updated_at: string
+}): SendingService {
+  return {
+    id: row.id,
+    provider: row.provider,
+    domain: row.domain,
+    cidr: row.cidr,
+    asn: row.asn,
+    status: row.status as SendingService['status'],
+    note: row.note,
+    team: row.team,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+export function listSendingServices(): SendingService[] {
+  const database = openDb()
+  const rows = database
+    .prepare(
+      `SELECT id, provider, domain, cidr, asn, status, note, team, created_at, updated_at
+       FROM sending_services
+       ORDER BY provider COLLATE NOCASE, domain COLLATE NOCASE`
+    )
+    .all() as Array<{
+    id: string
+    provider: string
+    domain: string | null
+    cidr: string | null
+    asn: number | null
+    status: string
+    note: string | null
+    team: string | null
+    created_at: string
+    updated_at: string
+  }>
+  return rows.map(rowToSendingService)
+}
+
+export function upsertSendingService(input: SendingServiceInput): SendingService {
+  const database = openDb()
+  const now = new Date().toISOString()
+  const id = input.id && input.id.trim() ? input.id : randomUUID()
+  const existing = database
+    .prepare('SELECT created_at FROM sending_services WHERE id = ?')
+    .get(id) as { created_at: string } | undefined
+  const createdAt = existing?.created_at ?? now
+  database
+    .prepare(
+      `INSERT INTO sending_services(
+         id, provider, domain, cidr, asn, status, note, team, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         provider = excluded.provider,
+         domain = excluded.domain,
+         cidr = excluded.cidr,
+         asn = excluded.asn,
+         status = excluded.status,
+         note = excluded.note,
+         team = excluded.team,
+         updated_at = excluded.updated_at`
+    )
+    .run(
+      id,
+      input.provider,
+      input.domain,
+      input.cidr,
+      input.asn,
+      input.status,
+      input.note,
+      input.team,
+      createdAt,
+      now
+    )
+  return {
+    id,
+    provider: input.provider,
+    domain: input.domain,
+    cidr: input.cidr,
+    asn: input.asn,
+    status: input.status,
+    note: input.note,
+    team: input.team,
+    createdAt,
+    updatedAt: now
+  }
+}
+
+export function deleteSendingService(id: string): void {
+  const database = openDb()
+  database.prepare('DELETE FROM sending_services WHERE id = ?').run(id)
+}
 
 const SENDER_KINDS = new Set<SenderKind>(['esp', 'mailbox', 'saas', 'gateway', 'infra'])
 
