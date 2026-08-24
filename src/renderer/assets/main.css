@@ -774,6 +774,17 @@ body.simulation-mode {
   width: 100%;
 }
 
+.new-source-main-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.new-source-group-noise {
+  width: 100%;
+}
+
 .new-source-status-action {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr);
@@ -805,7 +816,7 @@ body.simulation-mode {
     grid-column: 1;
   }
 
-  .new-source-main-action {
+  .new-source-main-actions {
     grid-column: 1 / -1;
   }
 

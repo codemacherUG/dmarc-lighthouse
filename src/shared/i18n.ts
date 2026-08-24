@@ -299,7 +299,7 @@ const de = {
   'filter.removeChip': 'Filter entfernen',
   'filter.hideMailboxNoise': 'Mail-Rauschen ausblenden',
   'filter.hideMailboxNoiseHint':
-    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (Mailbox-IP, SPF fail, DKIM pass, DMARC pass) sowie konfigurierte Empfänger-Scanner (PTR-Domain, Vorgabe: cloud-sec-av.com). Echte Absender bleiben sichtbar.',
+    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (Mailbox-IP mit DMARC-Pass-Muster oder bestätigter Weiterleitung, z. B. ARC pass) sowie konfigurierte Empfänger-Scanner (PTR-Domain, Vorgabe: cloud-sec-av.com). Echte Absender bleiben sichtbar.',
   'filter.hideMailboxNoiseHintLabel': 'Was ist Mail-Rauschen?',
   'filter.reset': 'Zurücksetzen',
   'filter.resetTitle': 'Alle Filter zurücksetzen',
@@ -479,7 +479,7 @@ const de = {
   'settings.mailboxNoiseApple': 'iCloud',
   'settings.mailboxNoiseOther': 'Weitere Mailbox-Anbieter (Zoho, Proton, GMX, …)',
   'settings.mailboxNoiseHint':
-    'SPF fail, DKIM pass, DMARC pass auf deren IPs. Wirkt nur, wenn „Mail-Rauschen ausblenden“ an ist. Nicht in den Problemquellen (DMARC ist dort pass).',
+    'Auf deren IPs: SPF fail, DKIM pass, DMARC pass oder ein vom Empfänger bestätigter Weiterleitungsfehler (z. B. local_policy mit ARC pass). Wirkt nur, wenn „Mail-Rauschen ausblenden“ an ist.',
   'settings.scannerNoisePlaceholder': 'cloud-sec-av.com',
   'settings.scannerNoiseHint':
     'PTR-Domains oder einzelne IPs, die als Empfänger-Scanner gelten: nicht in den Problemquellen, und mit „Mail-Rauschen ausblenden“ auch nicht in den Kennzahlen. Eine Domain oder IP pro Zeile. Optional /regex/i. Leer = keine. Vorgabe: cloud-sec-av.com (Check Point Harmony). In der IP-Liste per Rechtsklick übernehmbar.',
@@ -592,6 +592,10 @@ const de = {
   'newSources.dialogHint':
     '{count} erkannte Quell-IP(s). Metadaten prüfen, einzelne IPs filtern, ohne Dienst verwerfen oder eine Auswahl als eigenen Sende-Dienst übernehmen.',
   'newSources.ipDetails': 'Details',
+  'newSources.markNoise': 'Als Mail-Rauschen markieren',
+  'newSources.markGroupNoise': 'Dienst als Mail-Rauschen markieren',
+  'newSources.groupNoiseAdded': '{count} IP(s) als Mail-Rauschen gespeichert.',
+  'newSources.groupNoiseAlready': 'Der Dienst ist bereits vollständig als Mail-Rauschen gelistet.',
   'newSources.noService': 'Keinen Dienst zuweisen',
   'newSources.ipRemoved': 'IP aus den offenen Sende-Quellen entfernt.',
   'newSources.selectAll': 'Alle auswählen',
@@ -1659,7 +1663,7 @@ const en: Dict = {
   'filter.removeChip': 'Remove filter',
   'filter.hideMailboxNoise': 'Hide mail noise',
   'filter.hideMailboxNoiseHint':
-    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (mailbox IP, SPF fail, DKIM pass, DMARC pass) and configured recipient-side scanners (PTR domain, default: cloud-sec-av.com). Real senders stay visible.',
+    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (mailbox IP with the DMARC-pass pattern or confirmed forwarding, e.g. ARC pass) and configured recipient-side scanners (PTR domain, default: cloud-sec-av.com). Real senders stay visible.',
   'filter.hideMailboxNoiseHintLabel': 'What is mail noise?',
   'filter.reset': 'Reset',
   'filter.resetTitle': 'Reset all filters',
@@ -1838,7 +1842,7 @@ const en: Dict = {
   'settings.mailboxNoiseApple': 'iCloud',
   'settings.mailboxNoiseOther': 'Other mailbox providers (Zoho, Proton, GMX, …)',
   'settings.mailboxNoiseHint':
-    'SPF fail, DKIM pass, DMARC pass on their IPs. Applies only when “Hide mail noise” is on. Not listed as problem sources (DMARC passes there).',
+    'On their IPs: SPF fail, DKIM pass, DMARC pass, or a receiver-confirmed forwarding failure (e.g. local_policy with ARC pass). Applies only when “Hide mail noise” is on.',
   'settings.scannerNoisePlaceholder': 'cloud-sec-av.com',
   'settings.scannerNoiseHint':
     'PTR domains or individual IPs treated as recipient-side scanners: omitted from problem sources, and hidden from KPIs when “Hide mail noise” is on. One domain or IP per line. Optional /regex/i. Empty = none. Default: cloud-sec-av.com (Check Point Harmony). Add from the IP list via right-click.',
@@ -1949,6 +1953,10 @@ const en: Dict = {
   'newSources.dialogHint':
     '{count} detected source IP(s). Review metadata, filter individual IPs, discard them without a service, or use a selection as a separate sending service.',
   'newSources.ipDetails': 'Details',
+  'newSources.markNoise': 'Mark as mail noise',
+  'newSources.markGroupNoise': 'Mark service as mail noise',
+  'newSources.groupNoiseAdded': '{count} IP(s) saved as mail noise.',
+  'newSources.groupNoiseAlready': 'The service is already fully listed as mail noise.',
   'newSources.noService': 'Assign no service',
   'newSources.ipRemoved': 'IP removed from pending sending sources.',
   'newSources.selectAll': 'Select all',

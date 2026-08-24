@@ -11,7 +11,9 @@ import {
   isMailboxNoiseRecord,
   isScannerNoiseIpInfo,
   matchesDispositionFilter,
-  recordMatchesSourceIp
+  recordMatchesSourceIp,
+  sendingSourceGroupsWithoutMailboxNoise,
+  sourceIpsWithoutMailboxNoise
 } from '../src/shared/analyze'
 import type { MailboxNoiseProvider } from '../src/shared/mailbox-ip'
 import { DEFAULT_SCANNER_NOISE_HOSTS, parseScannerNoiseHosts } from '../src/shared/scanner-noise'
@@ -346,6 +348,116 @@ describe('filterForensicReports', () => {
   })
 })
 
+describe('sourceIpsWithoutMailboxNoise', () => {
+  it('drops pure forwarding noise but keeps mixed and unrepresented source IPs', () => {
+    const noiseIp = '2a00:1450:4864:20::346'
+    const mixedIp = '40.92.0.10'
+    const forensicOnlyIp = '203.0.113.50'
+    const rows = [
+      report({
+        records: [
+          record({
+            sourceIp: noiseIp,
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            passesDmarc: false,
+            reasons: [{ type: 'local_policy', comment: 'arc=pass' }]
+          }),
+          record({
+            sourceIp: mixedIp,
+            spfResult: 'fail',
+            dkimResult: 'pass',
+            passesDmarc: true
+          }),
+          record({ sourceIp: mixedIp, passesDmarc: true })
+        ]
+      })
+    ]
+    expect(sourceIpsWithoutMailboxNoise([noiseIp, mixedIp, forensicOnlyIp], rows)).toEqual([
+      mixedIp,
+      forensicOnlyIp
+    ])
+  })
+
+  it('removes empty sending-source groups and keeps non-noise IPs in mixed groups', () => {
+    const noiseIp = '2a00:1450:4864:20::346'
+    const realIp = '192.0.2.1'
+    const rows = [
+      report({
+        records: [
+          record({
+            sourceIp: noiseIp,
+            spfResult: 'fail',
+            dkimResult: 'pass',
+            passesDmarc: true
+          }),
+          record({ sourceIp: realIp })
+        ]
+      })
+    ]
+    const groups = sendingSourceGroupsWithoutMailboxNoise(
+      [
+        {
+          provider: 'Google Workspace',
+          domain: 'codemacher.de',
+          ips: [noiseIp],
+          status: 'unknown',
+          asn: 15169
+        },
+        {
+          provider: 'Mixed',
+          domain: 'codemacher.de',
+          ips: [noiseIp, realIp],
+          status: 'unknown',
+          asn: null
+        }
+      ],
+      rows
+    )
+    expect(groups).toEqual([
+      {
+        provider: 'Mixed',
+        domain: 'codemacher.de',
+        ips: [realIp],
+        status: 'unknown',
+        asn: null
+      }
+    ])
+  })
+
+  it('removes configured scanner IPs from sending-source groups', () => {
+    const scannerIp = '100.21.157.149'
+    const rows = [
+      report({
+        records: [
+          record({
+            sourceIp: scannerIp,
+            spfResult: 'pass',
+            dkimResult: 'pass',
+            passesDmarc: true,
+            disposition: 'none'
+          })
+        ]
+      })
+    ]
+    expect(
+      sendingSourceGroupsWithoutMailboxNoise(
+        [
+          {
+            provider: 'AWS',
+            domain: 'science2public.com',
+            ips: [scannerIp],
+            status: 'unknown',
+            asn: 16509
+          }
+        ],
+        rows,
+        new Set([scannerIp])
+      )
+    ).toEqual([])
+  })
+})
+
 describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
   it('detects Google via cloud, provider, ASN, and asOrg', () => {
     expect(
@@ -473,6 +585,20 @@ describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
         new Set(['203.0.113.50'])
       )
     ).toBe(true)
+  })
+
+  it('hides ARC-confirmed forwarding failures on mailbox IPs', () => {
+    const forwarded = record({
+      sourceIp: '2a00:1450:4864:20::346',
+      spfResult: 'fail',
+      dkimResult: 'fail',
+      passesDmarc: false,
+      disposition: 'none',
+      reasons: [{ type: 'local_policy', comment: 'arc=pass' }]
+    })
+    expect(isMailboxNoiseRecord(forwarded)).toBe(true)
+    expect(isMailboxNoiseRecord({ ...forwarded, reasons: [] })).toBe(false)
+    expect(isMailboxNoiseRecord({ ...forwarded, disposition: 'reject' })).toBe(false)
   })
 
   it('treats Check Point Harmony re-injection as noise once the IP is known', () => {

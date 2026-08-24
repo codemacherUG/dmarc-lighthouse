@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  appendScannerNoiseEntries,
   appendScannerNoiseEntry,
   DEFAULT_SCANNER_NOISE_HOSTS,
   hostHasDomainSuffix,
@@ -115,5 +116,16 @@ describe('appendScannerNoiseEntry', () => {
       'cloud-sec-av.com'
     )
     expect(appendScannerNoiseEntry('203.0.113.5', '203.0.113.5')).toBe('203.0.113.5')
+  })
+
+  it('appends a group without duplicating entries covered by the same gateway suffix', () => {
+    expect(
+      appendScannerNoiseEntries('cloud-sec-av.com', [
+        'mail.eu.cloud-sec-av.com',
+        'ppe-hosted.com',
+        'ppe-hosted.com',
+        '203.0.113.5'
+      ])
+    ).toBe('cloud-sec-av.com\nppe-hosted.com\n203.0.113.5')
   })
 })

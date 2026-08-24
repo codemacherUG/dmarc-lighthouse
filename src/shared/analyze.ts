@@ -14,6 +14,7 @@ import type {
   ForensicReportRow,
   IpInfo,
   NamedBucket,
+  NewSendingSourceGroup,
   ProblemSourceRow,
   ReportRow,
   SerializedRecord,
@@ -84,6 +85,18 @@ export function isMailboxNoiseAuthPattern(rec: SerializedRecord): boolean {
   return spf === 'fail' && dkim === 'pass'
 }
 
+/** Delivered forwarding failure explicitly accepted by the receiver, e.g. via ARC. */
+function isMailboxForwardingOverride(rec: SerializedRecord): boolean {
+  if (rec.passesDmarc) return false
+  const disposition = (rec.disposition ?? 'none').toLowerCase()
+  if (disposition === 'reject' || disposition === 'quarantine') return false
+  return (rec.reasons ?? []).some((reason) => {
+    const type = (reason.type ?? '').toLowerCase()
+    if (type === 'forwarded' || type === 'mailing_list' || type === 'trusted_forwarder') return true
+    return type === 'local_policy' && /\barc\s*=\s*pass\b/i.test(reason.comment ?? '')
+  })
+}
+
 /**
  * Recipient-scanner re-injection: the hop after inline scanning.
  * Unlike mailbox forwarding, DKIM usually does not survive, so DMARC fails too.
@@ -106,10 +119,11 @@ export function isScannerNoiseIpInfo(
 }
 
 /**
- * Mailbox-provider hop / report-echo noise: SPF fails on a Gmail/Outlook/Yahoo/iCloud IP,
- * DKIM holds, DMARC passes. Configured recipient-scanner hops are noise for every
- * delivered auth outcome; reject/quarantine remains visible as enforcement. Uses
- * well-known mailbox prefixes when enrichment is missing.
+ * Mailbox-provider hop / report-echo noise: either SPF fails while DKIM keeps DMARC
+ * passing, or the receiver explicitly accepts a forwarding failure (e.g. ARC pass).
+ * Configured recipient-scanner hops are noise for every delivered auth outcome;
+ * reject/quarantine remains visible as enforcement. Uses well-known mailbox prefixes
+ * when enrichment is missing.
  */
 export function isMailboxNoiseRecord(
   rec: SerializedRecord,
@@ -121,12 +135,45 @@ export function isMailboxNoiseRecord(
     const disposition = (rec.disposition ?? 'none').toLowerCase()
     if (disposition !== 'reject' && disposition !== 'quarantine') return true
   }
-  if (isMailboxNoiseAuthPattern(rec)) {
-    if (mailboxIps?.has(rec.sourceIp) || isLikelyMailboxIp(rec.sourceIp, mailboxProviders)) {
-      return true
+  const isMailboxIp =
+    mailboxIps?.has(rec.sourceIp) || isLikelyMailboxIp(rec.sourceIp, mailboxProviders)
+  if (!isMailboxIp) return false
+  return isMailboxNoiseAuthPattern(rec) || isMailboxForwardingOverride(rec)
+}
+
+/** Remove source IPs represented exclusively by mailbox- or scanner-noise records. */
+export function sourceIpsWithoutMailboxNoise(
+  ips: readonly string[],
+  reports: readonly ReportRow[],
+  scannerNoiseIps?: ReadonlySet<string>
+): string[] {
+  const candidates = new Set(ips)
+  const represented = new Set<string>()
+  const hasNonNoiseRecord = new Set<string>()
+  for (const report of reports) {
+    for (const rec of report.records) {
+      if (!candidates.has(rec.sourceIp)) continue
+      represented.add(rec.sourceIp)
+      if (!isMailboxNoiseRecord(rec, undefined, scannerNoiseIps)) {
+        hasNonNoiseRecord.add(rec.sourceIp)
+      }
     }
   }
-  return false
+  return ips.filter((ip) => !represented.has(ip) || hasNonNoiseRecord.has(ip))
+}
+
+/** Remove mail-noise IPs from pending sending-source groups. */
+export function sendingSourceGroupsWithoutMailboxNoise(
+  groups: readonly NewSendingSourceGroup[],
+  reports: readonly ReportRow[],
+  scannerNoiseIps?: ReadonlySet<string>
+): NewSendingSourceGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      ips: sourceIpsWithoutMailboxNoise(group.ips, reports, scannerNoiseIps)
+    }))
+    .filter((group) => group.ips.length > 0)
 }
 
 function dayKey(iso: string): string {

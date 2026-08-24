@@ -175,3 +175,8 @@ export function appendScannerNoiseEntry(text: string, entry: string): string {
   const trimmed = text.replace(/\s+$/, '')
   return trimmed ? `${trimmed}\n${value}` : value
 }
+
+/** Append multiple hosts/IPs while preserving order and suppressing covered entries. */
+export function appendScannerNoiseEntries(text: string, entries: readonly string[]): string {
+  return entries.reduce((next, entry) => appendScannerNoiseEntry(next, entry), text)
+}

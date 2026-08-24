@@ -271,6 +271,48 @@ describe('sqlite cache', () => {
     ])
   })
 
+  it('prunes pending sources represented only by mailbox forwarding noise', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    const settings = {
+      provider: 'custom' as const,
+      host: 'imap.example.com',
+      port: 993,
+      secure: true,
+      user: 'user@example.com',
+      authMode: 'password' as const,
+      mailbox: 'INBOX',
+      archiveMailbox: '',
+      subjectFilter: '',
+      markSeenAfterFetch: false
+    }
+    const accountKey = accountKeyFor(settings.user, settings.host, settings.mailbox)
+    const noiseIp = '2a00:1450:4864:20::346'
+    const noiseReport = sampleReport('noise')
+    noiseReport.records = [
+      {
+        ...noiseReport.records[0],
+        sourceIp: noiseIp,
+        dkimResult: 'fail',
+        spfResult: 'fail',
+        passesDmarc: false,
+        reasons: [{ type: 'local_policy', comment: 'arc=pass' }]
+      }
+    ]
+    saveCache({
+      accountKey,
+      reports: [noiseReport],
+      lastUid: 42,
+      lastFailingTotal: 1,
+      knownSourceIps: [noiseIp]
+    })
+    addPendingSourceIps(accountKey, [noiseIp])
+
+    const result = await loadCachedAnalyzeResult(settings)
+    expect(result.newSendingSources).toEqual([])
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([])
+  })
+
   it('migrates legacy JSON cache files', () => {
     dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
     const cacheDir = join(dir, 'cache')

@@ -12,7 +12,8 @@ import {
   mergeDomainHealth,
   normalizeDispositionFilter,
   parseSourceIpFilter,
-  reportsForDomainHealth
+  reportsForDomainHealth,
+  sendingSourceGroupsWithoutMailboxNoise
 } from '../../shared/analyze'
 import { diagnoseSource, type FailureDiagnosis } from '../../shared/diagnosis'
 import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
@@ -21,7 +22,7 @@ import {
   parseMailboxNoiseProviders
 } from '../../shared/mailbox-ip'
 import {
-  appendScannerNoiseEntry,
+  appendScannerNoiseEntries,
   DEFAULT_SCANNER_NOISE_HOSTS,
   matchesScannerNoise,
   parseScannerNoiseHosts,
@@ -955,6 +956,7 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
     // Re-filter once noise IPs are known so KPIs/charts/problem sources update together.
     if (foundScannerNoise || (foundMailbox && filterHideMailboxNoiseEl.checked)) {
       applyView()
+      renderNewSendingSourcesBanner(state.fullResult)
       return
     }
     if (state.viewResult) {
@@ -1450,6 +1452,31 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
     detailBtn.addEventListener('click', () => openIpDetail(ip))
     ipActions.appendChild(detailBtn)
 
+    const noiseBtn = document.createElement('button')
+    noiseBtn.type = 'button'
+    noiseBtn.className = 'btn secondary'
+    noiseBtn.textContent = t('newSources.markNoise')
+    noiseBtn.addEventListener('click', () => {
+      noiseBtn.disabled = true
+      void addIpToScannerNoise(ip).then(async (added) => {
+        if (!added) {
+          noiseBtn.disabled = false
+          return
+        }
+        try {
+          await window.api.acknowledgePendingSources([ip])
+          group.ips = group.ips.filter((candidate) => candidate !== ip)
+          ipRow.remove()
+          syncSelection()
+          syncGroupCount()
+        } catch (err) {
+          noiseBtn.disabled = false
+          setStatus(err instanceof Error ? err.message : String(err), 'error')
+        }
+      })
+    })
+    ipActions.appendChild(noiseBtn)
+
     const rejectBtn = document.createElement('button')
     rejectBtn.type = 'button'
     rejectBtn.className = 'btn danger'
@@ -1494,6 +1521,8 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
   })
   reviewBtn.addEventListener('click', () => dialog.showModal())
 
+  const mainActions = document.createElement('div')
+  mainActions.className = 'new-source-main-actions'
   if (group.provider) {
     const statusAction = document.createElement('div')
     statusAction.className = 'new-source-main-action new-source-status-action'
@@ -1516,7 +1545,7 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
     })
     syncStatusAction()
     statusAction.appendChild(applyStatusBtn)
-    row.appendChild(statusAction)
+    mainActions.appendChild(statusAction)
   } else {
     // No recognized service name to match on — offer a prefilled manual entry instead.
     const addBtn = document.createElement('button')
@@ -1524,8 +1553,33 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
     addBtn.className = 'btn secondary new-source-main-action new-source-service-action'
     addBtn.textContent = t('newSources.addService')
     addBtn.addEventListener('click', () => openSendingServiceFormFor(group))
-    row.appendChild(addBtn)
+    mainActions.appendChild(addBtn)
   }
+
+  const groupNoiseBtn = document.createElement('button')
+  groupNoiseBtn.type = 'button'
+  groupNoiseBtn.className = 'btn secondary new-source-group-noise'
+  groupNoiseBtn.textContent = t('newSources.markGroupNoise')
+  groupNoiseBtn.addEventListener('click', () => {
+    groupNoiseBtn.disabled = true
+    const ips = [...group.ips]
+    void addIpsToScannerNoise(ips).then(async (added) => {
+      if (!added) {
+        groupNoiseBtn.disabled = false
+        return
+      }
+      try {
+        await window.api.acknowledgePendingSources(ips)
+        group.ips = []
+        removeNewSourceItem(row)
+      } catch (err) {
+        groupNoiseBtn.disabled = false
+        setStatus(err instanceof Error ? err.message : String(err), 'error')
+      }
+    })
+  })
+  mainActions.appendChild(groupNoiseBtn)
+  row.appendChild(mainActions)
 
   const deleteBtn = document.createElement('button')
   deleteBtn.type = 'button'
@@ -1641,7 +1695,12 @@ let newSendingSourcesCollapsed = false
 
 /** Dashboard banner naming freshly seen (provider, domain) pairs not yet inventoried as known. */
 function renderNewSendingSourcesBanner(result: AnalyzeResult | null): void {
-  const groups = alertableSendingSources(result?.newSendingSources ?? [])
+  const noiseFilteredGroups = sendingSourceGroupsWithoutMailboxNoise(
+    result?.newSendingSources ?? [],
+    result?.reports ?? [],
+    collectScannerNoiseIps()
+  )
+  const groups = alertableSendingSources(noiseFilteredGroups)
   newSendingSourcesBannerEl.innerHTML = ''
   if (groups.length === 0) {
     newSendingSourcesCollapsed = false
@@ -2051,20 +2110,29 @@ function initIpContextMenu(): void {
   document.addEventListener('scroll', hideIpContextMenu, true)
 }
 
-async function addIpToScannerNoise(ip: string): Promise<void> {
-  if (!ip || !state.settings || addingScannerNoise) return
-  const info = state.ipLabelCache.get(ip)
-  const entry = suggestScannerNoiseEntry(info?.ptr, ip, info?.senderKind)
-  if (!entry) {
+async function addIpsToScannerNoise(ips: readonly string[]): Promise<boolean> {
+  if (!ips.length || !state.settings || addingScannerNoise) return false
+  const entries = ips
+    .map((ip) => {
+      const info = state.ipLabelCache.get(ip)
+      return suggestScannerNoiseEntry(info?.ptr, ip, info?.senderKind)
+    })
+    .filter((entry): entry is string => Boolean(entry))
+  if (!entries.length) {
     setStatus(t('ipNoise.unavailable'), 'error')
-    return
+    return false
   }
   const current = state.settings.global.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS
-  const nextHosts = appendScannerNoiseEntry(current, entry)
+  const nextHosts = appendScannerNoiseEntries(current, entries)
   if (nextHosts === current) {
-    setStatus(t('ipNoise.already', { entry }), 'ok')
+    setStatus(
+      entries.length === 1
+        ? t('ipNoise.already', { entry: entries[0] })
+        : t('newSources.groupNoiseAlready'),
+      'ok'
+    )
     syncIpDetailNoiseButton()
-    return
+    return true
   }
   addingScannerNoise = true
   try {
@@ -2076,10 +2144,21 @@ async function addIpToScannerNoise(ip: string): Promise<void> {
     scannerNoiseHostsEl.value = next.global.scannerNoiseHosts
     applyView()
     syncIpDetailNoiseButton()
-    setStatus(t('ipNoise.added', { entry }), 'ok')
+    setStatus(
+      entries.length === 1
+        ? t('ipNoise.added', { entry: entries[0] })
+        : t('newSources.groupNoiseAdded', { count: ips.length }),
+      'ok'
+    )
+    return true
   } catch (err) {
     setStatus(err instanceof Error ? err.message : String(err), 'error')
+    return false
   } finally {
     addingScannerNoise = false
   }
+}
+
+async function addIpToScannerNoise(ip: string): Promise<boolean> {
+  return addIpsToScannerNoise([ip])
 }
