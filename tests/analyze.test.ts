@@ -496,7 +496,7 @@ describe('isGoogleIpInfo / isMailboxIpInfo / isMailboxNoiseRecord', () => {
         undefined,
         new Set(['3.5.140.1'])
       )
-    ).toBe(false)
+    ).toBe(true)
     expect(
       isMailboxNoiseRecord(
         record({
@@ -862,5 +862,31 @@ describe('applyDashboardFilter', () => {
     expect(out.aggregate.total).toBe(3)
     expect(out.aggregate.failing).toBe(0)
     expect(out.dashboard.problemSources).toEqual([])
+  })
+
+  it('hides delivered DMARC-pass records from configured scanner IPs', () => {
+    const harmonyIp = '35.174.145.124'
+    const full = analyzeFromReports([
+      report({
+        records: [
+          record({
+            sourceIp: harmonyIp,
+            count: 11,
+            spfResult: 'pass',
+            dkimResult: 'pass',
+            passesDmarc: true,
+            disposition: 'none'
+          })
+        ]
+      })
+    ])
+    const out = applyDashboardFilter(full, {
+      range: 'all',
+      domain: '',
+      hideMailboxNoise: true,
+      scannerNoiseIps: new Set([harmonyIp])
+    })
+    expect(out.aggregate.total).toBe(0)
+    expect(out.dashboard.bySourceIp).toEqual([])
   })
 })

@@ -107,9 +107,9 @@ export function isScannerNoiseIpInfo(
 
 /**
  * Mailbox-provider hop / report-echo noise: SPF fails on a Gmail/Outlook/Yahoo/iCloud IP,
- * DKIM holds, DMARC passes. Also recipient-scanner re-injection (SPF fail, usually
- * DKIM fail too) once enrichment has named the IP. Uses well-known mailbox prefixes
- * when enrichment is missing.
+ * DKIM holds, DMARC passes. Configured recipient-scanner hops are noise for every
+ * delivered auth outcome; reject/quarantine remains visible as enforcement. Uses
+ * well-known mailbox prefixes when enrichment is missing.
  */
 export function isMailboxNoiseRecord(
   rec: SerializedRecord,
@@ -117,12 +117,15 @@ export function isMailboxNoiseRecord(
   scannerNoiseIps?: ReadonlySet<string>,
   mailboxProviders?: ReadonlySet<MailboxNoiseProvider>
 ): boolean {
+  if (scannerNoiseIps?.has(rec.sourceIp)) {
+    const disposition = (rec.disposition ?? 'none').toLowerCase()
+    if (disposition !== 'reject' && disposition !== 'quarantine') return true
+  }
   if (isMailboxNoiseAuthPattern(rec)) {
     if (mailboxIps?.has(rec.sourceIp) || isLikelyMailboxIp(rec.sourceIp, mailboxProviders)) {
       return true
     }
   }
-  if (isScannerNoiseAuthPattern(rec) && scannerNoiseIps?.has(rec.sourceIp)) return true
   return false
 }
 
