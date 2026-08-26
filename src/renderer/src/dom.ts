@@ -43,6 +43,9 @@ export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivE
 export const tableProblemSources = document.getElementById(
   'table-problem-sources'
 ) as HTMLTableSectionElement
+export const btnResetIgnoredProblemSources = document.getElementById(
+  'btn-reset-ignored-problem-sources'
+) as HTMLButtonElement
 export const ipMapEl = document.getElementById('ip-map') as HTMLDivElement
 export const ipMapEmptyEl = document.getElementById('ip-map-empty') as HTMLParagraphElement
 export const ipDetailDialog = document.getElementById('ip-detail-dialog') as HTMLDialogElement
@@ -200,8 +203,14 @@ export const sendingServiceTeamEl = document.getElementById(
 export const sendingServiceNoteEl = document.getElementById(
   'sending-service-note'
 ) as HTMLInputElement
+export const sendingServiceFormTitleEl = document.getElementById(
+  'sending-service-form-title'
+) as HTMLElement
 export const btnAddSendingService = document.getElementById(
   'btn-add-sending-service'
+) as HTMLButtonElement
+export const btnCancelSendingServiceEdit = document.getElementById(
+  'btn-cancel-sending-service-edit'
 ) as HTMLButtonElement
 export const sendingServicesBodyEl = document.getElementById(
   'sending-services-body'

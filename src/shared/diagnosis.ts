@@ -18,6 +18,7 @@ export type DiagnosisAction =
   | 'addSenderToSpf'
   | 'reviewForwarder'
   | 'investigateSpoof'
+  | 'reviewAuthResults'
   | 'noAction'
 
 /** Raw (unaligned) auth_results facts for one mechanism, plus its alignment. */
@@ -63,14 +64,17 @@ function mechanismFacts(
   rawKey: 'spfRawResult' | 'dkimRawResult'
 ): AuthMechanismFacts {
   const domainCounts = new Map<string | null, number>()
-  const rawCounts = new Map<string | null, number>()
   for (const rec of records) {
     const domain = rec[domainKey]
     if (domain) domainCounts.set(domain, (domainCounts.get(domain) ?? 0) + rec.count)
-    if (domain)
-      rawCounts.set(rec[rawKey] ?? null, (rawCounts.get(rec[rawKey] ?? null) ?? 0) + rec.count)
   }
   const domain = pickDominant(domainCounts)
+  const rawCounts = new Map<string | null, number>()
+  for (const rec of records) {
+    if (rec[domainKey] !== domain) continue
+    const raw = rec[rawKey] ?? null
+    rawCounts.set(raw, (rawCounts.get(raw) ?? 0) + rec.count)
+  }
   const raw = domain ? pickDominant(rawCounts) : null
   return { domain, raw, aligned: Boolean(domain) && isRelaxedAligned(domain, from) }
 }
@@ -111,12 +115,15 @@ export function diagnoseSource(
   if (category === 'forwarder') {
     verdict = 'forwarded'
     action = 'reviewForwarder'
+  } else if ((spf.domain || dkim.domain) && spf.raw == null && dkim.raw == null) {
+    verdict = isOwnAuthorizedSender ? 'likelyLegit' : 'possiblyLegit'
+    action = 'reviewAuthResults'
   } else if (category === 'unauthenticated') {
     verdict = isOwnAuthorizedSender ? 'possiblyLegit' : 'suspicious'
     action = isOwnAuthorizedSender ? 'checkDkimSigning' : 'investigateSpoof'
   } else if (category === 'thirdParty') {
     verdict = isOwnAuthorizedSender ? 'likelyLegit' : 'possiblyLegit'
-    if (!dkim.domain) action = 'checkDkimSigning'
+    if (isOwnAuthorizedSender || !dkim.domain) action = 'checkDkimSigning'
     else if (spf.raw === 'pass' || dkim.raw === 'pass') action = 'checkSpfAlignment'
     else action = 'addSenderToSpf'
   } else {

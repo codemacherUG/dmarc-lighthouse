@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from 'fs'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
+import { matchSendingService } from '../shared/sending-services'
 import type {
   DnsDriftEvent,
   DnsDriftKind,
@@ -146,6 +147,8 @@ function openDb(): DatabaseSync {
       header_from TEXT,
       dkim_domain TEXT,
       spf_domain TEXT,
+      dkim_raw_result TEXT,
+      spf_raw_result TEXT,
       passes_dmarc INTEGER NOT NULL,
       reasons_json TEXT NOT NULL,
       selectors_json TEXT NOT NULL,
@@ -420,6 +423,50 @@ function migrateSchema(database: DatabaseSync): void {
     version = 10
     setSchemaVersion(database, version)
   }
+  // v11: retain raw auth_results so diagnosis can distinguish auth failure from misalignment.
+  if (version < 11) {
+    try {
+      database.exec('ALTER TABLE report_records ADD COLUMN dkim_raw_result TEXT')
+    } catch {
+      // Column may already exist on partially migrated DBs.
+    }
+    try {
+      database.exec('ALTER TABLE report_records ADD COLUMN spf_raw_result TEXT')
+    } catch {
+      // Column may already exist on partially migrated DBs.
+    }
+    version = 11
+    setSchemaVersion(database, version)
+  }
+  // v12: preserve pre-pending review state for non-known sending-service entries.
+  if (version < 12) {
+    const services = (
+      database
+        .prepare(
+          `SELECT id, provider, domain, cidr, asn, status, note, team, created_at, updated_at
+           FROM sending_services WHERE status <> 'known'`
+        )
+        .all() as Array<{
+        id: string
+        provider: string
+        domain: string | null
+        cidr: string | null
+        asn: number | null
+        status: string
+        note: string | null
+        team: string | null
+        created_at: string
+        updated_at: string
+      }>
+    ).map(rowToSendingService)
+    withTransaction(database, () => {
+      for (const service of services) {
+        reopenHistoricalSources(database, historicalSourcesForService(database, service))
+      }
+      setSchemaVersion(database, 12)
+    })
+    version = 12
+  }
 }
 
 /** One-time import of legacy per-account `*.json` cache files. */
@@ -523,6 +570,8 @@ function recordFromRow(rec: {
   header_from: string | null
   dkim_domain: string | null
   spf_domain: string | null
+  dkim_raw_result: string | null
+  spf_raw_result: string | null
   passes_dmarc: number
   reasons_json: string
   selectors_json: string
@@ -536,6 +585,8 @@ function recordFromRow(rec: {
     headerFrom: rec.header_from,
     dkimDomain: rec.dkim_domain,
     spfDomain: rec.spf_domain,
+    dkimRawResult: rec.dkim_raw_result,
+    spfRawResult: rec.spf_raw_result,
     passesDmarc: Boolean(rec.passes_dmarc),
     reasons: JSON.parse(rec.reasons_json || '[]'),
     dkimSelectors: JSON.parse(rec.selectors_json || '[]')
@@ -568,7 +619,8 @@ function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
   const recRows = database
     .prepare(
       `SELECT report_id, source_ip, count, disposition, dkim_result, spf_result, header_from,
-              dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
+              dkim_domain, spf_domain, dkim_raw_result, spf_raw_result, passes_dmarc,
+              reasons_json, selectors_json
        FROM report_records
        WHERE account_key = ?
        ORDER BY report_id, ordinal ASC`
@@ -583,6 +635,8 @@ function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
     header_from: string | null
     dkim_domain: string | null
     spf_domain: string | null
+    dkim_raw_result: string | null
+    spf_raw_result: string | null
     passes_dmarc: number
     reasons_json: string
     selectors_json: string
@@ -705,8 +759,9 @@ function writeAccountCache(
   const recStmt = database.prepare(
     `INSERT INTO report_records(
        account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
-       header_from, dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       header_from, dkim_domain, spf_domain, dkim_raw_result, spf_raw_result, passes_dmarc,
+       reasons_json, selectors_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
 
   for (const report of input.reports) {
@@ -737,6 +792,8 @@ function writeAccountCache(
         rec.headerFrom,
         rec.dkimDomain,
         rec.spfDomain,
+        rec.dkimRawResult ?? null,
+        rec.spfRawResult ?? null,
         rec.passesDmarc ? 1 : 0,
         JSON.stringify(rec.reasons ?? []),
         JSON.stringify(rec.dkimSelectors ?? [])
@@ -896,8 +953,9 @@ function upsertAccountReports(
   const recStmt = database.prepare(
     `INSERT INTO report_records(
        account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
-       header_from, dkim_domain, spf_domain, passes_dmarc, reasons_json, selectors_json
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       header_from, dkim_domain, spf_domain, dkim_raw_result, spf_raw_result, passes_dmarc,
+       reasons_json, selectors_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
   const ipStmt = database.prepare(
     `INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)
@@ -937,6 +995,8 @@ function upsertAccountReports(
         rec.headerFrom,
         rec.dkimDomain,
         rec.spfDomain,
+        rec.dkimRawResult ?? null,
+        rec.spfRawResult ?? null,
         rec.passesDmarc ? 1 : 0,
         JSON.stringify(rec.reasons ?? []),
         JSON.stringify(rec.dkimSelectors ?? [])
@@ -1221,42 +1281,82 @@ export function listSendingServices(): SendingService[] {
   return rows.map(rowToSendingService)
 }
 
+type HistoricalSendingSource = {
+  account_key: string
+  source_ip: string
+  domain: string | null
+  provider: string | null
+  asn: number | null
+}
+
+function historicalSourcesForService(
+  database: DatabaseSync,
+  service: SendingService
+): HistoricalSendingSource[] {
+  const candidates = database
+    .prepare(
+      `SELECT DISTINCT
+         rr.account_key,
+         rr.source_ip,
+         COALESCE(NULLIF(rr.header_from, ''), r.domain) AS domain,
+         ie.provider,
+         ie.asn
+       FROM report_records rr
+       JOIN reports r
+         ON r.account_key = rr.account_key AND r.report_id = rr.report_id
+       LEFT JOIN ip_enrichment ie ON ie.ip = rr.source_ip`
+    )
+    .all() as HistoricalSendingSource[]
+  return candidates.filter((candidate) =>
+    matchSendingService([service], {
+      provider: candidate.provider,
+      domain: candidate.domain,
+      ip: candidate.source_ip,
+      asn: candidate.asn
+    })
+  )
+}
+
+function reopenHistoricalSources(
+  database: DatabaseSync,
+  candidates: readonly HistoricalSendingSource[]
+): void {
+  const insertPending = database.prepare(
+    `INSERT INTO pending_source_ips(account_key, source_ip, discovered_at) VALUES (?, ?, ?)
+     ON CONFLICT(account_key, source_ip) DO NOTHING`
+  )
+  const discoveredAt = new Date().toISOString()
+  for (const candidate of candidates) {
+    insertPending.run(candidate.account_key, candidate.source_ip, discoveredAt)
+  }
+}
+
 export function upsertSendingService(input: SendingServiceInput): SendingService {
   const database = openDb()
   const now = new Date().toISOString()
   const id = input.id && input.id.trim() ? input.id : randomUUID()
-  const existing = database
-    .prepare('SELECT created_at FROM sending_services WHERE id = ?')
-    .get(id) as { created_at: string } | undefined
-  const createdAt = existing?.created_at ?? now
-  database
+  const existingRow = database
     .prepare(
-      `INSERT INTO sending_services(
-         id, provider, domain, cidr, asn, status, note, team, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         provider = excluded.provider,
-         domain = excluded.domain,
-         cidr = excluded.cidr,
-         asn = excluded.asn,
-         status = excluded.status,
-         note = excluded.note,
-         team = excluded.team,
-         updated_at = excluded.updated_at`
+      `SELECT id, provider, domain, cidr, asn, status, note, team, created_at, updated_at
+       FROM sending_services WHERE id = ?`
     )
-    .run(
-      id,
-      input.provider,
-      input.domain,
-      input.cidr,
-      input.asn,
-      input.status,
-      input.note,
-      input.team,
-      createdAt,
-      now
-    )
-  return {
+    .get(id) as
+    | {
+        id: string
+        provider: string
+        domain: string | null
+        cidr: string | null
+        asn: number | null
+        status: string
+        note: string | null
+        team: string | null
+        created_at: string
+        updated_at: string
+      }
+    | undefined
+  const existing = existingRow ? rowToSendingService(existingRow) : null
+  const createdAt = existing?.createdAt ?? now
+  const updated: SendingService = {
     id,
     provider: input.provider,
     domain: input.domain,
@@ -1268,11 +1368,82 @@ export function upsertSendingService(input: SendingServiceInput): SendingService
     createdAt,
     updatedAt: now
   }
+  const reopen =
+    existing?.status === 'known'
+      ? historicalSourcesForService(database, existing).filter(
+          (candidate) =>
+            updated.status !== 'known' ||
+            !matchSendingService([updated], {
+              provider: candidate.provider,
+              domain: candidate.domain,
+              ip: candidate.source_ip,
+              asn: candidate.asn
+            })
+        )
+      : []
+  withTransaction(database, () => {
+    database
+      .prepare(
+        `INSERT INTO sending_services(
+         id, provider, domain, cidr, asn, status, note, team, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         provider = excluded.provider,
+         domain = excluded.domain,
+         cidr = excluded.cidr,
+         asn = excluded.asn,
+         status = excluded.status,
+         note = excluded.note,
+         team = excluded.team,
+         updated_at = excluded.updated_at`
+      )
+      .run(
+        id,
+        input.provider,
+        input.domain,
+        input.cidr,
+        input.asn,
+        input.status,
+        input.note,
+        input.team,
+        createdAt,
+        now
+      )
+    reopenHistoricalSources(database, reopen)
+  })
+  return updated
 }
 
-export function deleteSendingService(id: string): void {
+export function deleteSendingService(id: string): number {
   const database = openDb()
-  database.prepare('DELETE FROM sending_services WHERE id = ?').run(id)
+  const row = database
+    .prepare(
+      `SELECT id, provider, domain, cidr, asn, status, note, team, created_at, updated_at
+       FROM sending_services WHERE id = ?`
+    )
+    .get(id) as
+    | {
+        id: string
+        provider: string
+        domain: string | null
+        cidr: string | null
+        asn: number | null
+        status: string
+        note: string | null
+        team: string | null
+        created_at: string
+        updated_at: string
+      }
+    | undefined
+  if (!row) return 0
+
+  const service = rowToSendingService(row)
+  const reopened = service.status === 'known' ? historicalSourcesForService(database, service) : []
+  withTransaction(database, () => {
+    database.prepare('DELETE FROM sending_services WHERE id = ?').run(id)
+    reopenHistoricalSources(database, reopened)
+  })
+  return reopened.length
 }
 
 const SENDER_KINDS = new Set<SenderKind>(['esp', 'mailbox', 'saas', 'gateway', 'infra'])

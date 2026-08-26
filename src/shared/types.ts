@@ -311,6 +311,10 @@ export interface ProblemSourceRow {
   count: number
   spfFail: number
   dkimFail: number
+  /** Messages with a raw SPF pass that still failed DMARC alignment. */
+  spfAuthPass?: number
+  /** Messages with a raw DKIM pass that still failed DMARC alignment. */
+  dkimAuthPass?: number
   /** Most frequent header-from among problem rows for this IP. */
   headerFrom: string | null
   /** Other IPs in the same ASN/provider + From group (after enrichment). */

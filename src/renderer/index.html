@@ -456,6 +456,22 @@
 
       <div id="dashboard-grid" class="dashboard-grid">
       <section class="panel kpi-panel dashboard-widget" data-widget="summary">
+        <div class="widget-heading">
+          <h2 data-i18n="widget.summary.title">Übersicht</h2>
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-summary-info"
+            >i</button>
+            <span id="widget-summary-info" class="widget-info-popover" role="tooltip" data-i18n="widget.summary.info">
+              Fasst Anzahl, Volumen und DMARC-Ergebnis aller aktuell gefilterten Reports zusammen.
+              Gut für einen schnellen Überblick über Umfang, Erfolgsquote und betrachteten Zeitraum.
+            </span>
+          </span>
+        </div>
         <div id="summary" class="summary-grid">
           <div class="stat">
             <span class="stat-label" data-i18n="kpi.reports">Reports</span>
@@ -485,13 +501,21 @@
       </section>
 
       <section class="panel domain-health-panel dashboard-widget" data-widget="health">
-        <div class="panel-heading">
+        <div class="widget-heading">
           <h2 data-i18n="health.title">Domain-Ampel</h2>
-          <p class="hint" data-i18n="health.hint">
-            Gesundheitsrate der letzten 14 Tage (Auth-Pass sowie korrekt reject/quarantine;
-            local_policy zählt nicht negativ) und DNS-Status. Unabhängig vom Zeitraum-Filter. Klick
-            filtert auf die Domain.
-          </p>
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-health-info"
+            >i</button>
+            <span id="widget-health-info" class="widget-info-popover" role="tooltip" data-i18n="health.hint">
+              Gesundheitsrate der letzten 14 Tage und DNS-Status. Unabhängig vom Zeitraum-Filter.
+              Klick filtert auf die Domain.
+            </span>
+          </span>
         </div>
         <div id="domain-ampel" class="domain-ampel">
           <p class="muted" data-i18n="health.empty">Noch keine Domains geladen.</p>
@@ -499,13 +523,29 @@
       </section>
 
       <section class="panel problem-sources-panel dashboard-widget" data-widget="problemSources">
-        <div class="panel-heading">
+        <div class="widget-heading">
           <h2 data-i18n="problems.title">Problemquellen</h2>
-          <p class="hint" data-i18n="problems.hint">
-            Zugestellte Auth-Fails im gewählten Zeitraum. IPs desselben Netzes (ASN/Anbieter) zur
-            gleichen From-Domain werden gebündelt. Reject/quarantine und local_policy zählen nicht.
-            Klick filtert auf die Quelle.
-          </p>
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-problem-sources-info"
+            >i</button>
+            <span id="widget-problem-sources-info" class="widget-info-popover" role="tooltip" data-i18n="problems.hint">
+              Zeigt zugestellte Auth-Fails im gewählten Zeitraum und bündelt verwandte Quellen.
+              Klick filtert auf die Quelle.
+            </span>
+          </span>
+          <button
+            id="btn-reset-ignored-problem-sources"
+            type="button"
+            class="btn secondary problem-source-reset hidden"
+            data-i18n="problems.restore"
+            data-i18n-title="problems.restoreHint"
+            title="Ausgeblendete Fehlerkennungen wieder anzeigen"
+          >Ausgeblendete anzeigen</button>
         </div>
         <div class="table-scroll problem-sources-scroll">
           <table class="ip-enriched problem-sources-table">
@@ -517,11 +557,12 @@
                 <th data-i18n="problems.count">Msgs</th>
                 <th data-i18n="problems.spfFail">SPF fail</th>
                 <th data-i18n="problems.dkimFail">DKIM fail</th>
+                <th class="problem-action-col" data-i18n="problems.action">Aktion</th>
               </tr>
             </thead>
             <tbody id="table-problem-sources">
               <tr class="empty">
-                <td colspan="6" data-i18n="problems.empty">
+                <td colspan="7" data-i18n="problems.empty">
                   Keine problematischen Zustellungen im Zeitraum.
                 </td>
               </tr>
@@ -531,40 +572,156 @@
       </section>
 
       <section class="panel charts-panel dashboard-widget" data-widget="charts">
+        <div class="widget-heading">
+          <h2 data-i18n="widget.charts.title">Diagramme</h2>
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-charts-info"
+            >i</button>
+            <span id="widget-charts-info" class="widget-info-popover" role="tooltip" data-i18n="widget.charts.info">
+              Zeigt Alignment, Policy-Anwendung sowie Volumen und Pass-Rate im Zeitverlauf.
+              Hilft, Authentifizierungsprobleme und Veränderungen schnell zu erkennen.
+            </span>
+          </span>
+        </div>
         <div class="charts-row pies">
           <div class="chart-card">
-            <h2 data-i18n="chart.dmarc">DMARC Alignment</h2>
+            <div class="widget-heading">
+              <h2 data-i18n="chart.dmarc">DMARC Alignment</h2>
+              <span class="widget-info">
+                <button
+                  type="button"
+                  class="widget-info-button"
+                  data-i18n-aria="widget.info"
+                  aria-label="Mehr über dieses Widget"
+                  aria-describedby="chart-dmarc-info"
+                >i</button>
+                <span id="chart-dmarc-info" class="widget-info-popover" role="tooltip" data-i18n="chart.dmarcInfo">
+                  Zeigt, welcher Anteil die DMARC-Gesamtprüfung durch ausgerichtetes SPF oder DKIM
+                  besteht beziehungsweise nicht besteht.
+                </span>
+              </span>
+            </div>
             <canvas id="chart-dmarc"></canvas>
           </div>
           <div class="chart-card">
-            <h2 data-i18n="chart.spf">SPF Alignment</h2>
+            <div class="widget-heading">
+              <h2 data-i18n="chart.spf">SPF Alignment</h2>
+              <span class="widget-info">
+                <button
+                  type="button"
+                  class="widget-info-button"
+                  data-i18n-aria="widget.info"
+                  aria-label="Mehr über dieses Widget"
+                  aria-describedby="chart-spf-info"
+                >i</button>
+                <span id="chart-spf-info" class="widget-info-popover" role="tooltip" data-i18n="chart.spfInfo">
+                  Zeigt, ob die per SPF geprüfte Envelope-From-Domain zur sichtbaren From-Domain
+                  passt. Ein SPF-Pass ohne Alignment genügt für DMARC nicht.
+                </span>
+              </span>
+            </div>
             <canvas id="chart-spf"></canvas>
           </div>
           <div class="chart-card">
-            <h2 data-i18n="chart.dkim">DKIM Alignment</h2>
+            <div class="widget-heading">
+              <h2 data-i18n="chart.dkim">DKIM Alignment</h2>
+              <span class="widget-info">
+                <button
+                  type="button"
+                  class="widget-info-button"
+                  data-i18n-aria="widget.info"
+                  aria-label="Mehr über dieses Widget"
+                  aria-describedby="chart-dkim-info"
+                >i</button>
+                <span id="chart-dkim-info" class="widget-info-popover" role="tooltip" data-i18n="chart.dkimInfo">
+                  Zeigt, ob eine gültige DKIM-Signatur mit einer zur sichtbaren From-Domain
+                  passenden Domain erstellt wurde.
+                </span>
+              </span>
+            </div>
             <canvas id="chart-dkim"></canvas>
           </div>
           <div class="chart-card">
-            <h2 data-i18n="chart.disposition">Disposition (Policy-Anwendung)</h2>
+            <div class="widget-heading">
+              <h2 data-i18n="chart.disposition">Disposition (Policy-Anwendung)</h2>
+              <span class="widget-info">
+                <button
+                  type="button"
+                  class="widget-info-button"
+                  data-i18n-aria="widget.info"
+                  aria-label="Mehr über dieses Widget"
+                  aria-describedby="chart-disposition-info"
+                >i</button>
+                <span id="chart-disposition-info" class="widget-info-popover" role="tooltip" data-i18n="chart.dispositionInfo">
+                  Zeigt die tatsächlich gemeldete Policy-Anwendung: keine Maßnahme, Quarantäne
+                  oder Ablehnung.
+                </span>
+              </span>
+            </div>
             <canvas id="chart-disposition"></canvas>
           </div>
         </div>
         <div class="chart-card volume-card">
-          <h2 data-i18n="chart.volume">Nachrichtenvolumen &amp; Pass-Rate über Zeit</h2>
+          <div class="widget-heading">
+            <h2 data-i18n="chart.volume">Nachrichtenvolumen &amp; Pass-Rate über Zeit</h2>
+            <span class="widget-info">
+              <button
+                type="button"
+                class="widget-info-button"
+                data-i18n-aria="widget.info"
+                aria-label="Mehr über dieses Widget"
+                aria-describedby="chart-volume-info"
+              >i</button>
+              <span id="chart-volume-info" class="widget-info-popover" role="tooltip" data-i18n="chart.volumeInfo">
+                Zeigt tägliches Volumen und DMARC-Pass-Rate, um Trends und plötzliche
+                Fehleranstiege zu erkennen. Ein Klick filtert auf den Tag.
+              </span>
+            </span>
+          </div>
           <canvas id="chart-volume"></canvas>
         </div>
       </section>
 
       <section class="panel tables-panel dashboard-widget" data-widget="tables">
+        <div class="widget-heading">
+          <h2 data-i18n="widget.tables.title">Aufschlüsselungen</h2>
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-tables-info"
+            >i</button>
+            <span id="widget-tables-info" class="widget-info-popover" role="tooltip" data-i18n="widget.tables.info">
+              Vergleicht Quell-IPs, Reporting-Organisationen und From-Domains nach Volumen und
+              Pass-Rate. Hilft, auffällige Absender oder Domains zu finden.
+            </span>
+          </span>
+        </div>
         <div class="tables-row">
           <div class="tables-ip-slot">
             <div class="table-card table-card--ips">
-              <div class="table-card-heading">
+              <div class="widget-heading">
                 <h2 data-i18n="table.ips">Quellen (IP)</h2>
-                <p class="hint" data-i18n="table.ipsHint">
-                  Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain
-                  liegen. Rechtsklick blendet einen Absender als Mail-Rauschen aus.
-                </p>
+                <span class="widget-info">
+                  <button
+                    type="button"
+                    class="widget-info-button"
+                    data-i18n-aria="widget.info"
+                    aria-label="Mehr über dieses Widget"
+                    aria-describedby="widget-source-ips-info"
+                  >i</button>
+                  <span id="widget-source-ips-info" class="widget-info-popover" role="tooltip" data-i18n="widget.sourceIps.info">
+                    Eine Quellen-IP ist die öffentliche IP-Adresse des versendenden Mailservers.
+                    Die Tabelle hilft, unbekannte Dienste, Fehler und Spoofing-Quellen zu erkennen.
+                  </span>
+                </span>
               </div>
               <div class="table-scroll">
                 <table class="ip-enriched">
@@ -587,7 +744,22 @@
           </div>
           <div class="tables-side">
             <div class="table-card">
-              <h2 data-i18n="table.orgs">Reporting-Organisationen</h2>
+              <div class="widget-heading">
+                <h2 data-i18n="table.orgs">Reporting-Organisationen</h2>
+                <span class="widget-info">
+                  <button
+                    type="button"
+                    class="widget-info-button"
+                    data-i18n-aria="widget.info"
+                    aria-label="Mehr über dieses Widget"
+                    aria-describedby="widget-reporting-orgs-info"
+                  >i</button>
+                  <span id="widget-reporting-orgs-info" class="widget-info-popover" role="tooltip" data-i18n="widget.reportingOrgs.info">
+                    Empfangende Mailanbieter senden diese DMARC-Reports. Der Vergleich zeigt ihr
+                    beobachtetes Volumen und mögliche anbieterspezifische Probleme.
+                  </span>
+                </span>
+              </div>
               <div class="table-scroll">
                 <table>
                   <thead>
@@ -606,7 +778,22 @@
               </div>
             </div>
             <div class="table-card">
-              <h2 data-i18n="table.from">From-Domains</h2>
+              <div class="widget-heading">
+                <h2 data-i18n="table.from">From-Domains</h2>
+                <span class="widget-info">
+                  <button
+                    type="button"
+                    class="widget-info-button"
+                    data-i18n-aria="widget.info"
+                    aria-label="Mehr über dieses Widget"
+                    aria-describedby="widget-from-domains-info"
+                  >i</button>
+                  <span id="widget-from-domains-info" class="widget-info-popover" role="tooltip" data-i18n="widget.fromDomains.info">
+                    Die From-Domain ist der Domainteil der sichtbaren Absenderadresse. DMARC prüft,
+                    ob SPF oder DKIM zu ihr ausgerichtet sind.
+                  </span>
+                </span>
+              </div>
               <div class="table-scroll">
                 <table>
                   <thead>
@@ -629,10 +816,26 @@
       </section>
 
       <section class="panel results-panel dashboard-widget" data-widget="reports">
+        <div class="widget-heading">
+          <h2 data-i18n="table.reports">Einzelne Reports</h2>
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-reports-info"
+            >i</button>
+            <span id="widget-reports-info" class="widget-info-popover" role="tooltip" data-i18n="widget.reports.info">
+              Listet einzelne Aggregate-Reports mit Zeitraum, Policy und Ergebnis. Eine Auswahl
+              zeigt die Records im Detail; der Originalreport kann als ZIP geladen werden.
+            </span>
+          </span>
+        </div>
         <div class="results-layout">
           <div class="table-wrap">
-            <h2 data-i18n="table.reports">Einzelne Reports</h2>
-            <table id="reports-table">
+            <div class="table-scroll reports-table-scroll">
+              <table id="reports-table">
               <thead>
                 <tr>
                   <th data-i18n="table.org">Org</th>
@@ -654,10 +857,26 @@
                   </td>
                 </tr>
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
           <aside class="detail-wrap">
-            <h2 data-i18n="detail.title">Record-Details</h2>
+            <div class="widget-heading">
+              <h2 data-i18n="detail.title">Record-Details</h2>
+              <span class="widget-info">
+                <button
+                  type="button"
+                  class="widget-info-button"
+                  data-i18n-aria="widget.info"
+                  aria-label="Mehr über dieses Widget"
+                  aria-describedby="widget-details-info"
+                >i</button>
+                <span id="widget-details-info" class="widget-info-popover" role="tooltip" data-i18n="widget.details.info">
+                  Zeigt die Datensätze des ausgewählten Reports und macht SPF-, DKIM- und
+                  DMARC-Abweichungen je Quell-IP nachvollziehbar.
+                </span>
+              </span>
+            </div>
             <div id="detail" class="detail">
               <p class="muted" data-i18n="detail.pick">Report in der Tabelle auswählen.</p>
             </div>
@@ -666,9 +885,25 @@
       </section>
 
       <section class="panel results-panel dashboard-widget" data-widget="forensic">
-        <div class="table-wrap">
+        <div class="widget-heading">
           <h2 data-i18n="table.forensic">Forensik / RUF (Failure-Reports)</h2>
-          <table id="forensic-table">
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-forensic-info"
+            >i</button>
+            <span id="widget-forensic-info" class="widget-info-popover" role="tooltip" data-i18n="widget.forensic.info">
+              Zeigt separate RUF-Fehlerberichte mit Quelle, From-Domains und Fehlerart. Nützlich
+              für die genaue Untersuchung einzelner fehlgeschlagener Nachrichten.
+            </span>
+          </span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll reports-table-scroll">
+            <table id="forensic-table">
             <thead>
               <tr>
                 <th data-i18n="table.arrival">Empfang</th>
@@ -685,16 +920,26 @@
                 <td colspan="7" data-i18n="table.forensicEmpty">Keine Forensik-Reports geladen.</td>
               </tr>
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       </section>
 
       <section class="panel ip-map-panel dashboard-widget" data-widget="ipMap">
-        <div class="panel-heading">
+        <div class="widget-heading">
           <h2 data-i18n="ipMap.title">Quellen auf der Karte</h2>
-          <p class="hint" data-i18n="ipMap.hint">
-            OpenStreetMap mit GeoIP-Positionen. Marker-Klick filtert auf die IP.
-          </p>
+          <span class="widget-info">
+            <button
+              type="button"
+              class="widget-info-button"
+              data-i18n-aria="widget.info"
+              aria-label="Mehr über dieses Widget"
+              aria-describedby="widget-ip-map-info"
+            >i</button>
+            <span id="widget-ip-map-info" class="widget-info-popover" role="tooltip" data-i18n="ipMap.hint">
+              Zeigt die geografische Verteilung der Quell-IPs. Marker-Klick filtert auf die IP.
+            </span>
+          </span>
         </div>
         <div id="ip-map" class="ip-map" role="img" aria-label="OpenStreetMap"></div>
         <p id="ip-map-empty" class="muted ip-map-empty hidden" data-i18n="ipMap.empty">
@@ -1347,7 +1592,7 @@
             </p>
 
             <fieldset class="settings-group">
-              <legend data-i18n="sendingServices.addTitle">Neuer Eintrag</legend>
+              <legend id="sending-service-form-title" data-i18n="sendingServices.addTitle">Neuer Eintrag</legend>
               <div class="settings-grid" id="sending-service-form">
                 <label>
                   <span data-i18n="sendingServices.providerLabel">Dienst</span>
@@ -1431,14 +1676,24 @@
                     placeholder="Notiz (optional)"
                   />
                 </label>
-                <button
-                  type="button"
-                  id="btn-add-sending-service"
-                  class="btn secondary"
-                  data-i18n="sendingServices.add"
-                >
-                  Hinzufügen
-                </button>
+                <div class="sending-service-form-actions span-2">
+                  <button
+                    type="button"
+                    id="btn-cancel-sending-service-edit"
+                    class="btn secondary hidden"
+                    data-i18n="sendingServices.cancelEdit"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-add-sending-service"
+                    class="btn secondary"
+                    data-i18n="sendingServices.add"
+                  >
+                    Hinzufügen
+                  </button>
+                </div>
               </div>
               <p class="hint" data-i18n="sendingServices.cidrHint">
                 Optional. Einzelne IP (z. B. 40.92.4.10) oder Netzbereich in CIDR-Schreibweise

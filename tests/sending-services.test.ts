@@ -8,11 +8,14 @@ import {
   matchSendingService,
   parseDomainList
 } from '../src/shared/sending-services'
-import type { SendingService } from '../src/shared/types'
+import type { ReportRow, SendingService } from '../src/shared/types'
 import {
   deleteSendingService,
   listSendingServices,
+  loadCachedReports,
+  saveCache,
   setCacheUserDataForTests,
+  upsertIpEnrichment,
   upsertSendingService
 } from '../src/main/cache'
 
@@ -305,10 +308,10 @@ describe('sending-service persistence', () => {
 
     const updated = upsertSendingService({
       id: created.id,
-      provider: 'Microsoft 365',
-      domain: 'example.de',
-      cidr: null,
-      asn: null,
+      provider: 'Microsoft Exchange Online',
+      domain: 'example.de, example.com',
+      cidr: '40.92.0.0/16',
+      asn: 8075,
       status: 'known',
       note: 'Sanctioned in 2024',
       team: 'IT Security'
@@ -317,10 +320,197 @@ describe('sending-service persistence', () => {
     expect(updated.createdAt).toBe(created.createdAt)
     const list = listSendingServices()
     expect(list).toHaveLength(1)
+    expect(list[0]?.provider).toBe('Microsoft Exchange Online')
+    expect(list[0]?.domain).toBe('example.de, example.com')
+    expect(list[0]?.cidr).toBe('40.92.0.0/16')
+    expect(list[0]?.asn).toBe(8075)
     expect(list[0]?.status).toBe('known')
     expect(list[0]?.team).toBe('IT Security')
 
     deleteSendingService(created.id)
     expect(listSendingServices()).toHaveLength(0)
+  })
+
+  it('reopens historical CIDR-matched sources when an inventory entry is deleted', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-sending-services-'))
+    setCacheUserDataForTests(dir)
+    const accountKey = 'netcup-account'
+    const ip = '159.195.74.209'
+    const report: ReportRow = {
+      reportId: 'netcup-report',
+      orgName: 'receiver.example',
+      domain: 'codemacher.de',
+      dateBegin: '2026-08-24T00:00:00.000Z',
+      dateEnd: '2026-08-25T00:00:00.000Z',
+      total: 1,
+      passing: 1,
+      failing: 0,
+      passRate: 100,
+      policyP: 'reject',
+      records: [
+        {
+          sourceIp: ip,
+          count: 1,
+          disposition: 'none',
+          dkimResult: 'pass',
+          spfResult: 'pass',
+          headerFrom: 'codemacher.de',
+          dkimDomain: 'codemacher.de',
+          spfDomain: 'codemacher.de',
+          dkimSelectors: ['default'],
+          passesDmarc: true,
+          reasons: []
+        }
+      ]
+    }
+    saveCache({
+      accountKey,
+      reports: [report],
+      lastUid: 1,
+      lastFailingTotal: 0,
+      knownSourceIps: [ip]
+    })
+    upsertIpEnrichment([
+      {
+        ip,
+        ptr: 'mail.netcup.example',
+        provider: null,
+        senderKind: null,
+        country: null,
+        countryCode: null,
+        city: null,
+        lat: null,
+        lon: null,
+        asn: 197540,
+        asOrg: 'netcup GmbH',
+        cloudProvider: null,
+        dnsblHits: [],
+        geoSource: 'none'
+      }
+    ])
+    const created = upsertSendingService({
+      provider: 'Netcup Server',
+      domain: 'codemacher.de',
+      cidr: `${ip}/32`,
+      asn: null,
+      status: 'known',
+      note: null,
+      team: null
+    })
+
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([])
+    expect(deleteSendingService(created.id)).toBe(1)
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([ip])
+  })
+
+  it('reopens sources excluded by an edited known-service scope', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-sending-services-'))
+    setCacheUserDataForTests(dir)
+    const accountKey = 'edited-service-account'
+    const oldIp = '203.0.113.10'
+    const report: ReportRow = {
+      reportId: 'edited-service-report',
+      orgName: 'receiver.example',
+      domain: 'example.de',
+      dateBegin: '2026-08-24T00:00:00.000Z',
+      dateEnd: '2026-08-25T00:00:00.000Z',
+      total: 1,
+      passing: 1,
+      failing: 0,
+      passRate: 100,
+      policyP: 'reject',
+      records: [
+        {
+          sourceIp: oldIp,
+          count: 1,
+          disposition: 'none',
+          dkimResult: 'pass',
+          spfResult: 'pass',
+          headerFrom: 'example.de',
+          dkimDomain: 'example.de',
+          spfDomain: 'example.de',
+          dkimSelectors: ['default'],
+          passesDmarc: true,
+          reasons: []
+        }
+      ]
+    }
+    saveCache({
+      accountKey,
+      reports: [report],
+      lastUid: 1,
+      lastFailingTotal: 0,
+      knownSourceIps: [oldIp]
+    })
+    const created = upsertSendingService({
+      provider: 'Example sender',
+      domain: 'example.de',
+      cidr: '203.0.113.0/24',
+      asn: null,
+      status: 'known',
+      note: null,
+      team: null
+    })
+
+    upsertSendingService({
+      ...created,
+      cidr: '198.51.100.0/24'
+    })
+
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([oldIp])
+  })
+
+  it('does not reopen dismissed sources when deleting a non-known entry', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-sending-services-'))
+    setCacheUserDataForTests(dir)
+    const accountKey = 'investigate-account'
+    const ip = '203.0.113.10'
+    saveCache({
+      accountKey,
+      reports: [
+        {
+          reportId: 'investigate-report',
+          orgName: 'receiver.example',
+          domain: 'example.de',
+          dateBegin: '2026-08-24T00:00:00.000Z',
+          dateEnd: '2026-08-25T00:00:00.000Z',
+          total: 1,
+          passing: 1,
+          failing: 0,
+          passRate: 100,
+          policyP: 'reject',
+          records: [
+            {
+              sourceIp: ip,
+              count: 1,
+              disposition: 'none',
+              dkimResult: 'pass',
+              spfResult: 'pass',
+              headerFrom: 'example.de',
+              dkimDomain: 'example.de',
+              spfDomain: 'example.de',
+              dkimSelectors: ['default'],
+              passesDmarc: true,
+              reasons: []
+            }
+          ]
+        }
+      ],
+      lastUid: 1,
+      lastFailingTotal: 0,
+      knownSourceIps: [ip]
+    })
+    const created = upsertSendingService({
+      provider: 'Review sender',
+      domain: 'example.de',
+      cidr: `${ip}/32`,
+      asn: null,
+      status: 'investigate',
+      note: null,
+      team: null
+    })
+
+    expect(deleteSendingService(created.id)).toBe(0)
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([])
   })
 })

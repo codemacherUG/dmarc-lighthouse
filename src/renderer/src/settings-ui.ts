@@ -22,6 +22,7 @@ import {
   authModeEl,
   autoFetchMinutesEl,
   btnAddSendingService,
+  btnCancelSendingServiceEdit,
   btnCancelCreateMailbox,
   btnClearArchiveMailbox,
   btnClearCache,
@@ -85,6 +86,7 @@ import {
   sendingServiceAsnEl,
   sendingServiceCidrEl,
   sendingServiceDomainEl,
+  sendingServiceFormTitleEl,
   sendingServiceNoteEl,
   sendingServiceProviderEl,
   sendingServiceStatusEl,
@@ -112,7 +114,7 @@ import {
 } from './dom'
 import { escapeHtml, formatDate } from './format'
 import { state } from './state'
-import { applyView } from './view'
+import { applyView, showResult } from './view'
 import {
   DEFAULT_MAILBOX_NOISE_PROVIDERS,
   MAILBOX_NOISE_PROVIDERS,
@@ -615,6 +617,8 @@ export function refreshSettingsLocale(): void {
   if (!state.settings) return
   updateAccountUi()
   fillSettingsAccountSelect()
+  syncSendingServiceFormMode()
+  if (settingsDialog.open) renderSendingServices()
   if (settingsDialog.open) {
     const account = dialogAccount()
     passwordHintEl.textContent = account?.hasPassword
@@ -631,12 +635,51 @@ const STATUS_KEYS: Record<SendingServiceStatus, MessageKey> = {
 }
 
 let sendingServices: SendingService[] = []
+let editingSendingServiceId: string | null = null
 let nextSendingServiceCreatedHandler: ((service: SendingService) => Promise<void>) | null = null
 
 export function setNextSendingServiceCreatedHandler(
   handler: ((service: SendingService) => Promise<void>) | null
 ): void {
+  if (handler) resetSendingServiceForm()
   nextSendingServiceCreatedHandler = handler
+}
+
+function syncSendingServiceFormMode(): void {
+  const editing = editingSendingServiceId != null
+  sendingServiceFormTitleEl.textContent = t(
+    editing ? 'sendingServices.editTitle' : 'sendingServices.addTitle'
+  )
+  btnAddSendingService.textContent = t(
+    editing ? 'sendingServices.saveChanges' : 'sendingServices.add'
+  )
+  btnCancelSendingServiceEdit.classList.toggle('hidden', !editing)
+}
+
+function resetSendingServiceForm(): void {
+  editingSendingServiceId = null
+  sendingServiceProviderEl.value = ''
+  sendingServiceDomainEl.value = ''
+  sendingServiceCidrEl.value = ''
+  sendingServiceAsnEl.value = ''
+  sendingServiceTeamEl.value = ''
+  sendingServiceNoteEl.value = ''
+  sendingServiceStatusEl.value = 'unknown'
+  syncSendingServiceFormMode()
+}
+
+function editSendingService(service: SendingService): void {
+  nextSendingServiceCreatedHandler = null
+  editingSendingServiceId = service.id
+  sendingServiceProviderEl.value = service.provider
+  sendingServiceDomainEl.value = service.domain ?? ''
+  sendingServiceCidrEl.value = service.cidr ?? ''
+  sendingServiceAsnEl.value = service.asn != null ? String(service.asn) : ''
+  sendingServiceStatusEl.value = service.status
+  sendingServiceTeamEl.value = service.team ?? ''
+  sendingServiceNoteEl.value = service.note ?? ''
+  syncSendingServiceFormMode()
+  sendingServiceProviderEl.focus()
 }
 
 async function loadSendingServices(): Promise<void> {
@@ -646,6 +689,11 @@ async function loadSendingServices(): Promise<void> {
   } catch (err) {
     sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
   }
+}
+
+async function refreshSendingSourcesFromCache(): Promise<void> {
+  const cached = await window.api.loadCache(state.settings?.activeAccountId)
+  if (cached) showResult(cached)
 }
 
 function renderSendingServices(): void {
@@ -720,13 +768,23 @@ function renderSendingServiceRow(service: SendingService): HTMLTableRowElement {
   tr.appendChild(noteTd)
 
   const actionsTd = document.createElement('td')
+  const actions = document.createElement('div')
+  actions.className = 'sending-service-row-actions'
+  const editBtn = document.createElement('button')
+  editBtn.type = 'button'
+  editBtn.className = 'btn secondary'
+  editBtn.textContent = t('sendingServices.edit')
+  editBtn.title = t('sendingServices.editTitle')
+  editBtn.addEventListener('click', () => editSendingService(service))
+  actions.appendChild(editBtn)
   const deleteBtn = document.createElement('button')
   deleteBtn.type = 'button'
   deleteBtn.className = 'btn secondary'
   deleteBtn.textContent = t('sendingServices.delete')
   deleteBtn.title = t('sendingServices.deleteTitle')
   deleteBtn.addEventListener('click', () => void removeSendingService(service.id))
-  actionsTd.appendChild(deleteBtn)
+  actions.appendChild(deleteBtn)
+  actionsTd.appendChild(actions)
   tr.appendChild(actionsTd)
 
   return tr
@@ -740,6 +798,7 @@ async function saveSendingServiceEdit(
     await window.api.saveSendingService({ ...service, ...changes })
     sendingServicesStatusEl.textContent = t('sendingServices.saved')
     await loadSendingServices()
+    await refreshSendingSourcesFromCache()
   } catch (err) {
     sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
   }
@@ -748,8 +807,10 @@ async function saveSendingServiceEdit(
 async function removeSendingService(id: string): Promise<void> {
   try {
     sendingServices = await window.api.deleteSendingService(id)
+    if (editingSendingServiceId === id) resetSendingServiceForm()
     sendingServicesStatusEl.textContent = t('sendingServices.deleted')
     renderSendingServices()
+    await refreshSendingSourcesFromCache()
   } catch (err) {
     sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
   }
@@ -757,6 +818,7 @@ async function removeSendingService(id: string): Promise<void> {
 
 function hasSendingServiceDraft(): boolean {
   return Boolean(
+    editingSendingServiceId ||
     sendingServiceProviderEl.value.trim() ||
     sendingServiceDomainEl.value.trim() ||
     sendingServiceCidrEl.value.trim() ||
@@ -777,6 +839,7 @@ async function addSendingServiceFromForm(): Promise<boolean> {
   const asn = asnRaw ? Number(asnRaw) : null
   try {
     const savedService = await window.api.saveSendingService({
+      id: editingSendingServiceId ?? undefined,
       provider,
       domain: sendingServiceDomainEl.value.trim() || null,
       cidr: sendingServiceCidrEl.value.trim() || null,
@@ -785,18 +848,16 @@ async function addSendingServiceFromForm(): Promise<boolean> {
       team: sendingServiceTeamEl.value.trim() || null,
       note: sendingServiceNoteEl.value.trim() || null
     })
-    sendingServiceProviderEl.value = ''
-    sendingServiceDomainEl.value = ''
-    sendingServiceCidrEl.value = ''
-    sendingServiceAsnEl.value = ''
-    sendingServiceTeamEl.value = ''
-    sendingServiceNoteEl.value = ''
-    sendingServiceStatusEl.value = 'unknown'
+    const wasEditing = editingSendingServiceId != null
+    resetSendingServiceForm()
     sendingServicesStatusEl.textContent = t('sendingServices.saved')
     await loadSendingServices()
-    const createdHandler = nextSendingServiceCreatedHandler
-    nextSendingServiceCreatedHandler = null
-    await createdHandler?.(savedService)
+    if (!wasEditing) {
+      const createdHandler = nextSendingServiceCreatedHandler
+      nextSendingServiceCreatedHandler = null
+      await createdHandler?.(savedService)
+    }
+    await refreshSendingSourcesFromCache()
     return true
   } catch (err) {
     sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
@@ -809,6 +870,7 @@ export function initSettingsUi(): void {
   btnCloseSettings.addEventListener('click', () => settingsDialog.close())
   settingsDialog.addEventListener('close', () => {
     nextSendingServiceCreatedHandler = null
+    resetSendingServiceForm()
   })
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
   tabBtnAppearance.addEventListener('click', () => showSettingsTab('appearance'))
@@ -820,6 +882,7 @@ export function initSettingsUi(): void {
   btnInfoOk.addEventListener('click', () => infoDialog.close())
 
   btnAddSendingService.addEventListener('click', () => void addSendingServiceFromForm())
+  btnCancelSendingServiceEdit.addEventListener('click', () => resetSendingServiceForm())
 
   btnDownloadGeolite.addEventListener('click', async () => {
     if (typeof window.api.downloadGeoLite !== 'function') {

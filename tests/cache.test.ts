@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   acknowledgePendingSourceIps,
@@ -21,7 +22,8 @@ import {
   resetKnownSourceIps,
   saveCache,
   setCacheUserDataForTests,
-  upsertIpEnrichment
+  upsertIpEnrichment,
+  upsertSendingService
 } from '../src/main/cache'
 import type { DnsCheckResult, ReportRow, TransportSecurityResult } from '../src/shared/types'
 import { loadCachedAnalyzeResult } from '../src/main/imap'
@@ -49,6 +51,8 @@ function sampleReport(id: string): ReportRow {
         headerFrom: 'example.com',
         dkimDomain: 'example.com',
         spfDomain: 'example.com',
+        dkimRawResult: 'pass',
+        spfRawResult: 'pass',
         dkimSelectors: ['s1'],
         passesDmarc: true,
         reasons: []
@@ -182,8 +186,65 @@ describe('sqlite cache', () => {
     expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1', '203.0.113.1'])
     expect(loaded.reports).toHaveLength(1)
     expect(loaded.reports[0].records[0].dkimSelectors).toEqual(['s1'])
+    expect(loaded.reports[0].records[0].dkimRawResult).toBe('pass')
+    expect(loaded.reports[0].records[0].spfRawResult).toBe('pass')
     expect(loaded.forensicReports).toHaveLength(1)
     expect(loaded.forensicReports[0].sourceIp).toBe('203.0.113.1')
+  })
+
+  it('migrates version 10 report records to retain raw authentication results', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    const cacheDir = join(dir, 'cache')
+    mkdirSync(cacheDir, { recursive: true })
+    const databasePath = join(cacheDir, 'dmarc-lighthouse.sqlite')
+    const legacy = new DatabaseSync(databasePath)
+    legacy.exec(`
+      CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      INSERT INTO schema_meta(key, value) VALUES ('version', '10');
+      CREATE TABLE cache_meta (
+        account_key TEXT PRIMARY KEY,
+        last_uid INTEGER NOT NULL DEFAULT 0,
+        last_uid_archive INTEGER NOT NULL DEFAULT 0,
+        last_fetch_at TEXT,
+        last_failing_total INTEGER NOT NULL DEFAULT 0,
+        known_ips_reset_pending INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE report_records (
+        account_key TEXT NOT NULL,
+        report_id TEXT NOT NULL,
+        ordinal INTEGER NOT NULL,
+        source_ip TEXT NOT NULL,
+        count INTEGER NOT NULL,
+        disposition TEXT,
+        dkim_result TEXT,
+        spf_result TEXT,
+        header_from TEXT,
+        dkim_domain TEXT,
+        spf_domain TEXT,
+        passes_dmarc INTEGER NOT NULL,
+        reasons_json TEXT NOT NULL,
+        selectors_json TEXT NOT NULL,
+        PRIMARY KEY (account_key, report_id, ordinal)
+      );
+    `)
+    legacy.close()
+    setCacheUserDataForTests(dir)
+
+    loadCachedReports('acct1')
+    closeCacheDb()
+
+    const migrated = new DatabaseSync(databasePath)
+    const columns = migrated.prepare('PRAGMA table_info(report_records)').all() as Array<{
+      name: string
+    }>
+    const version = migrated
+      .prepare("SELECT value FROM schema_meta WHERE key = 'version'")
+      .get() as { value: string }
+    migrated.close()
+    expect(columns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(['dkim_raw_result', 'spf_raw_result'])
+    )
+    expect(version.value).toBe('12')
   })
 
   it('persists pending source IPs until they are acknowledged or the cache is cleared', () => {
@@ -209,6 +270,55 @@ describe('sqlite cache', () => {
 
     clearCache('acct1')
     expect(loadCachedReports('acct1').meta.pendingSourceIps).toEqual([])
+  })
+
+  it('migrates historical sources for non-known services into the pending queue', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    const accountKey = 'pre-pending-services'
+    saveCache({
+      accountKey,
+      reports: [sampleReport('historical-service')],
+      lastUid: 42,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+    upsertIpEnrichment([
+      {
+        ip: '192.0.2.1',
+        ptr: 'mail.example.net',
+        provider: 'Example Mail',
+        senderKind: 'esp',
+        country: null,
+        countryCode: null,
+        city: null,
+        lat: null,
+        lon: null,
+        asn: 64500,
+        asOrg: 'Example Network',
+        cloudProvider: null,
+        dnsblHits: [],
+        geoSource: 'none'
+      }
+    ])
+    upsertSendingService({
+      provider: 'Example Mail',
+      domain: 'example.com',
+      cidr: null,
+      asn: null,
+      status: 'investigate',
+      note: null,
+      team: null
+    })
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([])
+
+    closeCacheDb()
+    const databasePath = join(dir, 'cache', 'dmarc-lighthouse.sqlite')
+    const legacy = new DatabaseSync(databasePath)
+    legacy.prepare("UPDATE schema_meta SET value = '11' WHERE key = 'version'").run()
+    legacy.close()
+
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual(['192.0.2.1'])
   })
 
   it('reconstructs pending sending sources when cached analysis is loaded after restart', async () => {

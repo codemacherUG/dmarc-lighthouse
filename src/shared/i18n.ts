@@ -304,6 +304,31 @@ const de = {
   'filter.reset': 'Zurücksetzen',
   'filter.resetTitle': 'Alle Filter zurücksetzen',
 
+  'widget.info': 'Mehr über dieses Widget',
+  'widget.collapse': 'Widget einklappen',
+  'widget.expand': 'Widget ausklappen',
+  'widget.summary.title': 'Übersicht',
+  'widget.summary.info':
+    'Fasst Anzahl, Volumen und DMARC-Ergebnis aller aktuell gefilterten Reports zusammen. Gut für einen schnellen Überblick über Umfang, Erfolgsquote und betrachteten Zeitraum.',
+  'widget.charts.title': 'Diagramme',
+  'widget.charts.info':
+    'Zeigt DMARC-, SPF- und DKIM-Alignment, die angewendete Policy sowie Volumen und Pass-Rate im Zeitverlauf. Hilft, Authentifizierungsprobleme und zeitliche Veränderungen schnell zu erkennen.',
+  'widget.tables.title': 'Aufschlüsselungen',
+  'widget.tables.info':
+    'Vergleicht Quell-IPs, Reporting-Organisationen und From-Domains nach Nachrichtenmenge und Pass-Rate. Hilft, auffällige Absender oder Domains zu finden und gezielt zu filtern.',
+  'widget.sourceIps.info':
+    'Eine Quellen-IP ist die öffentliche IP-Adresse des Mailservers, der Nachrichten im Namen einer Domain versendet hat. Die Tabelle zeigt Nachrichtenmenge, DMARC-Pass-Rate und zugestellte Nachrichten je Quelle. So lassen sich unbekannte Versanddienste, Fehlkonfigurationen und mögliche Spoofing-Quellen erkennen. Das SPF-Badge markiert IPs, die vom SPF-Record der Domain autorisiert sind.',
+  'widget.reportingOrgs.info':
+    'Reporting-Organisationen sind empfangende Mailanbieter wie Google, Microsoft oder Yahoo, die DMARC-Aggregate-Reports senden. Der Vergleich zeigt, wie viele Nachrichten jeder Anbieter beobachtet hat und wie hoch dort die DMARC-Pass-Rate ist. Abweichungen können auf anbieterspezifische Zustell- oder Authentifizierungsprobleme hinweisen.',
+  'widget.fromDomains.info':
+    'Die From-Domain ist der Domainteil der für Empfänger sichtbaren Absenderadresse im From-Header. DMARC prüft, ob SPF oder DKIM zu dieser Domain ausgerichtet sind. Die Tabelle zeigt Volumen und Pass-Rate je From-Domain und hilft, betroffene Domains oder Subdomains zu finden.',
+  'widget.reports.info':
+    'Listet die einzelnen DMARC-Aggregate-Reports mit Zeitraum, Policy und Ergebnis. Eine Auswahl zeigt die enthaltenen Records im Detail; der Originalreport kann als ZIP geladen werden.',
+  'widget.details.info':
+    'Zeigt die einzelnen Datensätze des ausgewählten Aggregate-Reports. Jeder Record fasst Nachrichten einer Quell-IP mit gleichem Authentifizierungs- und Policy-Ergebnis zusammen und macht SPF-, DKIM- und DMARC-Abweichungen nachvollziehbar.',
+  'widget.forensic.info':
+    'Zeigt separate DMARC-Forensik- bzw. RUF-Fehlerberichte mit Quelle, From-Domains und Fehlerart. Nützlich für die genaue Untersuchung einzelner fehlgeschlagener Nachrichten.',
+
   'kpi.reports': 'Reports',
   'kpi.messages': 'Nachrichten',
   'kpi.pass': 'Pass',
@@ -312,10 +337,20 @@ const de = {
   'kpi.range': 'Zeitraum',
 
   'chart.dmarc': 'DMARC Alignment',
+  'chart.dmarcInfo':
+    'DMARC besteht, wenn mindestens SPF oder DKIM erfolgreich und zur sichtbaren From-Domain ausgerichtet ist. Das Diagramm zeigt, welcher Anteil der Nachrichten diese Gesamtprüfung besteht, fehlschlägt oder nicht eindeutig bewertet werden konnte.',
   'chart.spf': 'SPF Alignment',
+  'chart.spfInfo':
+    'SPF Alignment bedeutet, dass die per SPF geprüfte Envelope-From-Domain mit der sichtbaren From-Domain übereinstimmt oder eine passende Subdomain ist. Ein SPF-Pass allein genügt für DMARC nicht, wenn diese Ausrichtung fehlt.',
   'chart.dkim': 'DKIM Alignment',
+  'chart.dkimInfo':
+    'DKIM Alignment bedeutet, dass eine gültige DKIM-Signatur mit einer Domain erstellt wurde, die zur sichtbaren From-Domain passt. Es schützt die Nachricht vor Veränderungen und kann DMARC auch dann bestehen lassen, wenn SPF nicht ausgerichtet ist.',
   'chart.disposition': 'Disposition (Policy-Anwendung)',
+  'chart.dispositionInfo':
+    'Die Disposition zeigt, was der empfangende Server laut DMARC-Report mit der Nachricht getan hat: none bedeutet keine Maßnahme, quarantine eine Einstufung als verdächtig und reject eine Ablehnung. Sie zeigt die tatsächlich gemeldete Policy-Anwendung.',
   'chart.volume': 'Nachrichtenvolumen & Pass-Rate über Zeit',
+  'chart.volumeInfo':
+    'Zeigt pro Tag die Anzahl bestandener und fehlgeschlagener Nachrichten sowie die DMARC-Pass-Rate. Damit werden Trends, plötzliche Fehleranstiege und die Wirkung von Konfigurationsänderungen sichtbar. Ein Klick auf einen Tag filtert das Dashboard.',
   'chart.pass': 'Pass',
   'chart.fail': 'Fail',
   'chart.other': 'Sonstige',
@@ -539,6 +574,7 @@ const de = {
   'sendingServices.empty':
     'Noch keine Einträge — Einträge entstehen automatisch aus neuen Quellen oder werden unten manuell angelegt.',
   'sendingServices.addTitle': 'Neuer Eintrag',
+  'sendingServices.editTitle': 'Sende-Dienst bearbeiten',
   'sendingServices.providerLabel': 'Dienst',
   'sendingServices.providerPlaceholder': 'Dienst, z. B. Microsoft 365',
   'sendingServices.providerHint':
@@ -563,15 +599,21 @@ const de = {
   'sendingServices.noteLabel': 'Notiz',
   'sendingServices.notePlaceholder': 'Notiz (optional)',
   'sendingServices.add': 'Hinzufügen',
+  'sendingServices.edit': 'Bearbeiten',
+  'sendingServices.saveChanges': 'Änderungen speichern',
+  'sendingServices.cancelEdit': 'Abbrechen',
   'sendingServices.delete': 'Löschen',
   'sendingServices.deleteTitle': 'Eintrag löschen',
   'sendingServices.providerRequired': 'Bitte einen Dienstnamen angeben.',
   'sendingServices.saved': 'Sende-Dienst gespeichert.',
   'sendingServices.deleted': 'Eintrag gelöscht.',
 
-  'newSources.title': 'Neue Sende-Quellen',
+  'newSources.title': 'Neue Sender-Dienste',
+  'newSources.info':
+    'Hier erscheinen Kombinationen aus Versanddienst und From-Domain, die in neu abgerufenen Reports erstmals erkannt wurden. Prüfe, ob der Dienst tatsächlich im Namen der Domain senden darf. „Bekannt“ bestätigt legitimen Versand und beendet weitere Hinweise. „Prüfen“ hält den Fund offen. „Stillgelegt“ warnt bewusst weiter, falls der Dienst erneut sendet. Über die IP-Details lassen sich Anbieter, Netz, Standort und Authentifizierung kontrollieren.',
   'newSources.hint':
     'Bekannt beendet den Hinweis. Prüfen bleibt offen und alarmiert weiter. Stillgelegt bedeutet, dass der Dienst nicht mehr senden darf — weiteres Auftauchen alarmiert bewusst. Löschen verwirft den Hinweis ohne Sende-Dienst.',
+  'newSources.empty': 'Keine neuen Sender-Dienste zur Prüfung.',
   'newSources.markKnown': 'Als bekannt markieren',
   'newSources.marked': 'Als bekannt markiert — künftig kein Alert mehr dafür.',
   'newSources.applyStatus': 'Status übernehmen',
@@ -641,24 +683,33 @@ const de = {
   'problems.count': 'Msgs',
   'problems.spfFail': 'SPF fail',
   'problems.dkimFail': 'DKIM fail',
+  'problems.action': 'Aktion',
   'problems.ipGroup': '{count} IPs',
   'problems.ipGroupChip': '{label} ({count} IPs)',
   'problems.cat.forwarder': 'Weiterleitung',
-  'problems.cat.thirdParty': 'Fremddienst',
-  'problems.cat.broken': 'Konfiguration',
-  'problems.cat.ownSender': 'Eigener Sender',
+  'problems.cat.thirdParty': 'Fremde Auth-Domain',
+  'problems.cat.broken': 'Auth-/Alignment-Problem',
+  'problems.cat.ownSender': 'SPF-Netz · DMARC-Fail',
+  'problems.cat.misaligned': 'Auth pass · nicht aligned',
   'problems.cat.unauthenticated': 'Ohne Auth',
   'problems.catHint.forwarder':
-    'Der Report nennt eine Weiterleitung (forwarded, mailing_list, trusted_forwarder). Meist harmlos: DKIM oder ARC überleben den Hop nicht immer.',
+    'Der Report nennt eine mögliche Weiterleitung (forwarded, mailing_list, trusted_forwarder). Prüfen, ob für diese Domain eine erwartete Weiterleitungsroute existiert.',
   'problems.catHint.thirdParty':
-    'Signiert oder versendet unter fremder Domain – ein Dienstleister ohne Alignment. SPF/DKIM auf die eigene From-Domain einrichten.',
+    'SPF oder DKIM verwenden eine andere Domain als die sichtbare From-Domain. Das kann ein freigegebener Dienst, ein unerwünschtes Konto/ein Client oder missbräuchlicher Versand sein. Freigabe prüfen, bevor Alignment eingerichtet wird.',
   'problems.catHint.broken':
-    'Die eigene Domain wurde authentifiziert, Alignment oder Signaturprüfung schlug dennoch fehl. Selektor, Return-Path und SPF prüfen.',
+    'Die eigene Domain taucht in der Authentifizierung auf, aber Alignment oder Signaturprüfung schlug fehl. Das belegt nicht, dass der konkrete Versand freigegeben war. Konto/Client und Konfiguration prüfen.',
   'problems.catHint.ownSender':
-    'Die IP liegt im eigenen SPF, das Alignment fehlt aber. Return-Path auf die eigene Domain setzen oder ausgerichtet mit DKIM signieren.',
+    'Die IP liegt im geladenen SPF-Netz dieser From-Domain, die Nachricht besteht DMARC aber trotzdem nicht. Das Netz ist technisch zugelassen; Dienst, Konto/Client und DKIM-Alignment sollten geprüft werden.',
+  'problems.catHint.misaligned':
+    'Der Empfänger meldet mindestens eine erfolgreiche SPF- oder DKIM-Authentifizierung, aber nicht für eine Domain, die zur sichtbaren From-Domain ausgerichtet ist. Return-Path oder DKIM-Domain ausrichten.',
   'problems.catHint.unauthenticated':
-    'Weder DKIM noch SPF liefern eine Domain. Häufig Spoofing oder ein unkonfigurierter Versender.',
+    'Weder DKIM noch SPF liefern eine belastbar authentifizierte Domain. Das kann Spoofing, ein unerwünschter Client oder eine Fehlkonfiguration sein und muss geprüft werden.',
   'problems.diagnoseHint': 'Warum ist das fehlgeschlagen?',
+  'problems.ignore': 'Als Fehlerkennung ausblenden',
+  'problems.ignoreConfirm':
+    'Möchten Sie {source} für {domain} wirklich als Fehlerkennung markieren und aus den Problemquellen ausblenden?',
+  'problems.restore': 'Ausgeblendete anzeigen',
+  'problems.restoreHint': 'Ausgeblendete Fehlerkennungen wieder anzeigen',
   'sender.kind.esp': 'Massen-/Transaktionsversand',
   'sender.kind.mailbox': 'Mailbox-Anbieter',
   'sender.kind.saas': 'SaaS-Anwendung',
@@ -668,53 +719,76 @@ const de = {
   'diagnosis.title': 'Diagnose',
   'diagnosis.empty': 'Keine Rohdaten für diese Quelle im aktuellen Zeitraum gefunden.',
   'diagnosis.sampleCount': 'Basis: {count} Nachrichten für {domain}',
-  'diagnosis.verdict.likelyLegit': 'Wahrscheinlich legitimer Sender',
-  'diagnosis.verdict.possiblyLegit': 'Möglicherweise legitimer Sender',
-  'diagnosis.verdict.suspicious': 'Verdächtig',
-  'diagnosis.verdict.forwarded': 'Weiterleitung erkannt',
+  'diagnosis.verdict.likelyLegit': 'SPF-Netztreffer / Dienstzuordnung',
+  'diagnosis.verdict.possiblyLegit': 'Herkunft und Freigabe unklar',
+  'diagnosis.verdict.suspicious': 'Keine SPF/DKIM-Autorisierung erkennbar',
+  'diagnosis.verdict.forwarded': 'Hinweis auf Weiterleitung',
   'diagnosis.verdictHint.likelyLegit':
-    'Die IP ist über die eigene SPF-Policy autorisiert und der Absender wurde als bekannter Dienst erkannt. Das eigentliche Problem liegt sehr wahrscheinlich an der DMARC-Ausrichtung (Alignment), nicht am Absender selbst — der Versand ist gewollt, nur die Konfiguration passt noch nicht.',
+    'Die IP liegt in einem geladenen SPF-Netz, und die Infrastruktur wurde einem bekannten Dienst zugeordnet. Das sind technische Indizien, aber kein Beleg, dass diese konkrete Nachricht, das verwendete Konto oder der Client für den Versand freigegeben war. Dienst, Mandant/Konto, Client und Versandzweck prüfen.',
   'diagnosis.verdictHint.possiblyLegit':
-    'Absender und From-Domain passen inhaltlich zusammen, aber weder SPF noch DKIM sind vollständig ausgerichtet. Das ist typisch für Dienstleister, die im Namen der Domain versenden, ohne dass Alignment eingerichtet wurde. Prüfen, ob dieser Versand gewollt ist.',
+    'Es gibt technische Hinweise auf einen Dienst oder eine Authentifizierung, aber keine ausreichende Zuordnung zur sichtbaren From-Domain. Daraus lässt sich keine Freigabe ableiten. Dienst, Konto/Client und Versandzweck prüfen, bevor SPF oder DKIM geändert werden.',
   'diagnosis.verdictHint.suspicious':
-    'Weder SPF noch DKIM liefern eine authentifizierte Domain, und die IP ist nicht als eigener Sender autorisiert. Das ist das typische Muster für Spoofing — kann aber auch ein neuer, noch unkonfigurierter Versender sein.',
+    'Für die sichtbare From-Domain ist keine belastbare SPF- oder DKIM-Autorisierung erkennbar. Das passt zu Spoofing, kann aber auch durch ein unerwünschtes Konto/einen Client oder eine Fehlkonfiguration entstehen. Quelle und Zugänge prüfen.',
   'diagnosis.verdictHint.forwarded':
-    'Der Report nennt einen Weiterleitungsgrund (z. B. Mailingliste oder trusted_forwarder). DKIM- und ARC-Signaturen überleben einen solchen Hop häufig nicht — in der Regel ist hier kein Handlungsbedarf.',
-  'diagnosis.section.sender': 'Erkannter Sender',
+    'Der Empfängerreport nennt einen Weiterleitungsgrund (z. B. Mailingliste oder trusted_forwarder). Das kann die Authentifizierungsabweichung erklären, beweist aber keine erwartete Weiterleitung. Route und Empfänger prüfen.',
+  'diagnosis.section.sender': 'Technische Zuordnung',
   'diagnosis.section.auth': 'SPF & DKIM',
   'diagnosis.section.recommendation': 'Empfehlung',
   'diagnosis.senderNone': 'Konnte anhand von PTR/ASN nicht identifiziert werden.',
-  'diagnosis.senderDetected': '{name} erkannt',
-  'diagnosis.senderKindDetected': '{kind} erkannt',
+  'diagnosis.senderDetected': 'Anhand technischer Metadaten als {name} eingeordnet',
+  'diagnosis.senderKindDetected': 'Anhand technischer Metadaten als {kind} eingeordnet',
   'diagnosis.spf.passAligned':
-    'SPF pass und aligned — SPF authentifiziert bereits die richtige, ausgerichtete Domain.',
+    'Der Empfänger meldet SPF pass und Alignment zur From-Domain. Das bestätigt die technische SPF-Prüfung, nicht die organisatorische Freigabe des konkreten Versands.',
   'diagnosis.spf.passNotAligned':
-    'SPF pass, aber nicht aligned — die SPF-geprüfte Domain stimmt nicht mit der From-Domain überein.',
-  'diagnosis.spf.fail': 'SPF fail ({domain}) — die Prüfung gegen {domain} schlägt fehl.',
+    'Der Empfänger meldet SPF pass, aber ohne Alignment: Die SPF-geprüfte Domain stimmt nicht mit der sichtbaren From-Domain überein.',
+  'diagnosis.spf.fail':
+    'Der Empfänger meldet SPF {result} für {domain}; diese Domain authentifiziert die Nachricht nicht erfolgreich.',
+  'diagnosis.spf.unknown':
+    'Die SPF-Domain {domain} ist bekannt, das zugehörige Roh-Ergebnis wurde in diesem älteren Cache-Eintrag jedoch nicht gespeichert.',
   'diagnosis.spf.missing':
     'Kein SPF-Ergebnis — es wurde keine SPF-authentifizierte Domain gemeldet.',
   'diagnosis.dkim.passAligned':
-    'DKIM pass und aligned — die Signatur ist gültig und auf die From-Domain ausgerichtet.',
+    'Der Empfänger meldet eine gültige, zur From-Domain ausgerichtete DKIM-Signatur. Das belegt nicht, dass Konto, Client oder Versand intern freigegeben waren.',
   'diagnosis.dkim.passNotAligned':
-    'DKIM pass, aber nicht aligned — die signierende Domain stimmt nicht mit der From-Domain überein.',
+    'Der Empfänger meldet DKIM pass, aber ohne Alignment: Die signierende Domain stimmt nicht mit der sichtbaren From-Domain überein.',
   'diagnosis.dkim.fail':
-    'DKIM-Signatur ungültig ({domain}) — Schlüssel, Selector oder Nachricht wurden verändert.',
+    'Der Empfänger meldet DKIM {result} für {domain}. Mögliche Ursachen sind Schlüssel/Selector, eine veränderte Nachricht oder eine fehlerhafte Signatur.',
+  'diagnosis.dkim.unknown':
+    'Die DKIM-Domain {domain} ist bekannt, das zugehörige Roh-Ergebnis wurde in diesem älteren Cache-Eintrag jedoch nicht gespeichert.',
   'diagnosis.dkim.missing': 'DKIM fehlt — es wurde keine DKIM-Signatur gefunden.',
-  'diagnosis.action.checkDkimSigning': 'DKIM-Signing für {domain} einrichten und ausrichten.',
+  'diagnosis.action.checkDkimSigning':
+    'Zuerst prüfen, ob Dienst, Mandant/Konto, Client und Versand für {domain} freigegeben sind. Nur bei bestätigter Freigabe DKIM-Signing einrichten und ausrichten; andernfalls Zugriff beenden.',
   'diagnosis.action.checkSpfAlignment':
-    'Return-Path/Envelope-From auf {domain} ausrichten oder DKIM auf {domain} signieren.',
+    'Zuerst die Freigabe des konkreten Versands für {domain} prüfen. Nur wenn er gewollt ist, Return-Path/Envelope-From ausrichten oder DKIM für {domain} konfigurieren.',
   'diagnosis.action.fixSpfAuth':
-    'SPF-Eintrag von {domain} prüfen — die IP ist offenbar nicht (mehr) autorisiert.',
+    'Konto/Client und Versandzweck prüfen. Falls der Versand freigegeben ist, SPF für {domain} korrigieren; andernfalls Zugang oder Anwendung sperren.',
   'diagnosis.action.fixDkimAuth':
-    'DKIM-Schlüssel/Selector von {domain} prüfen — die Signatur ist ungültig oder abgelaufen.',
+    'Konto/Client und Versandzweck prüfen. Falls der Versand freigegeben ist, DKIM-Schlüssel/Selector von {domain} korrigieren; andernfalls Zugang sperren.',
   'diagnosis.action.addSenderToSpf':
-    'Diesen Dienst in die SPF-Policy von {domain} aufnehmen oder DKIM-Signing aktivieren.',
+    'Den Dienst nicht vorschnell zu SPF hinzufügen. Zuerst Dienst, Konto/Client und Freigabe für {domain} prüfen; nur bei bestätigter Freigabe SPF oder DKIM konfigurieren.',
   'diagnosis.action.reviewForwarder':
-    'Weiterleitung/Mailingliste — in der Regel kein Handlungsbedarf.',
+    'Prüfen, ob eine erwartete Weiterleitung oder Mailingliste existiert. Ohne bestätigte Route die Quelle weiter untersuchen.',
   'diagnosis.action.investigateSpoof':
-    'Kein SPF, kein DKIM für {domain} — mögliche Spoofing-Quelle, IP nicht autorisiert.',
-  'diagnosis.action.noAction': 'Keine Aktion notwendig.',
+    'Quelle, Konto/Client und Anmeldeprotokolle für {domain} untersuchen. Bei fehlender Freigabe Zugang sperren und möglichen Missbrauch behandeln.',
+  'diagnosis.action.reviewAuthResults':
+    'Die Roh-Ergebnisse fehlen in diesem älteren Cache-Eintrag. Den Report erneut abrufen oder importieren; erst danach zwischen Authentifizierungsfehler und reinem Alignment-Problem unterscheiden.',
+  'diagnosis.action.noAction':
+    'Keine automatische Freigabe ableiten; Versand organisatorisch prüfen.',
   'ipMark.spf': 'SPF',
+  'ipMeta.groupHint': 'Diese Zeile fasst {count} Quell-IPs derselben Quelle zusammen.',
+  'ipMeta.spfHint':
+    'Die Quell-IP liegt in einem aufgelösten SPF-Netz der ausgewerteten Domains. Das belegt keine Freigabe der konkreten Nachricht oder des verwendeten Kontos/Clients.',
+  'ipMeta.spfDomainHint':
+    'Die Quell-IP liegt im aufgelösten SPF-Netz von {domain}. Das ist eine statische Netzprüfung; der Empfänger kann für die konkrete Nachricht eine andere Envelope-From-/HELO-Domain geprüft haben.',
+  'ipMeta.geoHint': 'Ermittelter Standort der IP: {location}.',
+  'ipMeta.asnHint':
+    'Autonomous System Number (ASN): Kennzeichnet das Netzwerk, zu dem diese IP gehört.',
+  'ipMeta.providerHint': 'Erkannter Versanddienst: {provider}{kind}.',
+  'ipMeta.cloudHint': 'Cloud- oder Hosting-Netz, in dem die IP betrieben wird: {provider}.',
+  'ipMeta.networkHint': 'Erkannter Netzbetreiber oder Anbieter: {provider}.',
+  'ipMeta.blocklistHint': 'Die IP ist auf der DNS-Blockliste „{list}“ eingetragen.',
+  'ipMeta.allowlistHint': 'Die IP ist auf der DNS-Allowlist „{list}“ gelistet.',
+  'ipMeta.ptrHint': 'Reverse-DNS-Hostname (PTR) dieser IP: {ptr}.',
   'table.ipsHint':
     'Badge „SPF“ markiert Absender-IPs, die im aufgelösten SPF-Record der Domain liegen. Rechtsklick blendet einen Absender als Mail-Rauschen aus.',
 
@@ -1668,6 +1742,31 @@ const en: Dict = {
   'filter.reset': 'Reset',
   'filter.resetTitle': 'Reset all filters',
 
+  'widget.info': 'More about this widget',
+  'widget.collapse': 'Collapse widget',
+  'widget.expand': 'Expand widget',
+  'widget.summary.title': 'Overview',
+  'widget.summary.info':
+    'Summarizes the count, volume and DMARC results of all currently filtered reports. Useful for a quick view of scope, success rate and the selected period.',
+  'widget.charts.title': 'Charts',
+  'widget.charts.info':
+    'Shows DMARC, SPF and DKIM alignment, the applied policy, and volume and pass rate over time. Helps identify authentication problems and changes over time.',
+  'widget.tables.title': 'Breakdowns',
+  'widget.tables.info':
+    'Compares source IPs, reporting organizations and From domains by message volume and pass rate. Helps find unusual senders or domains and filter them directly.',
+  'widget.sourceIps.info':
+    'A source IP is the public IP address of the mail server that sent messages on behalf of a domain. The table shows message volume, DMARC pass rate and delivered messages per source. This helps identify unknown sending services, configuration errors and possible spoofing sources. The SPF badge marks IPs authorized by the domain’s SPF record.',
+  'widget.reportingOrgs.info':
+    'Reporting organizations are receiving mail providers such as Google, Microsoft or Yahoo that send DMARC aggregate reports. The comparison shows how many messages each provider observed and its DMARC pass rate. Differences can reveal provider-specific delivery or authentication problems.',
+  'widget.fromDomains.info':
+    'The From domain is the domain part of the sender address visible to recipients in the From header. DMARC checks whether SPF or DKIM aligns with this domain. The table shows volume and pass rate per From domain and helps identify affected domains or subdomains.',
+  'widget.reports.info':
+    'Lists individual DMARC aggregate reports with their period, policy and result. Selecting one shows its records in detail; the original report can be downloaded as a ZIP.',
+  'widget.details.info':
+    'Shows the individual records in the selected aggregate report. Each record groups messages from one source IP with the same authentication and policy result, making SPF, DKIM and DMARC discrepancies traceable.',
+  'widget.forensic.info':
+    'Shows separate DMARC forensic or RUF failure reports with their source, From domains and failure type. Useful for investigating individual failed messages.',
+
   'kpi.reports': 'Reports',
   'kpi.messages': 'Messages',
   'kpi.pass': 'Pass',
@@ -1676,10 +1775,20 @@ const en: Dict = {
   'kpi.range': 'Range',
 
   'chart.dmarc': 'DMARC alignment',
+  'chart.dmarcInfo':
+    'DMARC passes when at least SPF or DKIM succeeds and aligns with the visible From domain. The chart shows the share of messages that pass this overall check, fail it or could not be classified clearly.',
   'chart.spf': 'SPF alignment',
+  'chart.spfInfo':
+    'SPF alignment means the Envelope-From domain checked by SPF matches the visible From domain or is a matching subdomain. An SPF pass alone is not enough for DMARC when this alignment is missing.',
   'chart.dkim': 'DKIM alignment',
+  'chart.dkimInfo':
+    'DKIM alignment means a valid DKIM signature uses a domain matching the visible From domain. It protects the message from modification and can make DMARC pass even when SPF is not aligned.',
   'chart.disposition': 'Disposition (policy applied)',
+  'chart.dispositionInfo':
+    'Disposition shows what the receiving server reported doing with the message: none means no action, quarantine marks it as suspicious, and reject refuses it. It reflects the policy application actually reported by receivers.',
   'chart.volume': 'Message volume & pass rate over time',
+  'chart.volumeInfo':
+    'Shows the number of passing and failing messages and the DMARC pass rate for each day. This reveals trends, sudden increases in failures and the effect of configuration changes. Clicking a day filters the dashboard.',
   'chart.pass': 'Pass',
   'chart.fail': 'Fail',
   'chart.other': 'Other',
@@ -1900,6 +2009,7 @@ const en: Dict = {
   'sendingServices.empty':
     'No entries yet — entries appear automatically from new sources or can be added manually below.',
   'sendingServices.addTitle': 'New entry',
+  'sendingServices.editTitle': 'Edit sending service',
   'sendingServices.providerLabel': 'Service',
   'sendingServices.providerPlaceholder': 'Service, e.g. Microsoft 365',
   'sendingServices.providerHint':
@@ -1924,15 +2034,21 @@ const en: Dict = {
   'sendingServices.noteLabel': 'Note',
   'sendingServices.notePlaceholder': 'Note (optional)',
   'sendingServices.add': 'Add',
+  'sendingServices.edit': 'Edit',
+  'sendingServices.saveChanges': 'Save changes',
+  'sendingServices.cancelEdit': 'Cancel',
   'sendingServices.delete': 'Delete',
   'sendingServices.deleteTitle': 'Delete entry',
   'sendingServices.providerRequired': 'Please enter a service name.',
   'sendingServices.saved': 'Sending service saved.',
   'sendingServices.deleted': 'Entry deleted.',
 
-  'newSources.title': 'New sending sources',
+  'newSources.title': 'New sending services',
+  'newSources.info':
+    'This area lists combinations of sending service and From domain first detected in newly fetched reports. Verify that the service is allowed to send on behalf of the domain. “Known” confirms legitimate traffic and stops further alerts. “Investigate” keeps the finding open. “Retired” deliberately continues to warn if the service sends again. IP details help verify the provider, network, location and authentication.',
   'newSources.hint':
     'Known closes the alert. Investigate remains pending and continues to alert. Retired means the service must no longer send — any reappearance deliberately alerts. Delete discards the alert without a sending service.',
+  'newSources.empty': 'No new sending services to review.',
   'newSources.markKnown': 'Mark as known',
   'newSources.marked': 'Marked as known — no more alerts for this combination.',
   'newSources.applyStatus': 'Apply status',
@@ -2002,24 +2118,33 @@ const en: Dict = {
   'problems.count': 'Msgs',
   'problems.spfFail': 'SPF fail',
   'problems.dkimFail': 'DKIM fail',
+  'problems.action': 'Action',
   'problems.ipGroup': '{count} IPs',
   'problems.ipGroupChip': '{label} ({count} IPs)',
   'problems.cat.forwarder': 'Forwarding',
-  'problems.cat.thirdParty': 'Third party',
-  'problems.cat.broken': 'Configuration',
-  'problems.cat.ownSender': 'Own sender',
+  'problems.cat.thirdParty': 'Foreign auth domain',
+  'problems.cat.broken': 'Auth/alignment issue',
+  'problems.cat.ownSender': 'SPF network · DMARC fail',
+  'problems.cat.misaligned': 'Auth pass · not aligned',
   'problems.cat.unauthenticated': 'No auth',
   'problems.catHint.forwarder':
-    'The report states a forwarding reason (forwarded, mailing_list, trusted_forwarder). Usually harmless: DKIM or ARC do not always survive the hop.',
+    'The report states a possible forwarding reason (forwarded, mailing_list, trusted_forwarder). Verify that an expected forwarding path exists for this domain.',
   'problems.catHint.thirdParty':
-    'Signed or sent under someone else’s domain – a provider without alignment. Set up SPF/DKIM on your own From domain.',
+    'SPF or DKIM uses a domain other than the visible From domain. This may be an approved service, an unwanted account/client, or abusive traffic. Verify approval before configuring alignment.',
   'problems.catHint.broken':
-    'Your own domain authenticated, yet alignment or signature verification failed. Check selector, return-path and SPF.',
+    'Your domain appears in authentication, but alignment or signature verification failed. This does not prove that the specific traffic was approved. Check the account/client and configuration.',
   'problems.catHint.ownSender':
-    'The IP is covered by your SPF record but alignment is missing. Point the return-path at your domain or sign with an aligned DKIM domain.',
+    'The IP matches the loaded SPF network for this From domain, but the message still fails DMARC. The network is technically authorized; verify the service, account/client, and DKIM alignment.',
+  'problems.catHint.misaligned':
+    'The receiver reports at least one successful SPF or DKIM authentication, but not for a domain aligned with the visible From domain. Align the return-path or DKIM signing domain.',
   'problems.catHint.unauthenticated':
-    'Neither DKIM nor SPF report a domain. Often spoofing or an entirely unconfigured sender.',
+    'Neither DKIM nor SPF provides a reliably authenticated domain. This may be spoofing, an unwanted client, or a configuration error and requires investigation.',
   'problems.diagnoseHint': 'Why did this fail?',
+  'problems.ignore': 'Hide as false positive',
+  'problems.ignoreConfirm':
+    'Do you really want to mark {source} for {domain} as a false positive and hide it from problem sources?',
+  'problems.restore': 'Show hidden',
+  'problems.restoreHint': 'Show hidden false positives again',
   'sender.kind.esp': 'Bulk/transactional sender',
   'sender.kind.mailbox': 'Mailbox provider',
   'sender.kind.saas': 'SaaS application',
@@ -2029,51 +2154,74 @@ const en: Dict = {
   'diagnosis.title': 'Diagnosis',
   'diagnosis.empty': 'No raw data for this source in the current range.',
   'diagnosis.sampleCount': 'Based on {count} messages for {domain}',
-  'diagnosis.verdict.likelyLegit': 'Likely a legitimate sender',
-  'diagnosis.verdict.possiblyLegit': 'Possibly a legitimate sender',
-  'diagnosis.verdict.suspicious': 'Suspicious',
-  'diagnosis.verdict.forwarded': 'Forwarding detected',
+  'diagnosis.verdict.likelyLegit': 'SPF network match / service association',
+  'diagnosis.verdict.possiblyLegit': 'Origin and approval unclear',
+  'diagnosis.verdict.suspicious': 'No SPF/DKIM authorization visible',
+  'diagnosis.verdict.forwarded': 'Possible forwarding',
   'diagnosis.verdictHint.likelyLegit':
-    'The IP is authorized by your own SPF policy and the sender was recognized as a known service. The real problem is very likely DMARC alignment, not the sender itself — the mail is expected, only the configuration is not yet correct.',
+    'The IP matches a loaded SPF network, and the infrastructure was associated with a known service. These are technical indicators, not proof that this message, account, or client was approved to send. Verify the service, tenant/account, client, and purpose.',
   'diagnosis.verdictHint.possiblyLegit':
-    'The sender and the From domain look related, but neither SPF nor DKIM are fully aligned. This is typical for providers sending on behalf of the domain without alignment set up. Confirm this sender is expected.',
+    'There are technical indicators of a service or authentication, but no sufficient association with the visible From domain. Approval cannot be inferred. Verify the service, account/client, and purpose before changing SPF or DKIM.',
   'diagnosis.verdictHint.suspicious':
-    'Neither SPF nor DKIM authenticate a domain, and the IP is not authorized as an own sender. This is the classic spoofing pattern — it could also be a new, not-yet-configured sender.',
+    'No reliable SPF or DKIM authorization is visible for the From domain. This is consistent with spoofing, but may also result from an unwanted account/client or a configuration error. Investigate the source and credentials.',
   'diagnosis.verdictHint.forwarded':
-    'The report states a forwarding reason (e.g. mailing list or trusted_forwarder). DKIM/ARC signatures often do not survive that hop — usually no action is needed.',
-  'diagnosis.section.sender': 'Detected sender',
+    'The receiver report states a forwarding reason (e.g. mailing list or trusted_forwarder). This may explain the authentication mismatch but does not prove the forwarding was expected. Verify the route and recipient.',
+  'diagnosis.section.sender': 'Technical association',
   'diagnosis.section.auth': 'SPF & DKIM',
   'diagnosis.section.recommendation': 'Recommendation',
   'diagnosis.senderNone': 'Could not be identified from PTR/ASN.',
-  'diagnosis.senderDetected': '{name} detected',
-  'diagnosis.senderKindDetected': '{kind} detected',
+  'diagnosis.senderDetected': 'Associated with {name} from technical metadata',
+  'diagnosis.senderKindDetected': 'Associated with {kind} from technical metadata',
   'diagnosis.spf.passAligned':
-    'SPF pass and aligned — SPF already authenticates the correct, aligned domain.',
+    'The receiver reports SPF pass and alignment with the From domain. This confirms the technical SPF check, not organizational approval of the specific traffic.',
   'diagnosis.spf.passNotAligned':
-    'SPF pass, but not aligned — the SPF-checked domain does not match the From domain.',
-  'diagnosis.spf.fail': 'SPF fail ({domain}) — the check against {domain} fails.',
+    'The receiver reports SPF pass without alignment: the SPF-checked domain does not match the visible From domain.',
+  'diagnosis.spf.fail':
+    'The receiver reports SPF {result} for {domain}; this domain does not successfully authenticate the message.',
+  'diagnosis.spf.unknown':
+    'The SPF domain {domain} is known, but its raw result was not stored in this older cache entry.',
   'diagnosis.spf.missing': 'No SPF result — no SPF-authenticated domain was reported.',
   'diagnosis.dkim.passAligned':
-    'DKIM pass and aligned — the signature is valid and aligned with the From domain.',
+    'The receiver reports a valid DKIM signature aligned with the From domain. This does not prove that the account, client, or traffic was internally approved.',
   'diagnosis.dkim.passNotAligned':
-    'DKIM pass, but not aligned — the signing domain does not match the From domain.',
+    'The receiver reports DKIM pass without alignment: the signing domain does not match the visible From domain.',
   'diagnosis.dkim.fail':
-    'DKIM signature invalid ({domain}) — the key, selector, or message was altered.',
+    'The receiver reports DKIM {result} for {domain}. Possible causes include the key/selector, a modified message, or an invalid signature.',
+  'diagnosis.dkim.unknown':
+    'The DKIM domain {domain} is known, but its raw result was not stored in this older cache entry.',
   'diagnosis.dkim.missing': 'DKIM missing — no DKIM signature was found.',
-  'diagnosis.action.checkDkimSigning': 'Set up and align DKIM signing for {domain}.',
+  'diagnosis.action.checkDkimSigning':
+    'First verify that the service, tenant/account, client, and traffic are approved for {domain}. Only then configure aligned DKIM signing; otherwise terminate access.',
   'diagnosis.action.checkSpfAlignment':
-    'Align the return-path/envelope-from with {domain}, or sign DKIM for {domain}.',
+    'First verify approval of the specific traffic for {domain}. Only if expected, align the return-path/envelope-from or configure DKIM for {domain}.',
   'diagnosis.action.fixSpfAuth':
-    'Check the SPF record for {domain} — the IP no longer appears authorized.',
+    'Check the account/client and purpose. If approved, correct SPF for {domain}; otherwise block the account or application.',
   'diagnosis.action.fixDkimAuth':
-    'Check the DKIM key/selector for {domain} — the signature is invalid or expired.',
+    'Check the account/client and purpose. If approved, correct the DKIM key/selector for {domain}; otherwise block access.',
   'diagnosis.action.addSenderToSpf':
-    'Add this service to the SPF policy for {domain}, or enable DKIM signing.',
-  'diagnosis.action.reviewForwarder': 'Forwarding/mailing list — usually no action needed.',
+    'Do not add the service to SPF prematurely. First verify the service, account/client, and approval for {domain}; configure SPF or DKIM only after approval.',
+  'diagnosis.action.reviewForwarder':
+    'Verify that an expected forwarding route or mailing list exists. Without a confirmed route, continue investigating the source.',
   'diagnosis.action.investigateSpoof':
-    'No SPF, no DKIM for {domain} — possible spoofing source, IP not authorized.',
-  'diagnosis.action.noAction': 'No action needed.',
+    'Investigate the source, account/client, and sign-in logs for {domain}. If not approved, block access and treat it as potential abuse.',
+  'diagnosis.action.reviewAuthResults':
+    'The raw results are missing from this older cache entry. Fetch or import the report again before distinguishing an authentication failure from an alignment-only issue.',
+  'diagnosis.action.noAction':
+    'Do not infer approval automatically; verify the traffic organizationally.',
   'ipMark.spf': 'SPF',
+  'ipMeta.groupHint': 'This row combines {count} source IPs from the same source.',
+  'ipMeta.spfHint':
+    'The source IP matches an expanded SPF network from the analyzed domains. This does not prove approval of the specific message or account/client.',
+  'ipMeta.spfDomainHint':
+    'The source IP matches the expanded SPF network for {domain}. This is a static network check; the receiver may have checked a different envelope-from/HELO domain for the specific message.',
+  'ipMeta.geoHint': 'Detected location of the IP: {location}.',
+  'ipMeta.asnHint': 'Autonomous System Number (ASN): Identifies the network this IP belongs to.',
+  'ipMeta.providerHint': 'Detected sending service: {provider}{kind}.',
+  'ipMeta.cloudHint': 'Cloud or hosting network where the IP is operated: {provider}.',
+  'ipMeta.networkHint': 'Detected network operator or provider: {provider}.',
+  'ipMeta.blocklistHint': 'The IP is listed on the DNS blocklist “{list}”.',
+  'ipMeta.allowlistHint': 'The IP is listed on the DNS allowlist “{list}”.',
+  'ipMeta.ptrHint': 'Reverse DNS hostname (PTR) of this IP: {ptr}.',
   'table.ipsHint':
     'The “SPF” badge marks sender IPs covered by the domain’s expanded SPF record. Right-click hides a sender as mail noise.',
 

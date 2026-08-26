@@ -716,6 +716,27 @@ describe('buildDashboard', () => {
       }
     ])
   })
+
+  it('retains raw authentication passes for alignment diagnosis', () => {
+    const d = buildDashboard([
+      report({
+        records: [
+          record({
+            sourceIp: '2a01:111:f403:da00::1',
+            count: 4,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            spfRawResult: 'pass',
+            dkimRawResult: 'pass'
+          })
+        ]
+      })
+    ])
+
+    expect(d.problemSources[0]).toMatchObject({ spfAuthPass: 4, dkimAuthPass: 4 })
+  })
 })
 
 describe('groupProblemSources', () => {

@@ -23,6 +23,8 @@ export const state = {
   domainHealthToken: 0,
   /** Merged SPF CIDR prefixes for report domains (for IP badges). */
   spfPrefixes: [] as CloudPrefix[],
+  /** SPF CIDR prefixes keyed by report domain for source classification. */
+  spfPrefixesByDomain: new Map<string, CloudPrefix[]>(),
   spfExpandToken: 0
 }
 

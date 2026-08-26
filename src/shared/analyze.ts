@@ -284,6 +284,8 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
     count: number
     spfFail: number
     dkimFail: number
+    spfAuthPass: number
+    dkimAuthPass: number
     fromCounts: Map<string, number>
     categories: FailCategoryCounts
   }
@@ -298,12 +300,16 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
         count: 0,
         spfFail: 0,
         dkimFail: 0,
+        spfAuthPass: 0,
+        dkimAuthPass: 0,
         fromCounts: new Map(),
         categories: {} as FailCategoryCounts
       }
       cur.count += n
       if ((rec.spfResult ?? '').toLowerCase() !== 'pass') cur.spfFail += n
       if ((rec.dkimResult ?? '').toLowerCase() !== 'pass') cur.dkimFail += n
+      if ((rec.spfRawResult ?? '').toLowerCase() === 'pass') cur.spfAuthPass += n
+      if ((rec.dkimRawResult ?? '').toLowerCase() === 'pass') cur.dkimAuthPass += n
       const from = (rec.headerFrom || '').trim() || '(unbekannt)'
       cur.fromCounts.set(from, (cur.fromCounts.get(from) ?? 0) + n)
       const category = categorizeFailure(rec, report.domain)
@@ -327,6 +333,8 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
         count: v.count,
         spfFail: v.spfFail,
         dkimFail: v.dkimFail,
+        ...(v.spfAuthPass ? { spfAuthPass: v.spfAuthPass } : {}),
+        ...(v.dkimAuthPass ? { dkimAuthPass: v.dkimAuthPass } : {}),
         headerFrom,
         categories: v.categories,
         category: topCategory(v.categories)
@@ -360,6 +368,8 @@ export function groupProblemSources(
     count: number
     spfFail: number
     dkimFail: number
+    spfAuthPass: number
+    dkimAuthPass: number
     headerFrom: string | null
     ips: string[]
     topCount: number
@@ -376,6 +386,8 @@ export function groupProblemSources(
         count: row.count,
         spfFail: row.spfFail,
         dkimFail: row.dkimFail,
+        spfAuthPass: row.spfAuthPass ?? 0,
+        dkimAuthPass: row.dkimAuthPass ?? 0,
         headerFrom: row.headerFrom,
         ips: [row.sourceIp],
         topCount: row.count,
@@ -386,6 +398,8 @@ export function groupProblemSources(
     cur.count += row.count
     cur.spfFail += row.spfFail
     cur.dkimFail += row.dkimFail
+    cur.spfAuthPass += row.spfAuthPass ?? 0
+    cur.dkimAuthPass += row.dkimAuthPass ?? 0
     cur.ips.push(row.sourceIp)
     addCategoryCounts(cur.categories, row.categories ?? {})
     if (row.count > cur.topCount) {
@@ -401,6 +415,8 @@ export function groupProblemSources(
         count: v.count,
         spfFail: v.spfFail,
         dkimFail: v.dkimFail,
+        ...(v.spfAuthPass ? { spfAuthPass: v.spfAuthPass } : {}),
+        ...(v.dkimAuthPass ? { dkimAuthPass: v.dkimAuthPass } : {}),
         headerFrom: v.headerFrom,
         categories: v.categories,
         category: topCategory(v.categories),

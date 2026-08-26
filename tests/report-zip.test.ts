@@ -26,6 +26,8 @@ const sampleReport: ReportRow = {
       headerFrom: 'example.com',
       dkimDomain: 'example.com',
       spfDomain: 'example.com',
+      dkimRawResult: 'pass',
+      spfRawResult: 'pass',
       dkimSelectors: ['mail'],
       passesDmarc: true,
       reasons: []
@@ -43,6 +45,7 @@ describe('report XML / ZIP export', () => {
     expect(xml).toContain('<domain>example.com</domain>')
     expect(xml).toContain('<source_ip>203.0.113.10</source_ip>')
     expect(xml).toContain('<selector>mail</selector>')
+    expect(xml).toContain('<result>pass</result>')
     expect(xml).toContain(`<begin>${begin}</begin>`)
     expect(xml).toContain(`<end>${end}</end>`)
   })

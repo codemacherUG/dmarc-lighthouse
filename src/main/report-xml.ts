@@ -37,7 +37,7 @@ function recordXml(rec: SerializedRecord): string {
         : ''
       return `        <dkim>
           <domain>${xmlEscape(rec.dkimDomain)}</domain>${sel}
-          <result>${xmlEscape(rec.dkimResult)}</result>
+          <result>${xmlEscape(rec.dkimRawResult)}</result>
         </dkim>`
     })
     .join('\n')
@@ -46,7 +46,7 @@ function recordXml(rec: SerializedRecord): string {
     rec.spfDomain || rec.spfResult
       ? `        <spf>
           <domain>${xmlEscape(rec.spfDomain)}</domain>
-          <result>${xmlEscape(rec.spfResult)}</result>
+          <result>${xmlEscape(rec.spfRawResult)}</result>
         </spf>`
       : ''
 

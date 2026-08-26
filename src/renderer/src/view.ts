@@ -16,7 +16,11 @@ import {
   sendingSourceGroupsWithoutMailboxNoise
 } from '../../shared/analyze'
 import { diagnoseSource, type FailureDiagnosis } from '../../shared/diagnosis'
-import { isAuthorizedSender, parseAuthorizedSenderPrefixes } from '../../shared/ipcidr'
+import {
+  isAuthorizedSender,
+  parseAuthorizedSenderPrefixes,
+  type CloudPrefix
+} from '../../shared/ipcidr'
 import {
   DEFAULT_MAILBOX_NOISE_PROVIDERS,
   parseMailboxNoiseProviders
@@ -65,6 +69,7 @@ import {
   btnIpFilter,
   btnIpNoise,
   btnIpRdap,
+  btnResetIgnoredProblemSources,
   detailEl,
   diagnosisBody,
   diagnosisDialog,
@@ -101,7 +106,13 @@ import {
   sendingServiceStatusEl
 } from './dom'
 import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
-import { renderIpMap, setIpMapFilterHandler } from './ip-map'
+import { invalidateIpMapSize, renderIpMap, setIpMapFilterHandler } from './ip-map'
+import {
+  findSpfPrefixesForDomain,
+  problemSourceIgnoreKey,
+  readIgnoredProblemSourceKeys,
+  writeIgnoredProblemSourceKeys
+} from './problem-source-state'
 import { clearDrill, state, type DrillFilters } from './state'
 import { openSettings, setNextSendingServiceCreatedHandler, showSettingsTab } from './settings-ui'
 import {
@@ -116,6 +127,95 @@ import {
   type SortState,
   type WindowedTable
 } from './table'
+import { readCollapsedWidgetIds, writeCollapsedWidgetIds } from './widget-state'
+
+const NEW_SENDING_SOURCES_WIDGET_ID = 'newSendingSources'
+const collapsedWidgetIds = readCollapsedWidgetIds(window.localStorage)
+
+function isWidgetCollapsed(widgetId: string): boolean {
+  return collapsedWidgetIds.has(widgetId)
+}
+
+function setWidgetCollapsed(widgetId: string, collapsed: boolean): void {
+  if (collapsed) collapsedWidgetIds.add(widgetId)
+  else collapsedWidgetIds.delete(widgetId)
+  writeCollapsedWidgetIds(window.localStorage, collapsedWidgetIds)
+}
+
+function updateWidgetToggle(button: HTMLButtonElement, collapsed: boolean): void {
+  const labelKey: MessageKey = collapsed ? 'widget.expand' : 'widget.collapse'
+  const label = t(labelKey)
+  button.dataset.i18nTitle = labelKey
+  button.dataset.i18nAria = labelKey
+  button.title = label
+  button.setAttribute('aria-label', label)
+  button.setAttribute('aria-expanded', String(!collapsed))
+  button.textContent = collapsed ? '▾' : '▴'
+}
+
+function refreshExpandedWidgetLayout(widgetId: string): void {
+  requestAnimationFrame(() => {
+    if (widgetId === 'ipMap') invalidateIpMapSize()
+    window.dispatchEvent(new Event('resize'))
+  })
+}
+
+function isInteractiveWidgetHeadingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest('button, a, input, select, textarea, .widget-info') !== null
+  )
+}
+
+function initWidgetTitleKeyboard(title: HTMLHeadingElement, toggleWidget: () => void): void {
+  title.tabIndex = 0
+  title.setAttribute('role', 'button')
+  title.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    toggleWidget()
+  })
+}
+
+export function refreshWidgetToggleLocale(): void {
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-widget-collapse-id]')) {
+    updateWidgetToggle(button, isWidgetCollapsed(button.dataset.widgetCollapseId ?? ''))
+  }
+}
+
+function initCollapsibleWidgets(): void {
+  for (const widget of document.querySelectorAll<HTMLElement>('.dashboard-widget[data-widget]')) {
+    const widgetId = widget.dataset.widget
+    const heading = widget.querySelector<HTMLElement>(':scope > .widget-heading')
+    const title = heading?.querySelector<HTMLHeadingElement>('h2')
+    if (!widgetId || !heading || !title) continue
+
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'btn secondary widget-collapse-toggle'
+    button.dataset.widgetCollapseId = widgetId
+    heading.classList.add('widget-heading-clickable')
+    const applyState = (): void => {
+      const collapsed = isWidgetCollapsed(widgetId)
+      widget.classList.toggle('is-collapsed', collapsed)
+      updateWidgetToggle(button, collapsed)
+      title.setAttribute('aria-expanded', String(!collapsed))
+    }
+    const toggleWidget = (): void => {
+      const collapsed = !isWidgetCollapsed(widgetId)
+      setWidgetCollapsed(widgetId, collapsed)
+      applyState()
+      if (!collapsed) refreshExpandedWidgetLayout(widgetId)
+    }
+    button.addEventListener('click', toggleWidget)
+    heading.addEventListener('click', (event) => {
+      if (!isInteractiveWidgetHeadingTarget(event.target)) toggleWidget()
+    })
+    initWidgetTitleKeyboard(title, toggleWidget)
+    heading.appendChild(button)
+    applyState()
+  }
+}
 
 function updateSummary(result: AnalyzeResult | null): void {
   const map: Record<string, string> = {
@@ -155,6 +255,7 @@ function bindDiagnoseButtons(root: ParentNode): void {
 export function clearSpfMarks(): void {
   state.spfExpandToken++
   state.spfPrefixes = []
+  state.spfPrefixesByDomain.clear()
 }
 
 /** Re-render views that embed SPF badges after prefixes change. */
@@ -182,16 +283,19 @@ async function refreshSpfMarks(): Promise<void> {
   const token = ++state.spfExpandToken
   // Invalidate immediately — never keep the previous account/domain's CIDRs while loading.
   state.spfPrefixes = []
+  state.spfPrefixesByDomain.clear()
   if (!targets.length) {
     renderAfterSpfMarksUpdate()
     return
   }
   const cidrs = new Set<string>()
+  const prefixesByDomain = new Map<string, CloudPrefix[]>()
   await Promise.all(
     targets.map(async (domain) => {
       try {
         const result = await window.api.expandSpf(domain)
         for (const c of result.cidrs) cidrs.add(c)
+        prefixesByDomain.set(domain, parseAuthorizedSenderPrefixes(result.cidrs))
       } catch {
         // ignore per-domain SPF expand failures
       }
@@ -199,6 +303,7 @@ async function refreshSpfMarks(): Promise<void> {
   )
   if (token !== state.spfExpandToken) return
   state.spfPrefixes = parseAuthorizedSenderPrefixes([...cidrs])
+  state.spfPrefixesByDomain = prefixesByDomain
   renderAfterSpfMarksUpdate()
 }
 
@@ -327,7 +432,8 @@ const PROBLEM_COLUMNS: Array<SortColumn<ProblemSortKey>> = [
   { key: 'category' },
   { key: 'count', firstDir: 'desc' },
   { key: 'spf', firstDir: 'desc' },
-  { key: 'dkim', firstDir: 'desc' }
+  { key: 'dkim', firstDir: 'desc' },
+  { key: null }
 ]
 
 const sortProblems: SortState<ProblemSortKey> = { key: 'count', dir: 'desc' }
@@ -353,20 +459,31 @@ function compareProblemSource(
   }
 }
 
-type DisplayCategory = FailCategory | 'ownSender'
+type DisplayCategory = FailCategory | 'ownSender' | 'misaligned'
 
-/**
- * An IP that our own SPF authorizes is never a stranger: whatever the record
- * looks like, the fix is alignment on a sender we already permitted.
- */
-function refineCategory(base: FailCategory, ips: string[]): DisplayCategory {
+function spfPrefixesForDomain(domain: string | null): CloudPrefix[] {
+  return findSpfPrefixesForDomain(state.spfPrefixesByDomain, domain)
+}
+
+function refineCategoryForDomain(
+  base: FailCategory,
+  ips: string[],
+  domain: string | null
+): DisplayCategory {
   if (base === 'forwarder') return base
-  if (ips.some((ip) => isAuthorizedSender(ip, state.spfPrefixes))) return 'ownSender'
-  return base
+  const prefixes = spfPrefixesForDomain(domain)
+  return ips.some((ip) => isAuthorizedSender(ip, prefixes)) ? 'ownSender' : base
 }
 
 function problemCategory(row: ProblemSourceRow): DisplayCategory {
-  return refineCategory(row.category ?? 'unauthenticated', [row.sourceIp, ...(row.extraIps ?? [])])
+  if (row.category !== 'forwarder' && ((row.spfAuthPass ?? 0) > 0 || (row.dkimAuthPass ?? 0) > 0)) {
+    return 'misaligned'
+  }
+  return refineCategoryForDomain(
+    row.category ?? 'unauthenticated',
+    [row.sourceIp, ...(row.extraIps ?? [])],
+    row.headerFrom
+  )
 }
 
 function problemCategoryLabel(row: ProblemSourceRow): string {
@@ -378,6 +495,7 @@ const CATEGORY_BADGE_CLASS: Record<DisplayCategory, string> = {
   thirdParty: 'badge cloud',
   broken: 'badge warn',
   ownSender: 'badge warn',
+  misaligned: 'badge warn',
   unauthenticated: 'badge bad'
 }
 
@@ -394,18 +512,34 @@ function problemCategoryHtml(row: ProblemSourceRow): string {
   return `${categoryBadgeHtml(problemCategory(row))}${diagnoseBtn}`
 }
 
+function problemActionHtml(row: ProblemSourceRow): string {
+  const ips = [row.sourceIp, ...(row.extraIps ?? [])]
+  const label = escapeHtml(t('problems.ignore'))
+  return `<button type="button" class="btn secondary problem-ignore-btn" data-ignore-problem="${escapeHtml(ips.join(','))}" data-ignore-from="${escapeHtml(row.headerFrom ?? '')}" title="${label}">${label}</button>`
+}
+
 function renderProblemSources(rows: ProblemSourceRow[]): void {
   if (!tableProblemSources) return
-  const grouped = groupProblemSources(rows, (ip) => state.ipLabelCache.get(ip)).slice(0, 40)
+  const accountId = state.settings?.activeAccountId ?? null
+  const ignored = readIgnoredProblemSourceKeys(window.localStorage, accountId)
+  btnResetIgnoredProblemSources?.classList.toggle('hidden', ignored.size === 0)
+  const visibleRows = rows.filter(
+    (row) => !ignored.has(problemSourceIgnoreKey(row.sourceIp, row.headerFrom))
+  )
+  const grouped = groupProblemSources(visibleRows, (ip) => state.ipLabelCache.get(ip)).slice(0, 40)
   if (!grouped.length) {
-    tableProblemSources.innerHTML = `<tr class="empty"><td colspan="6">${escapeHtml(t('problems.empty'))}</td></tr>`
+    tableProblemSources.innerHTML = `<tr class="empty"><td colspan="7">${escapeHtml(t('problems.empty'))}</td></tr>`
     return
   }
   tableProblemSources.innerHTML = sortRows(grouped, sortProblems, compareProblemSource)
     .map((r) => {
       const groupCount = 1 + (r.extraIps?.length ?? 0)
       const filterValue = problemSourceFilterValue(r)
-      const ipMeta = formatIpMetaHtml(r.sourceIp, null, null, { groupedIpCount: groupCount })
+      const ipMeta = formatIpMetaHtml(r.sourceIp, null, null, {
+        groupedIpCount: groupCount,
+        spfPrefixes: spfPrefixesForDomain(r.headerFrom),
+        spfDomain: r.headerFrom
+      })
       const rowClass = ipMeta ? 'has-ip-meta' : ''
       return `
       <tr data-name="${escapeHtml(filterValue)}" class="${rowClass}" tabindex="0" title="${escapeHtml(t('filter.clickToFilter'))}">
@@ -415,15 +549,20 @@ function renderProblemSources(rows: ProblemSourceRow[]): void {
         <td>${r.count}</td>
         <td>${r.spfFail}</td>
         <td>${r.dkimFail}</td>
+        <td class="problem-action-col">${problemActionHtml(r)}</td>
       </tr>
-      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(filterValue)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="6">${ipMeta}</td></tr>` : ''}`
+      ${ipMeta ? `<tr class="ip-meta-row" data-name="${escapeHtml(filterValue)}" title="${escapeHtml(t('filter.clickToFilter'))}"><td colspan="7">${ipMeta}</td></tr>` : ''}`
     })
     .join('')
 
   for (const tr of tableProblemSources.querySelectorAll<HTMLTableRowElement>('tr[data-name]')) {
     tr.addEventListener('click', (ev) => {
       const target = ev.target as HTMLElement
-      if (target.closest('[data-ip-detail]') || target.closest('[data-diagnose]')) {
+      if (
+        target.closest('[data-ip-detail]') ||
+        target.closest('[data-diagnose]') ||
+        target.closest('[data-ignore-problem]')
+      ) {
         return
       }
       setDrillFilter('sourceIp', tr.dataset.name ?? '')
@@ -431,6 +570,21 @@ function renderProblemSources(rows: ProblemSourceRow[]): void {
   }
   bindIpDetailButtons(tableProblemSources)
   bindDiagnoseButtons(tableProblemSources)
+  for (const btn of tableProblemSources.querySelectorAll<HTMLButtonElement>(
+    '[data-ignore-problem]'
+  )) {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation()
+      const ips = (btn.dataset.ignoreProblem ?? '').split(',').filter(Boolean)
+      const headerFrom = btn.dataset.ignoreFrom ?? ''
+      const source = ips.length === 1 ? ips[0] : t('problems.ipGroup', { count: ips.length })
+      if (!confirm(t('problems.ignoreConfirm', { source, domain: headerFrom || '—' }))) return
+      const next = readIgnoredProblemSourceKeys(window.localStorage, accountId)
+      for (const ip of ips) next.add(problemSourceIgnoreKey(ip, headerFrom))
+      writeIgnoredProblemSourceKeys(window.localStorage, accountId, next)
+      renderProblemSources(rows)
+    })
+  }
 }
 
 function renderFilterChips(): void {
@@ -772,10 +926,11 @@ function collectDiagnosisRecords(ips: string[]): {
 
 function mechanismLine(kind: 'spf' | 'dkim', facts: FailureDiagnosis['spf']): string {
   if (!facts.domain) return t(`diagnosis.${kind}.missing`)
+  if (facts.raw == null) return t(`diagnosis.${kind}.unknown`, { domain: facts.domain })
   if (facts.raw === 'pass') {
     return t(facts.aligned ? `diagnosis.${kind}.passAligned` : `diagnosis.${kind}.passNotAligned`)
   }
-  return t(`diagnosis.${kind}.fail`, { domain: facts.domain })
+  return t(`diagnosis.${kind}.fail`, { domain: facts.domain, result: facts.raw })
 }
 
 const DIAGNOSIS_VERDICT_BADGE: Record<FailureDiagnosis['verdict'], string> = {
@@ -793,7 +948,8 @@ function renderDiagnosisBody(ips: string[]): void {
   }
   const meta = state.ipLabelCache.get(ips[0])
   const sender = meta?.provider ? { name: meta.provider, kind: meta.senderKind } : null
-  const isOwn = ips.some((ip) => isAuthorizedSender(ip, state.spfPrefixes))
+  const prefixes = spfPrefixesForDomain(policyDomain)
+  const isOwn = ips.some((ip) => isAuthorizedSender(ip, prefixes))
   const diag = diagnoseSource(records, policyDomain, sender, isOwn)
   if (!diag) {
     diagnosisBody.innerHTML = `<p class="muted">${escapeHtml(t('diagnosis.empty'))}</p>`
@@ -902,7 +1058,7 @@ function renderDashboard(result: AnalyzeResult | null): void {
   void refreshDomainHealth(state.fullResult)
 }
 
-function enabledMailboxNoiseProviders() {
+function enabledMailboxNoiseProviders(): ReturnType<typeof parseMailboxNoiseProviders> {
   const text = state.settings?.global.mailboxNoiseProviders ?? DEFAULT_MAILBOX_NOISE_PROVIDERS
   return parseMailboxNoiseProviders(text)
 }
@@ -916,7 +1072,7 @@ function collectMailboxIps(): Set<string> {
   return set
 }
 
-function scannerNoiseMatchers() {
+function scannerNoiseMatchers(): ReturnType<typeof parseScannerNoiseHosts> {
   const text = state.settings?.global.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS
   return parseScannerNoiseHosts(text)
 }
@@ -997,7 +1153,11 @@ export function renderDetail(report: ReportRow | null): void {
       const cause = r.passesDmarc
         ? ''
         : categoryBadgeHtml(
-            refineCategory(categorizeFailure(r, report.domain), [r.sourceIp].filter(Boolean))
+            refineCategoryForDomain(
+              categorizeFailure(r, report.domain),
+              [r.sourceIp].filter(Boolean),
+              r.headerFrom || report.domain
+            )
           )
       const reasonCell = [cause, reasons].filter(Boolean).join('<br />') || '—'
       const ipMeta = formatIpMetaHtml(r.sourceIp)
@@ -1289,8 +1449,7 @@ function openSendingServiceFormFor(
 function removeNewSourceItem(row: HTMLDivElement): void {
   row.remove()
   if (!newSendingSourcesBannerEl.querySelector('.new-source-item')) {
-    newSendingSourcesBannerEl.classList.add('hidden')
-    newSendingSourcesBannerEl.innerHTML = ''
+    renderNewSendingSourcesBanner(state.fullResult)
   }
 }
 
@@ -1691,55 +1850,83 @@ async function saveSendingSourceStatus(
   }
 }
 
-let newSendingSourcesCollapsed = false
-
 /** Dashboard banner naming freshly seen (provider, domain) pairs not yet inventoried as known. */
 function renderNewSendingSourcesBanner(result: AnalyzeResult | null): void {
+  if (!result) {
+    newSendingSourcesBannerEl.innerHTML = ''
+    newSendingSourcesBannerEl.classList.add('hidden')
+    return
+  }
   const noiseFilteredGroups = sendingSourceGroupsWithoutMailboxNoise(
-    result?.newSendingSources ?? [],
-    result?.reports ?? [],
+    result.newSendingSources ?? [],
+    result.reports ?? [],
     collectScannerNoiseIps()
   )
   const groups = alertableSendingSources(noiseFilteredGroups)
   newSendingSourcesBannerEl.innerHTML = ''
-  if (groups.length === 0) {
-    newSendingSourcesCollapsed = false
-    newSendingSourcesBannerEl.classList.add('hidden')
-    return
-  }
   newSendingSourcesBannerEl.classList.remove('hidden')
+  const collapsed = isWidgetCollapsed(NEW_SENDING_SOURCES_WIDGET_ID)
 
   const head = document.createElement('div')
-  head.className = 'new-sources-banner-head'
+  head.className = 'new-sources-banner-head widget-heading-clickable'
   const headingText = document.createElement('div')
-  headingText.className = 'new-sources-heading-text'
+  headingText.className = 'new-sources-heading-text widget-heading'
   const title = document.createElement('h2')
   title.textContent = t('newSources.title')
+  title.setAttribute('aria-expanded', String(!collapsed))
   headingText.appendChild(title)
+  const info = document.createElement('span')
+  info.className = 'widget-info'
+  const infoButton = document.createElement('button')
+  infoButton.type = 'button'
+  infoButton.className = 'widget-info-button'
+  infoButton.setAttribute('aria-label', t('widget.info'))
+  infoButton.setAttribute('aria-describedby', 'new-sources-info')
+  infoButton.textContent = 'i'
+  info.appendChild(infoButton)
+  const infoPopover = document.createElement('span')
+  infoPopover.id = 'new-sources-info'
+  infoPopover.className = 'widget-info-popover'
+  infoPopover.setAttribute('role', 'tooltip')
+  infoPopover.textContent = t('newSources.info')
+  info.appendChild(infoPopover)
+  headingText.appendChild(info)
   const collapsedInfo = document.createElement('span')
   collapsedInfo.className = 'hint new-sources-collapsed-info'
-  collapsedInfo.textContent = t('newSources.hiddenCount', { count: groups.length })
-  collapsedInfo.classList.toggle('is-placeholder', !newSendingSourcesCollapsed)
-  collapsedInfo.setAttribute('aria-hidden', String(!newSendingSourcesCollapsed))
+  collapsedInfo.textContent = groups.length
+    ? t('newSources.hiddenCount', { count: groups.length })
+    : t('newSources.empty')
+  collapsedInfo.classList.toggle('is-placeholder', !collapsed)
+  collapsedInfo.setAttribute('aria-hidden', String(!collapsed))
   headingText.appendChild(collapsedInfo)
   head.appendChild(headingText)
 
   const toggleBtn = document.createElement('button')
   toggleBtn.type = 'button'
-  toggleBtn.className = 'btn secondary new-sources-toggle'
-  const toggleLabel = t(newSendingSourcesCollapsed ? 'newSources.show' : 'newSources.dismiss')
-  toggleBtn.title = toggleLabel
-  toggleBtn.setAttribute('aria-label', toggleLabel)
-  toggleBtn.setAttribute('aria-expanded', String(!newSendingSourcesCollapsed))
-  toggleBtn.textContent = newSendingSourcesCollapsed ? '▾' : '▴'
-  toggleBtn.addEventListener('click', () => {
-    newSendingSourcesCollapsed = !newSendingSourcesCollapsed
+  toggleBtn.className = 'btn secondary widget-collapse-toggle'
+  toggleBtn.dataset.widgetCollapseId = NEW_SENDING_SOURCES_WIDGET_ID
+  updateWidgetToggle(toggleBtn, collapsed)
+  const toggleWidget = (): void => {
+    setWidgetCollapsed(NEW_SENDING_SOURCES_WIDGET_ID, !collapsed)
     renderNewSendingSourcesBanner(result)
+  }
+  toggleBtn.addEventListener('click', toggleWidget)
+  head.addEventListener('click', (event) => {
+    if (!isInteractiveWidgetHeadingTarget(event.target)) toggleWidget()
   })
+  initWidgetTitleKeyboard(title, toggleWidget)
   head.appendChild(toggleBtn)
   newSendingSourcesBannerEl.appendChild(head)
 
-  if (newSendingSourcesCollapsed) return
+  if (collapsed) return
+
+  if (groups.length === 0) {
+    const empty = document.createElement('p')
+    empty.className = 'hint new-sources-empty'
+    empty.textContent = t('newSources.empty')
+    newSendingSourcesBannerEl.appendChild(empty)
+    return
+  }
 
   const hint = document.createElement('p')
   hint.className = 'hint'
@@ -1761,6 +1948,7 @@ export function applyView(): void {
     state.viewResult = null
     state.spfExpandToken++
     state.spfPrefixes = []
+    state.spfPrefixesByDomain.clear()
     updateSummary(null)
     renderDashboard(null)
     renderReports(null)
@@ -1949,6 +2137,7 @@ function initTables(): void {
 export function initView(): void {
   initStickyFilter()
   initTables()
+  initCollapsibleWidgets()
   setIpMapFilterHandler((ip) => setDrillFilter('sourceIp', ip))
   setVolumeDayClickHandler(filterVolumeByDay)
 
@@ -2001,6 +2190,14 @@ export function initView(): void {
     void persistHideMailboxNoise()
   })
   btnFilterReset.addEventListener('click', () => resetFilters())
+  btnResetIgnoredProblemSources?.addEventListener('click', () => {
+    writeIgnoredProblemSourceKeys(
+      window.localStorage,
+      state.settings?.activeAccountId ?? null,
+      new Set()
+    )
+    renderProblemSources(state.viewResult?.dashboard.problemSources ?? [])
+  })
 }
 
 async function persistHideMailboxNoise(): Promise<void> {
@@ -2070,6 +2267,11 @@ function openSendingServiceFormForIp(ip: string): void {
   const info = state.ipLabelCache.get(ip)
   openSettings()
   showSettingsTab('sendingServices')
+  setNextSendingServiceCreatedHandler(async (savedService) => {
+    if (savedService.status === 'known') {
+      await window.api.acknowledgePendingSources([ip])
+    }
+  })
   sendingServiceProviderEl.value = info?.provider ?? ''
   sendingServiceDomainEl.value = domainsForIp(ip).join(', ')
   sendingServiceCidrEl.value = singleIpCidr(ip)

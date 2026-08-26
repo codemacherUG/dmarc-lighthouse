@@ -6,7 +6,7 @@ import { aboutVersionEl } from './dom'
 import { installScreenshotApi } from './screenshots'
 import { initSettingsUi, loadSettings, refreshSettingsLocale } from './settings-ui'
 import { state } from './state'
-import { applyView, initView, showResult } from './view'
+import { applyView, initView, refreshWidgetToggleLocale, showResult } from './view'
 import { initRolloutUi, refreshRolloutLocale } from './rollout-ui'
 import { initEmailInspectUi, refreshEmailInspectLocale } from './email-inspect-ui'
 import { initBimiWizardUi, refreshBimiBuilderLocale } from './bimi-wizard-ui'
@@ -24,6 +24,7 @@ setAfterLocaleChange(() => {
   refreshBimiBuilderLocale()
   refreshRolloutLocale()
   refreshEmailInspectLocale()
+  refreshWidgetToggleLocale()
   if (state.fullResult) {
     showResult(state.fullResult)
   } else {

@@ -1,4 +1,5 @@
 import { isAuthorizedSender } from '../../shared/ipcidr'
+import type { CloudPrefix } from '../../shared/ipcidr'
 import { getLocale, t } from '../../shared/i18n'
 import type { IpInfo } from '../../shared/types'
 import { state } from './state'
@@ -26,6 +27,11 @@ export function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;')
 }
 
+function metaBadge(label: string, tooltip: string, variant = ''): string {
+  const classes = ['badge', variant].filter(Boolean).join(' ')
+  return `<span class="${classes}" title="${escapeHtml(tooltip)}">${escapeHtml(label)}</span>`
+}
+
 /** Known ESP/cloud label, else ASN org (ISP / network). */
 export function resolveProviderLabel(
   info?: IpInfo | null,
@@ -38,51 +44,79 @@ export function formatIpMetaHtml(
   ip: string,
   fallbackProvider?: string | null,
   fallbackPtr?: string | null,
-  options?: { groupedIpCount?: number }
+  options?: {
+    groupedIpCount?: number
+    spfPrefixes?: CloudPrefix[]
+    spfDomain?: string | null
+  }
 ): string {
   const meta = state.ipLabelCache.get(ip)
   const provider = resolveProviderLabel(meta, fallbackProvider)
   const ptr = fallbackPtr ?? meta?.ptr
   const bits: string[] = []
   if ((options?.groupedIpCount ?? 0) > 1) {
-    bits.push(
-      `<span class="badge">${escapeHtml(t('problems.ipGroup', { count: options?.groupedIpCount ?? 0 }))}</span>`
-    )
+    const count = options?.groupedIpCount ?? 0
+    bits.push(metaBadge(t('problems.ipGroup', { count }), t('ipMeta.groupHint', { count })))
   }
-  if (isSpfSender(ip)) {
-    bits.push(`<span class="badge spf">${escapeHtml(t('ipMark.spf'))}</span>`)
+  const spfAuthorized = options?.spfPrefixes
+    ? isAuthorizedSender(ip, options.spfPrefixes)
+    : isSpfSender(ip)
+  if (spfAuthorized) {
+    const spfHint = options?.spfDomain
+      ? t('ipMeta.spfDomainHint', { domain: options.spfDomain })
+      : t('ipMeta.spfHint')
+    bits.push(metaBadge(t('ipMark.spf'), spfHint, 'spf'))
   }
   if (meta?.countryCode || meta?.country) {
     const geo = [meta.countryCode, meta.city].filter(Boolean).join(' · ')
-    bits.push(`<span class="badge">${escapeHtml(geo || meta.country || '')}</span>`)
+    const location = geo || meta.country || ''
+    bits.push(metaBadge(location, t('ipMeta.geoHint', { location })))
   }
   if (meta?.asn != null) {
-    bits.push(`<span class="badge">AS${meta.asn}</span>`)
+    bits.push(metaBadge(`AS${meta.asn}`, t('ipMeta.asnHint')))
   }
   // The identified service ("SendGrid") is more actionable than the network it
   // runs on ("AWS"), so it leads and the cloud label only follows if it adds info.
   const senderName = meta?.provider ?? null
   if (senderName) {
     const kind = meta?.senderKind ? t(`sender.kind.${meta.senderKind}`) : ''
-    const title = kind ? ` title="${escapeHtml(kind)}"` : ''
-    bits.push(`<span class="badge"${title}>${escapeHtml(senderName)}</span>`)
+    const kindSuffix = kind ? ` (${kind})` : ''
+    bits.push(
+      metaBadge(senderName, t('ipMeta.providerHint', { provider: senderName, kind: kindSuffix }))
+    )
     if (meta?.cloudProvider && meta.cloudProvider !== senderName) {
-      bits.push(`<span class="badge cloud">${escapeHtml(meta.cloudProvider)}</span>`)
+      bits.push(
+        metaBadge(
+          meta.cloudProvider,
+          t('ipMeta.cloudHint', { provider: meta.cloudProvider }),
+          'cloud'
+        )
+      )
     }
   } else if (meta?.cloudProvider) {
-    bits.push(`<span class="badge cloud">${escapeHtml(meta.cloudProvider)}</span>`)
+    bits.push(
+      metaBadge(
+        meta.cloudProvider,
+        t('ipMeta.cloudHint', { provider: meta.cloudProvider }),
+        'cloud'
+      )
+    )
   } else if (provider) {
-    bits.push(`<span class="badge">${escapeHtml(provider)}</span>`)
+    bits.push(metaBadge(provider, t('ipMeta.networkHint', { provider })))
   }
   const blockHits = (meta?.dnsblHits ?? []).filter((h) => h !== 'dnswl')
   const whiteHits = (meta?.dnsblHits ?? []).filter((h) => h === 'dnswl')
   for (const hit of blockHits) {
-    bits.push(`<span class="badge bad">${escapeHtml(hit)}</span>`)
+    bits.push(metaBadge(hit, t('ipMeta.blocklistHint', { list: hit }), 'bad'))
   }
   for (const hit of whiteHits) {
-    bits.push(`<span class="badge">${escapeHtml(hit)}</span>`)
+    bits.push(metaBadge(hit, t('ipMeta.allowlistHint', { list: hit })))
   }
-  if (ptr) bits.push(`<span class="ptr">${escapeHtml(ptr)}</span>`)
+  if (ptr) {
+    bits.push(
+      `<span class="ptr" title="${escapeHtml(t('ipMeta.ptrHint', { ptr }))}">${escapeHtml(ptr)}</span>`
+    )
+  }
   return bits.length ? `<div class="ip-meta">${bits.join(' ')}</div>` : ''
 }
 
