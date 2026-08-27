@@ -2023,7 +2023,7 @@ function reportCorrelationForDrifts(
     const before = reports
       .filter((report) => new Date(report.date_end).getTime() <= driftTime)
       .at(-1)
-    const after = reports.find((report) => new Date(report.date_end).getTime() > driftTime)
+    const after = reports.find((report) => new Date(report.date_begin).getTime() >= driftTime)
     if (!before || !after) continue
     const beforeRate = (before.failing / before.total) * 100
     const afterRate = (after.failing / after.total) * 100
