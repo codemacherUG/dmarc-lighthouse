@@ -7,6 +7,7 @@ import { state } from '../src/renderer/src/state'
 afterEach(() => {
   state.ipLabelCache.clear()
   state.spfPrefixes = []
+  state.sendingServices = []
 })
 
 describe('formatIpMetaHtml', () => {
@@ -58,5 +59,45 @@ describe('formatIpMetaHtml', () => {
     })
 
     expect(html).not.toContain('badge spf')
+  })
+
+  it('prefers a matching defined sending service over the detected provider', () => {
+    const ip = '203.0.113.10'
+    state.ipLabelCache.set(ip, {
+      ip,
+      ptr: null,
+      provider: 'Netcup',
+      senderKind: null,
+      country: null,
+      countryCode: null,
+      city: null,
+      lat: null,
+      lon: null,
+      asn: 64500,
+      asOrg: 'Example Network',
+      cloudProvider: null,
+      dnsblHits: [],
+      geoSource: 'none'
+    } satisfies IpInfo)
+    state.sendingServices = [
+      {
+        id: 'service-1',
+        provider: 'Eigener Versanddienst',
+        domain: 'example.test',
+        cidr: '203.0.113.0/24',
+        asn: null,
+        status: 'known',
+        note: null,
+        team: null,
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z'
+      }
+    ]
+
+    const html = formatIpMetaHtml(ip, null, null, { sendingDomain: 'example.test' })
+
+    expect(html).toContain('>Eigener Versanddienst</span>')
+    expect(html).toContain('title="Als Sende-Dienst definiert: Eigener Versanddienst."')
+    expect(html).not.toContain('>Example Network</span>')
   })
 })

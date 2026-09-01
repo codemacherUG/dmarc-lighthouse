@@ -793,6 +793,7 @@ const de = {
   'ipMeta.asnHint':
     'Autonomous System Number (ASN): Kennzeichnet das Netzwerk, zu dem diese IP gehört.',
   'ipMeta.providerHint': 'Erkannter Versanddienst: {provider}{kind}.',
+  'ipMeta.sendingServiceHint': 'Als Sende-Dienst definiert: {provider}.',
   'ipMeta.cloudHint': 'Cloud- oder Hosting-Netz, in dem die IP betrieben wird: {provider}.',
   'ipMeta.networkHint': 'Erkannter Netzbetreiber oder Anbieter: {provider}.',
   'ipMeta.blocklistHint': 'Die IP ist auf der DNS-Blockliste „{list}“ eingetragen.',
@@ -2238,6 +2239,7 @@ const en: Dict = {
   'ipMeta.geoHint': 'Detected location of the IP: {location}.',
   'ipMeta.asnHint': 'Autonomous System Number (ASN): Identifies the network this IP belongs to.',
   'ipMeta.providerHint': 'Detected sending service: {provider}{kind}.',
+  'ipMeta.sendingServiceHint': 'Defined sending service: {provider}.',
   'ipMeta.cloudHint': 'Cloud or hosting network where the IP is operated: {provider}.',
   'ipMeta.networkHint': 'Detected network operator or provider: {provider}.',
   'ipMeta.blocklistHint': 'The IP is listed on the DNS blocklist “{list}”.',
