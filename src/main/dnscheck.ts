@@ -9,6 +9,8 @@ import type {
   BimiCheckResult,
   DkimSelectorCheck,
   DnsCheckResult,
+  DnssecCheckResult,
+  GlobalSettings,
   DnsResolverInfo
 } from '../shared/types'
 import { t } from '../shared/i18n'
@@ -22,9 +24,94 @@ import {
   resolveTxtReliable,
   withDnsTimeout
 } from './dns-env'
+import { encodeQuery } from './dnswire'
+import { loadSettings } from './settings'
 
 function flattenTxt(records: string[][]): string[] {
   return records.map((parts) => parts.join(''))
+}
+
+interface DnssecDohResponse {
+  Status?: number
+  AD?: boolean
+  Comment?: string
+}
+
+/** Maps a validating DoH response to the DNSSEC status shown by the DNS check. */
+export function parseDnssecResponse(
+  response: DnssecDohResponse,
+  resolver: string
+): DnssecCheckResult {
+  if (response.Status === 0) {
+    return { status: response.AD === true ? 'validated' : 'unsigned', resolver }
+  }
+  return {
+    status: 'error',
+    resolver,
+    error: response.Comment || `DNS response status ${response.Status ?? 'unknown'}`
+  }
+}
+
+export function parseDnssecWireResponse(response: Buffer, resolver: string): DnssecCheckResult {
+  if (response.length < 4) {
+    return { status: 'error', resolver, error: 'DNSSEC resolver returned a short DNS response' }
+  }
+  const flags = response.readUInt16BE(2)
+  const rcode = flags & 0x000f
+  if (rcode !== 0) return { status: 'error', resolver, error: `DNS response status ${rcode}` }
+  return { status: flags & 0x0020 ? 'validated' : 'unsigned', resolver }
+}
+
+function dnssecResolverUrl(settings: GlobalSettings): URL {
+  const preset = 'https://cloudflare-dns.com/dns-query'
+  if (settings.dnssecResolver !== 'custom' || !settings.dnssecResolverUrl) return new URL(preset)
+  return new URL(settings.dnssecResolverUrl)
+}
+
+async function checkDnssec(domain: string, settings: GlobalSettings): Promise<DnssecCheckResult> {
+  const url = dnssecResolverUrl(settings)
+  const resolver = url.hostname
+  try {
+    if (settings.dnssecResolver !== 'cloudflare') {
+      const query = encodeQuery(domain, 6, Math.floor(Math.random() * 0xffff))
+      const response = await withDnsTimeout(
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            accept: 'application/dns-message',
+            'content-type': 'application/dns-message'
+          },
+          body: Uint8Array.from(query)
+        }),
+        5_000
+      )
+      if (!response.ok) {
+        return {
+          status: 'error',
+          resolver,
+          error: `DNSSEC resolver returned HTTP ${response.status}`
+        }
+      }
+      return parseDnssecWireResponse(Buffer.from(await response.arrayBuffer()), resolver)
+    }
+    url.searchParams.set('name', domain)
+    url.searchParams.set('type', 'SOA')
+    url.searchParams.set('do', 'true')
+    const response = await withDnsTimeout(
+      fetch(url, { headers: { accept: 'application/dns-json' } }),
+      5_000
+    )
+    if (!response.ok) {
+      return {
+        status: 'error',
+        resolver,
+        error: `DNSSEC resolver returned HTTP ${response.status}`
+      }
+    }
+    return parseDnssecResponse((await response.json()) as DnssecDohResponse, resolver)
+  } catch (err) {
+    return { status: 'error', resolver, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 export function parseDmarcPolicy(records: string[]): {
@@ -277,12 +364,15 @@ export async function checkDomainDns(
     result.spf.error = err instanceof Error ? err.message : String(err)
   }
 
-  const [dkimSelectors, bimi] = await Promise.all([
+  const settings = loadSettings().global
+  const [dkimSelectors, bimi, dnssec] = await Promise.all([
     Promise.all(selectors.map((sel) => checkDkimSelector(domain, sel, auth))),
-    lookupBimi(domain, DEFAULT_BIMI_SELECTOR, auth)
+    lookupBimi(domain, DEFAULT_BIMI_SELECTOR, auth),
+    settings.dnssecEnabled ? checkDnssec(domain, settings) : undefined
   ])
   result.dkim.selectors = dkimSelectors
   result.bimi = bimi
+  if (dnssec) result.dnssec = dnssec
 
   return result
 }

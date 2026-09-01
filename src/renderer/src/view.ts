@@ -331,6 +331,16 @@ function compareBucket(
   return ipAware ? compareIp(a.name, b.name) : compareText(a.name, b.name)
 }
 
+function sendingDomainsForIp(ip: string): string[] {
+  const domains = new Set<string>()
+  for (const report of state.fullResult?.reports ?? []) {
+    for (const record of report.records) {
+      if (record.sourceIp === ip) domains.add(record.headerFrom || report.domain)
+    }
+  }
+  return [...domains]
+}
+
 function renderBucketTable(
   tbody: HTMLTableSectionElement,
   rows: NamedBucket[],
@@ -360,7 +370,9 @@ function renderBucketTable(
   tbody.innerHTML = sorted
     .map((r) => {
       if (options.withIpMeta) {
-        const ipMeta = formatIpMetaHtml(r.name, r.provider, r.label)
+        const ipMeta = formatIpMetaHtml(r.name, r.provider, r.label, {
+          sendingDomains: sendingDomainsForIp(r.name)
+        })
         return `
       <tr data-name="${escapeHtml(r.name)}"${ipMeta ? ' class="has-ip-meta"' : ''}${clickAttrs}>
         <td class="ip-col">${formatIpCellHtml(r.name, r.provider, r.label, { includeMeta: false })}</td>
@@ -538,7 +550,8 @@ function renderProblemSources(rows: ProblemSourceRow[]): void {
       const ipMeta = formatIpMetaHtml(r.sourceIp, null, null, {
         groupedIpCount: groupCount,
         spfPrefixes: spfPrefixesForDomain(r.headerFrom),
-        spfDomain: r.headerFrom
+        spfDomain: r.headerFrom,
+        sendingDomain: r.headerFrom
       })
       const rowClass = ipMeta ? 'has-ip-meta' : ''
       return `
@@ -1160,7 +1173,9 @@ export function renderDetail(report: ReportRow | null): void {
             )
           )
       const reasonCell = [cause, reasons].filter(Boolean).join('<br />') || '—'
-      const ipMeta = formatIpMetaHtml(r.sourceIp)
+      const ipMeta = formatIpMetaHtml(r.sourceIp, null, null, {
+        sendingDomain: r.headerFrom || report.domain
+      })
       const ipAttr = escapeHtml(r.sourceIp)
       return `
       <tr data-name="${ipAttr}"${ipMeta ? ' class="has-ip-meta"' : ''}>
@@ -1589,7 +1604,8 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
     const metadata = document.createElement('div')
     metadata.className = 'new-source-ip-meta'
     metadata.dataset.sourceIpMeta = ip
-    metadata.innerHTML = formatIpMetaHtml(ip)
+    metadata.dataset.sourceDomain = group.domain ?? ''
+    metadata.innerHTML = formatIpMetaHtml(ip, null, null, { sendingDomain: group.domain })
 
     const ipActions = document.createElement('div')
     ipActions.className = 'new-source-ip-actions'
@@ -1794,7 +1810,9 @@ function refreshNewSourceIpMetadata(): void {
   for (const metadata of newSendingSourcesBannerEl.querySelectorAll<HTMLElement>(
     '[data-source-ip-meta]'
   )) {
-    metadata.innerHTML = formatIpMetaHtml(metadata.dataset.sourceIpMeta ?? '')
+    metadata.innerHTML = formatIpMetaHtml(metadata.dataset.sourceIpMeta ?? '', null, null, {
+      sendingDomain: metadata.dataset.sourceDomain || null
+    })
   }
 }
 
@@ -1990,6 +2008,7 @@ export function showResult(result: AnalyzeResult, statusMessage?: string): void 
   fillDomainFilter(result)
   applyView()
   renderNewSendingSourcesBanner(result)
+  void refreshSendingServicesForMetadata()
   if (statusMessage) {
     setStatus(statusMessage, 'ok')
   } else {
@@ -2011,6 +2030,21 @@ export function showResult(result: AnalyzeResult, statusMessage?: string): void 
       }),
       'ok'
     )
+  }
+}
+
+async function refreshSendingServicesForMetadata(): Promise<void> {
+  try {
+    state.sendingServices = await window.api.listSendingServices()
+    if (!state.fullResult) return
+    applyView()
+    renderNewSendingSourcesBanner(state.fullResult)
+    if (state.selectedReportId && state.viewResult) {
+      const selected = state.viewResult.reports.find((r) => r.reportId === state.selectedReportId) ?? null
+      renderDetail(selected)
+    }
+  } catch {
+    // Das Dienstinventar ist optional fuer die Metadaten.
   }
 }
 

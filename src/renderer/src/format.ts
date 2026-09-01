@@ -1,6 +1,7 @@
 import { isAuthorizedSender } from '../../shared/ipcidr'
 import type { CloudPrefix } from '../../shared/ipcidr'
 import { getLocale, t } from '../../shared/i18n'
+import { matchSendingService } from '../../shared/sending-services'
 import type { IpInfo } from '../../shared/types'
 import { state } from './state'
 
@@ -48,10 +49,28 @@ export function formatIpMetaHtml(
     groupedIpCount?: number
     spfPrefixes?: CloudPrefix[]
     spfDomain?: string | null
+    sendingDomain?: string | null
+    sendingDomains?: string[]
   }
 ): string {
   const meta = state.ipLabelCache.get(ip)
   const provider = resolveProviderLabel(meta, fallbackProvider)
+  const sendingService = matchSendingService(state.sendingServices, {
+    provider: meta?.provider ?? fallbackProvider ?? null,
+    domain: options?.sendingDomain ?? null,
+    ip,
+    asn: meta?.asn
+  }) ??
+    (options?.sendingDomains ?? [options?.sendingDomain ?? null])
+      .map((domain) =>
+        matchSendingService(state.sendingServices, {
+          provider: null,
+          domain,
+          ip,
+          asn: meta?.asn
+        })
+      )
+      .find(Boolean)
   const ptr = fallbackPtr ?? meta?.ptr
   const bits: string[] = []
   if ((options?.groupedIpCount ?? 0) > 1) {
@@ -77,12 +96,17 @@ export function formatIpMetaHtml(
   }
   // The identified service ("SendGrid") is more actionable than the network it
   // runs on ("AWS"), so it leads and the cloud label only follows if it adds info.
-  const senderName = meta?.provider ?? null
+  const senderName = sendingService?.provider ?? meta?.provider ?? null
   if (senderName) {
-    const kind = meta?.senderKind ? t(`sender.kind.${meta.senderKind}`) : ''
+    const kind = sendingService ? '' : meta?.senderKind ? t(`sender.kind.${meta.senderKind}`) : ''
     const kindSuffix = kind ? ` (${kind})` : ''
     bits.push(
-      metaBadge(senderName, t('ipMeta.providerHint', { provider: senderName, kind: kindSuffix }))
+      metaBadge(
+        senderName,
+        sendingService
+          ? t('ipMeta.sendingServiceHint', { provider: senderName })
+          : t('ipMeta.providerHint', { provider: senderName, kind: kindSuffix })
+      )
     )
     if (meta?.cloudProvider && meta.cloudProvider !== senderName) {
       bits.push(

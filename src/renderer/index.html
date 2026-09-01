@@ -1409,6 +1409,28 @@
             </fieldset>
 
             <fieldset class="settings-group">
+              <legend data-i18n="settings.dnssec">DNSSEC-Prüfung</legend>
+              <div class="settings-grid">
+                <label class="checkbox span-2">
+                  <input id="dnssecEnabled" name="dnssecEnabled" type="checkbox" checked />
+                  <span data-i18n="settings.dnssecEnabled">DNSSEC-Prüfung beim DNS-Check ausführen</span>
+                </label>
+                <label>
+                  <span data-i18n="settings.dnssecResolver">Validierender Resolver</span>
+                  <select id="dnssecResolver" name="dnssecResolver">
+                    <option value="cloudflare" data-i18n="settings.dnssecResolverCloudflare">Cloudflare</option>
+                    <option value="custom" data-i18n="settings.dnssecResolverCustom">Eigene DoH-URL</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="settings.dnssecResolverUrl">DoH-URL</span>
+                  <input id="dnssecResolverUrl" name="dnssecResolverUrl" type="url" placeholder="https://resolver.example/dns-query" spellcheck="false" disabled />
+                </label>
+              </div>
+              <p class="hint" data-i18n="settings.dnssecHint">Die DNSSEC-Prüfung benötigt einen validierenden DNS-over-HTTPS-Resolver. Eigene URLs müssen RFC 8484 unterstützen. Die übrigen DNS-Records werden weiterhin direkt beim autoritativen Nameserver abgefragt.</p>
+            </fieldset>
+
+            <fieldset class="settings-group">
               <legend data-i18n="settings.pdfMonthly">Monatsbericht (PDF)</legend>
               <div class="settings-grid">
                 <label class="checkbox span-2">

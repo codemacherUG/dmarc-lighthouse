@@ -3,6 +3,8 @@ import {
   ancestorZones,
   discoverDmarcRecords,
   normalizeDkimSelector,
+  parseDnssecResponse,
+  parseDnssecWireResponse,
   parseDmarcPolicy,
   resolveTxtRecords
 } from '../src/main/dnscheck'
@@ -88,6 +90,51 @@ describe('parseDmarcPolicy', () => {
   it('defaults testing/psd to false and np to null when absent', () => {
     const parsed = parseDmarcPolicy(['v=DMARC1; p=none'])
     expect(parsed).toMatchObject({ testing: false, np: null, psd: false })
+  })
+})
+
+describe('parseDnssecResponse', () => {
+  it('reports a DNSSEC-validated answer from the AD bit', () => {
+    expect(parseDnssecResponse({ Status: 0, AD: true }, 'dns.quad9.net')).toEqual({
+      status: 'validated',
+      resolver: 'dns.quad9.net'
+    })
+  })
+
+  it('reports successful but unsigned answers', () => {
+    expect(parseDnssecResponse({ Status: 0, AD: false }, 'dns.quad9.net')).toEqual({
+      status: 'unsigned',
+      resolver: 'dns.quad9.net'
+    })
+  })
+
+  it('keeps resolver errors distinguishable from unsigned domains', () => {
+    expect(parseDnssecResponse({ Status: 2, Comment: 'Failure' }, 'dns.quad9.net')).toEqual({
+      status: 'error',
+      resolver: 'dns.quad9.net',
+      error: 'Failure'
+    })
+  })
+})
+
+describe('parseDnssecWireResponse', () => {
+  it('reads the AD bit from an RFC-DoH DNS response', () => {
+    const response = Buffer.alloc(12)
+    response.writeUInt16BE(0x8020, 2)
+    expect(parseDnssecWireResponse(response, 'dns.quad9.net')).toEqual({
+      status: 'validated',
+      resolver: 'dns.quad9.net'
+    })
+  })
+
+  it('keeps DNS errors distinct from unsigned zones', () => {
+    const response = Buffer.alloc(12)
+    response.writeUInt16BE(0x8002, 2)
+    expect(parseDnssecWireResponse(response, 'dns.quad9.net')).toEqual({
+      status: 'error',
+      resolver: 'dns.quad9.net',
+      error: 'DNS response status 2'
+    })
   })
 })
 

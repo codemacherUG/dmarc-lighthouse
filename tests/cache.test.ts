@@ -641,6 +641,49 @@ describe('sqlite cache', () => {
     })
   })
 
+  it('excludes reports that overlap a DNS drift from the before/after comparison', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [
+        reportWithFailureRate(
+          'before',
+          '2026-08-19T08:00:00.000Z',
+          '2026-08-19T09:00:00.000Z',
+          1000,
+          3
+        ),
+        reportWithFailureRate(
+          'overlaps',
+          '2026-08-19T09:00:00.000Z',
+          '2026-08-19T11:00:00.000Z',
+          1000,
+          900
+        ),
+        reportWithFailureRate(
+          'after',
+          '2026-08-19T11:00:00.000Z',
+          '2026-08-19T12:00:00.000Z',
+          1000,
+          84
+        )
+      ],
+      lastUid: 1,
+      lastFailingTotal: 987,
+      knownSourceIps: []
+    })
+    recordDnsHistory(dnsResult({ checkedAt: '2026-08-19T08:30:00.000Z', spf: 'v=spf1 old' }))
+    recordDnsHistory(dnsResult({ checkedAt: '2026-08-19T10:00:00.000Z', spf: 'v=spf1 new' }))
+
+    const [correlation] = getDnsHistory('example.com').correlations
+    expect(correlation).toMatchObject({
+      beforeReportId: 'before',
+      afterReportId: 'after',
+      afterFailRate: 8.4
+    })
+  })
+
   it('detects MTA-STS policy drift in transport history', () => {
     dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
     setCacheUserDataForTests(dir)

@@ -47,6 +47,9 @@ import {
   createMailboxPathEl,
   createMailboxStatusEl,
   dnsblEnabledEl,
+  dnssecEnabledEl,
+  dnssecResolverEl,
+  dnssecResolverUrlEl,
   enrichmentEnabledEl,
   geoIpOnlineFallbackEl,
   geoliteStatusEl,
@@ -140,6 +143,14 @@ function fillMailboxNoiseProviders(text: string): void {
     const el = mailboxNoiseCheckbox(id)
     if (el) el.checked = enabled.has(id)
   }
+}
+
+function syncDnssecResolverUi(): void {
+  const enabled = dnssecEnabledEl.checked
+  const custom = enabled && dnssecResolverEl.value === 'custom'
+  dnssecResolverEl.disabled = !enabled
+  dnssecResolverUrlEl.disabled = !custom
+  dnssecResolverUrlEl.required = custom
 }
 
 /** Input that opened the create-mailbox dialog (mailbox or archive). */
@@ -429,6 +440,10 @@ export function readGlobalForm(): GlobalSettings {
     dnsblEnabled: dnsblEnabledEl.checked,
     cloudRangesEnabled: cloudRangesEnabledEl.checked,
     rdapEnabled: rdapEnabledEl.checked,
+    dnssecEnabled: dnssecEnabledEl.checked,
+    dnssecResolver:
+      dnssecResolverEl.value === 'custom' ? 'custom' : 'cloudflare',
+    dnssecResolverUrl: dnssecResolverUrlEl.value.trim(),
     hideMailboxNoise: filterHideMailboxNoiseEl.checked,
     mailboxNoiseProviders: readMailboxNoiseProviders(),
     scannerNoiseHosts: scannerNoiseHostsEl.value,
@@ -524,6 +539,10 @@ export function fillGlobalForm(global: GlobalSettings): void {
   cloudRangesEnabledEl.checked = global.cloudRangesEnabled !== false
   dnsblEnabledEl.checked = global.dnsblEnabled !== false
   rdapEnabledEl.checked = global.rdapEnabled !== false
+  dnssecEnabledEl.checked = global.dnssecEnabled !== false
+  dnssecResolverEl.value = global.dnssecResolver
+  dnssecResolverUrlEl.value = global.dnssecResolverUrl
+  syncDnssecResolverUi()
   geoIpOnlineFallbackEl.checked = Boolean(global.geoIpOnlineFallback)
   maxmindLicenseKeyEl.value = ''
   maxmindLicenseKeyEl.placeholder = global.hasMaxmindLicenseKey
@@ -880,6 +899,8 @@ export function initSettingsUi(): void {
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
+  dnssecEnabledEl.addEventListener('change', () => syncDnssecResolverUi())
+  dnssecResolverEl.addEventListener('change', () => syncDnssecResolverUi())
 
   btnAddSendingService.addEventListener('click', () => void addSendingServiceFromForm())
   btnCancelSendingServiceEdit.addEventListener('click', () => resetSendingServiceForm())
