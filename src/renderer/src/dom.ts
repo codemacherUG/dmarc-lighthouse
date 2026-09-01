@@ -278,6 +278,9 @@ export const cloudRangesEnabledEl = document.getElementById(
 ) as HTMLInputElement
 export const dnsblEnabledEl = document.getElementById('dnsblEnabled') as HTMLInputElement
 export const rdapEnabledEl = document.getElementById('rdapEnabled') as HTMLInputElement
+export const dnssecEnabledEl = document.getElementById('dnssecEnabled') as HTMLInputElement
+export const dnssecResolverEl = document.getElementById('dnssecResolver') as HTMLSelectElement
+export const dnssecResolverUrlEl = document.getElementById('dnssecResolverUrl') as HTMLInputElement
 export const geoIpOnlineFallbackEl = document.getElementById(
   'geoIpOnlineFallback'
 ) as HTMLInputElement

@@ -288,7 +288,14 @@ export function initActions(): void {
               zone: result.resolver.zone ?? result.domain
             })
           : t('dns.resolverRecursive')
-      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}${renderDnsHistory(history)}`
+      const dnssecLine = result.dnssec
+        ? result.dnssec.status === 'validated'
+          ? `<span class="pass">${escapeHtml(t('dns.dnssecValidated', { resolver: result.dnssec.resolver }))}</span>`
+          : result.dnssec.status === 'unsigned'
+            ? `<span class="fail">${escapeHtml(t('dns.dnssecUnsigned', { resolver: result.dnssec.resolver }))}</span>`
+            : `<span class="muted">${escapeHtml(t('dns.dnssecError', { message: result.dnssec.error ?? '—' }))}</span>`
+        : ''
+      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
       dnsResultEl.className = 'dns-result ok'
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)

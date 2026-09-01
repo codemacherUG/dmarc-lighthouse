@@ -56,7 +56,10 @@ function fillDnsDemo(): void {
       authority: 'https://example.com/vmc.pem'
     })
   )}</span>`
-  dnsResultEl.innerHTML = `<strong>example.com</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}`
+  const dnssecHtml = `<span class="pass">${escapeHtml(
+    t('dns.dnssecValidated', { resolver: 'cloudflare-dns.com' })
+  )}</span>`
+  dnsResultEl.innerHTML = `<strong>example.com</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}<br />${dnssecHtml}`
   dnsResultEl.className = 'dns-result ok'
 }
 

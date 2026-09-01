@@ -6,6 +6,7 @@ import type {
   AccountPublic,
   AccountSettingsInput,
   AuthMode,
+  DnssecResolver,
   GlobalSettings,
   ImapConnectionInput,
   OAuthProvider,
@@ -72,6 +73,9 @@ interface StoredGlobal {
   dnsblEnabled?: boolean
   cloudRangesEnabled?: boolean
   rdapEnabled?: boolean
+  dnssecEnabled?: boolean
+  dnssecResolver?: DnssecResolver
+  dnssecResolverUrl?: string
   /** @deprecated migrated to hideMailboxNoise */
   hideGoogleNoise?: boolean
   hideMailboxNoise?: boolean
@@ -124,12 +128,28 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   dnsblEnabled: true,
   cloudRangesEnabled: true,
   rdapEnabled: true,
+  dnssecEnabled: true,
+  dnssecResolver: 'cloudflare',
+  dnssecResolverUrl: '',
   hideMailboxNoise: false,
   mailboxNoiseProviders: DEFAULT_MAILBOX_NOISE_PROVIDERS,
   scannerNoiseHosts: DEFAULT_SCANNER_NOISE_HOSTS,
   pdfMonthlyEnabled: false,
   pdfMonthlyDir: '',
   pdfMonthlyLastRun: ''
+}
+
+function normalizeDnssecResolver(value: unknown): DnssecResolver {
+  return value === 'custom' ? value : 'cloudflare'
+}
+
+function normalizeDnssecResolverUrl(value: unknown): string {
+  const url = String(value ?? '').trim()
+  try {
+    return new URL(url).protocol === 'https:' ? url : ''
+  } catch {
+    return ''
+  }
 }
 
 function settingsPath(): string {
@@ -444,6 +464,9 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     dnsblEnabled: g.dnsblEnabled ?? GLOBAL_DEFAULTS.dnsblEnabled,
     cloudRangesEnabled: g.cloudRangesEnabled ?? GLOBAL_DEFAULTS.cloudRangesEnabled,
     rdapEnabled: g.rdapEnabled ?? GLOBAL_DEFAULTS.rdapEnabled,
+    dnssecEnabled: g.dnssecEnabled ?? GLOBAL_DEFAULTS.dnssecEnabled,
+    dnssecResolver: normalizeDnssecResolver(g.dnssecResolver),
+    dnssecResolverUrl: normalizeDnssecResolverUrl(g.dnssecResolverUrl),
     hideMailboxNoise: Boolean(g.hideMailboxNoise ?? g.hideGoogleNoise),
     mailboxNoiseProviders: g.mailboxNoiseProviders ?? DEFAULT_MAILBOX_NOISE_PROVIDERS,
     scannerNoiseHosts: g.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS,
@@ -628,6 +651,9 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     dnsblEnabled: input.dnsblEnabled !== false,
     cloudRangesEnabled: input.cloudRangesEnabled !== false,
     rdapEnabled: input.rdapEnabled !== false,
+    dnssecEnabled: input.dnssecEnabled !== false,
+    dnssecResolver: normalizeDnssecResolver(input.dnssecResolver),
+    dnssecResolverUrl: normalizeDnssecResolverUrl(input.dnssecResolverUrl),
     hideMailboxNoise: Boolean(input.hideMailboxNoise),
     mailboxNoiseProviders: input.mailboxNoiseProviders ?? DEFAULT_MAILBOX_NOISE_PROVIDERS,
     scannerNoiseHosts: input.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS,

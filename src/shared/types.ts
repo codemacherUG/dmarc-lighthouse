@@ -25,6 +25,8 @@ export type AuthMode = 'password' | 'oauth'
 
 export type OAuthProvider = 'google' | 'microsoft'
 
+export type DnssecResolver = 'cloudflare' | 'custom'
+
 export type DateRangePreset = 'all' | '7' | '30' | '90' | 'custom'
 
 /** Dashboard date filter applied on load and after "Reset". */
@@ -175,6 +177,12 @@ export interface GlobalSettings {
   cloudRangesEnabled: boolean
   /** Allow on-demand RDAP/WHOIS lookups. */
   rdapEnabled: boolean
+  /** Run DNSSEC validation as part of the DNS check. */
+  dnssecEnabled: boolean
+  /** Validating DNS-over-HTTPS resolver used exclusively for the DNSSEC status. */
+  dnssecResolver: DnssecResolver
+  /** HTTPS DNS-over-HTTPS endpoint used when `dnssecResolver` is `custom`. */
+  dnssecResolverUrl: string
   /** Persist dashboard filter: hide mailbox-provider SPF-fail / DKIM-pass noise. */
   hideMailboxNoise: boolean
   /**
@@ -473,6 +481,16 @@ export interface DnsResolverInfo {
   nameservers: string[]
 }
 
+export type DnssecStatus = 'validated' | 'unsigned' | 'error'
+
+export interface DnssecCheckResult {
+  /** DNSSEC validation result from a validating recursive resolver. */
+  status: DnssecStatus
+  /** Hostname of the resolver that produced this result. */
+  resolver: string
+  error?: string
+}
+
 export interface DnsCheckResult {
   domain: string
   dmarc: {
@@ -503,6 +521,8 @@ export interface DnsCheckResult {
   }
   /** BIMI assertion at `default._bimi.{domain}` (optional on older cached results). */
   bimi?: BimiCheckResult
+  /** DNSSEC status (optional on older cached results). */
+  dnssec?: DnssecCheckResult
   resolver?: DnsResolverInfo
   checkedAt: string
 }
