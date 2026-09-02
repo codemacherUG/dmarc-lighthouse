@@ -19,7 +19,6 @@ import {
 } from './analyze'
 import {
   accountKeyFor,
-  acknowledgePendingSourceIps,
   addPendingSourceIps,
   clearKnownIpsResetPending,
   getIpEnrichment,
@@ -30,7 +29,6 @@ import {
   reseedKnownIps,
   saveCache
 } from './cache'
-import { sourceIpsWithoutMailboxNoise } from '../shared/analyze'
 import { t } from '../shared/i18n'
 import { resolveIps } from './ipinfo'
 import { groupNewSendingSources } from '../shared/sending-services'
@@ -84,22 +82,6 @@ async function resolveNewSendingSources(
     }
   })
   return groupNewSendingSources(entries, listSendingServices())
-}
-
-function pruneMailboxNoiseSourceIps(
-  accountKey: string,
-  sourceIps: readonly string[],
-  reports: readonly ReportRow[]
-): string[] {
-  const kept = sourceIpsWithoutMailboxNoise(sourceIps, reports)
-  if (kept.length !== sourceIps.length) {
-    const keptSet = new Set(kept)
-    acknowledgePendingSourceIps(
-      accountKey,
-      sourceIps.filter((ip) => !keptSet.has(ip))
-    )
-  }
-  return kept
 }
 
 function createClient(settings: ImapConnectionInput): ImapFlow {
@@ -312,8 +294,7 @@ export async function loadCachedAnalyzeResult(settings: ImapConnectionInput): Pr
     forensicReports
   })
   result.newSourceIps = []
-  const pendingIps = pruneMailboxNoiseSourceIps(key, meta.pendingSourceIps, reports)
-  result.newSendingSources = await resolveNewSendingSources(pendingIps, reports)
+  result.newSendingSources = await resolveNewSendingSources(meta.pendingSourceIps, reports)
   return result
 }
 
@@ -597,18 +578,14 @@ export async function fetchAndAnalyze(
           const allIps = new Set<string>()
           for (const r of cached.reports) for (const rec of r.records) allIps.add(rec.sourceIp)
           for (const f of cached.forensicReports) if (f.sourceIp) allIps.add(f.sourceIp)
-          const ips = pruneMailboxNoiseSourceIps(
-            accountKey,
-            [...allIps].sort(),
-            cached.reports
-          )
+          const ips = [...allIps].sort()
           cachedResult.newSourceIps = ips
           addPendingSourceIps(accountKey, ips)
           reseedKnownIps(accountKey, allIps)
         }
-        const pendingIps = pruneMailboxNoiseSourceIps(accountKey, [
+        const pendingIps = [
           ...new Set([...cached.meta.pendingSourceIps, ...(cachedResult.newSourceIps ?? [])])
-        ], cached.reports)
+        ]
         cachedResult.newSendingSources = await resolveNewSendingSources(
           pendingIps,
           cached.reports
@@ -649,8 +626,6 @@ export async function fetchAndAnalyze(
         newSourceIps = [...freshIps].filter((ip) => !known.has(ip)).sort()
         persistedKnownIps = freshIps
       }
-      newSourceIps = pruneMailboxNoiseSourceIps(accountKey, newSourceIps, merged)
-
       const result = analyzeFromReports(merged, {
         skipped,
         errors,
@@ -661,11 +636,7 @@ export async function fetchAndAnalyze(
       })
       result.newSourceIps = newSourceIps
       addPendingSourceIps(accountKey, newSourceIps)
-      const pendingIps = pruneMailboxNoiseSourceIps(
-        accountKey,
-        [...new Set([...cached.meta.pendingSourceIps, ...newSourceIps])],
-        merged
-      )
+      const pendingIps = [...new Set([...cached.meta.pendingSourceIps, ...newSourceIps])]
       result.newSendingSources = await resolveNewSendingSources(pendingIps, merged)
 
       saveCache({

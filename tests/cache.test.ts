@@ -381,7 +381,7 @@ describe('sqlite cache', () => {
     ])
   })
 
-  it('prunes pending sources represented only by mailbox forwarding noise', async () => {
+  it('keeps mailbox forwarding noise pending until its sender service is resolved', async () => {
     dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
     setCacheUserDataForTests(dir)
     const settings = {
@@ -417,10 +417,36 @@ describe('sqlite cache', () => {
       knownSourceIps: [noiseIp]
     })
     addPendingSourceIps(accountKey, [noiseIp])
+    upsertIpEnrichment([
+      {
+        ip: noiseIp,
+        ptr: 'mailout.gmx.net',
+        provider: 'GMX',
+        senderKind: 'mailbox',
+        country: null,
+        countryCode: null,
+        city: null,
+        lat: null,
+        lon: null,
+        asn: 3209,
+        asOrg: 'GMX GmbH',
+        cloudProvider: null,
+        dnsblHits: [],
+        geoSource: 'none'
+      }
+    ])
 
     const result = await loadCachedAnalyzeResult(settings)
-    expect(result.newSendingSources).toEqual([])
-    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([])
+    expect(result.newSendingSources).toEqual([
+      {
+        provider: 'GMX',
+        domain: 'example.com',
+        ips: [noiseIp],
+        status: 'unknown',
+        asn: 3209
+      }
+    ])
+    expect(loadCachedReports(accountKey).meta.pendingSourceIps).toEqual([noiseIp])
   })
 
   it('migrates legacy JSON cache files', () => {
