@@ -425,6 +425,39 @@ describe('sourceIpsWithoutMailboxNoise', () => {
     ])
   })
 
+  it('removes a recognized other mailbox provider when its IP is marked as mailbox noise', () => {
+    const webDeIp = '203.0.113.77'
+    const rows = [
+      report({
+        records: [
+          record({
+            sourceIp: webDeIp,
+            spfResult: 'fail',
+            dkimResult: 'pass',
+            passesDmarc: true
+          })
+        ]
+      })
+    ]
+    expect(
+      sendingSourceGroupsWithoutMailboxNoise(
+        [
+          {
+            provider: 'Web.de',
+            domain: 'science2public.com',
+            ips: [webDeIp],
+            status: 'unknown',
+            asn: null
+          }
+        ],
+        rows,
+        undefined,
+        new Set([webDeIp]),
+        new Set(['other'])
+      )
+    ).toEqual([])
+  })
+
   it('removes configured scanner IPs from sending-source groups', () => {
     const scannerIp = '100.21.157.149'
     const rows = [

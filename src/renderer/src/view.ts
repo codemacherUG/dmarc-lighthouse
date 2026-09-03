@@ -1878,7 +1878,9 @@ function renderNewSendingSourcesBanner(result: AnalyzeResult | null): void {
   const noiseFilteredGroups = sendingSourceGroupsWithoutMailboxNoise(
     result.newSendingSources ?? [],
     result.reports ?? [],
-    collectScannerNoiseIps()
+    collectScannerNoiseIps(),
+    collectMailboxIps(),
+    enabledMailboxNoiseProviders()
   )
   const groups = alertableSendingSources(noiseFilteredGroups)
   newSendingSourcesBannerEl.innerHTML = ''

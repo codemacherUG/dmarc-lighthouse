@@ -145,7 +145,9 @@ export function isMailboxNoiseRecord(
 export function sourceIpsWithoutMailboxNoise(
   ips: readonly string[],
   reports: readonly ReportRow[],
-  scannerNoiseIps?: ReadonlySet<string>
+  scannerNoiseIps?: ReadonlySet<string>,
+  mailboxIps?: ReadonlySet<string>,
+  mailboxProviders?: ReadonlySet<MailboxNoiseProvider>
 ): string[] {
   const candidates = new Set(ips)
   const represented = new Set<string>()
@@ -154,7 +156,7 @@ export function sourceIpsWithoutMailboxNoise(
     for (const rec of report.records) {
       if (!candidates.has(rec.sourceIp)) continue
       represented.add(rec.sourceIp)
-      if (!isMailboxNoiseRecord(rec, undefined, scannerNoiseIps)) {
+      if (!isMailboxNoiseRecord(rec, mailboxIps, scannerNoiseIps, mailboxProviders)) {
         hasNonNoiseRecord.add(rec.sourceIp)
       }
     }
@@ -166,12 +168,20 @@ export function sourceIpsWithoutMailboxNoise(
 export function sendingSourceGroupsWithoutMailboxNoise(
   groups: readonly NewSendingSourceGroup[],
   reports: readonly ReportRow[],
-  scannerNoiseIps?: ReadonlySet<string>
+  scannerNoiseIps?: ReadonlySet<string>,
+  mailboxIps?: ReadonlySet<string>,
+  mailboxProviders?: ReadonlySet<MailboxNoiseProvider>
 ): NewSendingSourceGroup[] {
   return groups
     .map((group) => ({
       ...group,
-      ips: sourceIpsWithoutMailboxNoise(group.ips, reports, scannerNoiseIps)
+      ips: sourceIpsWithoutMailboxNoise(
+        group.ips,
+        reports,
+        scannerNoiseIps,
+        mailboxIps,
+        mailboxProviders
+      )
     }))
     .filter((group) => group.ips.length > 0)
 }
