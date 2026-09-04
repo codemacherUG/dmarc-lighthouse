@@ -70,9 +70,15 @@ Reporting organizations, source IPs (including reverse DNS), From domains, indiv
 
 ![Tables with organizations, IPs, domains, and report details](docs/screenshots/en/tables.png)
 
+### New source IPs & sending services
+
+A newly observed source IP is not automatically a new sending service. Reverse DNS (PTR) only describes the IP's hostname; the **From domain** is the sender identity relevant to DMARC. Infrastructure IPs from Microsoft 365, Infomaniak, or hosting providers can change. Mark isolated, unremarkable IPs as seen, and save only a confirmed provider as a sending service for a From domain.
+
 ### Diagnosis — “why did this fail?”
 
 Click the **?** next to a problem source’s cause badge for a plain-language diagnosis: a verdict (legitimate sender, third party, or suspicious), the detected sending service, the raw SPF/DKIM results with their alignment, and a concrete next step (e.g. “set up DKIM signing for `example.com`”). Built entirely from data already in the report — sender classification, alignment, and auth results — no AI involved.
+
+Problem sources are delivered DMARC failures, evaluated separately for each source IP and From domain. Messages already rejected or quarantined do not count. For receiver overrides, only confirmed forwarding (`trusted_forwarder` or `local_policy` with `ARC pass`) is not a problem; `ARC fail` remains visible.
 
 ![Diagnosis dialog explaining why a source failed DMARC](docs/screenshots/en/diagnosis.png)
 
@@ -130,7 +136,8 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Charts**                  | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time                                                                                                                    |
 | **Tables**                  | Organizations, source IPs, From domains, individual reports + record details; click a row to filter; sortable columns, keyboard navigation, and virtualized long tables                                                          |
 | **IP enrichment**           | Reverse DNS, identified sending service (ESP, mailbox provider, SaaS, gateway, hosting), cloud IP ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optional online fallback), DNSBL/DNSWL, on-demand RDAP/WHOIS         |
-| **Failure categories**      | Problem sources name the cause: forwarding, third party, configuration, own sender, or no auth at all                                                                                                                            |
+| **New source IPs**          | First-observed IPs grouped by network and From domain; PTR is IP metadata, not a sender. Mark individual IPs as seen or save confirmed providers as sending services                                                              |
+| **Failure categories**      | Problem sources name delivered DMARC failures per source IP and From domain: forwarding, third party, configuration, own sender, or no auth at all                                                                                |
 | **Diagnosis**               | Per problem source, a plain-language verdict plus detected sender, raw SPF/DKIM results with alignment, and a concrete recommendation (e.g. set up DKIM signing) — derived from existing report data, no AI                      |
 | **Policy rollout**          | Recommends the next step (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) with thresholds, open items, and a staging plan of ready-to-copy records                                                 |
 | **What-if simulation**      | Dashboard-level simulation for one domain (`p=reject`, strict DKIM, `sp=reject`): KPIs, charts, tables, dispositions, and problem sources are recalculated from simulated local report data                                      |

@@ -70,9 +70,15 @@ Reporting-Organisationen, Quell-IPs (inkl. Reverse-DNS), From-Domains, einzelne 
 
 ![Tabellen mit Organisationen, IPs, Domains und Report-Details](docs/screenshots/de/tables.png)
 
+### Neue Quell-IPs & Versandwege
+
+Eine neu beobachtete Quell-IP ist nicht automatisch ein neuer Versanddienst. Reverse-DNS (PTR) beschreibt nur den Hostnamen der IP; die **From-Domain** ist die für DMARC relevante Absenderidentität. Infrastruktur-IP-Adressen von Microsoft 365, Infomaniak oder Hostern können wechseln. Daher einzelne, unauffällige IPs als gesehen markieren und nur einen bestätigten Anbieter gezielt als Versandweg für eine From-Domain speichern.
+
 ### Diagnose — „Warum ist das fehlgeschlagen?“
 
 Klick auf das **?** neben dem Ursache-Badge einer Problemquelle liefert eine Diagnose in Klartext: ein Urteil (legitimer Sender, Fremddienst oder verdächtig), den erkannten Versanddienst, die rohen SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Handlungsempfehlung (z. B. „DKIM-Signing für `example.com` einrichten“). Basiert vollständig auf bereits vorhandenen Report-Daten — Sender-Klassifizierung, Alignment und Auth-Ergebnisse — ganz ohne KI.
+
+Problemquellen sind zugestellte DMARC-Fails und werden pro Quell-IP und From-Domain getrennt ausgewertet. Bereits wirksam abgewiesene oder quarantänisierte Nachrichten zählen nicht. Bei einer Empfänger-Ausnahme zählt nur eine bestätigte Weiterleitung (`trusted_forwarder` oder `local_policy` mit `ARC pass`) nicht als Problem; `ARC fail` bleibt sichtbar.
 
 ![Diagnose-Dialog erklärt, warum eine Quelle fehlgeschlagen ist](docs/screenshots/de/diagnosis.png)
 
@@ -130,7 +136,8 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Charts**                  | Doughnut für DMARC-/SPF-/DKIM-Alignment und Disposition (none/quarantine/reject); Volumen & Pass-Rate über Zeit                                                                                                               |
 | **Tabellen**                | Organisationen, Quell-IPs, From-Domains, einzelne Reports + Record-Details; Klick auf Zeile filtert; sortierbare Spalten, Tastaturnavigation und Virtualisierung langer Tabellen                                              |
 | **IP-Anreicherung**         | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand       |
-| **Fail-Kategorien**         | Problemquellen zeigen die Ursache: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                                                              |
+| **Neue Quell-IPs**          | Erstmals beobachtete IPs nach Netz und From-Domain gruppiert; PTR ist IP-Metadatum, kein Absender. Einzelne IPs als gesehen markieren oder bestätigte Anbieter als Versandweg speichern                                      |
+| **Fail-Kategorien**         | Problemquellen zeigen zugestellte DMARC-Fails pro Quell-IP und From-Domain: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                  |
 | **Diagnose**                | Pro Problemquelle ein Urteil in Klartext plus erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Empfehlung (z. B. DKIM-Signing einrichten) — aus vorhandenen Report-Daten abgeleitet, ohne KI     |
 | **Policy-Rollout**          | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                |
 | **What-if-Simulation**      | Dashboard-Simulation für eine Domain (`p=reject`, strict DKIM, `sp=reject`): Kennzahlen, Charts, Tabellen, Dispositions und Problemquellen werden aus simulierten lokalen Reportdaten neu berechnet                           |
