@@ -85,15 +85,29 @@ export function isMailboxNoiseAuthPattern(rec: SerializedRecord): boolean {
   return spf === 'fail' && dkim === 'pass'
 }
 
+function isForwardingReason(type: string, comment: string | null): boolean {
+  if (type === 'forwarded' || type === 'mailing_list' || type === 'trusted_forwarder') return true
+  return type === 'local_policy' && /\barc\s*=\s*pass\b/i.test(comment ?? '')
+}
+
 /** Delivered forwarding failure explicitly accepted by the receiver, e.g. via ARC. */
 function isMailboxForwardingOverride(rec: SerializedRecord): boolean {
   if (rec.passesDmarc) return false
   const disposition = (rec.disposition ?? 'none').toLowerCase()
   if (disposition === 'reject' || disposition === 'quarantine') return false
+  return (rec.reasons ?? []).some((reason) =>
+    isForwardingReason((reason.type ?? '').toLowerCase(), reason.comment)
+  )
+}
+
+/** A receiver override is healthy only when it explicitly trusts the forwarder or ARC chain. */
+function isHealthyForwardingOverride(rec: SerializedRecord): boolean {
   return (rec.reasons ?? []).some((reason) => {
     const type = (reason.type ?? '').toLowerCase()
-    if (type === 'forwarded' || type === 'mailing_list' || type === 'trusted_forwarder') return true
-    return type === 'local_policy' && /\barc\s*=\s*pass\b/i.test(reason.comment ?? '')
+    return (
+      type === 'trusted_forwarder' ||
+      (type === 'local_policy' && /\barc\s*=\s*pass\b/i.test(reason.comment ?? ''))
+    )
   })
 }
 
@@ -230,22 +244,18 @@ function toNamedBuckets(
     .slice(0, limit)
 }
 
-/** Receiver overrides that mark a failure as forwarding rather than abuse. */
-const FORWARDING_REASONS = new Set([
-  'forwarded',
-  'mailing_list',
-  'trusted_forwarder',
-  'local_policy'
-])
-
 /**
  * Why a delivered message failed DMARC. `dkimResult` / `spfResult` are the
  * *aligned* results from policy_evaluated, so a failing record failed both;
  * the auth-result domains tell us which of these four situations it is.
  */
 export function categorizeFailure(rec: SerializedRecord, policyDomain?: string): FailCategory {
-  for (const reason of rec.reasons ?? []) {
-    if (FORWARDING_REASONS.has((reason.type ?? '').toLowerCase())) return 'forwarder'
+  if (
+    (rec.reasons ?? []).some((reason) =>
+      isForwardingReason((reason.type ?? '').toLowerCase(), reason.comment)
+    )
+  ) {
+    return 'forwarder'
   }
 
   const from = rec.headerFrom || policyDomain || null
@@ -291,12 +301,13 @@ function addCategoryCounts(
  */
 export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemSourceRow[] {
   type Acc = {
+    sourceIp: string
+    headerFrom: string
     count: number
     spfFail: number
     dkimFail: number
     spfAuthPass: number
     dkimAuthPass: number
-    fromCounts: Map<string, number>
     categories: FailCategoryCounts
   }
   const map = new Map<string, Acc>()
@@ -305,14 +316,17 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
     for (const rec of report.records) {
       if (isHealthyDmarcOutcome(rec)) continue
       const ip = (rec.sourceIp || '').trim() || '(unbekannt)'
+      const from = (rec.headerFrom || '').trim() || '(unbekannt)'
       const n = rec.count || 0
-      const cur = map.get(ip) ?? {
+      const key = `${ip}\u0000${from}`
+      const cur = map.get(key) ?? {
+        sourceIp: ip,
+        headerFrom: from,
         count: 0,
         spfFail: 0,
         dkimFail: 0,
         spfAuthPass: 0,
         dkimAuthPass: 0,
-        fromCounts: new Map(),
         categories: {} as FailCategoryCounts
       }
       cur.count += n
@@ -320,32 +334,22 @@ export function buildProblemSources(reports: ReportRow[], limit = 200): ProblemS
       if ((rec.dkimResult ?? '').toLowerCase() !== 'pass') cur.dkimFail += n
       if ((rec.spfRawResult ?? '').toLowerCase() === 'pass') cur.spfAuthPass += n
       if ((rec.dkimRawResult ?? '').toLowerCase() === 'pass') cur.dkimAuthPass += n
-      const from = (rec.headerFrom || '').trim() || '(unbekannt)'
-      cur.fromCounts.set(from, (cur.fromCounts.get(from) ?? 0) + n)
       const category = categorizeFailure(rec, report.domain)
       cur.categories[category] = (cur.categories[category] ?? 0) + n
-      map.set(ip, cur)
+      map.set(key, cur)
     }
   }
 
   return [...map.entries()]
-    .map(([sourceIp, v]) => {
-      let headerFrom: string | null = null
-      let best = 0
-      for (const [from, c] of v.fromCounts) {
-        if (c > best) {
-          best = c
-          headerFrom = from
-        }
-      }
+    .map(([, v]) => {
       return {
-        sourceIp,
+        sourceIp: v.sourceIp,
         count: v.count,
         spfFail: v.spfFail,
         dkimFail: v.dkimFail,
         ...(v.spfAuthPass ? { spfAuthPass: v.spfAuthPass } : {}),
         ...(v.dkimAuthPass ? { dkimAuthPass: v.dkimAuthPass } : {}),
-        headerFrom,
+        headerFrom: v.headerFrom,
         categories: v.categories,
         category: topCategory(v.categories)
       }
@@ -790,11 +794,7 @@ export function isHealthyDmarcOutcome(rec: SerializedRecord): boolean {
   if (rec.passesDmarc) return true
   const disp = (rec.disposition ?? 'none').toLowerCase()
   if (disp === 'reject' || disp === 'quarantine') return true
-  for (const reason of rec.reasons ?? []) {
-    const type = (reason.type ?? '').toLowerCase()
-    if (type === 'local_policy' || type === 'trusted_forwarder') return true
-  }
-  return false
+  return isHealthyForwardingOverride(rec)
 }
 
 /** Aggregate per-domain Ampel stats from records (healthy-outcome rate, not raw DMARC pass rate). */

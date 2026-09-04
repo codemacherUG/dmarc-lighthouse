@@ -343,10 +343,7 @@ function passRateLastDays(reports: ReportRow[], days: number): number | null {
   return Math.round((passing / total) * 1000) / 10
 }
 
-/**
- * Names a new-source alert group by service, not by IP: "Microsoft 365 for example.de"
- * reads as actionable; "40.x.x.x" does not.
- */
+/** Names a new source-IP group by detected network and From domain. */
 function describeSendingSourceGroup(group: NewSendingSourceGroup): string {
   const provider = group.provider
     ? group.provider.replace(/\s+/g, '-')

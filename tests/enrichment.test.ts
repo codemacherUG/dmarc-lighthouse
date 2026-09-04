@@ -296,7 +296,7 @@ describe('domain health / Ampel', () => {
 })
 
 describe('problem sources (rollout)', () => {
-  it('lists delivered auth-fails with SPF/DKIM fail counts', () => {
+  it('keeps delivered auth-fails separate for each source IP and From domain', () => {
     const rows = buildProblemSources([
       report({
         records: [
@@ -331,15 +331,24 @@ describe('problem sources (rollout)', () => {
       })
     ])
 
-    expect(rows).toHaveLength(2)
-    expect(rows[0]).toMatchObject({
+    expect(rows).toHaveLength(3)
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
       sourceIp: '192.0.2.10',
-      count: 7,
-      spfFail: 7,
+      count: 5,
+      spfFail: 5,
       dkimFail: 5,
       headerFrom: 'mail.example.com'
-    })
-    expect(rows[1]?.sourceIp).toBe('198.51.100.1')
+      }),
+      expect.objectContaining({
+        sourceIp: '192.0.2.10',
+        count: 2,
+        spfFail: 2,
+        dkimFail: 0,
+        headerFrom: 'newsletter.example.com'
+      }),
+      expect.objectContaining({ sourceIp: '198.51.100.1', count: 1 })
+    ]))
   })
 
   it('excludes reject fails and local_policy overrides', () => {
@@ -370,14 +379,26 @@ describe('problem sources (rollout)', () => {
             disposition: 'none',
             spfResult: 'fail',
             dkimResult: 'fail'
+          }),
+          record({
+            sourceIp: '192.0.2.53',
+            count: 4,
+            passesDmarc: false,
+            disposition: 'none',
+            spfResult: 'fail',
+            dkimResult: 'fail',
+            reasons: [{ type: 'local_policy', comment: 'arc=fail' }]
           })
         ]
       })
     ])
 
-    expect(rows).toHaveLength(1)
-    expect(rows[0]?.sourceIp).toBe('192.0.2.52')
-    expect(rows[0]?.count).toBe(1)
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => row.sourceIp).sort()).toEqual(['192.0.2.52', '192.0.2.53'])
+    expect(rows.find((row) => row.sourceIp === '192.0.2.53')).toMatchObject({
+      count: 4,
+      category: 'broken'
+    })
   })
 
   it('ignores auth-pass rows', () => {

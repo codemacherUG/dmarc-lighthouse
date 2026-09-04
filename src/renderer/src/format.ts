@@ -138,7 +138,7 @@ export function formatIpMetaHtml(
   }
   if (ptr) {
     bits.push(
-      `<span class="ptr" title="${escapeHtml(t('ipMeta.ptrHint', { ptr }))}">${escapeHtml(ptr)}</span>`
+      `<span class="ptr" title="${escapeHtml(t('ipMeta.ptrHint', { ptr }))}">PTR: ${escapeHtml(ptr)}</span>`
     )
   }
   return bits.length ? `<div class="ip-meta">${bits.join(' ')}</div>` : ''

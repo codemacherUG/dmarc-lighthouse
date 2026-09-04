@@ -838,7 +838,7 @@ body.simulation-mode {
 
 .new-source-item {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 130px 270px 82px;
+  grid-template-columns: minmax(220px, 1fr) 130px minmax(330px, 390px) 180px;
   align-items: center;
   gap: 10px;
   border: 1px solid var(--line);
@@ -868,6 +868,10 @@ body.simulation-mode {
 .new-source-main-action,
 .new-source-delete {
   width: 100%;
+}
+
+.new-source-delete {
+  white-space: nowrap;
 }
 
 .new-source-main-actions {
@@ -905,20 +909,17 @@ body.simulation-mode {
 
 @media (max-width: 620px) {
   .new-source-item {
-    grid-template-columns: minmax(130px, 1fr) 82px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .new-source-item .new-source-ips {
-    grid-column: 1;
-  }
-
+  .new-source-item .new-source-ips,
   .new-source-main-actions {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .new-source-delete {
-    grid-column: 2;
-    grid-row: 2;
+    grid-column: auto;
+    grid-row: auto;
   }
 }
 

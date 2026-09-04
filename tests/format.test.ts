@@ -44,6 +44,7 @@ describe('formatIpMetaHtml', () => {
     expect(html).toContain('title="Die IP ist auf der DNS-Blockliste')
     expect(html).toContain('title="Die IP ist auf der DNS-Allowlist')
     expect(html).toContain('title="Reverse-DNS-Hostname (PTR)')
+    expect(html).toContain('>PTR: mail.example.test</span>')
   })
 
   it('uses only the supplied domain prefixes for a problem source SPF badge', () => {

@@ -1398,7 +1398,7 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
   }
 }
 
-/** Names a group by service, not by IP: "Microsoft 365 for example.de" is actionable. */
+/** Names newly observed source IPs by detected network and From domain. */
 function describeNewSourceGroup(group: NewSendingSourceGroup): string {
   const provider = group.provider ?? t('newSources.unknownProvider')
   return group.domain
@@ -1412,8 +1412,8 @@ function singleIpCidr(ip: string): string {
 }
 
 /**
- * Opens Settings on the "Sende-Dienste" tab with domain/CIDR/ASN prefilled from the group,
- * leaving the service name blank — the user must confirm/name it explicitly before saving.
+ * Opens Settings on the "Sende-Dienste" tab with the From domain prefilled.
+ * Source IPs remain a note because provider IP ranges often change.
  */
 function openSendingServiceFormFor(
   group: NewSendingSourceGroup,
@@ -1449,15 +1449,10 @@ function openSendingServiceFormFor(
   })
   sendingServiceProviderEl.value = ''
   sendingServiceDomainEl.value = group.domain ?? ''
-  sendingServiceCidrEl.value = selectedIps
-    ? ips.map(singleIpCidr).join(', ')
-    : ips.length === 1
-      ? singleIpCidr(ips[0]!)
-      : ''
-  sendingServiceAsnEl.value = selectedIps ? '' : group.asn != null ? String(group.asn) : ''
+  sendingServiceCidrEl.value = ''
+  sendingServiceAsnEl.value = ''
   sendingServiceStatusEl.value = status
-  sendingServiceNoteEl.value =
-    ips.length > 1 ? t('newSources.notePrefillIps', { ips: ips.join(', ') }) : ''
+  sendingServiceNoteEl.value = t('newSources.notePrefillIps', { ips: ips.join(', ') })
   sendingServiceProviderEl.focus()
 }
 
@@ -1654,7 +1649,7 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
 
     const rejectBtn = document.createElement('button')
     rejectBtn.type = 'button'
-    rejectBtn.className = 'btn danger'
+    rejectBtn.className = 'btn secondary'
     rejectBtn.textContent = t('newSources.noService')
     rejectBtn.addEventListener('click', () => {
       rejectBtn.disabled = true
@@ -1758,8 +1753,10 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
 
   const deleteBtn = document.createElement('button')
   deleteBtn.type = 'button'
-  deleteBtn.className = 'btn danger new-source-delete'
+  deleteBtn.className = 'btn secondary new-source-delete'
   deleteBtn.textContent = t('newSources.deleteGroup')
+  deleteBtn.title = t('newSources.deleteGroup')
+  deleteBtn.setAttribute('aria-label', t('newSources.deleteGroup'))
   deleteBtn.addEventListener('click', () => {
     deleteBtn.disabled = true
     void window.api
