@@ -72,6 +72,21 @@ describe('identifySender', () => {
     expect(isCheckPointHarmonyHost('ec2.amazonaws.com')).toBe(false)
   })
 
+  it('identifies shipped recipient-security gateway hostnames', () => {
+    expect(identifySender({ ptr: 'ipw-outbound.inkyphishfence.com' })).toEqual({
+      name: 'INKY',
+      kind: 'gateway'
+    })
+    expect(identifySender({ ptr: 'ba-cbj.cloudflare-email.net' })).toEqual({
+      name: 'Cloudflare Email Security',
+      kind: 'gateway'
+    })
+    expect(identifySender({ ptr: 'nat.perception-point.io' })).toEqual({
+      name: 'Perception Point',
+      kind: 'gateway'
+    })
+  })
+
   it('prefers the product over the network it runs on', () => {
     expect(
       identifySender({ ptr: 'o1.email-smtp.us-east-1.amazonses.com', asOrg: 'Amazon.com' })

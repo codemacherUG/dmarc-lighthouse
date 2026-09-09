@@ -28,7 +28,11 @@ describe('hostHasDomainSuffix', () => {
 describe('parseScannerNoiseHosts', () => {
   it('parses the shipped default as a suffix', () => {
     expect(parseScannerNoiseHosts(DEFAULT_SCANNER_NOISE_HOSTS)).toEqual([
-      { kind: 'suffix', value: 'cloud-sec-av.com' }
+      { kind: 'suffix', value: 'cloud-sec-av.com' },
+      { kind: 'suffix', value: 'inkyphishfence.com' },
+      { kind: 'suffix', value: 'pphosted.com' },
+      { kind: 'suffix', value: 'cloudflare-email.net' },
+      { kind: 'suffix', value: 'perception-point.io' }
     ])
   })
 
@@ -66,8 +70,12 @@ com
 describe('hostMatchesScannerNoise', () => {
   const defaults = parseScannerNoiseHosts(DEFAULT_SCANNER_NOISE_HOSTS)
 
-  it('matches Harmony PTRs via the default suffix', () => {
+  it('matches shipped recipient-security PTRs via their default suffixes', () => {
     expect(hostMatchesScannerNoise('mail-1.eu.cloud-sec-av.com', defaults)).toBe(true)
+    expect(hostMatchesScannerNoise('ipw-outbound.inkyphishfence.com', defaults)).toBe(true)
+    expect(hostMatchesScannerNoise('mx1.pphosted.com', defaults)).toBe(true)
+    expect(hostMatchesScannerNoise('ba-cbj.cloudflare-email.net', defaults)).toBe(true)
+    expect(hostMatchesScannerNoise('nat.perception-point.io', defaults)).toBe(true)
     expect(hostMatchesScannerNoise('ec2.amazonaws.com', defaults)).toBe(false)
     expect(hostMatchesScannerNoise(null, defaults)).toBe(false)
   })

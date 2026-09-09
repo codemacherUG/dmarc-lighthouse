@@ -299,7 +299,7 @@ const de = {
   'filter.removeChip': 'Filter entfernen',
   'filter.hideMailboxNoise': 'Mail-Rauschen ausblenden',
   'filter.hideMailboxNoiseHint':
-    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (Mailbox-IP mit DMARC-Pass-Muster oder bestätigter Weiterleitung, z. B. ARC pass) sowie konfigurierte Empfänger-Scanner (PTR-Domain, Vorgabe: cloud-sec-av.com). Echte Absender bleiben sichtbar.',
+    'Blendet Weiterleitungs- und Report-Echo von Gmail, Outlook, Yahoo und iCloud aus (Mailbox-IP mit DMARC-Pass-Muster oder bestätigter Weiterleitung, z. B. ARC pass) sowie konfigurierte Empfänger-Sicherheitsfilter (PTR-Domain). Echte Absender bleiben sichtbar.',
   'filter.hideMailboxNoiseHintLabel': 'Was ist Mail-Rauschen?',
   'filter.reset': 'Zurücksetzen',
   'filter.resetTitle': 'Alle Filter zurücksetzen',
@@ -513,9 +513,9 @@ const de = {
   'settings.ignoredPlaceholder': 'Eine IP pro Zeile, z. B. 203.0.113.5 oder 66.249.* für Präfixe',
   'settings.ignoredHint':
     'Diese IPs lösen keinen „Neue Quelle"-Alert aus. Präfixe mit * am Ende, z. B. 66.249.*.',
-  'settings.scannerNoise': 'Empfänger-Scanner',
+  'settings.scannerNoise': 'Empfänger-Sicherheitsfilter',
   'settings.noiseIntro':
-    'Zwei Arten von Report-Rauschen. Mailbox-Weiterleitung nur mit dem Dashboard-Filter; Empfänger-Scanner immer aus den Problemquellen.',
+    'Zwei Arten von Report-Rauschen. Mailbox-Weiterleitung nur mit dem Dashboard-Filter; Empfänger-Sicherheitsfilter immer aus den Problemquellen.',
   'settings.mailboxNoise': 'Mailbox-Weiterleitung',
   'settings.mailboxNoiseGoogle': 'Gmail / Google',
   'settings.mailboxNoiseMicrosoft': 'Outlook / Microsoft 365',
@@ -526,7 +526,7 @@ const de = {
     'Auf deren IPs: SPF fail, DKIM pass, DMARC pass oder ein vom Empfänger bestätigter Weiterleitungsfehler (z. B. local_policy mit ARC pass). Wirkt nur, wenn „Mail-Rauschen ausblenden“ an ist.',
   'settings.scannerNoisePlaceholder': 'cloud-sec-av.com',
   'settings.scannerNoiseHint':
-    'PTR-Domains oder einzelne IPs, die als Empfänger-Scanner gelten: nicht in den Problemquellen, und mit „Mail-Rauschen ausblenden“ auch nicht in den Kennzahlen. Eine Domain oder IP pro Zeile. Optional /regex/i. Leer = keine. Vorgabe: cloud-sec-av.com (Check Point Harmony). In der IP-Liste per Rechtsklick übernehmbar.',
+    'PTR-Domains oder einzelne IPs von Empfänger-Sicherheitsfiltern und -Scannern: nicht in den Problemquellen, und mit „Mail-Rauschen ausblenden“ auch nicht in den Kennzahlen. Eine Domain oder IP pro Zeile. Optional /regex/i. Leer = keine. Vorgabe: Check Point Harmony, INKY, Proofpoint, Cloudflare und Perception Point. In der IP-Liste per Rechtsklick übernehmbar.',
   'settings.enrichment': 'Anreicherung',
   'settings.enrichmentFeatures': 'Quellen & Dienste',
   'settings.enrichmentGeoLite': 'GeoLite2 (offline)',
@@ -1751,7 +1751,7 @@ const en: Dict = {
   'filter.removeChip': 'Remove filter',
   'filter.hideMailboxNoise': 'Hide mail noise',
   'filter.hideMailboxNoiseHint':
-    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (mailbox IP with the DMARC-pass pattern or confirmed forwarding, e.g. ARC pass) and configured recipient-side scanners (PTR domain, default: cloud-sec-av.com). Real senders stay visible.',
+    'Hides forwarding and report-echo from Gmail, Outlook, Yahoo and iCloud (mailbox IP with the DMARC-pass pattern or confirmed forwarding, e.g. ARC pass) and configured recipient-side email-security gateways (PTR domain). Real senders stay visible.',
   'filter.hideMailboxNoiseHintLabel': 'What is mail noise?',
   'filter.reset': 'Reset',
   'filter.resetTitle': 'Reset all filters',
@@ -1966,7 +1966,7 @@ const en: Dict = {
     'These IPs will not trigger a “new source” alert. Prefixes end with *, e.g. 66.249.*.',
   'settings.scannerNoise': 'Recipient scanners',
   'settings.noiseIntro':
-    'Two kinds of report noise. Mailbox forwarding only with the dashboard filter; recipient scanners always omitted from problem sources.',
+    'Two kinds of report noise. Mailbox forwarding only with the dashboard filter; recipient-side email-security gateways are always omitted from problem sources.',
   'settings.mailboxNoise': 'Mailbox forwarding',
   'settings.mailboxNoiseGoogle': 'Gmail / Google',
   'settings.mailboxNoiseMicrosoft': 'Outlook / Microsoft 365',
@@ -1977,7 +1977,7 @@ const en: Dict = {
     'On their IPs: SPF fail, DKIM pass, DMARC pass, or a receiver-confirmed forwarding failure (e.g. local_policy with ARC pass). Applies only when “Hide mail noise” is on.',
   'settings.scannerNoisePlaceholder': 'cloud-sec-av.com',
   'settings.scannerNoiseHint':
-    'PTR domains or individual IPs treated as recipient-side scanners: omitted from problem sources, and hidden from KPIs when “Hide mail noise” is on. One domain or IP per line. Optional /regex/i. Empty = none. Default: cloud-sec-av.com (Check Point Harmony). Add from the IP list via right-click.',
+    'PTR domains or individual IPs of recipient-side email-security gateways and scanners: omitted from problem sources, and hidden from KPIs when “Hide mail noise” is on. One domain or IP per line. Optional /regex/i. Empty = none. Defaults: Check Point Harmony, INKY, Proofpoint, Cloudflare, and Perception Point. Add from the IP list via right-click.',
   'settings.enrichment': 'Enrichment',
   'settings.enrichmentFeatures': 'Sources & services',
   'settings.enrichmentGeoLite': 'GeoLite2 (offline)',

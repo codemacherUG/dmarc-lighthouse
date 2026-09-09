@@ -68,6 +68,13 @@ const SENDER_PATTERNS: SenderPattern[] = [
   // Recipient-side Check Point Harmony (Avanan) re-injection — before AWS.
   { name: 'Check Point Harmony', kind: 'gateway', pattern: /\bcloud-sec-av\.com\b|\bavanan\b/i },
   { name: 'Proofpoint', kind: 'gateway', pattern: /\b(pphosted|proofpoint)\b/i },
+  { name: 'INKY', kind: 'gateway', pattern: /\binkyphishfence\.com\b/i },
+  {
+    name: 'Cloudflare Email Security',
+    kind: 'gateway',
+    pattern: /\bcloudflare-email\.net\b/i
+  },
+  { name: 'Perception Point', kind: 'gateway', pattern: /\bperception-point\.io\b/i },
   { name: 'Mimecast', kind: 'gateway', pattern: /\bmimecast\b/i },
   { name: 'Barracuda', kind: 'gateway', pattern: /\b(barracuda|barracudanetworks)\b/i },
   { name: 'Hornetsecurity', kind: 'gateway', pattern: /\b(hornetsecurity|antispameurope)\b/i },

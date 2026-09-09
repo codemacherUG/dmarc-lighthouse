@@ -11,8 +11,12 @@ import { organizationalDomain, normalizeHost as normalizeDomainHost } from './do
 import { ipSortKey } from './ipcidr'
 import type { SenderKind } from './sender'
 
-/** Shipped default: Check Point Harmony / Avanan re-injection hosts. */
-export const DEFAULT_SCANNER_NOISE_HOSTS = 'cloud-sec-av.com'
+/** Shipped defaults: recipient-side email-security gateway re-injection hosts. */
+export const DEFAULT_SCANNER_NOISE_HOSTS = `cloud-sec-av.com
+inkyphishfence.com
+pphosted.com
+cloudflare-email.net
+perception-point.io`
 
 export type ScannerNoiseMatcher =
   | { kind: 'suffix'; value: string }

@@ -1585,7 +1585,7 @@
             </fieldset>
 
             <fieldset class="settings-group">
-              <legend data-i18n="settings.scannerNoise">Empfänger-Scanner</legend>
+              <legend data-i18n="settings.scannerNoise">Empfänger-Sicherheitsfilter</legend>
               <label class="stacked">
                 <textarea
                   id="scannerNoiseHosts"
@@ -1596,11 +1596,11 @@
                 ></textarea>
               </label>
               <p class="hint" data-i18n="settings.scannerNoiseHint">
-                PTR-Domains oder einzelne IPs, die als Empfänger-Scanner gelten: nicht in den
-                Problemquellen, und mit „Mail-Rauschen ausblenden“ auch nicht in den Kennzahlen.
-                Eine Domain oder IP pro Zeile. Optional /regex/i. Leer = keine. Vorgabe:
-                cloud-sec-av.com (Check Point Harmony). In der IP-Liste per Rechtsklick
-                übernehmbar.
+                PTR-Domains oder einzelne IPs von Empfänger-Sicherheitsfiltern und -Scannern:
+                nicht in den Problemquellen, und mit „Mail-Rauschen ausblenden“ auch nicht in
+                den Kennzahlen. Eine Domain oder IP pro Zeile. Optional /regex/i. Leer = keine.
+                Vorgabe: Check Point Harmony, INKY, Proofpoint, Cloudflare und Perception Point.
+                In der IP-Liste per Rechtsklick übernehmbar.
               </p>
             </fieldset>
           </section>
