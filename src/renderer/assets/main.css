@@ -978,6 +978,31 @@ body.simulation-mode {
   margin-top: 0;
 }
 
+.new-source-ip-stats {
+  grid-column: 2 / -1;
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.new-source-ip-stat-group,
+.new-source-ip-stat-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.new-source-ip-stat-label {
+  min-width: 110px;
+  font-weight: 600;
+}
+
+.new-source-ip-stat-value {
+  white-space: nowrap;
+}
+
 .new-source-ip-row + .new-source-ip-row {
   border-top: 1px solid var(--line);
 }

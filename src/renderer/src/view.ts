@@ -1467,7 +1467,41 @@ function reviewIpsLabel(count: number): string {
   return t(count === 1 ? 'newSources.reviewIp' : 'newSources.reviewIps', { count })
 }
 
-function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
+function summarizeNewSourceIp(
+  ip: string,
+  reports: ReportRow[]
+): {
+  passing: number
+  failing: number
+  rejected: number
+  notRejected: number
+  unknown: number
+} | null {
+  let passing = 0
+  let failing = 0
+  let rejected = 0
+  let notRejected = 0
+  let unknown = 0
+  let found = false
+
+  for (const report of reports) {
+    for (const record of report.records) {
+      if (record.sourceIp !== ip) continue
+      found = true
+      const count = record.count || 0
+      if (record.passesDmarc) passing += count
+      else failing += count
+
+      if (record.disposition == null || record.disposition === '') unknown += count
+      else if (record.disposition.toLowerCase() === 'reject') rejected += count
+      else notRejected += count
+    }
+  }
+
+  return found ? { passing, failing, rejected, notRejected, unknown } : null
+}
+
+function renderNewSourceItem(group: NewSendingSourceGroup, reports: ReportRow[]): HTMLDivElement {
   const row = document.createElement('div')
   row.className = 'new-source-item'
 
@@ -1602,6 +1636,57 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
     metadata.dataset.sourceDomain = group.domain ?? ''
     metadata.innerHTML = formatIpMetaHtml(ip, null, null, { sendingDomain: group.domain })
 
+    const ipStats = document.createElement('div')
+    ipStats.className = 'new-source-ip-stats'
+    const summary = summarizeNewSourceIp(ip, reports)
+    if (summary) {
+      const dmarcGroup = document.createElement('div')
+      dmarcGroup.className = 'new-source-ip-stat-group'
+      const dmarcLabel = document.createElement('span')
+      dmarcLabel.className = 'new-source-ip-stat-label'
+      dmarcLabel.textContent = t('newSources.dmarcLabel')
+      dmarcGroup.appendChild(dmarcLabel)
+      const dmarcValues = document.createElement('div')
+      dmarcValues.className = 'new-source-ip-stat-values'
+      const passed = document.createElement('span')
+      passed.className = 'new-source-ip-stat-value pass'
+      passed.textContent = t('newSources.passedCount', { count: summary.passing })
+      dmarcValues.appendChild(passed)
+      const failed = document.createElement('span')
+      failed.className = 'new-source-ip-stat-value fail'
+      failed.textContent = t('newSources.failedCount', { count: summary.failing })
+      dmarcValues.appendChild(failed)
+      dmarcGroup.appendChild(dmarcValues)
+      ipStats.appendChild(dmarcGroup)
+
+      const dispositionGroup = document.createElement('div')
+      dispositionGroup.className = 'new-source-ip-stat-group'
+      const dispositionLabel = document.createElement('span')
+      dispositionLabel.className = 'new-source-ip-stat-label'
+      dispositionLabel.textContent = t('newSources.dispositionLabel')
+      dispositionGroup.appendChild(dispositionLabel)
+      const dispositionValues = document.createElement('div')
+      dispositionValues.className = 'new-source-ip-stat-values'
+      const rejected = document.createElement('span')
+      rejected.className = 'new-source-ip-stat-value fail'
+      rejected.textContent = t('newSources.rejectedCount', { count: summary.rejected })
+      dispositionValues.appendChild(rejected)
+      const notRejected = document.createElement('span')
+      notRejected.className = 'new-source-ip-stat-value'
+      notRejected.textContent = t('newSources.notRejectedCount', { count: summary.notRejected })
+      dispositionValues.appendChild(notRejected)
+      if (summary.unknown > 0) {
+        const unknown = document.createElement('span')
+        unknown.className = 'new-source-ip-stat-value warn'
+        unknown.textContent = t('newSources.unknownDispositionCount', { count: summary.unknown })
+        dispositionValues.appendChild(unknown)
+      }
+      dispositionGroup.appendChild(dispositionValues)
+      ipStats.appendChild(dispositionGroup)
+    } else {
+      ipStats.textContent = t('newSources.ipStatsUnavailable')
+    }
+
     const ipActions = document.createElement('div')
     ipActions.className = 'new-source-ip-actions'
 
@@ -1671,6 +1756,7 @@ function renderNewSourceItem(group: NewSendingSourceGroup): HTMLDivElement {
 
     ipRow.appendChild(ipActions)
     ipRow.appendChild(metadata)
+    ipRow.appendChild(ipStats)
 
     ipList.appendChild(ipRow)
   }
@@ -1953,7 +2039,7 @@ function renderNewSendingSourcesBanner(result: AnalyzeResult | null): void {
   const list = document.createElement('div')
   list.className = 'new-sources-list'
   for (const group of groups) {
-    list.appendChild(renderNewSourceItem(group))
+    list.appendChild(renderNewSourceItem(group, result.reports))
   }
   newSendingSourcesBannerEl.appendChild(list)
 }
