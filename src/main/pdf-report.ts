@@ -222,7 +222,7 @@ async function printHtmlInHost(win: BrowserWindow, html: string): Promise<Buffer
       pageSize: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
-      margins: { marginType: 'none' }
+      margins: { top: 0, bottom: 0, left: 0, right: 0 }
     })
     if (!looksLikePdf(data)) throw new Error('Printing failed')
     return data
