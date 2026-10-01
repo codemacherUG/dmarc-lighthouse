@@ -42,6 +42,7 @@
     "electron-updater": "^6.8.9",
     "imapflow": "^1.6.5",
     "leaflet": "^1.9.4",
+    "mailparser": "^3.9.32",
     "maxmind": "^5.0.7",
     "tar": "^7.5.22"
   },

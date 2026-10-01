@@ -275,6 +275,37 @@ export interface ForensicReportRow {
   feedbackType: string | null
 }
 
+export interface TlsRptFailureDetailRow {
+  resultType: string
+  sendingMtaIp: string | null
+  receivingMxHostname: string | null
+  receivingIp: string | null
+  failedSessionCount: number
+  additionalInformation: string | null
+  failureReasonCode: string | null
+}
+
+export interface TlsRptPolicyRow {
+  policyType: string
+  policyString: string[]
+  policyDomain: string
+  mxHosts: string[]
+  successfulSessions: number
+  failedSessions: number
+  failureDetails: TlsRptFailureDetailRow[]
+}
+
+export interface TlsRptReportRow {
+  id: string
+  reportId: string
+  orgName: string
+  dateBegin: string
+  dateEnd: string
+  successfulSessions: number
+  failedSessions: number
+  policies: TlsRptPolicyRow[]
+}
+
 export interface AlignmentBreakdown {
   pass: number
   fail: number
@@ -355,6 +386,10 @@ export interface ImportSummary {
   updated: number
   /** Forensic reports newly stored. */
   addedForensic: number
+  /** TLS-RPT reports newly stored. */
+  addedTlsRpt: number
+  /** TLS-RPT reports that replaced an existing cached report. */
+  updatedTlsRpt: number
   /** False when the cache write failed and the data only exists for this session. */
   persisted: boolean
 }
@@ -374,6 +409,8 @@ export interface AnalyzeResult {
   reports: ReportRow[]
   /** Forensic / RUF failure reports (sanitized). */
   forensicReports: ForensicReportRow[]
+  /** SMTP TLS reporting aggregates, kept separate from DMARC reports. */
+  tlsRptReports: TlsRptReportRow[]
   skipped: number
   errors: string[]
   /** True when result came (partly) from local cache. */
@@ -382,6 +419,8 @@ export interface AnalyzeResult {
   newReports?: number
   /** Newly parsed forensic reports in this fetch. */
   newForensicReports?: number
+  /** Newly parsed TLS-RPT reports in this fetch. */
+  newTlsRptReports?: number
   /** Source IPs that were not seen in any earlier fetch of this account. */
   newSourceIps?: string[]
   /** New source IPs grouped by recognized provider + From domain, with inventory status. */
@@ -813,6 +852,7 @@ export function emptyAnalyzeResult(): AnalyzeResult {
     dashboard: emptyDashboard(),
     reports: [],
     forensicReports: [],
+    tlsRptReports: [],
     skipped: 0,
     errors: []
   }

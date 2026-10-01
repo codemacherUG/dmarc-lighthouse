@@ -184,6 +184,15 @@ async function captureLocaleSet(
   await wait(400)
   await capture(win, join(outDir, 'tables.png'))
 
+  await api(win, 'await api.prepareTlsRptDemo()')
+  await wait(300)
+  await capture(win, join(outDir, 'tlsrpt.png'))
+  await api(win, 'api.openTlsRptDetailDemo()')
+  await wait(300)
+  await capture(win, join(outDir, 'tlsrpt-details.png'))
+  await api(win, 'api.closeTlsRptDetailDemo()')
+  await wait(200)
+
   await api(
     win,
     `const target = document.querySelector('.ip-map-panel')

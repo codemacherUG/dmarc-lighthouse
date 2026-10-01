@@ -20,7 +20,8 @@ import {
   filterDomainEl,
   simulationModeEl,
   rolloutDialog,
-  settingsDialog
+  settingsDialog,
+  tlsRptDetailDialog
 } from './dom'
 import { openEmailInspect, seedEmailInspect } from './email-inspect-ui'
 import { openRollout, seedRolloutDns } from './rollout-ui'
@@ -256,6 +257,33 @@ export function installScreenshotApi(): void {
     },
     closeDiagnosis(): void {
       diagnosisDialog.close()
+    },
+    async prepareTlsRptDemo(): Promise<void> {
+      filterDomainEl.value = 'example.com'
+      applyView()
+      const widget = document.querySelector<HTMLElement>('[data-widget="tlsrpt"]')
+      widget?.classList.remove('is-collapsed')
+      const toggle = widget?.querySelector<HTMLButtonElement>('.widget-collapse-toggle')
+      if (toggle) {
+        toggle.textContent = '▴'
+        toggle.setAttribute('aria-expanded', 'true')
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      if (widget) {
+        const top = widget.getBoundingClientRect().top + window.scrollY - 72
+        window.scrollTo({ top: Math.max(0, top), behavior: 'instant' })
+      }
+    },
+    openTlsRptDetailDemo(): void {
+      const row = document.querySelector<HTMLTableRowElement>('#tlsrpt-body tr[data-report-index]')
+      if (!row) throw new Error('No TLS-RPT demo row found')
+      row.click()
+    },
+    closeTlsRptDetailDemo(): void {
+      if (tlsRptDetailDialog.open) tlsRptDetailDialog.close()
+      filterDomainEl.value = ''
+      applyView()
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     },
     openSimulationDemo(): void {
       if (settingsDialog.open) settingsDialog.close()

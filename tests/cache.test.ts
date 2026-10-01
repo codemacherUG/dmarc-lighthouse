@@ -25,8 +25,14 @@ import {
   upsertIpEnrichment,
   upsertSendingService
 } from '../src/main/cache'
-import type { DnsCheckResult, ReportRow, TransportSecurityResult } from '../src/shared/types'
+import type {
+  DnsCheckResult,
+  ReportRow,
+  TlsRptReportRow,
+  TransportSecurityResult
+} from '../src/shared/types'
 import { loadCachedAnalyzeResult } from '../src/main/imap'
+import { importLocalFiles } from '../src/main/import'
 import { clearIpInfoMemoryCache } from '../src/main/ipinfo'
 
 function sampleReport(id: string): ReportRow {
@@ -56,6 +62,29 @@ function sampleReport(id: string): ReportRow {
         dkimSelectors: ['s1'],
         passesDmarc: true,
         reasons: []
+      }
+    ]
+  }
+}
+
+function sampleTlsRptReport(): TlsRptReportRow {
+  return {
+    id: 'tls-hash',
+    reportId: 'tls-1',
+    orgName: 'mx.example.net',
+    dateBegin: '2026-07-01T00:00:00.000Z',
+    dateEnd: '2026-07-02T00:00:00.000Z',
+    successfulSessions: 15,
+    failedSessions: 2,
+    policies: [
+      {
+        policyType: 'sts',
+        policyString: ['version: STSv1'],
+        policyDomain: 'example.com',
+        mxHosts: ['mail.example.com'],
+        successfulSessions: 15,
+        failedSessions: 2,
+        failureDetails: []
       }
     ]
   }
@@ -156,6 +185,7 @@ describe('sqlite cache', () => {
     saveCache({
       accountKey: 'acct1',
       reports: [sampleReport('r1')],
+      tlsRptReports: [sampleTlsRptReport()],
       forensicReports: [
         {
           id: 'f1',
@@ -190,6 +220,7 @@ describe('sqlite cache', () => {
     expect(loaded.reports[0].records[0].spfRawResult).toBe('pass')
     expect(loaded.forensicReports).toHaveLength(1)
     expect(loaded.forensicReports[0].sourceIp).toBe('203.0.113.1')
+    expect(loaded.tlsRptReports).toEqual([sampleTlsRptReport()])
   })
 
   it('migrates version 10 report records to retain raw authentication results', () => {
@@ -240,11 +271,16 @@ describe('sqlite cache', () => {
     const version = migrated
       .prepare("SELECT value FROM schema_meta WHERE key = 'version'")
       .get() as { value: string }
-    migrated.close()
     expect(columns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['dkim_raw_result', 'spf_raw_result'])
     )
-    expect(version.value).toBe('12')
+    expect(version.value).toBe('13')
+    expect(
+      migrated
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tlsrpt_reports'")
+        .get()
+    ).toBeTruthy()
+    migrated.close()
   })
 
   it('persists pending source IPs until they are acknowledged or the cache is cleared', () => {
@@ -552,7 +588,13 @@ describe('sqlite cache', () => {
     imported.records = [{ ...imported.records[0], sourceIp: '198.51.100.9' }]
     const stored = importReports({ accountKey: 'acct1', reports: [imported] })
 
-    expect(stored).toEqual({ addedReports: 1, updatedReports: 0, addedForensic: 0 })
+    expect(stored).toEqual({
+      addedReports: 1,
+      updatedReports: 0,
+      addedForensic: 0,
+      addedTlsRpt: 0,
+      updatedTlsRpt: 0
+    })
     const loaded = loadCachedReports('acct1')
     expect(loaded.reports.map((r) => r.reportId).sort()).toEqual(['r1', 'r2'])
     expect(loaded.meta.lastUid).toBe(42)
@@ -571,7 +613,13 @@ describe('sqlite cache', () => {
     again.records = [...again.records, { ...again.records[0], sourceIp: '198.51.100.9' }]
     const stored = importReports({ accountKey: 'acct1', reports: [again] })
 
-    expect(stored).toEqual({ addedReports: 0, updatedReports: 1, addedForensic: 0 })
+    expect(stored).toEqual({
+      addedReports: 0,
+      updatedReports: 1,
+      addedForensic: 0,
+      addedTlsRpt: 0,
+      updatedTlsRpt: 0
+    })
     const loaded = loadCachedReports('acct1')
     expect(loaded.reports).toHaveLength(1)
     expect(loaded.reports[0].records).toHaveLength(2)
@@ -587,6 +635,45 @@ describe('sqlite cache', () => {
     const loaded = loadCachedReports(LOCAL_IMPORT_ACCOUNT_KEY)
     expect(loaded.reports).toHaveLength(1)
     expect(loaded.meta.lastUid).toBe(0)
+  })
+
+  it('imports TLS-RPT JSON into the active account cache', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    const report = {
+      'organization-name': 'mx.example.net',
+      'date-range': {
+        'start-datetime': '2026-09-29T00:00:00Z',
+        'end-datetime': '2026-09-30T00:00:00Z'
+      },
+      'report-id': 'tls-import-1',
+      policies: [
+        {
+          policy: {
+            'policy-type': 'sts',
+            'policy-domain': 'example.com',
+            'policy-string': ['version: STSv1', 'mode: enforce']
+          },
+          summary: {
+            'total-successful-session-count': 12,
+            'total-failure-session-count': 1
+          },
+          'failure-details': []
+        }
+      ]
+    }
+    const account = { user: 'tls@example.com', host: 'imap.example.com', mailbox: 'INBOX' }
+    const result = await importLocalFiles(
+      [{ name: 'tlsrpt-example.json', data: Buffer.from(JSON.stringify(report)) }],
+      account
+    )
+
+    expect(result.imported).toMatchObject({ addedTlsRpt: 1, persisted: true })
+    expect(result.tlsRptReports).toHaveLength(1)
+    expect(result.tlsRptReports[0].failedSessions).toBe(1)
+    expect(
+      loadCachedReports(accountKeyFor(account.user, account.host, account.mailbox)).tlsRptReports
+    ).toHaveLength(1)
   })
 
   it('keeps permanent DNS history and detects DNS drift outside cache clearing', () => {

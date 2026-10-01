@@ -8,8 +8,15 @@ import {
   type DmarcReport
 } from '@koduhai/dmarc-parser'
 import { analyzeFromReports } from '../shared/analyze'
-import type { AnalyzeResult, ForensicReportRow, ReportRow, SerializedRecord } from '../shared/types'
+import type {
+  AnalyzeResult,
+  ForensicReportRow,
+  ReportRow,
+  SerializedRecord,
+  TlsRptReportRow
+} from '../shared/types'
 import { ForensicParseError, isLikelyForensicMime, parseForensicEmail } from './forensic'
+import { parseTlsRptFile, parseTlsRptMime } from './tlsrpt-report'
 
 function toIso(date: Date | null | undefined): string | null {
   if (!date) return null
@@ -83,12 +90,13 @@ async function parseMimeBuffer(source: Buffer): Promise<ParsedMime> {
 export interface MimeParseBatch {
   reports: ReportRow[]
   forensicReports: ForensicReportRow[]
+  tlsRptReports: TlsRptReportRow[]
   skipped: number
   errors: string[]
 }
 
 export function emptyMimeParseBatch(): MimeParseBatch {
-  return { reports: [], forensicReports: [], skipped: 0, errors: [] }
+  return { reports: [], forensicReports: [], tlsRptReports: [], skipped: 0, errors: [] }
 }
 
 function parseErrorMessage(err: unknown): string {
@@ -105,11 +113,22 @@ export async function addMimeSource(
   uid: number,
   source: Buffer
 ): Promise<void> {
+  let hasTlsRpt = false
   try {
+    try {
+      const tlsRptReports = await parseTlsRptMime(source)
+      if (tlsRptReports.length > 0) {
+        batch.tlsRptReports.push(...tlsRptReports)
+        hasTlsRpt = true
+      }
+    } catch {
+      // Continue with the existing DMARC and forensic parsers.
+    }
     const parsed = await parseMimeBuffer(source)
     if (parsed.kind === 'aggregate') batch.reports.push(serializeReport(parsed.report))
     else batch.forensicReports.push(parsed.report)
   } catch (err) {
+    if (hasTlsRpt) return
     batch.skipped += 1
     if (batch.errors.length < 50) {
       batch.errors.push(`UID ${uid}: ${parseErrorMessage(err)}`)
@@ -129,7 +148,9 @@ export async function parseMimeSources(
     errors: batch.errors,
     newReports: batch.reports.length,
     newForensicReports: batch.forensicReports.length,
-    forensicReports: batch.forensicReports
+    forensicReports: batch.forensicReports,
+    newTlsRptReports: batch.tlsRptReports.length,
+    tlsRptReports: batch.tlsRptReports
   })
 }
 
@@ -138,15 +159,27 @@ export async function parseLocalBuffers(
 ): Promise<AnalyzeResult> {
   const reports: DmarcReport[] = []
   const forensicReports: ForensicReportRow[] = []
+  const tlsRptReports: TlsRptReportRow[] = []
   const errors: string[] = []
   let skipped = 0
 
   for (const file of files) {
+    let fileTlsRptReports: TlsRptReportRow[] = []
     try {
+      fileTlsRptReports = await parseTlsRptFile(file.name, file.data)
+      tlsRptReports.push(...fileTlsRptReports)
+      if (
+        fileTlsRptReports.length > 0 &&
+        !file.name.toLowerCase().endsWith('.eml') &&
+        !file.name.toLowerCase().endsWith('.mime')
+      ) {
+        continue
+      }
       const parsed = await parseLocalBuffer(file.name, file.data)
       if (parsed.kind === 'aggregate') reports.push(parsed.report)
       else forensicReports.push(parsed.report)
     } catch (err) {
+      if (fileTlsRptReports.length > 0) continue
       skipped += 1
       const message = parseErrorMessage(err)
       errors.push(`${file.name}: ${message}`)
@@ -159,7 +192,9 @@ export async function parseLocalBuffers(
     errors: errors.slice(0, 50),
     newReports: rows.length,
     newForensicReports: forensicReports.length,
-    forensicReports
+    forensicReports,
+    newTlsRptReports: tlsRptReports.length,
+    tlsRptReports
   })
 }
 

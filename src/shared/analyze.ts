@@ -18,6 +18,7 @@ import type {
   ProblemSourceRow,
   ReportRow,
   SerializedRecord,
+  TlsRptReportRow,
   VolumePoint
 } from './types'
 import { isRelaxedAligned } from './domain'
@@ -539,18 +540,23 @@ export function analyzeFromReports(
     newReports?: number
     newForensicReports?: number
     forensicReports?: ForensicReportRow[]
+    newTlsRptReports?: number
+    tlsRptReports?: TlsRptReportRow[]
   }
 ): AnalyzeResult {
   const forensicReports = extras?.forensicReports ?? []
+  const tlsRptReports = extras?.tlsRptReports ?? []
   if (reports.length === 0) {
     return {
       ...emptyAnalyzeResult(),
       forensicReports,
+      tlsRptReports,
       skipped: extras?.skipped ?? 0,
       errors: extras?.errors ?? [],
       fromCache: extras?.fromCache,
       newReports: extras?.newReports ?? 0,
-      newForensicReports: extras?.newForensicReports ?? 0
+      newForensicReports: extras?.newForensicReports ?? 0,
+      newTlsRptReports: extras?.newTlsRptReports ?? 0
     }
   }
 
@@ -584,11 +590,13 @@ export function analyzeFromReports(
     dashboard: buildDashboard(reports),
     reports,
     forensicReports,
+    tlsRptReports,
     skipped: extras?.skipped ?? 0,
     errors: extras?.errors ?? [],
     fromCache: extras?.fromCache,
     newReports: extras?.newReports,
-    newForensicReports: extras?.newForensicReports
+    newForensicReports: extras?.newForensicReports,
+    newTlsRptReports: extras?.newTlsRptReports
   }
 }
 
@@ -777,7 +785,9 @@ export function applyDashboardFilter(full: AnalyzeResult, filter: DashboardFilte
       fromCache: full.fromCache,
       newReports: full.newReports,
       newForensicReports: full.newForensicReports,
-      forensicReports
+      forensicReports,
+      newTlsRptReports: full.newTlsRptReports,
+      tlsRptReports: full.tlsRptReports
     }),
     filter.scannerNoiseIps
   )

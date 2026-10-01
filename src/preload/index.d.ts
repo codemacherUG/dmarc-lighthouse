@@ -99,6 +99,9 @@ declare global {
       closeDns: () => void
       openDiagnosisDemo: () => void
       closeDiagnosis: () => void
+      prepareTlsRptDemo: () => Promise<void>
+      openTlsRptDetailDemo: () => void
+      closeTlsRptDetailDemo: () => void
       openSimulationDemo: () => void
       closeSimulationDemo: () => void
       openEmailInspectDemo: () => { width: number; height: number }
