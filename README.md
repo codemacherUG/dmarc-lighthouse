@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  Desktop app for fetching, importing, and analyzing DMARC aggregate and forensic reports.<br />
+  Desktop app for fetching, importing, and analyzing DMARC aggregate, forensic, and TLS-RPT reports.<br />
   IMAP mailbox or local files → KPIs, alignment charts, and detail tables — plus inspecting a single email’s path and authentication.
 </p>
 
@@ -70,6 +70,16 @@ Reporting organizations, source IPs (including reverse DNS), From domains, indiv
 
 ![Tables with organizations, IPs, domains, and report details](docs/screenshots/en/tables.png)
 
+### TLS-RPT reports
+
+Import TLS-RPT reports as JSON, JSON.GZ, or EML/MIME, or fetch them from the configured IMAP mailbox. The list has one row per policy. The domain filter also applies to TLS-RPT; its options include domains found in aggregate, forensic, and TLS-RPT reports. Totals reflect only policies matching the selected domain.
+
+Click a row, or focus it and press Enter or Space, to open the detail dialog. It shows the report ID and period, policy strings, MX hosts, session totals, and parsed failure details (result type, reason code, session count, sending/receiving hosts and IPs, and additional information). Only fields supported by the parser are stored; the original JSON and unknown extension fields are not retained. A [sample report](docs/examples/tlsrpt-sample.json) is available to import.
+
+![TLS-RPT reports with the domain filter](docs/screenshots/en/tlsrpt.png)
+
+![TLS-RPT detail dialog with policy and failure data](docs/screenshots/en/tlsrpt-details.png)
+
 ### New source IPs & sending services
 
 A newly observed source IP is not automatically a new sending service. Reverse DNS (PTR) only describes the IP's hostname; the **From domain** is the sender identity relevant to DMARC. Infrastructure IPs from Microsoft 365, Infomaniak, or hosting providers can change. Mark isolated, unremarkable IPs as seen, and save only a confirmed provider as a sending service for a From domain.
@@ -128,9 +138,10 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Archive folder**          | Optional “move after fetch” folder (selectable from IMAP list; create missing folders); inbox stays monitored while reports land in e.g. `Archive/Aggregate`                                                                     |
 | **Auth**                    | App password **or** OAuth (PKCE) for Gmail and Microsoft 365 IMAP                                                                                                                                                                |
 | **Multiple accounts**       | Any number of IMAP accounts/profiles with separate caches; custom display name (default: email domain); switch via toolbar                                                                                                       |
-| **File import**             | XML, GZ, ZIP, EML/MIME — dialog or drag & drop; imports go into the cache and are still there after a restart                                                                                                                    |
-| **Local cache**             | SQLite store for aggregate + forensic reports; legacy JSON caches are migrated once                                                                                                                                              |
+| **File import**             | DMARC: XML, GZ, ZIP, EML/MIME; TLS-RPT: JSON, JSON.GZ, or EML/MIME — dialog or drag & drop; imports go into the cache and are still there after a restart                                                                        |
+| **Local cache**             | SQLite store for aggregate, forensic, and TLS-RPT reports; legacy JSON caches are migrated once                                                                                                                                  |
 | **Forensic / RUF**          | ARF failure reports (sanitized headers); separate table in the UI                                                                                                                                                                |
+| **TLS-RPT reports**         | Import JSON/JSON.GZ or EML/MIME, or fetch via IMAP; filter by domain, inspect session counts and failure reasons, and open policy rows for MTA/MX, IP, and reason-code details. Unknown JSON fields are not retained                 |
 | **Aggregate report schema** | Ingests both the legacy (RFC 7489) and the RFC 9990 DMARC 2.0 aggregate report XML schema (new namespace/extensions), covered by regression fixtures                                                                             |
 | **Dashboard**               | Reports, messages, pass/fail, pass rate, date range                                                                                                                                                                              |
 | **Charts**                  | Doughnuts for DMARC/SPF/DKIM alignment and disposition (none/quarantine/reject); volume & pass rate over time                                                                                                                    |
@@ -143,7 +154,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **What-if simulation**      | Dashboard-level simulation for one domain (`p=reject`, strict DKIM, `sp=reject`): KPIs, charts, tables, dispositions, and problem sources are recalculated from simulated local report data                                      |
 | **Source map**              | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP                                                                                                                                                 |
 | **Domain health**           | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter                                                                                                                                              |
-| **Filters**                 | Date range (7 / 30 / 90 days / all / custom), domain, applied disposition (Reject / Not reject), plus drill-down by org, source IP, and From domain                                                                              |
+| **Filters**                 | Date range (7 / 30 / 90 days / all / custom), domain (aggregate, forensic, and TLS-RPT lists), applied disposition (Reject / Not reject), plus drill-down by org, source IP, and From domain                                   |
 | **Mailbox noise filter**    | Optional filter for report-echo from Gmail, Outlook, Yahoo, iCloud (providers togglable in Settings → Noise) **and configurable recipient scanners** (default `cloud-sec-av.com`)                                                |
 | **DNS check**               | Live lookup of DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) via the RFC 9989 tree walk, SPF, DKIM selectors (auto-collected from reports or manual), BIMI (`l`, `a`), and optional DNSSEC through a configurable DoH resolver |
 | **DNS history & drift**     | Permanent local versions of DMARC, SPF, DKIM, BIMI, TLS-RPT, and MTA-STS checks; detects record drift and correlates changes with later DMARC fail-rate increases from stored reports                                            |
@@ -204,7 +215,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 1. Open **Settings** → **Accounts**, set provider/host and either an app password or OAuth, then save. Add further accounts if needed.
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, and autostart. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
-4. Narrow with date range (including custom From/To), domain, **disposition** (Reject / Not reject), domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. Review charts, aggregate tables, the forensic/RUF table, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual reports as ZIP.
+4. Narrow with date range (including custom From/To), domain, **disposition** (Reject / Not reject), domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. The domain filter also applies to forensic and TLS-RPT lists; click a TLS-RPT row to inspect its policy and failure details. Review charts, tables, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual aggregate reports as ZIP.
 5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, DKIM selectors from the reports or entered manually, BIMI, and optional DNSSEC). DNSSEC can be disabled or switched to a custom RFC 8484 DoH URL in **Settings → Fetch & notifications**. Each real check is versioned locally; the result panel shows recent DNS drift and any matching report correlation, e.g. a later fail-rate jump after an SPF change.
 6. Open **Tools → Inspect email** to load an `.eml` or `.msg` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
 7. Plan the next step towards `p=reject` under **Tools → Policy rollout**: recommendation, open items, senders to fix, and a staging plan of ready-to-copy records.

@@ -247,7 +247,39 @@ export function buildDemoAnalyzeResult(): AnalyzeResult {
   return analyzeFromReports(buildDemoReports(), {
     fromCache: true,
     newReports: 0,
-    forensicReports: buildDemoForensic()
+    forensicReports: buildDemoForensic(),
+    tlsRptReports: [
+      {
+        id: 'demo-tlsrpt-1',
+        reportId: 'demo-report-2026-09-30',
+        orgName: 'mx.demo-provider.example',
+        dateBegin: '2026-09-29T00:00:00.000Z',
+        dateEnd: '2026-09-30T00:00:00.000Z',
+        successfulSessions: 1210,
+        failedSessions: 3,
+        policies: [
+          {
+            policyType: 'sts',
+            policyString: ['version: STSv1', 'mode: enforce'],
+            policyDomain: 'example.com',
+            mxHosts: ['mail.example.com'],
+            successfulSessions: 1210,
+            failedSessions: 3,
+            failureDetails: [
+              {
+                resultType: 'validation-failure',
+                sendingMtaIp: '192.0.2.45',
+                receivingMxHostname: 'mail.example.com',
+                receivingIp: '192.0.2.25',
+                failedSessionCount: 3,
+                additionalInformation: 'The certificate chain could not be validated.',
+                failureReasonCode: 'certificate-expired'
+              }
+            ]
+          }
+        ]
+      }
+    ]
   })
 }
 

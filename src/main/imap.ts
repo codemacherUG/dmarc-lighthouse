@@ -9,6 +9,7 @@ import type {
   MailboxListEntry,
   NewSendingSourceGroup,
   ReportRow,
+  TlsRptReportRow,
   TestConnectionResult
 } from '../shared/types'
 import {
@@ -26,6 +27,7 @@ import {
   loadCachedReports,
   mergeForensicReports,
   mergeReports,
+  mergeTlsRptReports,
   reseedKnownIps,
   saveCache
 } from './cache'
@@ -38,6 +40,7 @@ export type ProgressCallback = (progress: AnalyzeProgress) => void
 interface MailboxFetchResult {
   reports: ReportRow[]
   forensicReports: ForensicReportRow[]
+  tlsRptReports: TlsRptReportRow[]
   skipped: number
   errors: string[]
   uidList: number[]
@@ -45,7 +48,15 @@ interface MailboxFetchResult {
 }
 
 function emptyMailboxFetch(maxUid: number): MailboxFetchResult {
-  return { reports: [], forensicReports: [], skipped: 0, errors: [], uidList: [], maxUid }
+  return {
+    reports: [],
+    forensicReports: [],
+    tlsRptReports: [],
+    skipped: 0,
+    errors: [],
+    uidList: [],
+    maxUid
+  }
 }
 
 /**
@@ -287,11 +298,12 @@ export async function createMailbox(
 
 export async function loadCachedAnalyzeResult(settings: ImapConnectionInput): Promise<AnalyzeResult> {
   const key = accountKeyFor(settings.user, settings.host, settings.mailbox)
-  const { reports, forensicReports, meta } = loadCachedReports(key)
+  const { reports, forensicReports, tlsRptReports, meta } = loadCachedReports(key)
   const result = analyzeFromReports(reports, {
     fromCache: true,
     newReports: 0,
-    forensicReports
+    forensicReports,
+    tlsRptReports
   })
   result.newSourceIps = []
   result.newSendingSources = await resolveNewSendingSources(meta.pendingSourceIps, reports)
@@ -327,7 +339,7 @@ async function fetchFromMailbox(
 
     const filter = subjectFilter.trim()
     const searchQuery: Record<string, unknown> = filter
-      ? { subject: filter }
+      ? { or: [{ subject: filter }, { subject: 'Report domain:' }] }
       : { all: true as const }
     if (lastUid > 0) {
       searchQuery.uid = `${lastUid + 1}:*`
@@ -367,7 +379,7 @@ async function fetchFromMailbox(
           phase: 'fetching',
           processed,
           total,
-          parsed: batch.reports.length + batch.forensicReports.length,
+          parsed: batch.reports.length + batch.forensicReports.length + batch.tlsRptReports.length,
           skipped: batch.skipped,
           message: t('imap.loaded', { processed, total })
         })
@@ -377,6 +389,7 @@ async function fetchFromMailbox(
     return {
       reports: batch.reports,
       forensicReports: batch.forensicReports,
+      tlsRptReports: batch.tlsRptReports,
       skipped: batch.skipped,
       errors: batch.errors,
       uidList,
@@ -548,6 +561,7 @@ export async function fetchAndAnalyze(
         sourceFetch.forensicReports,
         archiveFetch.forensicReports
       )
+      const freshTlsRpt = mergeTlsRptReports(sourceFetch.tlsRptReports, archiveFetch.tlsRptReports)
       const skipped = sourceFetch.skipped + archiveFetch.skipped
       const errors = [...sourceFetch.errors, ...archiveFetch.errors].slice(0, 50)
       const totalFetched = sourceFetch.uidList.length + archiveFetch.uidList.length
@@ -558,7 +572,9 @@ export async function fetchAndAnalyze(
           notes.push(...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress)))
         }
         const base =
-          cached.reports.length > 0 || cached.forensicReports.length > 0
+          cached.reports.length > 0 ||
+          cached.forensicReports.length > 0 ||
+          cached.tlsRptReports.length > 0
             ? t('imap.noNewCached', { count: cached.reports.length })
             : t('imap.noneFound')
         onProgress({
@@ -572,7 +588,8 @@ export async function fetchAndAnalyze(
         const cachedResult = analyzeFromReports(cached.reports, {
           fromCache: true,
           newReports: 0,
-          forensicReports: cached.forensicReports
+          forensicReports: cached.forensicReports,
+          tlsRptReports: cached.tlsRptReports
         })
         if (cached.meta.knownIpsResetPending) {
           const allIps = new Set<string>()
@@ -595,6 +612,7 @@ export async function fetchAndAnalyze(
 
       const merged = mergeReports(cached.reports, freshReports)
       const mergedForensic = mergeForensicReports(cached.forensicReports, freshForensic)
+      const mergedTlsRpt = mergeTlsRptReports(cached.tlsRptReports, freshTlsRpt)
 
       // Detect source IPs never seen for this account before. When the cache predates this
       // feature (reports but no known IPs), seed silently. An explicit reset skips that silent
@@ -629,10 +647,15 @@ export async function fetchAndAnalyze(
       const result = analyzeFromReports(merged, {
         skipped,
         errors,
-        fromCache: cached.reports.length > 0 || cached.forensicReports.length > 0,
+        fromCache:
+          cached.reports.length > 0 ||
+          cached.forensicReports.length > 0 ||
+          cached.tlsRptReports.length > 0,
         newReports: freshReports.length,
         newForensicReports: freshForensic.length,
-        forensicReports: mergedForensic
+        forensicReports: mergedForensic,
+        newTlsRptReports: freshTlsRpt.length,
+        tlsRptReports: mergedTlsRpt
       })
       result.newSourceIps = newSourceIps
       addPendingSourceIps(accountKey, newSourceIps)
@@ -643,6 +666,7 @@ export async function fetchAndAnalyze(
         accountKey,
         reports: freshReports,
         forensicReports: freshForensic,
+        tlsRptReports: freshTlsRpt,
         lastUid: sourceFetch.maxUid,
         lastUidArchive: archiveMailbox ? archiveFetch.maxUid : lastUidArchive,
         lastFailingTotal: result.aggregate.failing,

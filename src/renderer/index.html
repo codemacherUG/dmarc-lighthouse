@@ -13,8 +13,8 @@
   <body>
     <div id="drop-overlay" class="drop-overlay hidden" aria-hidden="true">
       <div class="drop-overlay-inner">
-        <span data-i18n="drop.title">DMARC-Dateien hier ablegen</span><br />
-        <span data-i18n="drop.formats">XML, GZ, ZIP, EML</span>
+        <span data-i18n="drop.title">DMARC- oder TLS-RPT-Dateien hier ablegen</span><br />
+        <span data-i18n="drop.formats">XML, GZ, ZIP, EML, JSON</span>
       </div>
     </div>
 
@@ -243,7 +243,7 @@
               class="nav-link nav-link-icon"
               data-i18n-title="header.openFilesTitle"
               data-i18n-aria="header.openFiles"
-              title="Lokale DMARC-Dateien importieren"
+              title="Lokale DMARC- oder TLS-RPT-Dateien importieren"
               aria-label="Importieren"
             >
               <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -924,6 +924,58 @@
           </div>
         </div>
       </section>
+
+      <section class="panel results-panel dashboard-widget" data-widget="tlsrpt">
+        <div class="widget-heading">
+          <h2 data-i18n="tlsRpt.title">TLS-RPT-Berichte</h2>
+          <span id="tlsrpt-summary" class="muted"></span>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll reports-table-scroll">
+            <table id="tlsrpt-table">
+              <thead>
+                <tr>
+                  <th data-i18n="tlsRpt.period">Zeitraum</th>
+                  <th data-i18n="tlsRpt.organization">Bericht von</th>
+                  <th data-i18n="tlsRpt.domain">Domain</th>
+                  <th data-i18n="tlsRpt.policy">Policy</th>
+                  <th data-i18n="tlsRpt.successful">Erfolgreich</th>
+                  <th data-i18n="tlsRpt.failed">Fehlgeschlagen</th>
+                  <th data-i18n="tlsRpt.failureDetails">Fehlerursachen</th>
+                </tr>
+              </thead>
+              <tbody id="tlsrpt-body">
+                <tr class="empty">
+                  <td colspan="7" data-i18n="tlsRpt.empty">Keine TLS-RPT-Berichte im Konto gefunden.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <dialog id="tlsrpt-detail-dialog">
+        <div class="settings-form">
+          <header class="dialog-header">
+            <h2 data-i18n="tlsRpt.detailTitle">TLS-RPT-Details</h2>
+            <button
+              type="button"
+              id="btn-close-tlsrpt-detail"
+              class="btn ghost"
+              data-i18n-aria="settings.close"
+              aria-label="Schließen"
+            >
+              ✕
+            </button>
+          </header>
+          <div id="tlsrpt-detail-body" class="tlsrpt-detail-body"></div>
+          <footer class="dialog-actions">
+            <button type="button" id="btn-tlsrpt-detail-close" class="btn primary" data-i18n="settings.close">
+              Schließen
+            </button>
+          </footer>
+        </div>
+      </dialog>
 
       <section class="panel ip-map-panel dashboard-widget" data-widget="ipMap">
         <div class="widget-heading">

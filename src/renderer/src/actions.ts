@@ -39,18 +39,21 @@ function showImportResult(result: AnalyzeResult): void {
   state.selectedReportId = null
   const summary = result.imported
   if (!summary?.persisted) {
-    showResult(result, t('status.importNotStored', { count: result.reports.length }))
-    setStatus(t('status.importNotStored', { count: result.reports.length }), 'error')
+    const count = result.reports.length + result.tlsRptReports.length
+    showResult(result, t('status.importNotStored', { count }))
+    setStatus(t('status.importNotStored', { count }), 'error')
     return
   }
-  const replacedNote = summary.updated
-    ? t('status.importReplacedPart', { count: summary.updated })
+  const added = summary.added + summary.addedTlsRpt
+  const updated = summary.updated + summary.updatedTlsRpt
+  const replacedNote = updated
+    ? t('status.importReplacedPart', { count: updated })
     : ''
   showResult(
     result,
     t('status.imported', {
-      count: summary.added,
-      total: result.aggregate.reportCount,
+      count: added,
+      total: result.aggregate.reportCount + result.tlsRptReports.length,
       replacedNote
     })
   )

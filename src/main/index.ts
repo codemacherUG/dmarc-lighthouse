@@ -896,7 +896,7 @@ function registerIpc(): void {
       title: t('main.openReports'),
       properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'>,
       filters: [
-        { name: 'DMARC Reports', extensions: ['xml', 'gz', 'zip', 'eml', 'mime'] },
+        { name: 'DMARC / TLS-RPT Reports', extensions: ['xml', 'gz', 'zip', 'eml', 'mime', 'json'] },
         { name: 'Alle Dateien / All files', extensions: ['*'] }
       ]
     }

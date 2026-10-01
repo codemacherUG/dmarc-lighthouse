@@ -33,7 +33,8 @@ export async function importLocalFiles(
     const stored = importReports({
       accountKey,
       reports: parsed.reports,
-      forensicReports: parsed.forensicReports
+      forensicReports: parsed.forensicReports,
+      tlsRptReports: parsed.tlsRptReports
     })
     const cached = loadCachedReports(accountKey)
     const result = analyzeFromReports(cached.reports, {
@@ -42,12 +43,16 @@ export async function importLocalFiles(
       fromCache: true,
       newReports: stored.addedReports,
       newForensicReports: stored.addedForensic,
-      forensicReports: cached.forensicReports
+      newTlsRptReports: stored.addedTlsRpt,
+      forensicReports: cached.forensicReports,
+      tlsRptReports: cached.tlsRptReports
     })
     result.imported = {
       added: stored.addedReports,
       updated: stored.updatedReports,
       addedForensic: stored.addedForensic,
+      addedTlsRpt: stored.addedTlsRpt,
+      updatedTlsRpt: stored.updatedTlsRpt,
       persisted: true
     }
     return result
@@ -59,6 +64,8 @@ export async function importLocalFiles(
       added: 0,
       updated: 0,
       addedForensic: 0,
+      addedTlsRpt: 0,
+      updatedTlsRpt: 0,
       persisted: false
     }
     return parsed
@@ -68,10 +75,17 @@ export async function importLocalFiles(
 /** Reports imported from files while no IMAP account existed, or null when empty. */
 export function loadLocalImportResult(): AnalyzeResult | null {
   const cached = loadCachedReports(LOCAL_IMPORT_ACCOUNT_KEY)
-  if (cached.reports.length === 0 && cached.forensicReports.length === 0) return null
+  if (
+    cached.reports.length === 0 &&
+    cached.forensicReports.length === 0 &&
+    cached.tlsRptReports.length === 0
+  ) {
+    return null
+  }
   return analyzeFromReports(cached.reports, {
     fromCache: true,
     newReports: 0,
-    forensicReports: cached.forensicReports
+    forensicReports: cached.forensicReports,
+    tlsRptReports: cached.tlsRptReports
   })
 }

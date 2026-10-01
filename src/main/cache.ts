@@ -19,6 +19,7 @@ import type {
   SendingService,
   SendingServiceInput,
   SerializedRecord,
+  TlsRptReportRow,
   TransportSecurityResult
 } from '../shared/types'
 
@@ -173,6 +174,19 @@ function openDb(): DatabaseSync {
       authentication_results TEXT,
       subject TEXT,
       feedback_type TEXT,
+      PRIMARY KEY (account_key, id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tlsrpt_reports (
+      account_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      report_id TEXT NOT NULL,
+      org_name TEXT NOT NULL,
+      date_begin TEXT NOT NULL,
+      date_end TEXT NOT NULL,
+      successful_sessions INTEGER NOT NULL,
+      failed_sessions INTEGER NOT NULL,
+      report_json TEXT NOT NULL,
       PRIMARY KEY (account_key, id)
     );
 
@@ -467,6 +481,24 @@ function migrateSchema(database: DatabaseSync): void {
     })
     version = 12
   }
+  if (version < 13) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS tlsrpt_reports (
+        account_key TEXT NOT NULL,
+        id TEXT NOT NULL,
+        report_id TEXT NOT NULL,
+        org_name TEXT NOT NULL,
+        date_begin TEXT NOT NULL,
+        date_end TEXT NOT NULL,
+        successful_sessions INTEGER NOT NULL,
+        failed_sessions INTEGER NOT NULL,
+        report_json TEXT NOT NULL,
+        PRIMARY KEY (account_key, id)
+      );
+    `)
+    version = 13
+    setSchemaVersion(database, version)
+  }
 }
 
 /** One-time import of legacy per-account `*.json` cache files. */
@@ -710,12 +742,31 @@ function loadForensic(database: DatabaseSync, accountKey: string): ForensicRepor
   }))
 }
 
+function loadTlsRptReports(database: DatabaseSync, accountKey: string): TlsRptReportRow[] {
+  const rows = database
+    .prepare(
+      `SELECT report_json FROM tlsrpt_reports
+       WHERE account_key = ? ORDER BY date_end DESC, id DESC`
+    )
+    .all(accountKey) as Array<{ report_json: string }>
+  const reports: TlsRptReportRow[] = []
+  for (const row of rows) {
+    try {
+      reports.push(JSON.parse(row.report_json) as TlsRptReportRow)
+    } catch {
+      // Ignore a corrupt row rather than making the account cache unusable.
+    }
+  }
+  return reports
+}
+
 function writeAccountCache(
   database: DatabaseSync,
   input: {
     accountKey: string
     reports: ReportRow[]
     forensicReports: ForensicReportRow[]
+    tlsRptReports?: TlsRptReportRow[]
     lastUid: number
     lastUidArchive?: number
     lastFailingTotal: number
@@ -726,6 +777,10 @@ function writeAccountCache(
   database.prepare('DELETE FROM report_records WHERE account_key = ?').run(input.accountKey)
   database.prepare('DELETE FROM reports WHERE account_key = ?').run(input.accountKey)
   database.prepare('DELETE FROM forensic_reports WHERE account_key = ?').run(input.accountKey)
+  if (input.tlsRptReports) {
+    database.prepare('DELETE FROM tlsrpt_reports WHERE account_key = ?').run(input.accountKey)
+    upsertTlsRptReports(database, input.accountKey, input.tlsRptReports)
+  }
   database.prepare('DELETE FROM known_source_ips WHERE account_key = ?').run(input.accountKey)
   database.prepare('DELETE FROM pending_source_ips WHERE account_key = ?').run(input.accountKey)
   database.prepare('DELETE FROM cache_meta WHERE account_key = ?').run(input.accountKey)
@@ -832,6 +887,7 @@ function writeAccountCache(
 export function loadCachedReports(accountKey: string): {
   reports: ReportRow[]
   forensicReports: ForensicReportRow[]
+  tlsRptReports: TlsRptReportRow[]
   meta: CacheMeta
 } {
   const database = openDb()
@@ -851,7 +907,7 @@ export function loadCachedReports(accountKey: string): {
     | undefined
 
   if (!metaRow) {
-    return { reports: [], forensicReports: [], meta: emptyMeta(accountKey) }
+    return { reports: [], forensicReports: [], tlsRptReports: [], meta: emptyMeta(accountKey) }
   }
 
   const ips = (
@@ -870,6 +926,7 @@ export function loadCachedReports(accountKey: string): {
   return {
     reports: loadReports(database, accountKey),
     forensicReports: loadForensic(database, accountKey),
+    tlsRptReports: loadTlsRptReports(database, accountKey),
     meta: {
       accountKey,
       lastUid: metaRow.last_uid,
@@ -905,10 +962,22 @@ export function mergeForensicReports(
   return [...map.values()].sort((a, b) => (b.arrivalDate ?? '').localeCompare(a.arrivalDate ?? ''))
 }
 
+export function mergeTlsRptReports(
+  existing: TlsRptReportRow[],
+  incoming: TlsRptReportRow[]
+): TlsRptReportRow[] {
+  const map = new Map<string, TlsRptReportRow>()
+  for (const report of existing) map.set(report.id, report)
+  for (const report of incoming) map.set(report.id, report)
+  return [...map.values()].sort((a, b) => b.dateEnd.localeCompare(a.dateEnd))
+}
+
 export interface ImportCacheResult {
   addedReports: number
   updatedReports: number
   addedForensic: number
+  addedTlsRpt: number
+  updatedTlsRpt: number
 }
 
 function upsertKnownIps(database: DatabaseSync, accountKey: string, ips: Iterable<string>): void {
@@ -921,13 +990,59 @@ function upsertKnownIps(database: DatabaseSync, accountKey: string, ips: Iterabl
   }
 }
 
+function upsertTlsRptReports(
+  database: DatabaseSync,
+  accountKey: string,
+  reports: TlsRptReportRow[]
+): Pick<ImportCacheResult, 'addedTlsRpt' | 'updatedTlsRpt'> {
+  const result = { addedTlsRpt: 0, updatedTlsRpt: 0 }
+  const exists = database.prepare('SELECT 1 AS hit FROM tlsrpt_reports WHERE account_key = ? AND id = ?')
+  const statement = database.prepare(
+    `INSERT INTO tlsrpt_reports(
+       account_key, id, report_id, org_name, date_begin, date_end,
+       successful_sessions, failed_sessions, report_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(account_key, id) DO UPDATE SET
+       report_id = excluded.report_id,
+       org_name = excluded.org_name,
+       date_begin = excluded.date_begin,
+       date_end = excluded.date_end,
+       successful_sessions = excluded.successful_sessions,
+       failed_sessions = excluded.failed_sessions,
+       report_json = excluded.report_json`
+  )
+  for (const report of reports) {
+    if (exists.get(accountKey, report.id)) result.updatedTlsRpt += 1
+    else result.addedTlsRpt += 1
+    statement.run(
+      accountKey,
+      report.id,
+      report.reportId,
+      report.orgName,
+      report.dateBegin,
+      report.dateEnd,
+      report.successfulSessions,
+      report.failedSessions,
+      JSON.stringify(report)
+    )
+  }
+  return result
+}
+
 function upsertAccountReports(
   database: DatabaseSync,
   accountKey: string,
   reports: ReportRow[],
-  forensicReports: ForensicReportRow[]
+  forensicReports: ForensicReportRow[],
+  tlsRptReports: TlsRptReportRow[] = []
 ): ImportCacheResult {
-  const result: ImportCacheResult = { addedReports: 0, updatedReports: 0, addedForensic: 0 }
+  const result: ImportCacheResult = {
+    addedReports: 0,
+    updatedReports: 0,
+    addedForensic: 0,
+    addedTlsRpt: 0,
+    updatedTlsRpt: 0
+  }
   const reportExists = database.prepare(
     'SELECT 1 AS hit FROM reports WHERE account_key = ? AND report_id = ?'
   )
@@ -1052,6 +1167,8 @@ function upsertAccountReports(
     if (f.sourceIp) ipStmt.run(accountKey, f.sourceIp)
   }
 
+  Object.assign(result, upsertTlsRptReports(database, accountKey, tlsRptReports))
+
   return result
 }
 
@@ -1065,6 +1182,7 @@ export function saveCache(input: {
   accountKey: string
   reports: ReportRow[]
   forensicReports?: ForensicReportRow[]
+  tlsRptReports?: TlsRptReportRow[]
   lastUid: number
   lastUidArchive?: number
   lastFailingTotal: number
@@ -1073,6 +1191,7 @@ export function saveCache(input: {
   const database = openDb()
   const lastFetchAt = new Date().toISOString()
   const forensicReports = input.forensicReports ?? []
+  const tlsRptReports = input.tlsRptReports ?? []
   const lastUidArchive = input.lastUidArchive ?? 0
   const reports = input.reports.map(normalizeReport)
   withTransaction(database, () => {
@@ -1087,7 +1206,7 @@ export function saveCache(input: {
            last_failing_total = excluded.last_failing_total`
       )
       .run(input.accountKey, input.lastUid, lastUidArchive, lastFetchAt, input.lastFailingTotal)
-    upsertAccountReports(database, input.accountKey, reports, forensicReports)
+    upsertAccountReports(database, input.accountKey, reports, forensicReports, tlsRptReports)
     upsertKnownIps(database, input.accountKey, input.knownSourceIps)
   })
   return {
@@ -1177,13 +1296,22 @@ export function importReports(input: {
   accountKey: string
   reports: ReportRow[]
   forensicReports?: ForensicReportRow[]
+  tlsRptReports?: TlsRptReportRow[]
 }): ImportCacheResult {
   const database = openDb()
   const { accountKey } = input
   const reports = input.reports.map(normalizeReport)
   const forensicReports = input.forensicReports ?? []
-  const result: ImportCacheResult = { addedReports: 0, updatedReports: 0, addedForensic: 0 }
-  if (reports.length === 0 && forensicReports.length === 0) return result
+  const tlsRptReports = input.tlsRptReports ?? []
+  const result: ImportCacheResult = {
+    addedReports: 0,
+    updatedReports: 0,
+    addedForensic: 0,
+    addedTlsRpt: 0,
+    updatedTlsRpt: 0
+  }
+  if (reports.length === 0 && forensicReports.length === 0 && tlsRptReports.length === 0)
+    return result
 
   withTransaction(database, () => {
     database
@@ -1194,10 +1322,18 @@ export function importReports(input: {
       )
       .run(accountKey)
 
-    const stored = upsertAccountReports(database, accountKey, reports, forensicReports)
+    const stored = upsertAccountReports(
+      database,
+      accountKey,
+      reports,
+      forensicReports,
+      tlsRptReports
+    )
     result.addedReports = stored.addedReports
     result.updatedReports = stored.updatedReports
     result.addedForensic = stored.addedForensic
+    result.addedTlsRpt = stored.addedTlsRpt
+    result.updatedTlsRpt = stored.updatedTlsRpt
 
     database
       .prepare(
@@ -1220,6 +1356,7 @@ export function clearCache(accountKey: string): void {
       accountKey,
       reports: [],
       forensicReports: [],
+      tlsRptReports: [],
       lastUid: 0,
       lastUidArchive: 0,
       lastFailingTotal: 0,

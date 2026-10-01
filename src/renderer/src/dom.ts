@@ -290,6 +290,18 @@ export const btnDownloadGeolite = document.getElementById(
 ) as HTMLButtonElement
 export const geoliteStatusEl = document.getElementById('geolite-status') as HTMLSpanElement
 export const forensicBody = document.getElementById('forensic-body') as HTMLTableSectionElement
+export const tlsRptBody = document.getElementById('tlsrpt-body') as HTMLTableSectionElement
+export const tlsRptSummary = document.getElementById('tlsrpt-summary') as HTMLSpanElement
+export const tlsRptDetailDialog = document.getElementById(
+  'tlsrpt-detail-dialog'
+) as HTMLDialogElement
+export const tlsRptDetailBody = document.getElementById('tlsrpt-detail-body') as HTMLDivElement
+export const btnCloseTlsRptDetail = document.getElementById(
+  'btn-close-tlsrpt-detail'
+) as HTMLButtonElement
+export const btnTlsRptDetailClose = document.getElementById(
+  'btn-tlsrpt-detail-close'
+) as HTMLButtonElement
 
 export const builderStepsEl = document.getElementById('builder-steps') as HTMLOListElement
 export const builderDomainEl = document.getElementById('builder-domain') as HTMLInputElement

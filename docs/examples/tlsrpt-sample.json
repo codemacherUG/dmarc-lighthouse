@@ -1,0 +1,42 @@
+{
+  "organization-name": "mx-reporting.example.net",
+  "date-range": {
+    "start-datetime": "2026-09-29T00:00:00Z",
+    "end-datetime": "2026-09-30T00:00:00Z"
+  },
+  "contact-info": "tlsrpt@example.net",
+  "report-id": "sample-20260930-example-com",
+  "policies": [
+    {
+      "policy": {
+        "policy-type": "sts",
+        "policy-string": ["version: STSv1", "mode: enforce", "mx: mail.example.com"],
+        "policy-domain": "example.com",
+        "mx-host": ["mail.example.com"]
+      },
+      "summary": {
+        "total-successful-session-count": 247,
+        "total-failure-session-count": 4
+      },
+      "failure-details": [
+        {
+          "result-type": "validation-failure",
+          "sending-mta-ip": "192.0.2.45",
+          "receiving-mx-hostname": "mail.example.com",
+          "receiving-ip": "192.0.2.25",
+          "failed-session-count": 3,
+          "additional-information": "The certificate chain could not be validated.",
+          "failure-reason-code": "certificate-expired"
+        },
+        {
+          "result-type": "starttls-not-supported",
+          "sending-mta-ip": "198.51.100.18",
+          "receiving-mx-hostname": "mail.example.com",
+          "receiving-ip": "192.0.2.25",
+          "failed-session-count": 1,
+          "additional-information": "STARTTLS was not offered by the MX host."
+        }
+      ]
+    }
+  ]
+}
