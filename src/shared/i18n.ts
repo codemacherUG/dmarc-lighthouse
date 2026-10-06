@@ -650,6 +650,22 @@ const de = {
   'newSources.notRejectedCount': 'Nicht abgewiesen: {count}',
   'newSources.unknownDispositionCount': 'Disposition fehlt: {count}',
   'newSources.ipStatsUnavailable': 'Für diese IP liegen keine Reportdaten vor.',
+  'newSources.authOutcomeLabel': 'SPF/DKIM (DMARC)',
+  'newSources.authOutcome': 'SPF {spf} / DKIM {dkim}: {count}',
+  'newSources.authUnknown': 'unbekannt',
+  'newSources.assessmentLabel': 'Einschätzung',
+  'newSources.assessment.forwardedReported':
+    'Der Report nennt Weiterleitung/Mailingliste als Grund. Prüfen, ob diese Route erwartet ist.',
+  'newSources.assessment.forwardingPossible':
+    'DKIM besteht DMARC, SPF nicht. Eine Weiterleitung ist möglich, im Report aber nicht bestätigt.',
+  'newSources.assessment.mixed':
+    'DMARC teils bestanden, teils nicht bestanden. Einzelne Reportzeilen prüfen.',
+  'newSources.assessment.mixedAuth':
+    'DMARC bestanden. Die unterschiedlichen SPF-/DKIM-Kombinationen stehen oben; eine Weiterleitung ist dadurch nicht belegt.',
+  'newSources.assessment.dmarcPassed':
+    'DMARC bestanden. Das belegt nicht, dass der konkrete Versand organisatorisch freigegeben war.',
+  'newSources.assessment.dmarcFailed':
+    'DMARC nicht bestanden. SPF-/DKIM-Domains, Quelle und Versandfreigabe prüfen.',
   'newSources.ipDetails': 'Details',
   'newSources.markNoise': 'Als Scanner-/Weiterleitungsrauschen markieren',
   'newSources.markGroupNoise': 'Als Rauschen markieren',
@@ -2137,6 +2153,22 @@ const en: Dict = {
   'newSources.notRejectedCount': 'Not rejected: {count}',
   'newSources.unknownDispositionCount': 'Disposition missing: {count}',
   'newSources.ipStatsUnavailable': 'No report data is available for this IP.',
+  'newSources.authOutcomeLabel': 'SPF/DKIM (DMARC)',
+  'newSources.authOutcome': 'SPF {spf} / DKIM {dkim}: {count}',
+  'newSources.authUnknown': 'unknown',
+  'newSources.assessmentLabel': 'Assessment',
+  'newSources.assessment.forwardedReported':
+    'The report names forwarding/mailing list as a reason. Verify that this route is expected.',
+  'newSources.assessment.forwardingPossible':
+    'DKIM passes DMARC, SPF does not. Forwarding is possible but not confirmed by the report.',
+  'newSources.assessment.mixed':
+    'Some messages passed DMARC and others did not. Review the individual report rows.',
+  'newSources.assessment.mixedAuth':
+    'DMARC passed. The differing SPF/DKIM combinations are shown above; this does not prove forwarding.',
+  'newSources.assessment.dmarcPassed':
+    'DMARC passed. This does not prove that the specific traffic was organizationally approved.',
+  'newSources.assessment.dmarcFailed':
+    'DMARC failed. Review SPF/DKIM domains, source, and sending authorization.',
   'newSources.ipDetails': 'Details',
   'newSources.markNoise': 'Mark as scanner/forwarding noise',
   'newSources.markGroupNoise': 'Mark as noise',

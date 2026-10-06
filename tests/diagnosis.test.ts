@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { diagnoseSource } from '../src/shared/diagnosis'
+import {
+  assessSourceRecords,
+  diagnoseSource,
+  summarizeSourceAuthOutcomes
+} from '../src/shared/diagnosis'
 import { setLocale, t } from '../src/shared/i18n'
 import type { SerializedRecord } from '../src/shared/types'
 
@@ -121,6 +125,60 @@ describe('diagnoseSource', () => {
     expect(diag?.category).toBe('forwarder')
     expect(diag?.verdict).toBe('forwarded')
     expect(diag?.action).toBe('reviewForwarder')
+  })
+})
+
+describe('assessSourceRecords', () => {
+  it('marks aligned DKIM with non-passing SPF as possible forwarding, not proof', () => {
+    const rec = record({
+      count: 1,
+      dkimResult: 'pass',
+      spfResult: 'fail',
+      dkimDomain: 'codemacher.de',
+      passesDmarc: true
+    })
+
+    expect(assessSourceRecords([rec])).toBe('forwardingPossible')
+  })
+
+  it('distinguishes a receiver-reported forwarding reason', () => {
+    const rec = record({
+      reasons: [{ type: 'forwarded', comment: null }]
+    })
+
+    expect(assessSourceRecords([rec])).toBe('forwardedReported')
+  })
+
+  it('does not infer a forwarding pattern from mixed or unavailable outcomes', () => {
+    expect(assessSourceRecords([record(), record({ passesDmarc: true })])).toBe('mixed')
+    expect(assessSourceRecords([])).toBeNull()
+  })
+
+  it('separates varying auth results from mixed DMARC outcomes', () => {
+    const forwardingPattern = record({
+      dkimResult: 'pass',
+      spfResult: 'fail',
+      passesDmarc: true
+    })
+    const otherPassingPattern = record({
+      dkimResult: 'pass',
+      spfResult: 'pass',
+      passesDmarc: true
+    })
+
+    expect(assessSourceRecords([forwardingPattern, otherPassingPattern])).toBe('mixedAuth')
+  })
+
+  it('shows the exact DMARC SPF/DKIM combinations and message counts', () => {
+    const records = [
+      record({ count: 1, spfResult: 'fail', dkimResult: 'pass' }),
+      record({ count: 1, spfResult: 'pass', dkimResult: 'pass' })
+    ]
+
+    expect(summarizeSourceAuthOutcomes(records)).toEqual([
+      { spf: 'fail', dkim: 'pass', count: 1 },
+      { spf: 'pass', dkim: 'pass', count: 1 }
+    ])
   })
 })
 

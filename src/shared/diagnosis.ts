@@ -45,6 +45,84 @@ export interface FailureDiagnosis {
   sampleCount: number
 }
 
+export type SourceIpAssessment =
+  | 'forwardedReported'
+  | 'forwardingPossible'
+  | 'mixed'
+  | 'mixedAuth'
+  | 'dmarcPassed'
+  | 'dmarcFailed'
+
+export interface SourceAuthOutcomeSummary {
+  spf: string | null
+  dkim: string | null
+  count: number
+}
+
+/** Aggregate the receiver's DMARC-evaluated SPF/DKIM outcomes by message count. */
+export function summarizeSourceAuthOutcomes(
+  records: readonly SerializedRecord[]
+): SourceAuthOutcomeSummary[] {
+  const outcomes = new Map<string, SourceAuthOutcomeSummary>()
+  for (const record of records) {
+    const count = Math.max(0, record.count || 0)
+    if (!count) continue
+    const spf = record.spfResult?.trim().toLowerCase() || null
+    const dkim = record.dkimResult?.trim().toLowerCase() || null
+    const key = `${spf ?? ''}\u0000${dkim ?? ''}`
+    const current = outcomes.get(key)
+    if (current) current.count += count
+    else outcomes.set(key, { spf, dkim, count })
+  }
+  return [...outcomes.values()].sort((left, right) =>
+    `${left.spf ?? ''}\u0000${left.dkim ?? ''}`.localeCompare(
+      `${right.spf ?? ''}\u0000${right.dkim ?? ''}`
+    )
+  )
+}
+
+/** Summarize report evidence without treating authentication as proof of intent. */
+export function assessSourceRecords(
+  records: readonly SerializedRecord[]
+): SourceIpAssessment | null {
+  if (!records.length) return null
+
+  let total = 0
+  let passed = 0
+  let failed = 0
+  let forwardingPattern = 0
+  let forwardingReported = false
+
+  for (const record of records) {
+    const count = Math.max(0, record.count || 0)
+    total += count
+    if (record.passesDmarc) passed += count
+    else failed += count
+
+    const spf = (record.spfResult ?? '').toLowerCase()
+    const dkim = (record.dkimResult ?? '').toLowerCase()
+    if (record.passesDmarc && spf === 'fail' && dkim === 'pass') {
+      forwardingPattern += count
+    }
+    if (
+      (record.reasons ?? []).some((reason) =>
+        ['forwarded', 'mailing_list', 'trusted_forwarder'].includes(
+          (reason.type ?? '').toLowerCase()
+        )
+      )
+    ) {
+      forwardingReported = true
+    }
+  }
+
+  if (!total) return null
+  if (forwardingReported) return 'forwardedReported'
+  if (forwardingPattern === total) return 'forwardingPossible'
+  if (passed > 0 && failed > 0) return 'mixed'
+  if (forwardingPattern > 0) return 'mixedAuth'
+  return failed > 0 ? 'dmarcFailed' : 'dmarcPassed'
+}
+
 function pickDominant<T>(counts: Map<T, number>): T | null {
   let best: T | null = null
   let bestCount = -1

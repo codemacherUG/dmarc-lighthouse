@@ -15,7 +15,14 @@ import {
   reportsForDomainHealth,
   sendingSourceGroupsWithoutMailboxNoise
 } from '../../shared/analyze'
-import { diagnoseSource, type FailureDiagnosis } from '../../shared/diagnosis'
+import {
+  assessSourceRecords,
+  diagnoseSource,
+  type FailureDiagnosis,
+  summarizeSourceAuthOutcomes,
+  type SourceAuthOutcomeSummary,
+  type SourceIpAssessment
+} from '../../shared/diagnosis'
 import {
   isAuthorizedSender,
   parseAuthorizedSenderPrefixes,
@@ -1599,13 +1606,16 @@ function reviewIpsLabel(count: number): string {
 
 function summarizeNewSourceIp(
   ip: string,
-  reports: ReportRow[]
+  reports: ReportRow[],
+  domain: string | null
 ): {
   passing: number
   failing: number
   rejected: number
   notRejected: number
   unknown: number
+  assessment: SourceIpAssessment
+  authOutcomes: SourceAuthOutcomeSummary[]
 } | null {
   let passing = 0
   let failing = 0
@@ -1613,11 +1623,20 @@ function summarizeNewSourceIp(
   let notRejected = 0
   let unknown = 0
   let found = false
+  const sourceRecords: SerializedRecord[] = []
+  const normalizedDomain = domain?.trim().toLowerCase()
 
   for (const report of reports) {
     for (const record of report.records) {
       if (record.sourceIp !== ip) continue
+      if (
+        normalizedDomain &&
+        (record.headerFrom ?? report.domain).trim().toLowerCase() !== normalizedDomain
+      ) {
+        continue
+      }
       found = true
+      sourceRecords.push(record)
       const count = record.count || 0
       if (record.passesDmarc) passing += count
       else failing += count
@@ -1628,7 +1647,11 @@ function summarizeNewSourceIp(
     }
   }
 
-  return found ? { passing, failing, rejected, notRejected, unknown } : null
+  const assessment = assessSourceRecords(sourceRecords)
+  const authOutcomes = summarizeSourceAuthOutcomes(sourceRecords)
+  return found && assessment
+    ? { passing, failing, rejected, notRejected, unknown, assessment, authOutcomes }
+    : null
 }
 
 function renderNewSourceItem(group: NewSendingSourceGroup, reports: ReportRow[]): HTMLDivElement {
@@ -1768,7 +1791,7 @@ function renderNewSourceItem(group: NewSendingSourceGroup, reports: ReportRow[])
 
     const ipStats = document.createElement('div')
     ipStats.className = 'new-source-ip-stats'
-    const summary = summarizeNewSourceIp(ip, reports)
+    const summary = summarizeNewSourceIp(ip, reports, group.domain)
     if (summary) {
       const dmarcGroup = document.createElement('div')
       dmarcGroup.className = 'new-source-ip-stat-group'
@@ -1813,6 +1836,41 @@ function renderNewSourceItem(group: NewSendingSourceGroup, reports: ReportRow[])
       }
       dispositionGroup.appendChild(dispositionValues)
       ipStats.appendChild(dispositionGroup)
+
+      if (summary.authOutcomes.length > 0) {
+        const authGroup = document.createElement('div')
+        authGroup.className = 'new-source-ip-stat-group'
+        const authLabel = document.createElement('span')
+        authLabel.className = 'new-source-ip-stat-label'
+        authLabel.textContent = t('newSources.authOutcomeLabel')
+        authGroup.appendChild(authLabel)
+        const authValues = document.createElement('div')
+        authValues.className = 'new-source-ip-stat-values'
+        for (const outcome of summary.authOutcomes) {
+          const authValue = document.createElement('span')
+          authValue.className = 'new-source-ip-stat-value'
+          authValue.textContent = t('newSources.authOutcome', {
+            spf: outcome.spf ?? t('newSources.authUnknown'),
+            dkim: outcome.dkim ?? t('newSources.authUnknown'),
+            count: outcome.count
+          })
+          authValues.appendChild(authValue)
+        }
+        authGroup.appendChild(authValues)
+        ipStats.appendChild(authGroup)
+      }
+
+      const assessmentGroup = document.createElement('div')
+      assessmentGroup.className = 'new-source-ip-stat-group'
+      const assessmentLabel = document.createElement('span')
+      assessmentLabel.className = 'new-source-ip-stat-label'
+      assessmentLabel.textContent = t('newSources.assessmentLabel')
+      assessmentGroup.appendChild(assessmentLabel)
+      const assessmentText = document.createElement('span')
+      assessmentText.className = 'new-source-assessment-text'
+      assessmentText.textContent = t(`newSources.assessment.${summary.assessment}`)
+      assessmentGroup.appendChild(assessmentText)
+      ipStats.appendChild(assessmentGroup)
     } else {
       ipStats.textContent = t('newSources.ipStatsUnavailable')
     }

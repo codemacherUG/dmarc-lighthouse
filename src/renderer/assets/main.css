@@ -1003,6 +1003,11 @@ body.simulation-mode {
   white-space: nowrap;
 }
 
+.new-source-assessment-text {
+  min-width: 0;
+  white-space: normal;
+}
+
 .new-source-ip-row + .new-source-ip-row {
   border-top: 1px solid var(--line);
 }
