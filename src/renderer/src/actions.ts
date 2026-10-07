@@ -1,4 +1,5 @@
 import { t } from '../../shared/i18n'
+import { selectorsForDnsCheck } from '../../shared/dkim-selector'
 import type { AnalyzeResult, DnsHistoryResult } from '../../shared/types'
 import { applyProgress, setBusy, setStatus, setTopProgress } from './chrome'
 import {
@@ -232,13 +233,19 @@ export function initActions(): void {
       .split(/[\s,;]+/)
       .map((s) => s.trim())
       .filter(Boolean)
-    const selectors = manualSelectors.length > 0 ? manualSelectors : collectDkimSelectors(domain)
 
     btnDns.disabled = true
     dnsResultEl.textContent = t('dns.checking', { domain })
     dnsResultEl.className = 'dns-result'
     const transport = runTransportCheck(domain)
     try {
+      const configuredSelectors =
+        manualSelectors.length === 0 ? await window.api.getDomainDkimSelectors(domain) : []
+      const selectors = selectorsForDnsCheck(
+        manualSelectors,
+        configuredSelectors,
+        collectDkimSelectors(domain)
+      )
       const result = await window.api.checkDns(domain, selectors)
       const history = await window.api.dnsHistory(result.domain)
       const dmarcLine = result.dmarc.found

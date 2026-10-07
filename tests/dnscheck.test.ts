@@ -8,6 +8,7 @@ import {
   parseDmarcPolicy,
   resolveTxtRecords
 } from '../src/main/dnscheck'
+import { selectorsForDnsCheck } from '../src/shared/dkim-selector'
 
 vi.mock('../src/main/dns-env', async () => {
   const actual = await vi.importActual<typeof import('../src/main/dns-env')>('../src/main/dns-env')
@@ -46,6 +47,31 @@ describe('normalizeDkimSelector', () => {
     expect(normalizeDkimSelector('._domainkey')).toBeNull()
     expect(normalizeDkimSelector('_domainkey.example.com')).toBeNull()
     expect(normalizeDkimSelector('bad selector')).toBeNull()
+  })
+})
+
+describe('selectorsForDnsCheck', () => {
+  it('uses the enabled domain selectors before selectors from reports', () => {
+    expect(
+      selectorsForDnsCheck(
+        [],
+        [
+          { selector: 'dkim', enabled: true },
+          { selector: 'mail4', enabled: false }
+        ],
+        ['dkim', 'mail4', 'mail8']
+      )
+    ).toEqual(['dkim'])
+  })
+
+  it('uses report selectors when no domain settings exist', () => {
+    expect(selectorsForDnsCheck([], [], ['dkim', 'mail4'])).toEqual(['dkim', 'mail4'])
+  })
+
+  it('lets explicitly entered selectors override domain settings', () => {
+    expect(
+      selectorsForDnsCheck(['manual'], [{ selector: 'mail4', enabled: false }], ['dkim'])
+    ).toEqual(['manual'])
   })
 })
 

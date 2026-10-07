@@ -15,6 +15,7 @@ import {
   dnsDomainEl,
   dnsResultEl,
   diagnosisDialog,
+  domainDkimDialog,
   emailInspectDialog,
   filterRangeEl,
   filterDomainEl,
@@ -32,6 +33,7 @@ import { applyTheme } from './theme'
 import {
   applyView,
   openDiagnosis,
+  openDomainSettingsScreenshotDemo,
   renderDetail,
   renderDomainAmpel,
   renderReports,
@@ -73,6 +75,7 @@ export function installScreenshotApi(): void {
       if (rolloutDialog.open) rolloutDialog.close()
       if (emailInspectDialog.open) emailInspectDialog.close()
       if (diagnosisDialog.open) diagnosisDialog.close()
+      if (domainDkimDialog.open) domainDkimDialog.close()
       document.documentElement.classList.remove('screenshot-full', 'screenshot-dialog')
       document.body.classList.remove('screenshot-full')
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
@@ -242,6 +245,12 @@ export function installScreenshotApi(): void {
     },
     closeSettings(): void {
       settingsDialog.close()
+    },
+    openDomainSettingsDemo(): Promise<void> {
+      return openDomainSettingsScreenshotDemo()
+    },
+    closeDomainSettingsDemo(): void {
+      if (domainDkimDialog.open) domainDkimDialog.close()
     },
     openDnsDemo(): void {
       fillDnsDemo()

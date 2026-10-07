@@ -26,6 +26,9 @@ import {
 } from './dns-env'
 import { encodeQuery } from './dnswire'
 import { loadSettings } from './settings'
+import { normalizeDkimSelector } from '../shared/dkim-selector'
+
+export { normalizeDkimSelector } from '../shared/dkim-selector'
 
 function flattenTxt(records: string[][]): string[] {
   return records.map((parts) => parts.join(''))
@@ -144,16 +147,6 @@ export function parseDmarcPolicy(records: string[]): {
  * Accept selector, `selector._domainkey`, or a full DKIM hostname.
  * Lookup always uses `{selector}._domainkey.{domain}`.
  */
-export function normalizeDkimSelector(raw: string): string | null {
-  let s = raw.trim().toLowerCase().replace(/\.+$/, '')
-  if (!s) return null
-  const marker = '._domainkey'
-  const idx = s.indexOf(marker)
-  if (idx >= 0) s = s.slice(0, idx)
-  if (!s || !/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(s)) return null
-  return s
-}
-
 /** Zones to try for NS, longest first. Stops before the TLD (single label). */
 export function ancestorZones(domain: string): string[] {
   const labels = domain.toLowerCase().replace(/\.+$/, '').split('.').filter(Boolean)

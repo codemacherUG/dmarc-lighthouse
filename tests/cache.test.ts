@@ -11,6 +11,9 @@ import {
   clearCache,
   clearKnownIpsResetPending,
   closeCacheDb,
+  addDiscoveredDomainDkimSelectors,
+  getDomainDkimSelectors,
+  saveDomainDkimSelectors,
   getIpEnrichment,
   getDnsHistory,
   importReports,
@@ -176,6 +179,28 @@ describe('sqlite cache', () => {
     closeCacheDb()
     setCacheUserDataForTests(null)
     if (dir) rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('preserves per-domain DKIM selector settings and adds newly discovered selectors', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+
+    addDiscoveredDomainDkimSelectors('Example.com', ['old-selector', 'current'])
+    saveDomainDkimSelectors('example.com', [
+      { selector: 'old-selector', enabled: false },
+      { selector: 'current', enabled: true },
+      { selector: 'manual', enabled: true }
+    ])
+    addDiscoveredDomainDkimSelectors('EXAMPLE.COM', ['old-selector', 'current', 'new-selector'])
+
+    closeCacheDb()
+    setCacheUserDataForTests(dir)
+    expect(getDomainDkimSelectors('example.com')).toEqual([
+      { selector: 'current', enabled: true },
+      { selector: 'manual', enabled: true },
+      { selector: 'new-selector', enabled: true },
+      { selector: 'old-selector', enabled: false }
+    ])
   })
 
   it('saves and loads reports + forensic rows', () => {

@@ -6,6 +6,7 @@ import type {
   BimiCheckResult,
   DnsCheckResult,
   DnsHistoryResult,
+  DomainDkimSelector,
   DomainHealth,
   SpfExpandResult,
   GeoLiteDownloadResult,
@@ -78,6 +79,13 @@ const api = {
     ipcRenderer.invoke('dns:history', domain),
   healthBatch: (reports: ReportRow[]): Promise<DomainHealth[]> =>
     ipcRenderer.invoke('dns:healthBatch', reports),
+  getDomainDkimSelectors: (domain: string): Promise<DomainDkimSelector[]> =>
+    ipcRenderer.invoke('dns:domainDkimSelectors:get', domain),
+  saveDomainDkimSelectors: (
+    domain: string,
+    selectors: DomainDkimSelector[]
+  ): Promise<DomainDkimSelector[]> =>
+    ipcRenderer.invoke('dns:domainDkimSelectors:save', domain, selectors),
   geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),
   downloadGeoLite: (licenseKey?: string): Promise<GeoLiteDownloadResult> =>
     ipcRenderer.invoke('enrichment:downloadGeoLite', licenseKey),

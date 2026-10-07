@@ -40,11 +40,13 @@ import {
   suggestScannerNoiseEntry
 } from '../../shared/scanner-noise'
 import { t, type MessageKey } from '../../shared/i18n'
+import { normalizeDkimSelector } from '../../shared/dkim-selector'
 import { simulateRolloutReports, type RolloutSimulationMode } from '../../shared/rollout'
 import {
   DEFAULT_DATE_RANGE,
   type AnalyzeResult,
   type DateRangePreset,
+  type DomainDkimSelector,
   type DomainHealth,
   type FailCategory,
   type ForensicReportRow,
@@ -52,6 +54,7 @@ import {
   type NewSendingSourceGroup,
   type ProblemSourceRow,
   type ReportRow,
+  type SendingService,
   type SendingServiceStatus,
   type SerializedRecord
 } from '../../shared/types'
@@ -85,6 +88,29 @@ import {
   ipContextSendingServiceBtn,
   dnsDomainEl,
   domainAmpelEl,
+  domainDkimDialog,
+  domainDkimTitle,
+  domainDkimTabButton,
+  domainSendersTabButton,
+  domainDkimTabPanel,
+  domainSendersTabPanel,
+  domainDkimList,
+  domainDkimInput,
+  domainDkimStatus,
+  btnDomainDkimAdd,
+  btnDomainDkimSave,
+  btnCloseDomainDkim,
+  domainSendersList,
+  domainSenderForm,
+  domainSenderProvider,
+  domainSenderCidr,
+  domainSenderAsn,
+  domainSenderStatus,
+  domainSenderTeam,
+  domainSenderNote,
+  btnDomainSenderSave,
+  btnDomainSenderCancel,
+  domainSendersStatus,
   tableProblemSources,
   filterChipsEl,
   filterDomainEl,
@@ -110,13 +136,7 @@ import {
   scannerNoiseHostsEl,
   tableFrom,
   tableIps,
-  tableOrgs,
-  sendingServiceAsnEl,
-  sendingServiceCidrEl,
-  sendingServiceDomainEl,
-  sendingServiceNoteEl,
-  sendingServiceProviderEl,
-  sendingServiceStatusEl
+  tableOrgs
 } from './dom'
 import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
 import { invalidateIpMapSize, renderIpMap, setIpMapFilterHandler } from './ip-map'
@@ -127,7 +147,6 @@ import {
   writeIgnoredProblemSourceKeys
 } from './problem-source-state'
 import { clearDrill, state, type DrillFilters } from './state'
-import { openSettings, setNextSendingServiceCreatedHandler, showSettingsTab } from './settings-ui'
 import {
   compareIp,
   compareNumber,
@@ -194,6 +213,46 @@ export function refreshWidgetToggleLocale(): void {
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-widget-collapse-id]')) {
     updateWidgetToggle(button, isWidgetCollapsed(button.dataset.widgetCollapseId ?? ''))
   }
+}
+
+export function openDomainSettingsScreenshotDemo(): Promise<void> {
+  return openDomainDkimSettings('example.com', {
+    initialTab: 'senders',
+    demoData: {
+      selectors: [
+        { selector: 'selector1', enabled: true },
+        { selector: 'selector2', enabled: true }
+      ],
+      senderServices: [
+        {
+          id: 'screenshot-m365',
+          provider: 'Microsoft 365',
+          domain: 'example.com',
+          cidr: '40.92.0.0/14',
+          asn: 8075,
+          status: 'known',
+          team: 'IT',
+          note: 'Primary mail platform',
+          createdAt: '',
+          updatedAt: ''
+        },
+        {
+          id: 'screenshot-sendgrid',
+          provider: 'SendGrid',
+          domain: 'example.com',
+          cidr: null,
+          asn: null,
+          status: 'investigate',
+          team: 'Marketing',
+          note: 'Transactional messages',
+          createdAt: '',
+          updatedAt: ''
+        }
+      ]
+    }
+  }).then(() => {
+    domainSendersList.querySelector<HTMLButtonElement>('[data-sender-edit]')?.click()
+  })
 }
 
 function initCollapsibleWidgets(): void {
@@ -780,21 +839,24 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
         h.dmarcPolicy != null ? escapeHtml(t('health.policy', { policy: h.dmarcPolicy })) : '—'
       const reasons = h.reasons.map((key) => t(key as MessageKey)).join(' · ')
       return `
-      <button type="button" class="ampel-card ${h.status}" data-domain="${escapeHtml(h.domain)}" title="${escapeHtml(statusLabel)}">
-        <div class="ampel-domain">${escapeHtml(h.domain)}</div>
-        <div class="ampel-meta">
-          <span>${escapeHtml(statusLabel)}</span>
-          <span>${escapeHtml(t('health.passRate', { rate: h.passRate.toFixed(1) }))}</span>
-          <span>${escapeHtml(t('health.msgs', { count: String(h.total) }))}</span>
-          <span>${escapeHtml(t('health.window', { days: String(DOMAIN_HEALTH_WINDOW_DAYS) }))}</span>
-          <span>${policy}</span>
-        </div>
-        ${reasons ? `<div class="ampel-reasons">${escapeHtml(reasons)}</div>` : ''}
-      </button>`
+      <div class="ampel-card-wrap">
+        <button type="button" class="ampel-card ${h.status}" data-domain="${escapeHtml(h.domain)}" title="${escapeHtml(statusLabel)}">
+          <div class="ampel-domain">${escapeHtml(h.domain)}</div>
+          <div class="ampel-meta">
+            <span>${escapeHtml(statusLabel)}</span>
+            <span>${escapeHtml(t('health.passRate', { rate: h.passRate.toFixed(1) }))}</span>
+            <span>${escapeHtml(t('health.msgs', { count: String(h.total) }))}</span>
+            <span>${escapeHtml(t('health.window', { days: String(DOMAIN_HEALTH_WINDOW_DAYS) }))}</span>
+            <span>${policy}</span>
+          </div>
+          ${reasons ? `<div class="ampel-reasons">${escapeHtml(reasons)}</div>` : ''}
+        </button>
+        <button type="button" class="ampel-settings" data-domain="${escapeHtml(h.domain)}" aria-label="${escapeHtml(t('health.dkimManage', { domain: h.domain }))}" title="${escapeHtml(t('health.dkimManage', { domain: h.domain }))}">⚙</button>
+      </div>`
     })
     .join('')
 
-  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('[data-domain]')) {
+  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('.ampel-card[data-domain]')) {
     btn.addEventListener('click', () => {
       const domain = btn.dataset.domain ?? ''
       if (!domain) return
@@ -802,6 +864,371 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
       applyView()
     })
   }
+  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>(
+    '.ampel-settings[data-domain]'
+  )) {
+    btn.addEventListener('click', () => {
+      const domain = btn.dataset.domain ?? ''
+      if (domain) void openDomainDkimSettings(domain)
+    })
+  }
+}
+
+let editingDkimDomain = ''
+let editingDkimSelectors: DomainDkimSelector[] = []
+let editingDomainSendingServiceId: string | null = null
+let editingDomainSendingServiceCard: HTMLElement | null = null
+let editingDomainSenderForm: HTMLFormElement | null = null
+let domainSenderSavedHandler: ((service: SendingService) => Promise<void>) | null = null
+let domainSendingServices: SendingService[] = []
+
+function showDomainSettingsTab(tab: 'dkim' | 'senders'): void {
+  const dkimActive = tab === 'dkim'
+  domainDkimTabButton.classList.toggle('active', dkimActive)
+  domainDkimTabButton.setAttribute('aria-selected', String(dkimActive))
+  domainDkimTabPanel.classList.toggle('hidden', !dkimActive)
+  domainSendersTabButton.classList.toggle('active', !dkimActive)
+  domainSendersTabButton.setAttribute('aria-selected', String(!dkimActive))
+  domainSendersTabPanel.classList.toggle('hidden', dkimActive)
+}
+
+function renderDomainDkimSelectors(): void {
+  if (editingDkimSelectors.length === 0) {
+    domainDkimList.innerHTML = `<p class="muted">${escapeHtml(t('health.dkimEmpty'))}</p>`
+    return
+  }
+  domainDkimList.innerHTML = editingDkimSelectors
+    .map(
+      ({ selector, enabled }) => `
+      <label class="domain-dkim-row">
+        <input type="checkbox" data-selector="${escapeHtml(selector)}" ${enabled ? 'checked' : ''} />
+        <code>${escapeHtml(selector)}</code>
+        <span class="muted">${escapeHtml(t(enabled ? 'health.dkimEnabled' : 'health.dkimDisabled'))}</span>
+      </label>`
+    )
+    .join('')
+}
+
+function resetDomainSendingServiceForm(): void {
+  editingDomainSendingServiceCard?.classList.remove('is-editing')
+  const toggle =
+    editingDomainSendingServiceCard?.querySelector<HTMLButtonElement>('[data-sender-edit]')
+  toggle?.setAttribute('aria-expanded', 'false')
+  if (toggle) {
+    toggle.textContent = '▾'
+    toggle.setAttribute('aria-label', t('health.sendingServicesExpand'))
+    toggle.title = t('health.sendingServicesExpand')
+    toggle.setAttribute('aria-controls', domainSenderForm.id)
+  }
+  editingDomainSenderForm?.remove()
+  editingDomainSenderForm = null
+  editingDomainSendingServiceCard = null
+  editingDomainSendingServiceId = null
+  domainSenderProvider.value = ''
+  domainSenderCidr.value = ''
+  domainSenderAsn.value = ''
+  domainSenderStatus.value = 'known'
+  domainSenderTeam.value = ''
+  domainSenderNote.value = ''
+  btnDomainSenderSave.textContent = t('sendingServices.add')
+  btnDomainSenderCancel.classList.add('hidden')
+}
+
+function editDomainSendingService(service: SendingService, card: HTMLElement): void {
+  resetDomainSendingServiceForm()
+  editingDomainSendingServiceId = service.id
+  editingDomainSendingServiceCard = card
+  const form = domainSenderForm.cloneNode(true) as HTMLFormElement
+  form.removeAttribute('id')
+  form.id = `domain-sender-edit-form-${service.id}`
+  form.dataset.serviceId = service.id
+  form.classList.add('domain-sender-edit-form')
+  form.querySelectorAll<HTMLElement>('[id]').forEach((element) => element.removeAttribute('id'))
+  form.addEventListener('submit', (event) => {
+    event.preventDefault()
+    void persistDomainSendingService(form)
+  })
+  senderFormButton(form, '[data-sender-cancel]').addEventListener(
+    'click',
+    resetDomainSendingServiceForm
+  )
+  editingDomainSenderForm = form
+  card.classList.add('is-editing')
+  const toggle = card.querySelector<HTMLButtonElement>('[data-sender-edit]')
+  toggle?.setAttribute('aria-expanded', 'true')
+  if (toggle) {
+    toggle.textContent = '▴'
+    toggle.setAttribute('aria-label', t('health.sendingServicesCollapse'))
+    toggle.title = t('health.sendingServicesCollapse')
+    toggle.setAttribute('aria-controls', form.id)
+  }
+  card.append(form)
+  senderFormField<HTMLInputElement>(form, 'provider').value = service.provider
+  senderFormField<HTMLInputElement>(form, 'cidr').value = service.cidr ?? ''
+  senderFormField<HTMLInputElement>(form, 'asn').value =
+    service.asn != null ? String(service.asn) : ''
+  senderFormField<HTMLSelectElement>(form, 'status').value = service.status
+  senderFormField<HTMLInputElement>(form, 'team').value = service.team ?? ''
+  senderFormField<HTMLInputElement>(form, 'note').value = service.note ?? ''
+  senderFormButton(form, '[data-sender-save]').textContent = t('sendingServices.saveChanges')
+  senderFormButton(form, '[data-sender-cancel]').classList.remove('hidden')
+  senderFormField<HTMLInputElement>(form, 'provider').focus({ preventScroll: true })
+}
+
+function senderFormField<T extends HTMLInputElement | HTMLSelectElement>(
+  form: HTMLFormElement,
+  field: string
+): T {
+  const element = form.querySelector<T>(`[name="${field}"]`)
+  if (!element) throw new Error(`Missing sending-service form field: ${field}`)
+  return element
+}
+
+function senderFormButton<T extends HTMLButtonElement>(form: HTMLFormElement, selector: string): T {
+  const button = form.querySelector<T>(selector)
+  if (!button) throw new Error(`Missing sending-service form button: ${selector}`)
+  return button
+}
+
+function renderDomainSendingServices(): void {
+  const domain = editingDkimDomain.toLowerCase()
+  const matches = domainSendingServices.filter((service) => {
+    const domains = parseDomainList(service.domain)
+    return domains.length === 0 || domains.includes(domain)
+  })
+  if (matches.length === 0) {
+    domainSendersList.innerHTML = `<p class="muted">${escapeHtml(t('health.sendingServicesEmpty'))}</p>`
+    return
+  }
+
+  const statusKey: Record<SendingServiceStatus, MessageKey> = {
+    known: 'sendingServices.status.known',
+    unknown: 'sendingServices.status.unknown',
+    investigate: 'sendingServices.status.investigate',
+    retired: 'sendingServices.status.retired'
+  }
+  domainSendersList.innerHTML = matches
+    .map((service) => {
+      const domains = parseDomainList(service.domain)
+      const editable = domains.length === 1 && domains[0] === domain
+      const scope = [service.cidr, service.asn != null ? `AS${service.asn}` : null]
+        .filter(Boolean)
+        .join(' · ')
+      return `
+        <article class="domain-sender-card">
+          <div class="domain-sender-card-header">
+          <div class="domain-sender-card-main">
+            <strong>${escapeHtml(service.provider)}</strong>
+            <span class="domain-sender-status">${escapeHtml(t(statusKey[service.status]))}</span>
+            ${scope ? `<span class="domain-sender-scope">${escapeHtml(scope)}</span>` : ''}
+            ${service.team ? `<span>${escapeHtml(service.team)}</span>` : ''}
+            ${service.note ? `<span class="domain-sender-note">${escapeHtml(service.note)}</span>` : ''}
+          </div>
+          ${
+            editable
+              ? `<div class="domain-sender-card-actions">
+                  <button type="button" class="btn danger" data-sender-delete="${escapeHtml(service.id)}">${escapeHtml(t('health.sendingServicesDelete'))}</button>
+                  <button type="button" class="btn secondary domain-sender-accordion-toggle" data-sender-edit="${escapeHtml(service.id)}" aria-label="${escapeHtml(t('health.sendingServicesExpand'))}" title="${escapeHtml(t('health.sendingServicesExpand'))}" aria-expanded="false" aria-controls="domain-sender-form">▾</button>
+                </div>`
+              : `<span class="domain-sender-shared">${escapeHtml(t('health.sendingServicesShared'))}</span>`
+          }
+          </div>
+        </article>`
+    })
+    .join('')
+
+  domainSendersList.querySelectorAll<HTMLButtonElement>('[data-sender-edit]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const service = matches.find((item) => item.id === button.dataset.senderEdit)
+      const card = button.closest<HTMLElement>('.domain-sender-card')
+      if (!service || !card) return
+      if (editingDomainSendingServiceCard === card) {
+        resetDomainSendingServiceForm()
+      } else {
+        editDomainSendingService(service, card)
+      }
+    })
+  })
+  domainSendersList
+    .querySelectorAll<HTMLButtonElement>('[data-sender-delete]')
+    .forEach((button) => {
+      button.addEventListener('click', () => {
+        void deleteDomainSendingService(button.dataset.senderDelete ?? '')
+      })
+    })
+}
+
+async function loadDomainSendingServices(): Promise<void> {
+  try {
+    domainSendingServices = await window.api.listSendingServices()
+    renderDomainSendingServices()
+    domainSendersStatus.textContent = ''
+  } catch (error) {
+    domainSendersStatus.textContent = t('health.sendingServicesLoadError', {
+      message: error instanceof Error ? error.message : String(error)
+    })
+    domainSendersList.innerHTML = ''
+  }
+}
+
+async function persistDomainSendingService(form: HTMLFormElement): Promise<void> {
+  const providerField = senderFormField<HTMLInputElement>(form, 'provider')
+  const cidrField = senderFormField<HTMLInputElement>(form, 'cidr')
+  const asnField = senderFormField<HTMLInputElement>(form, 'asn')
+  const statusField = senderFormField<HTMLSelectElement>(form, 'status')
+  const teamField = senderFormField<HTMLInputElement>(form, 'team')
+  const noteField = senderFormField<HTMLInputElement>(form, 'note')
+  const saveButton = senderFormButton<HTMLButtonElement>(form, '[data-sender-save]')
+  const provider = providerField.value.trim()
+  if (!provider) {
+    domainSendersStatus.textContent = t('sendingServices.providerRequired')
+    providerField.focus()
+    return
+  }
+  const asnRaw = asnField.value.trim()
+  const asn = asnRaw ? Number(asnRaw) : null
+  if (asn != null && (!Number.isInteger(asn) || asn < 0)) {
+    domainSendersStatus.textContent = t('health.sendingServicesInvalidAsn')
+    asnField.focus()
+    return
+  }
+  const domain = editingDkimDomain
+  saveButton.disabled = true
+  domainSendersStatus.textContent = ''
+  try {
+    const savedService = await window.api.saveSendingService({
+      id: form.dataset.serviceId,
+      provider,
+      domain,
+      cidr: cidrField.value.trim() || null,
+      asn,
+      status: statusField.value as SendingServiceStatus,
+      team: teamField.value.trim() || null,
+      note: noteField.value.trim() || null
+    })
+    const isNewService = !form.dataset.serviceId
+    const afterSave = isNewService ? domainSenderSavedHandler : null
+    if (isNewService) domainSenderSavedHandler = null
+    resetDomainSendingServiceForm()
+    domainSendingServices = await window.api.listSendingServices()
+    renderDomainSendingServices()
+    domainSendersStatus.textContent = t('sendingServices.saved')
+    state.sendingServices = domainSendingServices
+    await afterSave?.(savedService)
+    if (state.fullResult) {
+      applyView()
+      renderNewSendingSourcesBanner(state.fullResult)
+    }
+  } catch (error) {
+    domainSendersStatus.textContent = error instanceof Error ? error.message : String(error)
+  } finally {
+    saveButton.disabled = false
+  }
+}
+
+async function deleteDomainSendingService(id: string): Promise<void> {
+  if (!id) return
+  try {
+    domainSendingServices = await window.api.deleteSendingService(id)
+    if (editingDomainSendingServiceId === id) resetDomainSendingServiceForm()
+    renderDomainSendingServices()
+    domainSendersStatus.textContent = t('sendingServices.deleted')
+    state.sendingServices = domainSendingServices
+    if (state.fullResult) {
+      applyView()
+      renderNewSendingSourcesBanner(state.fullResult)
+    }
+  } catch (error) {
+    domainSendersStatus.textContent = error instanceof Error ? error.message : String(error)
+  }
+}
+
+async function openDomainDkimSettings(
+  domain: string,
+  options?: {
+    senderDraft?: {
+      provider?: string
+      cidr?: string
+      asn?: number | null
+      status?: SendingServiceStatus
+      note?: string
+    }
+    onSenderSaved?: (service: SendingService) => Promise<void>
+    initialTab?: 'dkim' | 'senders'
+    demoData?: {
+      selectors: DomainDkimSelector[]
+      senderServices: SendingService[]
+    }
+  }
+): Promise<void> {
+  editingDkimDomain = domain
+  editingDkimSelectors = []
+  domainSendingServices = []
+  resetDomainSendingServiceForm()
+  domainSenderSavedHandler = options?.onSenderSaved ?? null
+  domainDkimTitle.textContent = `${t('health.domainSettingsTitle')} — ${domain}`
+  showDomainSettingsTab(options?.senderDraft ? 'senders' : (options?.initialTab ?? 'dkim'))
+  if (options?.senderDraft) {
+    senderFormField<HTMLInputElement>(domainSenderForm, 'provider').value =
+      options.senderDraft.provider ?? ''
+    senderFormField<HTMLInputElement>(domainSenderForm, 'cidr').value =
+      options.senderDraft.cidr ?? ''
+    senderFormField<HTMLInputElement>(domainSenderForm, 'asn').value =
+      options.senderDraft.asn != null ? String(options.senderDraft.asn) : ''
+    senderFormField<HTMLSelectElement>(domainSenderForm, 'status').value =
+      options.senderDraft.status ?? 'known'
+    senderFormField<HTMLInputElement>(domainSenderForm, 'team').value = ''
+    senderFormField<HTMLInputElement>(domainSenderForm, 'note').value =
+      options.senderDraft.note ?? ''
+  }
+  domainDkimList.innerHTML = `<p class="muted">${escapeHtml(t('health.loading'))}</p>`
+  domainDkimStatus.textContent = ''
+  domainDkimInput.value = ''
+  domainSendersStatus.textContent = ''
+  domainSendersList.innerHTML = `<p class="muted">${escapeHtml(t('health.loading'))}</p>`
+  btnDomainDkimAdd.disabled = true
+  btnDomainDkimSave.disabled = true
+  domainDkimDialog.showModal()
+  try {
+    const demoData = options?.demoData
+    const selectorsPromise = demoData
+      ? Promise.resolve(demoData.selectors)
+      : window.api.getDomainDkimSelectors(domain)
+    const servicesPromise = demoData
+      ? Promise.resolve().then(() => {
+          domainSendingServices = demoData.senderServices
+          renderDomainSendingServices()
+        })
+      : loadDomainSendingServices()
+    const [selectors] = await Promise.all([selectorsPromise, servicesPromise])
+    if (editingDkimDomain !== domain) return
+    editingDkimSelectors = selectors
+    renderDomainDkimSelectors()
+    btnDomainDkimAdd.disabled = false
+    btnDomainDkimSave.disabled = false
+  } catch (error) {
+    domainDkimStatus.textContent = t('health.dkimLoadError', {
+      message: error instanceof Error ? error.message : String(error)
+    })
+    domainDkimList.innerHTML = ''
+  }
+}
+
+function addDomainDkimSelector(): void {
+  const selector = normalizeDkimSelector(domainDkimInput.value)
+  if (!selector) {
+    domainDkimStatus.textContent = t('health.dkimInvalid')
+    return
+  }
+  if (editingDkimSelectors.some((item) => item.selector === selector)) {
+    domainDkimStatus.textContent = t('health.dkimAlreadyExists')
+    return
+  }
+  editingDkimSelectors.push({ selector, enabled: true })
+  editingDkimSelectors.sort((a, b) => a.selector.localeCompare(b.selector))
+  domainDkimInput.value = ''
+  domainDkimStatus.textContent = ''
+  renderDomainDkimSelectors()
 }
 
 /** Select a domain option case-insensitively (Ampel domains are lowercased). */
@@ -1548,49 +1975,49 @@ function singleIpCidr(ip: string): string {
   return ip.includes(':') ? `${ip}/128` : `${ip}/32`
 }
 
-/**
- * Opens Settings on the "Sende-Dienste" tab with the From domain prefilled.
- * Source IPs remain a note because provider IP ranges often change.
- */
+/** Opens the domain editor with a sender-service draft from a newly observed source. */
 function openSendingServiceFormFor(
   group: NewSendingSourceGroup,
   selectedIps?: string[],
   status: SendingServiceStatus = 'known'
 ): void {
   const ips = selectedIps ?? group.ips
-  openSettings()
-  showSettingsTab('sendingServices')
-  setNextSendingServiceCreatedHandler(async (savedService) => {
-    const selected = new Set(ips)
-    const remainingIps = group.ips.filter((ip) => !selected.has(ip))
-    if (savedService.status === 'known') {
-      await window.api.acknowledgePendingSources(ips)
-      group.ips = remainingIps
-    } else if (remainingIps.length === 0) {
-      group.provider = savedService.provider
-      group.status = savedService.status
-    } else {
-      group.ips = remainingIps
-      const groups = state.fullResult?.newSendingSources
-      const groupIndex = groups?.indexOf(group) ?? -1
-      if (groups && groupIndex >= 0) {
-        groups.splice(groupIndex + 1, 0, {
-          ...group,
-          provider: savedService.provider,
-          ips: [...ips],
-          status: savedService.status
-        })
+  const domain = group.domain || domainsForIp(ips[0] ?? '')[0]
+  if (!domain) {
+    setStatus(t('health.sendingServiceDomainRequired'))
+    return
+  }
+  void openDomainDkimSettings(domain, {
+    senderDraft: {
+      provider: group.provider ?? '',
+      status,
+      note: t('newSources.notePrefillIps', { ips: ips.join(', ') })
+    },
+    onSenderSaved: async (savedService) => {
+      const selected = new Set(ips)
+      const remainingIps = group.ips.filter((ip) => !selected.has(ip))
+      if (savedService.status === 'known') {
+        await window.api.acknowledgePendingSources(ips)
+        group.ips = remainingIps
+      } else if (remainingIps.length === 0) {
+        group.provider = savedService.provider
+        group.status = savedService.status
+      } else {
+        group.ips = remainingIps
+        const groups = state.fullResult?.newSendingSources
+        const groupIndex = groups?.indexOf(group) ?? -1
+        if (groups && groupIndex >= 0) {
+          groups.splice(groupIndex + 1, 0, {
+            ...group,
+            provider: savedService.provider,
+            ips: [...ips],
+            status: savedService.status
+          })
+        }
       }
+      renderNewSendingSourcesBanner(state.fullResult)
     }
-    renderNewSendingSourcesBanner(state.fullResult)
   })
-  sendingServiceProviderEl.value = ''
-  sendingServiceDomainEl.value = group.domain ?? ''
-  sendingServiceCidrEl.value = ''
-  sendingServiceAsnEl.value = ''
-  sendingServiceStatusEl.value = status
-  sendingServiceNoteEl.value = t('newSources.notePrefillIps', { ips: ips.join(', ') })
-  sendingServiceProviderEl.focus()
 }
 
 function removeNewSourceItem(row: HTMLDivElement): void {
@@ -2319,7 +2746,8 @@ async function refreshSendingServicesForMetadata(): Promise<void> {
     applyView()
     renderNewSendingSourcesBanner(state.fullResult)
     if (state.selectedReportId && state.viewResult) {
-      const selected = state.viewResult.reports.find((r) => r.reportId === state.selectedReportId) ?? null
+      const selected =
+        state.viewResult.reports.find((r) => r.reportId === state.selectedReportId) ?? null
       renderDetail(selected)
     }
   } catch {
@@ -2455,6 +2883,46 @@ export function initView(): void {
   setVolumeDayClickHandler(filterVolumeByDay)
 
   btnCloseIpDetail.addEventListener('click', () => ipDetailDialog.close())
+  btnCloseDomainDkim.addEventListener('click', () => domainDkimDialog.close())
+  domainDkimTabButton.addEventListener('click', () => showDomainSettingsTab('dkim'))
+  domainSendersTabButton.addEventListener('click', () => showDomainSettingsTab('senders'))
+  domainSenderForm.addEventListener('submit', (event) => {
+    event.preventDefault()
+    void persistDomainSendingService(domainSenderForm)
+  })
+  btnDomainSenderCancel.addEventListener('click', resetDomainSendingServiceForm)
+  btnDomainDkimAdd.addEventListener('click', addDomainDkimSelector)
+  domainDkimInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    addDomainDkimSelector()
+  })
+  domainDkimList.addEventListener('change', (event) => {
+    if (!(event.target instanceof HTMLInputElement) || event.target.type !== 'checkbox') return
+    const selector = event.target.dataset.selector
+    const entry = editingDkimSelectors.find((item) => item.selector === selector)
+    if (entry) {
+      entry.enabled = event.target.checked
+      renderDomainDkimSelectors()
+    }
+  })
+  btnDomainDkimSave.addEventListener('click', async () => {
+    if (!editingDkimDomain) return
+    btnDomainDkimSave.disabled = true
+    domainDkimStatus.textContent = ''
+    try {
+      await window.api.saveDomainDkimSelectors(editingDkimDomain, editingDkimSelectors)
+      domainDkimDialog.close()
+      domainHealthSource = null
+      void refreshDomainHealth(state.fullResult)
+    } catch (error) {
+      domainDkimStatus.textContent = t('health.dkimSaveError', {
+        message: error instanceof Error ? error.message : String(error)
+      })
+    } finally {
+      btnDomainDkimSave.disabled = false
+    }
+  })
   btnCloseDiagnosis?.addEventListener('click', () => diagnosisDialog.close())
   btnDiagnosisClose?.addEventListener('click', () => diagnosisDialog.close())
   btnCloseTlsRptDetail.addEventListener('click', () => tlsRptDetailDialog.close())
@@ -2589,24 +3057,32 @@ function domainsForIp(ip: string): string[] {
   return [...domains].filter(Boolean).sort()
 }
 
-/** Opens Settings on "Sende-Dienste" with everything prefilled from a known IP's context menu. */
+/** Opens domain settings with a sender-service draft from a known IP's context menu. */
 function openSendingServiceFormForIp(ip: string): void {
   if (!ip) return
   const info = state.ipLabelCache.get(ip)
-  openSettings()
-  showSettingsTab('sendingServices')
-  setNextSendingServiceCreatedHandler(async (savedService) => {
-    if (savedService.status === 'known') {
-      await window.api.acknowledgePendingSources([ip])
+  const domains = domainsForIp(ip)
+  const selectedDomain = domains.find(
+    (domain) => domain.toLowerCase() === filterDomainEl.value.toLowerCase()
+  )
+  const domain = selectedDomain ?? domains[0]
+  if (!domain) {
+    setStatus(t('health.sendingServiceDomainRequired'))
+    return
+  }
+  void openDomainDkimSettings(domain, {
+    senderDraft: {
+      provider: info?.provider ?? '',
+      cidr: singleIpCidr(ip),
+      asn: info?.asn ?? null,
+      status: 'known'
+    },
+    onSenderSaved: async (savedService) => {
+      if (savedService.status === 'known') {
+        await window.api.acknowledgePendingSources([ip])
+      }
     }
   })
-  sendingServiceProviderEl.value = info?.provider ?? ''
-  sendingServiceDomainEl.value = domainsForIp(ip).join(', ')
-  sendingServiceCidrEl.value = singleIpCidr(ip)
-  sendingServiceAsnEl.value = info?.asn != null ? String(info.asn) : ''
-  sendingServiceStatusEl.value = 'known'
-  sendingServiceNoteEl.value = ''
-  sendingServiceProviderEl.focus()
 }
 
 function initIpContextMenu(): void {

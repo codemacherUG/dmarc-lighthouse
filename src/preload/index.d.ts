@@ -5,6 +5,7 @@ import type {
   BimiCheckResult,
   DnsCheckResult,
   DnsHistoryResult,
+  DomainDkimSelector,
   DomainHealth,
   SpfExpandResult,
   GeoLiteDownloadResult,
@@ -54,6 +55,11 @@ export interface DmarcLighthouseApi {
   checkTransport: (domain: string) => Promise<TransportSecurityResult>
   dnsHistory: (domain: string) => Promise<DnsHistoryResult>
   healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>
+  getDomainDkimSelectors: (domain: string) => Promise<DomainDkimSelector[]>
+  saveDomainDkimSelectors: (
+    domain: string,
+    selectors: DomainDkimSelector[]
+  ) => Promise<DomainDkimSelector[]>
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
   openFiles: () => Promise<AnalyzeResult | null>
@@ -93,6 +99,8 @@ declare global {
       prepareDemo: (locale: 'de' | 'en') => Promise<void>
       openSettingsDemo: () => void
       closeSettings: () => void
+      openDomainSettingsDemo: () => Promise<void>
+      closeDomainSettingsDemo: () => void
       openRolloutDemo: () => void
       closeRollout: () => void
       openDnsDemo: () => void

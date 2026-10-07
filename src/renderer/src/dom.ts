@@ -40,6 +40,49 @@ export const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLIn
 export const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 export const dnsTransportEl = document.getElementById('dns-transport') as HTMLDivElement
 export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
+export const domainDkimDialog = document.getElementById('domain-dkim-dialog') as HTMLDialogElement
+export const domainDkimTitle = document.getElementById('domain-dkim-title') as HTMLHeadingElement
+export const domainDkimTabButton = document.getElementById(
+  'domain-tab-btn-dkim'
+) as HTMLButtonElement
+export const domainSendersTabButton = document.getElementById(
+  'domain-tab-btn-senders'
+) as HTMLButtonElement
+export const domainDkimTabPanel = document.getElementById('domain-tab-dkim') as HTMLElement
+export const domainSendersTabPanel = document.getElementById('domain-tab-senders') as HTMLElement
+export const domainDkimList = document.getElementById('domain-dkim-list') as HTMLDivElement
+export const domainDkimInput = document.getElementById('domain-dkim-input') as HTMLInputElement
+export const domainDkimStatus = document.getElementById(
+  'domain-dkim-status'
+) as HTMLParagraphElement
+export const btnDomainDkimAdd = document.getElementById('btn-domain-dkim-add') as HTMLButtonElement
+export const btnDomainDkimSave = document.getElementById(
+  'btn-domain-dkim-save'
+) as HTMLButtonElement
+export const btnCloseDomainDkim = document.getElementById(
+  'btn-close-domain-dkim'
+) as HTMLButtonElement
+export const domainSendersList = document.getElementById('domain-senders-list') as HTMLDivElement
+export const domainSenderForm = document.getElementById('domain-sender-form') as HTMLFormElement
+export const domainSenderProvider = document.getElementById(
+  'domain-sender-provider'
+) as HTMLInputElement
+export const domainSenderCidr = document.getElementById('domain-sender-cidr') as HTMLInputElement
+export const domainSenderAsn = document.getElementById('domain-sender-asn') as HTMLInputElement
+export const domainSenderStatus = document.getElementById(
+  'domain-sender-status'
+) as HTMLSelectElement
+export const domainSenderTeam = document.getElementById('domain-sender-team') as HTMLInputElement
+export const domainSenderNote = document.getElementById('domain-sender-note') as HTMLInputElement
+export const btnDomainSenderSave = document.getElementById(
+  'btn-domain-sender-save'
+) as HTMLButtonElement
+export const btnDomainSenderCancel = document.getElementById(
+  'btn-domain-sender-cancel'
+) as HTMLButtonElement
+export const domainSendersStatus = document.getElementById(
+  'domain-senders-status'
+) as HTMLParagraphElement
 export const tableProblemSources = document.getElementById(
   'table-problem-sources'
 ) as HTMLTableSectionElement
@@ -171,53 +214,12 @@ export const tabBtnAccount = document.getElementById('tab-btn-account') as HTMLB
 export const tabBtnAppearance = document.getElementById('tab-btn-appearance') as HTMLButtonElement
 export const tabBtnGeneral = document.getElementById('tab-btn-general') as HTMLButtonElement
 export const tabBtnNoise = document.getElementById('tab-btn-noise') as HTMLButtonElement
-export const tabBtnSendingServices = document.getElementById(
-  'tab-btn-sending-services'
-) as HTMLButtonElement
 export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as HTMLButtonElement
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 export const tabAppearanceEl = document.getElementById('tab-appearance') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 export const tabNoiseEl = document.getElementById('tab-noise') as HTMLElement
-export const tabSendingServicesEl = document.getElementById('tab-sending-services') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
-
-export const sendingServiceProviderEl = document.getElementById(
-  'sending-service-provider'
-) as HTMLInputElement
-export const sendingServiceDomainEl = document.getElementById(
-  'sending-service-domain'
-) as HTMLInputElement
-export const sendingServiceCidrEl = document.getElementById(
-  'sending-service-cidr'
-) as HTMLInputElement
-export const sendingServiceAsnEl = document.getElementById(
-  'sending-service-asn'
-) as HTMLInputElement
-export const sendingServiceStatusEl = document.getElementById(
-  'sending-service-status'
-) as HTMLSelectElement
-export const sendingServiceTeamEl = document.getElementById(
-  'sending-service-team'
-) as HTMLInputElement
-export const sendingServiceNoteEl = document.getElementById(
-  'sending-service-note'
-) as HTMLInputElement
-export const sendingServiceFormTitleEl = document.getElementById(
-  'sending-service-form-title'
-) as HTMLElement
-export const btnAddSendingService = document.getElementById(
-  'btn-add-sending-service'
-) as HTMLButtonElement
-export const btnCancelSendingServiceEdit = document.getElementById(
-  'btn-cancel-sending-service-edit'
-) as HTMLButtonElement
-export const sendingServicesBodyEl = document.getElementById(
-  'sending-services-body'
-) as HTMLTableSectionElement
-export const sendingServicesStatusEl = document.getElementById(
-  'sending-services-status'
-) as HTMLElement
 
 export const providerEl = document.getElementById('provider') as HTMLSelectElement
 export const authModeEl = document.getElementById('authMode') as HTMLSelectElement

@@ -24,6 +24,7 @@
 <p align="center">
   <a href="#funktionen">Funktionen</a> ·
   <a href="#screenshots">Screenshots</a> ·
+  <a href="./CHANGELOG.md">Änderungsprotokoll</a> ·
   <a href="#download--installation">Download</a> ·
   <a href="#nutzung">Nutzung</a> ·
   <a href="#entwicklung">Entwicklung</a>
@@ -84,9 +85,11 @@ Eine Zeile öffnet per Klick oder Tastatur den Detaildialog mit Berichts-ID und 
 
 Eine neu beobachtete Quell-IP ist nicht automatisch ein neuer Versanddienst. Reverse-DNS (PTR) beschreibt nur den Hostnamen der IP; die **From-Domain** ist die für DMARC relevante Absenderidentität. Infrastruktur-IP-Adressen von Microsoft 365, Infomaniak oder Hostern können wechseln. Daher einzelne, unauffällige IPs als gesehen markieren und nur einen bestätigten Anbieter gezielt als Versandweg für eine From-Domain speichern.
 
+Sende-Dienste werden direkt in den Einstellungen der betroffenen Domain verwaltet. Über das Zahnrad in der Domain-Ampel lassen sich DKIM-Selectoren und Sende-Dienste bearbeiten. Die Bearbeitung eines Dienstes klappt direkt in seinem Eintrag auf; das Formular zum Hinzufügen bleibt sichtbar.
+
 ### Diagnose — „Warum ist das fehlgeschlagen?“
 
-Klick auf das **?** neben dem Ursache-Badge einer Problemquelle liefert eine Diagnose in Klartext: ein Urteil (legitimer Sender, Fremddienst oder verdächtig), den erkannten Versanddienst, die rohen SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Handlungsempfehlung (z. B. „DKIM-Signing für `example.com` einrichten“). Basiert vollständig auf bereits vorhandenen Report-Daten — Sender-Klassifizierung, Alignment und Auth-Ergebnisse — ganz ohne KI.
+Klick auf das **?** neben dem Ursache-Badge einer Problemquelle liefert eine Diagnose in Klartext: ein Urteil (wahrscheinlich legitim, möglicherweise legitim, weitergeleitet oder verdächtig), den erkannten Versanddienst, rohe SPF-/DKIM-Authentifizierungsergebnisse inkl. Alignment und eine konkrete Handlungsempfehlung (z. B. „DKIM-Signing für `example.com` einrichten“). Details neuer Quellen fassen außerdem DMARC-Pass/Fail, Disposition und Auth-Ergebnisse nach Nachrichtenanzahl zusammen. Alles basiert auf vorhandenen Report-Daten — ganz ohne KI.
 
 Problemquellen sind zugestellte DMARC-Fails und werden pro Quell-IP und From-Domain getrennt ausgewertet. Bereits wirksam abgewiesene oder quarantänisierte Nachrichten zählen nicht. Bei einer Empfänger-Ausnahme zählt nur eine bestätigte Weiterleitung (`trusted_forwarder` oder `local_policy` mit `ARC pass`) nicht als Problem; `ARC fail` bleibt sichtbar.
 
@@ -124,9 +127,11 @@ Unter **Tools → E-Mail prüfen** eine gespeicherte `.eml` oder Outlook-`.msg` 
 
 ### Einstellungen
 
-Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray, Sprache und Erscheinungsbild (Hell / Dunkel / System):
+Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray, Sprache und Erscheinungsbild (Hell / Dunkel / System). Domainbezogene DKIM- und Sende-Dienst-Einstellungen werden direkt in der Domain-Ampel verwaltet:
 
 ![Einstellungen-Dialog mit Konto-Verwaltung](docs/screenshots/de/settings.png)
+
+![Domain-Einstellungen mit DKIM-Selectoren und aufgeklappter Sende-Dienst-Bearbeitung](docs/screenshots/de/domain-settings.png)
 
 ---
 
@@ -149,14 +154,14 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **IP-Anreicherung**         | Reverse-DNS, erkannter Versanddienst (ESP, Mailbox-Anbieter, SaaS, Gateway, Hosting), Cloud-IP-Ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optionaler Online-Fallback), DNSBL/DNSWL, RDAP/WHOIS on-demand       |
 | **Neue Quell-IPs**          | Erstmals beobachtete IPs nach Netz und From-Domain gruppiert; PTR ist IP-Metadatum, kein Absender. Einzelne IPs als gesehen markieren oder bestätigte Anbieter als Versandweg speichern                                      |
 | **Fail-Kategorien**         | Problemquellen zeigen zugestellte DMARC-Fails pro Quell-IP und From-Domain: Weiterleitung, Fremddienst, Konfiguration, eigener Sender oder ganz ohne Auth                                                                  |
-| **Diagnose**                | Pro Problemquelle ein Urteil in Klartext plus erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und eine konkrete Empfehlung (z. B. DKIM-Signing einrichten) — aus vorhandenen Report-Daten abgeleitet, ohne KI     |
+| **Diagnose & Quellbewertung** | Pro Problemquelle ein Urteil in Klartext, erkannter Sender, rohe SPF-/DKIM-Ergebnisse inkl. Alignment und konkrete Empfehlung; Details neuer Quellen fassen zusätzlich DMARC-, Disposition- und Auth-Ergebnisse nach Nachrichtenanzahl zusammen — aus Reports abgeleitet, ohne KI |
 | **Policy-Rollout**          | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                |
 | **What-if-Simulation**      | Dashboard-Simulation für eine Domain (`p=reject`, strict DKIM, `sp=reject`): Kennzahlen, Charts, Tabellen, Dispositions und Problemquellen werden aus simulierten lokalen Reportdaten neu berechnet                           |
 | **Quellenkarte**            | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
-| **Domain-Ampel**            | Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert auf die Domain                                                                                                                                            |
+| **Domain-Ampel & Einstellungen** | Responsive Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS); Klick filtert, das Zahnrad öffnet DKIM-Selectoren und domainbezogene Sende-Dienste                                                                    |
 | **Filter**                  | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain (Aggregate-, Forensik- und TLS-RPT-Listen), angewandte Disposition (Reject / Nicht reject) sowie Drill-Down nach Org, Quell-IP und From-Domain                 |
 | **Mailbox-Rauschen**        | Optionaler Filter für Report-Echo von Gmail, Outlook, Yahoo, iCloud (Anbieter in Einstellungen → Rauschen abwählbar) **und konfigurierbare Empfänger-Scanner** (Vorgabe `cloud-sec-av.com`)                                   |
-| **DNS-Check**               | Live-Abfrage von DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) über den RFC-9989-Tree-Walk, SPF, DKIM-Selektoren (automatisch aus den Reports oder manuell), BIMI (`l`, `a`) und optional DNSSEC über einen konfigurierbaren DoH-Resolver |
+| **DNS-Check**               | Live-Abfrage von DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) über den RFC-9989-Tree-Walk, SPF, DKIM-Selektoren (aus Reports, manuell oder aus aktivierten Domaineinstellungen), BIMI (`l`, `a`) und optional DNSSEC über einen konfigurierbaren DoH-Resolver |
 | **DNS-Historie & Drift**    | Dauerhafte lokale Versionen von DMARC-, SPF-, DKIM-, BIMI-, TLS-RPT- und MTA-STS-Checks; erkennt Record-Drift und korreliert Änderungen mit späteren DMARC-Fail-Rate-Anstiegen aus gespeicherten Reports                      |
 | **Record-Wizards**          | DMARC (inkl. `t=`/`np=`/`psd=`, Legacy-`pct=` mit Warnhinweis), SPF, TLS-RPT, MTA-STS und BIMI geführt erzeugen; Live-DNS als Vorlage, kopierbare Records (MTA-STS inkl. Policy-Datei)                                        |
 | **Transport-Sicherheit**    | TLS-RPT-Record, MTA-STS-TXT + Policy-Datei (Modus, `max_age`, MX-Abdeckung) und DANE/TLSA pro MX-Host mit Gesamturteil                                                                                                        |
@@ -216,7 +221,7 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** Auto-Abruf, Alerts, System-Tray und Autostart konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
 4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, **Disposition** (Reject / Nicht reject), Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Mailbox-Rauschen ausblenden**, um Report-Echo-Hops von Gmail, Outlook, Yahoo und iCloud zu entfernen. Der Domainfilter gilt auch für Forensik- und TLS-RPT-Listen; TLS-RPT-Zeilen öffnen per Klick die Policy- und Fehlerdetails. Charts, Tabellen und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Aggregate-Reports als ZIP laden.
-5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF, DKIM-Selektoren aus den Reports oder manuell, BIMI und optional DNSSEC). DNSSEC lässt sich unter **Einstellungen → Abruf & Benachrichtigungen** abschalten oder auf eine eigene RFC-8484-DoH-URL umstellen. Jeder echte Check wird lokal versioniert; das Ergebnis zeigt aktuelle DNS-Drifts und passende Report-Korrelationen, z. B. einen späteren Fail-Rate-Sprung nach einer SPF-Änderung.
+5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF, DKIM-Selektoren aus Reports oder manueller Eingabe; ist das Feld leer, gelten die aktivierten Selector-Einstellungen der Domain. Ohne Domaineinstellungen werden die Selector-Einträge der Reports verwendet. Dazu BIMI und optional DNSSEC). DNSSEC lässt sich unter **Einstellungen → Abruf & Benachrichtigungen** abschalten oder auf eine eigene RFC-8484-DoH-URL umstellen. Jeder echte Check wird lokal versioniert; das Ergebnis zeigt aktuelle DNS-Drifts und passende Report-Korrelationen, z. B. einen späteren Fail-Rate-Sprung nach einer SPF-Änderung.
 6. Unter **Tools → E-Mail prüfen** eine `.eml` oder `.msg` laden (auf den Dialog ziehen) oder Header einfügen. Weg, TLS vs. lokale Stationen sowie SPF/DKIM/DMARC/ARC prüfen. Lokaler Versand mit `Authentication-Results: none` ist „unbekannt“, kein Spoofing.
 7. Unter **Tools → Policy-Rollout** den nächsten Schritt zu `p=reject` planen: Empfehlung, offene Punkte, zu klärende Absender und Staging-Plan mit kopierbaren Records.
 8. Für Berichte an die Leitung im **Export**-Dialog **PDF-Bericht** wählen — oder in den Einstellungen den **Monatsbericht** aktivieren: für jede Domain im abgelaufenen Monat entsteht ein eigenes PDF.

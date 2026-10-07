@@ -24,6 +24,7 @@
 <p align="center">
   <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
+  <a href="./CHANGELOG.md">Changelog</a> ·
   <a href="#download--installation">Download</a> ·
   <a href="#usage">Usage</a> ·
   <a href="#development">Development</a>
@@ -84,9 +85,11 @@ Click a row, or focus it and press Enter or Space, to open the detail dialog. It
 
 A newly observed source IP is not automatically a new sending service. Reverse DNS (PTR) only describes the IP's hostname; the **From domain** is the sender identity relevant to DMARC. Infrastructure IPs from Microsoft 365, Infomaniak, or hosting providers can change. Mark isolated, unremarkable IPs as seen, and save only a confirmed provider as a sending service for a From domain.
 
+Sending services are managed in the affected domain's settings. Open the gear on a domain-health tile to edit that domain's DKIM selectors and sending services; the service editor expands inline, while the add form stays available.
+
 ### Diagnosis — “why did this fail?”
 
-Click the **?** next to a problem source’s cause badge for a plain-language diagnosis: a verdict (legitimate sender, third party, or suspicious), the detected sending service, the raw SPF/DKIM results with their alignment, and a concrete next step (e.g. “set up DKIM signing for `example.com`”). Built entirely from data already in the report — sender classification, alignment, and auth results — no AI involved.
+Click the **?** next to a problem source’s cause badge for a plain-language diagnosis: a verdict (likely legitimate, possibly legitimate, forwarded, or suspicious), the detected sending service, raw SPF/DKIM authentication results and alignment, and a concrete next step (e.g. “set up DKIM signing for `example.com`”). New-source details also summarize DMARC pass/fail, disposition, and authentication outcomes by message count. Everything is derived from existing report data — no AI involved.
 
 Problem sources are delivered DMARC failures, evaluated separately for each source IP and From domain. Messages already rejected or quarantined do not count. For receiver overrides, only confirmed forwarding (`trusted_forwarder` or `local_policy` with `ARC pass`) is not a problem; `ARC fail` remains visible.
 
@@ -124,9 +127,11 @@ Under **Tools → Inspect email**, open a saved `.eml` or Outlook `.msg` (or pas
 
 ### Settings
 
-Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, UI language, and appearance (light / dark / system):
+Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, UI language, and appearance (light / dark / system). Domain-specific DKIM and sending-service settings are managed from the domain-health view:
 
 ![Settings dialog with account management](docs/screenshots/en/settings.png)
+
+![Domain settings with DKIM selectors and an expanded sending-service editor](docs/screenshots/en/domain-settings.png)
 
 ---
 
@@ -149,14 +154,14 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **IP enrichment**           | Reverse DNS, identified sending service (ESP, mailbox provider, SaaS, gateway, hosting), cloud IP ranges (AWS/Google/Cloudflare), GeoIP (GeoLite2 offline + optional online fallback), DNSBL/DNSWL, on-demand RDAP/WHOIS         |
 | **New source IPs**          | First-observed IPs grouped by network and From domain; PTR is IP metadata, not a sender. Mark individual IPs as seen or save confirmed providers as sending services                                                              |
 | **Failure categories**      | Problem sources name delivered DMARC failures per source IP and From domain: forwarding, third party, configuration, own sender, or no auth at all                                                                                |
-| **Diagnosis**               | Per problem source, a plain-language verdict plus detected sender, raw SPF/DKIM results with alignment, and a concrete recommendation (e.g. set up DKIM signing) — derived from existing report data, no AI                      |
+| **Diagnosis & source assessment** | Per problem source, a plain-language verdict, detected sender, raw SPF/DKIM results with alignment, and a concrete recommendation; new-source details also summarize DMARC, disposition, and auth outcomes by message count — derived from report data, no AI |
 | **Policy rollout**          | Recommends the next step (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) with thresholds, open items, and a staging plan of ready-to-copy records                                                 |
 | **What-if simulation**      | Dashboard-level simulation for one domain (`p=reject`, strict DKIM, `sp=reject`): KPIs, charts, tables, dispositions, and problem sources are recalculated from simulated local report data                                      |
 | **Source map**              | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP                                                                                                                                                 |
-| **Domain health**           | Multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter                                                                                                                                              |
+| **Domain health & settings** | Responsive multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status); click to filter, or use the gear to edit DKIM selectors and domain-specific sending services                                                  |
 | **Filters**                 | Date range (7 / 30 / 90 days / all / custom), domain (aggregate, forensic, and TLS-RPT lists), applied disposition (Reject / Not reject), plus drill-down by org, source IP, and From domain                                   |
 | **Mailbox noise filter**    | Optional filter for report-echo from Gmail, Outlook, Yahoo, iCloud (providers togglable in Settings → Noise) **and configurable recipient scanners** (default `cloud-sec-av.com`)                                                |
-| **DNS check**               | Live lookup of DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) via the RFC 9989 tree walk, SPF, DKIM selectors (auto-collected from reports or manual), BIMI (`l`, `a`), and optional DNSSEC through a configurable DoH resolver |
+| **DNS check**               | Live lookup of DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) via the RFC 9989 tree walk, SPF, DKIM selectors (from reports, manual input, or enabled domain settings), BIMI (`l`, `a`), and optional DNSSEC through a configurable DoH resolver |
 | **DNS history & drift**     | Permanent local versions of DMARC, SPF, DKIM, BIMI, TLS-RPT, and MTA-STS checks; detects record drift and correlates changes with later DMARC fail-rate increases from stored reports                                            |
 | **Record wizards**          | Guided DMARC (incl. `t=`/`np=`/`psd=`, legacy `pct=` with a deprecation warning), SPF, TLS-RPT, MTA-STS, and BIMI records; live DNS as a template, copy-ready output (MTA-STS includes the policy file)                          |
 | **Transport security**      | TLS-RPT record, MTA-STS TXT + policy file (mode, `max_age`, MX coverage), and DANE/TLSA per MX host with an overall verdict                                                                                                      |
@@ -216,7 +221,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, and autostart. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
 4. Narrow with date range (including custom From/To), domain, **disposition** (Reject / Not reject), domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. The domain filter also applies to forensic and TLS-RPT lists; click a TLS-RPT row to inspect its policy and failure details. Review charts, tables, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual aggregate reports as ZIP.
-5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, DKIM selectors from the reports or entered manually, BIMI, and optional DNSSEC). DNSSEC can be disabled or switched to a custom RFC 8484 DoH URL in **Settings → Fetch & notifications**. Each real check is versioned locally; the result panel shows recent DNS drift and any matching report correlation, e.g. a later fail-rate jump after an SPF change.
+5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, DKIM selectors from reports or manual input; when the field is empty, enabled per-domain selectors are used, falling back to report selectors if no domain preferences exist; BIMI and optional DNSSEC). DNSSEC can be disabled or switched to a custom RFC 8484 DoH URL in **Settings → Fetch & notifications**. Each real check is versioned locally; the result panel shows recent DNS drift and any matching report correlation, e.g. a later fail-rate jump after an SPF change.
 6. Open **Tools → Inspect email** to load an `.eml` or `.msg` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
 7. Plan the next step towards `p=reject` under **Tools → Policy rollout**: recommendation, open items, senders to fix, and a staging plan of ready-to-copy records.
 8. For management reporting, pick **PDF report** in the **Export** dialog — or enable the **monthly report** in the settings: each domain in the finished month gets its own PDF.

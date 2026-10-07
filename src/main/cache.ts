@@ -12,6 +12,7 @@ import type {
   DnsHistorySnapshot,
   DnsHistorySnapshotKind,
   DnsReportCorrelation,
+  DomainDkimSelector,
   ForensicReportRow,
   IpInfo,
   ReportRow,
@@ -214,6 +215,13 @@ function openDb(): DatabaseSync {
       result_json TEXT NOT NULL,
       checked_at TEXT NOT NULL,
       expires_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS domain_dkim_selectors (
+      domain TEXT NOT NULL,
+      selector TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (domain, selector)
     );
 
     CREATE TABLE IF NOT EXISTS dns_history_snapshots (
@@ -1749,6 +1757,47 @@ export function upsertDnsHealthCache(
          expires_at = excluded.expires_at`
     )
     .run(domain.trim().toLowerCase(), JSON.stringify(result), checkedAt, expiresAt)
+}
+
+export function getDomainDkimSelectors(domain: string): DomainDkimSelector[] {
+  const rows = openDb()
+    .prepare(
+      `SELECT selector, enabled FROM domain_dkim_selectors
+       WHERE domain = ? ORDER BY selector`
+    )
+    .all(domain.trim().toLowerCase()) as Array<{ selector: string; enabled: number }>
+  return rows.map(({ selector, enabled }) => ({ selector, enabled: enabled === 1 }))
+}
+
+export function addDiscoveredDomainDkimSelectors(domain: string, selectors: string[]): void {
+  const database = openDb()
+  const statement = database.prepare(
+    `INSERT INTO domain_dkim_selectors(domain, selector, enabled)
+     VALUES (?, ?, 1) ON CONFLICT(domain, selector) DO NOTHING`
+  )
+  const normalizedDomain = domain.trim().toLowerCase()
+  for (const selector of selectors) {
+    statement.run(normalizedDomain, selector)
+  }
+}
+
+export function saveDomainDkimSelectors(domain: string, selectors: DomainDkimSelector[]): void {
+  const database = openDb()
+  const normalizedDomain = domain.trim().toLowerCase()
+  database.exec('BEGIN')
+  try {
+    database.prepare('DELETE FROM domain_dkim_selectors WHERE domain = ?').run(normalizedDomain)
+    const insert = database.prepare(
+      `INSERT INTO domain_dkim_selectors(domain, selector, enabled) VALUES (?, ?, ?)`
+    )
+    for (const { selector, enabled } of selectors) {
+      insert.run(normalizedDomain, selector, enabled ? 1 : 0)
+    }
+    database.exec('COMMIT')
+  } catch (error) {
+    database.exec('ROLLBACK')
+    throw error
+  }
 }
 
 type HistoryResult = DnsCheckResult | TransportSecurityResult

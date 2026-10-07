@@ -482,6 +482,11 @@ export interface DomainHealth extends DomainStats {
   reasons: string[]
 }
 
+export interface DomainDkimSelector {
+  selector: string
+  enabled: boolean
+}
+
 export interface RdapInfo {
   ip: string
   org: string | null

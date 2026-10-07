@@ -1,5 +1,5 @@
 import { suggestAccountName } from '../../shared/account'
-import { normalizeLocale, t, type MessageKey } from '../../shared/i18n'
+import { normalizeLocale, t } from '../../shared/i18n'
 import { normalizeTheme } from '../../shared/theme'
 import type {
   AccountPublic,
@@ -7,8 +7,6 @@ import type {
   AuthMode,
   GlobalSettings,
   ProviderPreset,
-  SendingService,
-  SendingServiceStatus,
   SettingsPublic
 } from '../../shared/types'
 import { PROVIDER_PRESETS } from '../../shared/types'
@@ -21,8 +19,6 @@ import {
   archiveMailboxEl,
   authModeEl,
   autoFetchMinutesEl,
-  btnAddSendingService,
-  btnCancelSendingServiceEdit,
   btnCancelCreateMailbox,
   btnClearArchiveMailbox,
   btnClearCache,
@@ -86,16 +82,6 @@ import {
   rdapEnabledEl,
   runInTrayEl,
   secureEl,
-  sendingServiceAsnEl,
-  sendingServiceCidrEl,
-  sendingServiceDomainEl,
-  sendingServiceFormTitleEl,
-  sendingServiceNoteEl,
-  sendingServiceProviderEl,
-  sendingServiceStatusEl,
-  sendingServiceTeamEl,
-  sendingServicesBodyEl,
-  sendingServicesStatusEl,
   settingsAccountSelectEl,
   settingsDialog,
   settingsForm,
@@ -108,16 +94,14 @@ import {
   tabBtnEnrichment,
   tabBtnGeneral,
   tabBtnNoise,
-  tabBtnSendingServices,
   tabEnrichmentEl,
   tabGeneralEl,
   tabNoiseEl,
-  tabSendingServicesEl,
   userEl
 } from './dom'
 import { escapeHtml, formatDate } from './format'
 import { state } from './state'
-import { applyView, showResult } from './view'
+import { applyView } from './view'
 import {
   DEFAULT_MAILBOX_NOISE_PROVIDERS,
   MAILBOX_NOISE_PROVIDERS,
@@ -127,7 +111,7 @@ import {
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
-type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'sendingServices' | 'enrichment'
+type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'enrichment'
 
 function mailboxNoiseCheckbox(id: MailboxNoiseProvider): HTMLInputElement | null {
   return document.getElementById(`mailbox-noise-${id}`) as HTMLInputElement | null
@@ -441,8 +425,7 @@ export function readGlobalForm(): GlobalSettings {
     cloudRangesEnabled: cloudRangesEnabledEl.checked,
     rdapEnabled: rdapEnabledEl.checked,
     dnssecEnabled: dnssecEnabledEl.checked,
-    dnssecResolver:
-      dnssecResolverEl.value === 'custom' ? 'custom' : 'cloudflare',
+    dnssecResolver: dnssecResolverEl.value === 'custom' ? 'custom' : 'cloudflare',
     dnssecResolverUrl: dnssecResolverUrlEl.value.trim(),
     hideMailboxNoise: filterHideMailboxNoiseEl.checked,
     mailboxNoiseProviders: readMailboxNoiseProviders(),
@@ -608,7 +591,6 @@ export function showSettingsTab(which: SettingsTab): void {
     { id: 'account', btn: tabBtnAccount, panel: tabAccountEl },
     { id: 'appearance', btn: tabBtnAppearance, panel: tabAppearanceEl },
     { id: 'noise', btn: tabBtnNoise, panel: tabNoiseEl },
-    { id: 'sendingServices', btn: tabBtnSendingServices, panel: tabSendingServicesEl },
     { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
     { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
   ]
@@ -618,7 +600,6 @@ export function showSettingsTab(which: SettingsTab): void {
     tab.btn.setAttribute('aria-selected', String(active))
     tab.panel.classList.toggle('hidden', !active)
   }
-  if (which === 'sendingServices') void loadSendingServices()
 }
 
 export function openSettings(): void {
@@ -636,8 +617,6 @@ export function refreshSettingsLocale(): void {
   if (!state.settings) return
   updateAccountUi()
   fillSettingsAccountSelect()
-  syncSendingServiceFormMode()
-  if (settingsDialog.open) renderSendingServices()
   if (settingsDialog.open) {
     const account = dialogAccount()
     passwordHintEl.textContent = account?.hasPassword
@@ -646,264 +625,18 @@ export function refreshSettingsLocale(): void {
   }
 }
 
-const STATUS_KEYS: Record<SendingServiceStatus, MessageKey> = {
-  known: 'sendingServices.status.known',
-  unknown: 'sendingServices.status.unknown',
-  investigate: 'sendingServices.status.investigate',
-  retired: 'sendingServices.status.retired'
-}
-
-let sendingServices: SendingService[] = []
-let editingSendingServiceId: string | null = null
-let nextSendingServiceCreatedHandler: ((service: SendingService) => Promise<void>) | null = null
-
-export function setNextSendingServiceCreatedHandler(
-  handler: ((service: SendingService) => Promise<void>) | null
-): void {
-  if (handler) resetSendingServiceForm()
-  nextSendingServiceCreatedHandler = handler
-}
-
-function syncSendingServiceFormMode(): void {
-  const editing = editingSendingServiceId != null
-  sendingServiceFormTitleEl.textContent = t(
-    editing ? 'sendingServices.editTitle' : 'sendingServices.addTitle'
-  )
-  btnAddSendingService.textContent = t(
-    editing ? 'sendingServices.saveChanges' : 'sendingServices.add'
-  )
-  btnCancelSendingServiceEdit.classList.toggle('hidden', !editing)
-}
-
-function resetSendingServiceForm(): void {
-  editingSendingServiceId = null
-  sendingServiceProviderEl.value = ''
-  sendingServiceDomainEl.value = ''
-  sendingServiceCidrEl.value = ''
-  sendingServiceAsnEl.value = ''
-  sendingServiceTeamEl.value = ''
-  sendingServiceNoteEl.value = ''
-  sendingServiceStatusEl.value = 'unknown'
-  syncSendingServiceFormMode()
-}
-
-function editSendingService(service: SendingService): void {
-  nextSendingServiceCreatedHandler = null
-  editingSendingServiceId = service.id
-  sendingServiceProviderEl.value = service.provider
-  sendingServiceDomainEl.value = service.domain ?? ''
-  sendingServiceCidrEl.value = service.cidr ?? ''
-  sendingServiceAsnEl.value = service.asn != null ? String(service.asn) : ''
-  sendingServiceStatusEl.value = service.status
-  sendingServiceTeamEl.value = service.team ?? ''
-  sendingServiceNoteEl.value = service.note ?? ''
-  syncSendingServiceFormMode()
-  sendingServiceProviderEl.focus()
-}
-
-async function loadSendingServices(): Promise<void> {
-  try {
-    sendingServices = await window.api.listSendingServices()
-    renderSendingServices()
-  } catch (err) {
-    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
-  }
-}
-
-async function refreshSendingSourcesFromCache(): Promise<void> {
-  const cached = await window.api.loadCache(state.settings?.activeAccountId)
-  if (cached) showResult(cached)
-}
-
-function renderSendingServices(): void {
-  sendingServicesBodyEl.innerHTML = ''
-  if (sendingServices.length === 0) {
-    const tr = document.createElement('tr')
-    const td = document.createElement('td')
-    td.colSpan = 7
-    td.className = 'hint'
-    td.textContent = t('sendingServices.empty')
-    tr.appendChild(td)
-    sendingServicesBodyEl.appendChild(tr)
-    return
-  }
-  for (const service of sendingServices) {
-    sendingServicesBodyEl.appendChild(renderSendingServiceRow(service))
-  }
-}
-
-function renderSendingServiceRow(service: SendingService): HTMLTableRowElement {
-  const tr = document.createElement('tr')
-
-  const providerTd = document.createElement('td')
-  providerTd.textContent = service.provider
-  tr.appendChild(providerTd)
-
-  const domainTd = document.createElement('td')
-  domainTd.textContent = service.domain || '—'
-  tr.appendChild(domainTd)
-
-  const scopeTd = document.createElement('td')
-  scopeTd.textContent = [service.cidr, service.asn != null ? `AS${service.asn}` : null]
-    .filter(Boolean)
-    .join(' · ')
-  tr.appendChild(scopeTd)
-
-  const statusTd = document.createElement('td')
-  const statusSelect = document.createElement('select')
-  for (const [value, key] of Object.entries(STATUS_KEYS) as Array<
-    [SendingServiceStatus, MessageKey]
-  >) {
-    const opt = document.createElement('option')
-    opt.value = value
-    opt.textContent = t(key)
-    if (value === service.status) opt.selected = true
-    statusSelect.appendChild(opt)
-  }
-  statusSelect.addEventListener('change', () => {
-    void saveSendingServiceEdit(service, { status: statusSelect.value as SendingServiceStatus })
-  })
-  statusTd.appendChild(statusSelect)
-  tr.appendChild(statusTd)
-
-  const teamTd = document.createElement('td')
-  const teamInput = document.createElement('input')
-  teamInput.type = 'text'
-  teamInput.value = service.team ?? ''
-  teamInput.addEventListener('change', () => {
-    void saveSendingServiceEdit(service, { team: teamInput.value.trim() || null })
-  })
-  teamTd.appendChild(teamInput)
-  tr.appendChild(teamTd)
-
-  const noteTd = document.createElement('td')
-  const noteInput = document.createElement('input')
-  noteInput.type = 'text'
-  noteInput.value = service.note ?? ''
-  noteInput.addEventListener('change', () => {
-    void saveSendingServiceEdit(service, { note: noteInput.value.trim() || null })
-  })
-  noteTd.appendChild(noteInput)
-  tr.appendChild(noteTd)
-
-  const actionsTd = document.createElement('td')
-  const actions = document.createElement('div')
-  actions.className = 'sending-service-row-actions'
-  const editBtn = document.createElement('button')
-  editBtn.type = 'button'
-  editBtn.className = 'btn secondary'
-  editBtn.textContent = t('sendingServices.edit')
-  editBtn.title = t('sendingServices.editTitle')
-  editBtn.addEventListener('click', () => editSendingService(service))
-  actions.appendChild(editBtn)
-  const deleteBtn = document.createElement('button')
-  deleteBtn.type = 'button'
-  deleteBtn.className = 'btn secondary'
-  deleteBtn.textContent = t('sendingServices.delete')
-  deleteBtn.title = t('sendingServices.deleteTitle')
-  deleteBtn.addEventListener('click', () => void removeSendingService(service.id))
-  actions.appendChild(deleteBtn)
-  actionsTd.appendChild(actions)
-  tr.appendChild(actionsTd)
-
-  return tr
-}
-
-async function saveSendingServiceEdit(
-  service: SendingService,
-  changes: Partial<Pick<SendingService, 'status' | 'team' | 'note'>>
-): Promise<void> {
-  try {
-    await window.api.saveSendingService({ ...service, ...changes })
-    sendingServicesStatusEl.textContent = t('sendingServices.saved')
-    await loadSendingServices()
-    await refreshSendingSourcesFromCache()
-  } catch (err) {
-    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
-  }
-}
-
-async function removeSendingService(id: string): Promise<void> {
-  try {
-    sendingServices = await window.api.deleteSendingService(id)
-    if (editingSendingServiceId === id) resetSendingServiceForm()
-    sendingServicesStatusEl.textContent = t('sendingServices.deleted')
-    renderSendingServices()
-    await refreshSendingSourcesFromCache()
-  } catch (err) {
-    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
-  }
-}
-
-function hasSendingServiceDraft(): boolean {
-  return Boolean(
-    editingSendingServiceId ||
-    sendingServiceProviderEl.value.trim() ||
-    sendingServiceDomainEl.value.trim() ||
-    sendingServiceCidrEl.value.trim() ||
-    sendingServiceAsnEl.value.trim() ||
-    sendingServiceTeamEl.value.trim() ||
-    sendingServiceNoteEl.value.trim() ||
-    sendingServiceStatusEl.value !== 'unknown'
-  )
-}
-
-async function addSendingServiceFromForm(): Promise<boolean> {
-  const provider = sendingServiceProviderEl.value.trim()
-  if (!provider) {
-    sendingServicesStatusEl.textContent = t('sendingServices.providerRequired')
-    return false
-  }
-  const asnRaw = sendingServiceAsnEl.value.trim()
-  const asn = asnRaw ? Number(asnRaw) : null
-  try {
-    const savedService = await window.api.saveSendingService({
-      id: editingSendingServiceId ?? undefined,
-      provider,
-      domain: sendingServiceDomainEl.value.trim() || null,
-      cidr: sendingServiceCidrEl.value.trim() || null,
-      asn: asn != null && Number.isFinite(asn) ? asn : null,
-      status: sendingServiceStatusEl.value as SendingServiceStatus,
-      team: sendingServiceTeamEl.value.trim() || null,
-      note: sendingServiceNoteEl.value.trim() || null
-    })
-    const wasEditing = editingSendingServiceId != null
-    resetSendingServiceForm()
-    sendingServicesStatusEl.textContent = t('sendingServices.saved')
-    await loadSendingServices()
-    if (!wasEditing) {
-      const createdHandler = nextSendingServiceCreatedHandler
-      nextSendingServiceCreatedHandler = null
-      await createdHandler?.(savedService)
-    }
-    await refreshSendingSourcesFromCache()
-    return true
-  } catch (err) {
-    sendingServicesStatusEl.textContent = err instanceof Error ? err.message : String(err)
-    return false
-  }
-}
-
 export function initSettingsUi(): void {
   btnSettings.addEventListener('click', () => openSettings())
   btnCloseSettings.addEventListener('click', () => settingsDialog.close())
-  settingsDialog.addEventListener('close', () => {
-    nextSendingServiceCreatedHandler = null
-    resetSendingServiceForm()
-  })
   tabBtnAccount.addEventListener('click', () => showSettingsTab('account'))
   tabBtnAppearance.addEventListener('click', () => showSettingsTab('appearance'))
   tabBtnNoise.addEventListener('click', () => showSettingsTab('noise'))
-  tabBtnSendingServices.addEventListener('click', () => showSettingsTab('sendingServices'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
   dnssecEnabledEl.addEventListener('change', () => syncDnssecResolverUi())
   dnssecResolverEl.addEventListener('change', () => syncDnssecResolverUi())
-
-  btnAddSendingService.addEventListener('click', () => void addSendingServiceFromForm())
-  btnCancelSendingServiceEdit.addEventListener('click', () => resetSendingServiceForm())
 
   btnDownloadGeolite.addEventListener('click', async () => {
     if (typeof window.api.downloadGeoLite !== 'function') {
@@ -1163,10 +896,6 @@ export function initSettingsUi(): void {
     if (state.busy) return
     setBusy(true)
     try {
-      if (hasSendingServiceDraft()) {
-        showSettingsTab('sendingServices')
-        if (!(await addSendingServiceFromForm())) return
-      }
       const accountInput = readAccountForm()
       // Always persist the edited account when one is selected (incl. display name only).
       const wantsAccountSave =

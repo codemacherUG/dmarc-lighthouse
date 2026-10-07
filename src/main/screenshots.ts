@@ -211,6 +211,11 @@ async function captureLocaleSet(
   await capture(win, join(outDir, 'settings.png'))
   await api(win, 'api.closeSettings()')
 
+  await api(win, 'await api.openDomainSettingsDemo()')
+  await wait(500)
+  await captureViewportExact(win, join(outDir, 'domain-settings.png'), 1120, 1000)
+  await api(win, 'api.closeDomainSettingsDemo()')
+
   await api(win, 'api.openDiagnosisDemo()')
   await wait(500)
   await capture(win, join(outDir, 'diagnosis.png'))

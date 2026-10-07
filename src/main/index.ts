@@ -19,6 +19,7 @@ import type {
   AnalyzeResult,
   AppTheme,
   EmailInspectResult,
+  DomainDkimSelector,
   GlobalSettings,
   NewSendingSourceGroup,
   ReportRow,
@@ -34,11 +35,13 @@ import {
   deleteSendingService,
   getDnsHistory,
   getDnsHealthCache,
+  getDomainDkimSelectors,
   listSendingServices,
   loadCachedReports,
   recordDnsHistory,
   recordTransportHistory,
   resetKnownSourceIps,
+  saveDomainDkimSelectors as persistDomainDkimSelectors,
   upsertSendingService
 } from './cache'
 import { analyzeFromReports } from '../shared/analyze'
@@ -61,7 +64,7 @@ import {
 import { emailInspectPdfFilename } from '../shared/email-inspect-html'
 import { inspectEmailBuffer, inspectEmailText } from './email-inspect'
 import { importLocalFiles, loadLocalImportResult, type ImportTargetAccount } from './import'
-import { checkBimiDns, checkDomainDns } from './dnscheck'
+import { checkBimiDns, checkDomainDns, normalizeDkimSelector } from './dnscheck'
 import { checkTransportSecurity } from './transport'
 import { expandSpf } from './spf-expand'
 import { exportReportZip, exportReportsCsv, exportReportsJson } from './export'
@@ -881,6 +884,37 @@ function registerIpc(): void {
 
   ipcMain.handle('dns:healthBatch', async (_event, reports: ReportRow[]) =>
     buildDomainHealth(Array.isArray(reports) ? reports : [])
+  )
+
+  ipcMain.handle('dns:domainDkimSelectors:get', (_event, domain: string) => {
+    if (typeof domain !== 'string' || !domain.trim()) {
+      throw new Error('A domain is required to load DKIM selector settings')
+    }
+    return getDomainDkimSelectors(domain)
+  })
+
+  ipcMain.handle(
+    'dns:domainDkimSelectors:save',
+    (_event, domain: string, input: DomainDkimSelector[]) => {
+      if (typeof domain !== 'string' || !domain.trim()) {
+        throw new Error('A domain is required to save DKIM selector settings')
+      }
+      if (!Array.isArray(input)) throw new Error('DKIM selector settings must be a list')
+      const selectors = input.map((entry) => {
+        if (entry == null || typeof entry !== 'object') {
+          throw new Error('Each DKIM selector setting must be an object')
+        }
+        const { selector, enabled } = entry
+        const normalized = typeof selector === 'string' ? normalizeDkimSelector(selector) : null
+        if (!normalized || typeof enabled !== 'boolean') {
+          throw new Error('Each DKIM selector must have a valid selector name and enabled state')
+        }
+        return { selector: normalized, enabled }
+      })
+      const unique = [...new Map(selectors.map((item) => [item.selector, item])).values()]
+      persistDomainDkimSelectors(domain, unique)
+      return getDomainDkimSelectors(domain)
+    }
   )
 
   ipcMain.handle('enrichment:geoLiteStatus', () => getGeoLiteStatus())

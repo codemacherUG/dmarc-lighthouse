@@ -1194,67 +1194,6 @@ table {
   font-size: 0.88rem;
 }
 
-.sending-services-table {
-  table-layout: fixed;
-}
-
-.sending-services-table th,
-.sending-services-table td {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.sending-services-table th:nth-child(1) {
-  width: 15%;
-}
-
-.sending-services-table th:nth-child(2) {
-  width: 14%;
-}
-
-.sending-services-table th:nth-child(3) {
-  width: 17%;
-}
-
-.sending-services-table th:nth-child(4) {
-  width: 15%;
-}
-
-.sending-services-table th:nth-child(5) {
-  width: 11%;
-}
-
-.sending-services-table th:nth-child(6) {
-  width: 16%;
-}
-
-.sending-services-table th:nth-child(7) {
-  width: 12%;
-}
-
-.sending-services-table input,
-.sending-services-table select {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-}
-
-.sending-services-table td:last-child .btn {
-  width: 100%;
-  padding-inline: 8px;
-}
-
-.sending-service-form-actions,
-.sending-service-row-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.sending-service-row-actions {
-  flex-direction: column;
-}
-
 th,
 td {
   padding: 7px 8px;
@@ -2615,19 +2554,27 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 }
 
 .domain-ampel {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 300px));
   gap: 0.6rem;
   padding-top: 0.25rem;
+}
+
+.ampel-card-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .ampel-card {
   appearance: none;
   -webkit-appearance: none;
-  min-width: 160px;
-  flex: 1 1 160px;
-  max-width: 280px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
   padding: 0.65rem 0.75rem;
+  padding-right: 2.25rem;
   border: 1px solid var(--line);
   border-left-width: 4px;
   border-radius: 8px;
@@ -2636,6 +2583,311 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   font: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+.ampel-settings {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  padding: 0.25rem 0.45rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.ampel-settings:hover {
+  color: var(--accent);
+  background: var(--bg);
+}
+
+.domain-dkim-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.9rem 0 1.1rem;
+}
+
+.domain-dkim-row {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-muted);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.domain-dkim-row:hover {
+  border-color: var(--accent);
+}
+
+.domain-dkim-row:has(input:checked) {
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-muted));
+}
+
+.domain-dkim-row input[type='checkbox'] {
+  grid-column: 1;
+}
+
+.domain-dkim-row code {
+  grid-column: 2;
+  min-width: 0;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.domain-dkim-row span {
+  grid-column: 3;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.domain-dkim-add {
+  display: flex;
+  align-items: end;
+  gap: 0.65rem;
+}
+
+.domain-dkim-add label {
+  min-width: 0;
+  flex: 1;
+}
+
+.domain-dkim-add input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#domain-dkim-dialog {
+  display: none;
+}
+
+#domain-dkim-dialog[open] {
+  display: block;
+}
+
+.domain-dkim-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+#domain-dkim-dialog .dialog-header {
+  flex: 0 0 auto;
+  padding: 16px 18px 0;
+}
+
+.domain-settings-tabs {
+  flex: 0 0 auto;
+}
+
+.domain-dkim-body {
+  display: block;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px 18px;
+  min-height: 0;
+}
+
+.domain-tab-panel > .hint:first-child {
+  margin: 0;
+}
+
+.domain-tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.domain-tab-actions button {
+  min-width: 110px;
+}
+
+.domain-senders {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.domain-senders-heading h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.domain-senders-heading .hint {
+  margin: 0.35rem 0 0.85rem;
+}
+
+.domain-senders-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.domain-sender-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-muted);
+}
+
+.domain-sender-card.is-editing {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.domain-sender-card > .domain-sender-form {
+  width: 100%;
+  margin-top: 0.7rem;
+  box-sizing: border-box;
+}
+
+.domain-sender-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.domain-sender-card-main {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.65rem;
+  min-width: 0;
+}
+
+.domain-sender-card-main strong {
+  color: var(--ink);
+}
+
+.domain-sender-status,
+.domain-sender-scope,
+.domain-sender-note,
+.domain-sender-shared {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.domain-sender-card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+}
+
+.domain-sender-card-actions .btn {
+  height: 32px;
+  padding: 0 0.65rem;
+}
+
+.domain-sender-card-actions .domain-sender-accordion-toggle {
+  min-width: 36px;
+  padding: 0 0.45rem;
+  font-size: 1.15rem;
+}
+
+.domain-sender-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-muted) 55%, transparent);
+}
+
+.domain-sender-form .span-full {
+  grid-column: 1 / -1;
+}
+
+.domain-sender-form input,
+.domain-sender-form select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.domain-sender-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+}
+
+#domain-senders-status {
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 520px) {
+  .domain-settings-tabs {
+    padding: 0 12px;
+  }
+
+  .domain-settings-tabs .tab {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .domain-dkim-row {
+    grid-template-columns: 1rem minmax(0, 1fr);
+  }
+
+  .domain-dkim-row span {
+    grid-column: 2;
+    white-space: normal;
+  }
+
+  .domain-dkim-add {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .domain-dkim-add button {
+    align-self: flex-end;
+  }
+
+  .domain-sender-card {
+    align-items: stretch;
+  }
+
+  .domain-sender-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .domain-sender-card-actions {
+    align-self: flex-end;
+  }
+
+  .domain-sender-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .domain-sender-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .domain-sender-actions button {
+    width: 100%;
+  }
 }
 
 .ampel-card:hover {
@@ -2758,6 +3010,7 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #diagnosis-dialog,
 #tlsrpt-detail-dialog,
 #email-inspect-dialog,
+#domain-dkim-dialog,
 .new-source-ip-dialog {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -2768,6 +3021,21 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   box-shadow: var(--shadow-dialog);
   background: var(--bg-panel);
   color: var(--ink);
+}
+
+#domain-dkim-dialog {
+  width: min(900px, calc(100vw - 32px));
+  height: min(900px, calc(100vh - 48px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+
+@media (max-width: 520px) {
+  #domain-dkim-dialog {
+    height: min(900px, calc(100vh - 32px));
+    max-height: calc(100vh - 32px);
+  }
 }
 
 #builder-dialog,
@@ -3637,6 +3905,7 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #ip-detail-dialog::backdrop,
 #diagnosis-dialog::backdrop,
 #email-inspect-dialog::backdrop,
+#domain-dkim-dialog::backdrop,
 .new-source-ip-dialog::backdrop {
   background: rgba(20, 28, 38, 0.45);
 }
