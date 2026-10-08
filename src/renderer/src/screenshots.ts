@@ -7,10 +7,18 @@ import {
 } from '../../shared/demo-data'
 import { t, type AppLocale } from '../../shared/i18n'
 import type { AppTheme } from '../../shared/theme'
-import { DEFAULT_DATE_RANGE, type IpInfo, type NewSendingSourceGroup } from '../../shared/types'
+import {
+  DEFAULT_DATE_RANGE,
+  type DnsHistoryResult,
+  type IpInfo,
+  type NewSendingSourceGroup
+} from '../../shared/types'
 import { applyUiLocale } from './chrome'
 import { escapeHtml } from './format'
 import {
+  dnsHistoryBody,
+  dnsHistoryDialog,
+  dnsHistoryTitle,
   dnsDialog,
   dnsDomainEl,
   dnsResultEl,
@@ -24,6 +32,7 @@ import {
   settingsDialog,
   tlsRptDetailDialog
 } from './dom'
+import { renderDnsHistory } from './dns-history-view'
 import { openEmailInspect, seedEmailInspect } from './email-inspect-ui'
 import { openRollout, seedRolloutDns } from './rollout-ui'
 import { renderTransportSecurity } from './transport-view'
@@ -72,6 +81,7 @@ export function installScreenshotApi(): void {
     async prepareDemo(locale: AppLocale = 'de'): Promise<void> {
       if (settingsDialog.open) settingsDialog.close()
       if (dnsDialog.open) dnsDialog.close()
+      if (dnsHistoryDialog.open) dnsHistoryDialog.close()
       if (rolloutDialog.open) rolloutDialog.close()
       if (emailInspectDialog.open) emailInspectDialog.close()
       if (diagnosisDialog.open) diagnosisDialog.close()
@@ -260,6 +270,59 @@ export function installScreenshotApi(): void {
     },
     closeDns(): void {
       dnsDialog.close()
+    },
+    openDnsHistoryDemo(): void {
+      const history: DnsHistoryResult = {
+        domain: 'example.com',
+        snapshots: [
+          {
+            id: 2,
+            domain: 'example.com',
+            kind: 'dns',
+            checkedAt: '2026-10-06T09:15:00.000Z',
+            dns: null,
+            transport: null
+          },
+          {
+            id: 1,
+            domain: 'example.com',
+            kind: 'dns',
+            checkedAt: '2026-10-01T09:15:00.000Z',
+            dns: null,
+            transport: null
+          }
+        ],
+        drifts: [
+          {
+            id: 2,
+            domain: 'example.com',
+            kind: 'dkim-key-changed',
+            checkedAt: '2026-10-06T09:15:00.000Z',
+            title: 'DKIM-Key geändert',
+            detail: 'Selector: selector1',
+            before: 'v=DKIM1; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoldKeyExample',
+            after: 'v=DKIM1; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnewKeyExample',
+            selector: 'selector1'
+          },
+          {
+            id: 1,
+            domain: 'example.com',
+            kind: 'spf-include-removed',
+            checkedAt: '2026-10-01T09:15:00.000Z',
+            title: 'SPF include entfernt',
+            detail: 'Entfernt: _spf.old-provider.example',
+            before: 'v=spf1 include:_spf.old-provider.example include:_spf.example.net -all',
+            after: 'v=spf1 include:_spf.example.net -all'
+          }
+        ],
+        correlations: []
+      }
+      dnsHistoryTitle.textContent = t('dns.historyDomainTitle', { domain: history.domain })
+      dnsHistoryBody.innerHTML = renderDnsHistory(history, { changesOpen: true })
+      dnsHistoryDialog.showModal()
+    },
+    closeDnsHistory(): void {
+      if (dnsHistoryDialog.open) dnsHistoryDialog.close()
     },
     openDiagnosisDemo(): void {
       openDiagnosis(['203.0.113.80'])

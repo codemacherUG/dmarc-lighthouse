@@ -2136,6 +2136,28 @@ export function recordTransportHistory(result: TransportSecurityResult): DnsDrif
   return recordHistorySnapshot('transport', result)
 }
 
+export function getCachedReportDomains(): string[] {
+  const rows = openDb()
+    .prepare('SELECT DISTINCT domain FROM reports ORDER BY domain')
+    .all() as Array<{ domain: string }>
+  return [...new Set(rows.map(({ domain }) => domainKey(domain)).filter(Boolean))].sort()
+}
+
+export function getLatestDnsHistoryCheckAt(
+  domainRaw: string,
+  kind: DnsHistorySnapshotKind
+): string | null {
+  const domain = domainKey(domainRaw)
+  const row = openDb()
+    .prepare(
+      `SELECT checked_at FROM dns_history_snapshots
+       WHERE domain = ? AND kind = ?
+       ORDER BY checked_at DESC, id DESC LIMIT 1`
+    )
+    .get(domain, kind) as { checked_at: string } | undefined
+  return row?.checked_at ?? null
+}
+
 function rowToDrift(row: {
   id: number
   domain: string
@@ -2209,7 +2231,9 @@ function reportCorrelationForDrifts(
     const before = reports
       .filter((report) => new Date(report.date_end).getTime() <= driftTime)
       .at(-1)
-    const after = reports.find((report) => new Date(report.date_begin).getTime() >= driftTime)
+    const after = reports
+      .filter((report) => new Date(report.date_begin).getTime() >= driftTime)
+      .at(-1)
     if (!before || !after) continue
     const beforeRate = (before.failing / before.total) * 100
     const afterRate = (after.failing / after.total) * 100

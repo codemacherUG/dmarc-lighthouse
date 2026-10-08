@@ -33,8 +33,10 @@ import {
   accountKeyFor,
   clearCache,
   deleteSendingService,
+  getCachedReportDomains,
   getDnsHistory,
   getDnsHealthCache,
+  getLatestDnsHistoryCheckAt,
   getDomainDkimSelectors,
   listSendingServices,
   loadCachedReports,
@@ -147,12 +149,21 @@ let tray: Tray | null = null
 let isQuitting = false
 let autoFetchTimer: ReturnType<typeof setInterval> | null = null
 let monthlyReportTimer: ReturnType<typeof setInterval> | null = null
+let dnsAutoCheckTimer: ReturnType<typeof setInterval> | null = null
 let monthlyReportInFlight = false
 let fetchInFlight = false
+let dnsAutoCheckInFlight = false
+const DNS_AUTO_CHECK_INTERVAL_MS = 24 * 60 * 60_000
 /** True when the app was launched at login as a hidden background instance. */
 let startHidden = false
 /** Tray badge: new reports arrived while the window was not in view. */
 let trayNeedsAttention = false
+
+function isDnsHistoryCheckDue(checkedAt: string | null, now: number): boolean {
+  if (!checkedAt) return true
+  const timestamp = new Date(checkedAt).getTime()
+  return !Number.isFinite(timestamp) || now - timestamp >= DNS_AUTO_CHECK_INTERVAL_MS
+}
 
 function shouldStartHidden(): boolean {
   if (process.argv.includes('--hidden')) return true
@@ -485,6 +496,79 @@ function scheduleAutoFetch(): void {
   autoFetchTimer = setInterval(() => {
     void runAutoFetchAll()
   }, minutes * 60_000)
+}
+
+async function runDnsAutoCheck(): Promise<void> {
+  if (dnsAutoCheckInFlight) return
+  dnsAutoCheckInFlight = true
+  const failures: string[] = []
+  try {
+    const now = Date.now()
+    for (const domain of getCachedReportDomains()) {
+      const dnsCheckedAt = getLatestDnsHistoryCheckAt(domain, 'dns')
+      const transportCheckedAt = getLatestDnsHistoryCheckAt(domain, 'transport')
+      const dnsIsDue = isDnsHistoryCheckDue(dnsCheckedAt, now)
+      const transportIsDue = isDnsHistoryCheckDue(transportCheckedAt, now)
+      if (!dnsIsDue && !transportIsDue) continue
+
+      if (dnsIsDue) {
+        try {
+          const selectors = getDomainDkimSelectors(domain)
+            .filter((selector) => selector.enabled)
+            .map((selector) => selector.selector)
+          recordDnsHistory(await checkDomainDns(domain, selectors))
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          failures.push(`${domain}: ${message}`)
+          console.error(`Automatic DNS check failed for ${domain}`, error)
+        }
+      }
+
+      if (transportIsDue) {
+        try {
+          recordTransportHistory(await checkTransportSecurity(domain))
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          failures.push(`${domain} (Transport): ${message}`)
+          console.error(`Automatic transport check failed for ${domain}`, error)
+        }
+      }
+    }
+    if (failures.length > 0) {
+      notify(
+        t('main.dnsAutoCheckFailed', {
+          count: failures.length,
+          message: failures[0]
+        })
+      )
+    }
+  } finally {
+    dnsAutoCheckInFlight = false
+  }
+}
+
+function stopDnsAutoCheck(): void {
+  if (dnsAutoCheckTimer) {
+    clearInterval(dnsAutoCheckTimer)
+    dnsAutoCheckTimer = null
+  }
+}
+
+function scheduleDnsAutoCheck(): void {
+  stopDnsAutoCheck()
+  const tick = (): void => {
+    void runDnsAutoCheck().catch((error) => {
+      console.error('Automatic DNS check run failed', error)
+      notify(
+        t('main.dnsAutoCheckFailed', {
+          count: 1,
+          message: error instanceof Error ? error.message : String(error)
+        })
+      )
+    })
+  }
+  dnsAutoCheckTimer = setInterval(tick, 60 * 60_000)
+  setTimeout(tick, 30_000)
 }
 
 /** Cache slots a monthly report can be built from: IMAP accounts plus local imports. */
@@ -1127,6 +1211,7 @@ app.whenReady().then(() => {
   if (!capture) {
     scheduleAutoFetch()
     scheduleMonthlyReport()
+    scheduleDnsAutoCheck()
     updateTray()
   }
 
@@ -1149,6 +1234,7 @@ app.on('window-all-closed', () => {
   if (tray) return
   stopAutoFetch()
   stopMonthlyReport()
+  stopDnsAutoCheck()
   if (process.platform !== 'darwin') {
     app.quit()
   }

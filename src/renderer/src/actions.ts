@@ -1,6 +1,6 @@
 import { t } from '../../shared/i18n'
 import { selectorsForDnsCheck } from '../../shared/dkim-selector'
-import type { AnalyzeResult, DnsHistoryResult } from '../../shared/types'
+import type { AnalyzeResult } from '../../shared/types'
 import { applyProgress, setBusy, setStatus, setTopProgress } from './chrome'
 import {
   accountSelectEl,
@@ -23,7 +23,8 @@ import {
   settingsStatusEl
 } from './dom'
 import { inspectDroppedFile, isEmailInspectOpen } from './email-inspect-ui'
-import { escapeHtml, formatDate } from './format'
+import { escapeHtml } from './format'
+import { renderDnsHistory } from './dns-history-view'
 import {
   accountHasAuth,
   activeAccount,
@@ -58,40 +59,6 @@ function showImportResult(result: AnalyzeResult): void {
       replacedNote
     })
   )
-}
-
-function renderDnsHistory(history: DnsHistoryResult): string {
-  if (history.snapshots.length === 0) return ''
-  const latestDrift = history.drifts[0]
-  const strongestCorrelation = history.correlations
-    .slice()
-    .sort((a, b) => b.deltaPercentagePoints - a.deltaPercentagePoints)[0]
-  const parts = [escapeHtml(t('dns.historySnapshots', { count: history.snapshots.length }))]
-  if (latestDrift) {
-    parts.push(
-      escapeHtml(
-        t('dns.historyLastDrift', {
-          title: latestDrift.title,
-          date: formatDate(latestDrift.checkedAt)
-        })
-      )
-    )
-  }
-  if (strongestCorrelation) {
-    parts.push(
-      escapeHtml(
-        t('dns.historyCorrelation', {
-          date: formatDate(strongestCorrelation.driftAt),
-          before: strongestCorrelation.beforeFailRate.toFixed(1),
-          after: strongestCorrelation.afterFailRate.toFixed(1),
-          hours: strongestCorrelation.hoursAfter.toFixed(1)
-        })
-      )
-    )
-  }
-  return `<div class="dns-history"><strong>${escapeHtml(t('dns.historyTitle'))}</strong><ul>${parts
-    .map((part) => `<li>${part}</li>`)
-    .join('')}</ul></div>`
 }
 
 /** Copy the active account's domain into the DNS-check field after a switch. */

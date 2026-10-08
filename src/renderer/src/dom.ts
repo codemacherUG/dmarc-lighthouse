@@ -40,6 +40,15 @@ export const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLIn
 export const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 export const dnsTransportEl = document.getElementById('dns-transport') as HTMLDivElement
 export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
+export const dnsHistoryDialog = document.getElementById('dns-history-dialog') as HTMLDialogElement
+export const dnsHistoryTitle = document.getElementById('dns-history-title') as HTMLHeadingElement
+export const dnsHistoryBody = document.getElementById('dns-history-body') as HTMLDivElement
+export const btnCloseDnsHistory = document.getElementById(
+  'btn-close-dns-history'
+) as HTMLButtonElement
+export const btnDnsHistoryClose = document.getElementById(
+  'btn-dns-history-close'
+) as HTMLButtonElement
 export const domainDkimDialog = document.getElementById('domain-dkim-dialog') as HTMLDialogElement
 export const domainDkimTitle = document.getElementById('domain-dkim-title') as HTMLHeadingElement
 export const domainDkimTabButton = document.getElementById(
