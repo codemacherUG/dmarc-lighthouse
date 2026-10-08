@@ -147,6 +147,13 @@ async function captureLocaleSet(
   await api(win, `await api.prepareDemo(${JSON.stringify(locale)})`)
   await wait(700)
 
+  if (process.argv.includes('--capture-dns-history-only')) {
+    await api(win, 'api.openDnsHistoryDemo()')
+    await capture(win, join(outDir, 'dns-history.png'))
+    await api(win, 'api.closeDnsHistory()')
+    return
+  }
+
   if (wantsFullAppCapture()) {
     await captureFullPage(win, join(outDir, 'app-full.png'))
     return
@@ -231,6 +238,10 @@ async function captureLocaleSet(
   await wait(400)
   await capture(win, join(outDir, 'dns.png'))
   await api(win, 'api.closeDns()')
+  await api(win, 'api.openDnsHistoryDemo()')
+  await wait(400)
+  await capture(win, join(outDir, 'dns-history.png'))
+  await api(win, 'api.closeDnsHistory()')
 
   const emailSize = await apiValue<{ width: number; height: number }>(
     win,
@@ -268,7 +279,9 @@ export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
 
 export function wantsScreenshotCapture(): boolean {
   return (
-    process.argv.includes('--capture-screenshots') || process.argv.includes('--capture-full-app')
+    process.argv.includes('--capture-screenshots') ||
+    process.argv.includes('--capture-full-app') ||
+    process.argv.includes('--capture-dns-history-only')
   )
 }
 

@@ -105,6 +105,8 @@ declare global {
       closeRollout: () => void
       openDnsDemo: () => void
       closeDns: () => void
+      openDnsHistoryDemo: () => void
+      closeDnsHistory: () => void
       openDiagnosisDemo: () => void
       closeDiagnosis: () => void
       prepareTlsRptDemo: () => Promise<void>
