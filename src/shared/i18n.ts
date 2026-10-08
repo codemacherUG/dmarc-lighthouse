@@ -685,7 +685,7 @@ const de = {
 
   'health.title': 'Domain-Ampel',
   'health.hint':
-    'Gesundheitsrate der letzten 14 Tage und DNS-Status. Unabhängig vom Zeitraum-Filter. Klick filtert auf die Domain; das Zahnrad verwaltet DKIM-Selectoren.',
+    'Gesundheitsrate der letzten 14 Tage und DNS-Status. DNS wird für Domains aus gespeicherten Reports täglich geprüft. Klick filtert auf die Domain; i öffnet die DNS-History, das Zahnrad verwaltet DKIM-Selectoren.',
   'health.empty': 'Noch keine Domains geladen.',
   'health.emptyWindow': 'Keine Reports in den letzten {days} Tagen.',
   'health.loading': 'Prüfe Domain-Status…',
@@ -725,6 +725,7 @@ const de = {
   'health.dkimLoadError': 'Selector-Einstellungen konnten nicht geladen werden: {message}',
   'health.dkimSaveError': 'Selector-Einstellungen konnten nicht gespeichert werden: {message}',
   'health.dkimManage': 'DKIM-Selectoren für {domain} verwalten',
+  'health.dnsHistory': 'DNS-History für {domain} anzeigen',
   'health.sendingServicesTitle': 'Sende-Dienste',
   'health.sendingServicesHint': 'Verwalte die Absender-Dienste, die für diese Domain senden.',
   'health.sendingServicesEmpty': 'Für diese Domain sind noch keine Sende-Dienste eingetragen.',
@@ -1006,10 +1007,17 @@ const de = {
   'dns.resolverAuth': 'Direkt bei {ns} (Zone {zone})',
   'dns.resolverRecursive': 'System-Resolver (kein autoritativer NS gefunden)',
   'dns.historyTitle': 'DNS-History',
+  'dns.historyDomainTitle': 'DNS-History: {domain}',
+  'dns.historyLoading': 'DNS-History wird geladen…',
+  'dns.historyEmpty': 'Für diese Domain ist noch keine DNS-History gespeichert.',
+  'dns.historyLoadError': 'DNS-History konnte nicht geladen werden: {message}',
   'dns.historySnapshots': '{count} gespeicherte Version(en)',
   'dns.historyLastDrift': 'Letzte Änderung: {title} am {date}',
+  'dns.historyShowChanges': 'Änderungen anzeigen ({count})',
+  'dns.historyBefore': 'Vorher',
+  'dns.historyAfter': 'Nachher',
   'dns.historyCorrelation':
-    'Korrelation: Änderung am {date}; danach Fail von {before}% auf {after}% nach {hours} h.',
+    'Im letzten Report vom {reportDate}: Fail-Rate {after}% (vor der Änderung am {changeDate}: {before}%).',
 
   'transport.title': 'Transport-Sicherheit',
   'transport.checking': 'Prüfe TLS-RPT, MTA-STS und DANE für {domain}…',
@@ -1145,6 +1153,8 @@ const de = {
   'main.pdfMonthlyDone': 'Monatsbericht erstellt: {count} PDF(s) in {dir}.',
   'main.pdfMonthlyEmpty': 'Keine Reports im Cache — kein PDF erstellt.',
   'main.pdfMonthlyFailed': 'Monatsbericht fehlgeschlagen: {message}',
+  'main.dnsAutoCheckFailed':
+    'Automatische DNS-Prüfung für {count} Domain(s) fehlgeschlagen. Beispiel: {message}',
   'main.pdfNoWindow':
     'PDF-Erzeugung braucht das Hauptfenster. Bitte die App nicht nur im Tray lassen und es erneut versuchen.',
   'main.pdfFailed': 'PDF-Erzeugung fehlgeschlagen: {message}',
@@ -2218,7 +2228,7 @@ const en: Dict = {
 
   'health.title': 'Domain health',
   'health.hint':
-    'Health rate over the last 14 days and DNS status, independent of the date filter. Click to filter by domain; use the gear to manage DKIM selectors.',
+    'Health rate over the last 14 days and DNS status, independent of the date filter. Domains in stored reports are checked daily. Click to filter by domain; i opens DNS history, and the gear manages DKIM selectors.',
   'health.empty': 'No domains loaded yet.',
   'health.emptyWindow': 'No reports in the last {days} days.',
   'health.loading': 'Checking domain status…',
@@ -2258,6 +2268,7 @@ const en: Dict = {
   'health.dkimLoadError': 'Could not load selector settings: {message}',
   'health.dkimSaveError': 'Could not save selector settings: {message}',
   'health.dkimManage': 'Manage DKIM selectors for {domain}',
+  'health.dnsHistory': 'Show DNS history for {domain}',
   'health.sendingServicesTitle': 'Sending services',
   'health.sendingServicesHint': 'Manage the sending services configured for this domain.',
   'health.sendingServicesEmpty': 'No sending services are configured for this domain yet.',
@@ -2535,10 +2546,17 @@ const en: Dict = {
   'dns.resolverAuth': 'Authoritative via {ns} (zone {zone})',
   'dns.resolverRecursive': 'System resolver (no authoritative NS found)',
   'dns.historyTitle': 'DNS history',
+  'dns.historyDomainTitle': 'DNS history: {domain}',
+  'dns.historyLoading': 'Loading DNS history…',
+  'dns.historyEmpty': 'No DNS history has been saved for this domain yet.',
+  'dns.historyLoadError': 'Could not load DNS history: {message}',
   'dns.historySnapshots': '{count} stored version(s)',
   'dns.historyLastDrift': 'Last change: {title} on {date}',
+  'dns.historyShowChanges': 'Show changes ({count})',
+  'dns.historyBefore': 'Before',
+  'dns.historyAfter': 'After',
   'dns.historyCorrelation':
-    'Correlation: change on {date}; fail then rose from {before}% to {after}% after {hours} h.',
+    'Latest report on {reportDate}: fail rate {after}% (before the change on {changeDate}: {before}%).',
 
   'transport.title': 'Transport security',
   'transport.checking': 'Checking TLS-RPT, MTA-STS and DANE for {domain}…',
@@ -2675,6 +2693,8 @@ const en: Dict = {
   'main.pdfMonthlyDone': 'Monthly report created: {count} PDF(s) in {dir}.',
   'main.pdfMonthlyEmpty': 'No reports in the cache — no PDF created.',
   'main.pdfMonthlyFailed': 'Monthly report failed: {message}',
+  'main.dnsAutoCheckFailed':
+    'Automatic DNS checks failed for {count} domain(s). Example: {message}',
   'main.pdfNoWindow':
     'Creating a PDF needs the main window. Please open the app (not tray-only) and try again.',
   'main.pdfFailed': 'PDF generation failed: {message}',

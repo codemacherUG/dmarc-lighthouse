@@ -15,7 +15,9 @@ import {
   getDomainDkimSelectors,
   saveDomainDkimSelectors,
   getIpEnrichment,
+  getCachedReportDomains,
   getDnsHistory,
+  getLatestDnsHistoryCheckAt,
   importReports,
   loadCachedReports,
   mergeReports,
@@ -704,6 +706,13 @@ describe('sqlite cache', () => {
   it('keeps permanent DNS history and detects DNS drift outside cache clearing', () => {
     dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
     setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [sampleReport('domain-for-scheduled-check')],
+      lastUid: 1,
+      lastFailingTotal: 0,
+      knownSourceIps: []
+    })
 
     recordDnsHistory(
       dnsResult({
@@ -727,6 +736,9 @@ describe('sqlite cache', () => {
 
     const history = getDnsHistory('example.com')
     expect(history.snapshots).toHaveLength(2)
+    expect(getCachedReportDomains()).toEqual(['example.com'])
+    expect(getLatestDnsHistoryCheckAt('example.com', 'dns')).toBe('2026-08-19T10:00:00.000Z')
+    expect(getLatestDnsHistoryCheckAt('example.com', 'transport')).toBeNull()
     expect(history.drifts.map((event) => event.title)).toEqual(
       expect.arrayContaining(['DMARC geändert', 'SPF include entfernt', 'Neuer DKIM-Key'])
     )
@@ -754,6 +766,13 @@ describe('sqlite cache', () => {
           '2026-08-19T12:00:00.000Z',
           1000,
           84
+        ),
+        reportWithFailureRate(
+          'latest',
+          '2026-08-20T08:00:00.000Z',
+          '2026-08-20T12:00:00.000Z',
+          1000,
+          200
         )
       ],
       lastUid: 1,
@@ -771,12 +790,50 @@ describe('sqlite cache', () => {
     const [correlation] = getDnsHistory('example.com').correlations
     expect(correlation).toMatchObject({
       beforeReportId: 'before',
-      afterReportId: 'after',
+      afterReportId: 'latest',
       beforeFailRate: 0.3,
-      afterFailRate: 8.4,
-      deltaPercentagePoints: 8.1,
-      hoursAfter: 2
+      afterFailRate: 20,
+      deltaPercentagePoints: 19.7,
+      hoursAfter: 26
     })
+  })
+
+  it('does not show a past fail-rate increase after a later report has recovered', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [
+        reportWithFailureRate(
+          'before',
+          '2026-08-19T08:00:00.000Z',
+          '2026-08-19T09:00:00.000Z',
+          1000,
+          3
+        ),
+        reportWithFailureRate(
+          'spike',
+          '2026-08-19T10:00:00.000Z',
+          '2026-08-19T12:00:00.000Z',
+          1000,
+          840
+        ),
+        reportWithFailureRate(
+          'latest',
+          '2026-08-20T08:00:00.000Z',
+          '2026-08-20T09:00:00.000Z',
+          1000,
+          2
+        )
+      ],
+      lastUid: 1,
+      lastFailingTotal: 845,
+      knownSourceIps: []
+    })
+    recordDnsHistory(dnsResult({ checkedAt: '2026-08-19T08:30:00.000Z', spf: 'v=spf1 old' }))
+    recordDnsHistory(dnsResult({ checkedAt: '2026-08-19T10:00:00.000Z', spf: 'v=spf1 new' }))
+
+    expect(getDnsHistory('example.com').correlations).toEqual([])
   })
 
   it('excludes reports that overlap a DNS drift from the before/after comparison', () => {

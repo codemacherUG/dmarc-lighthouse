@@ -107,7 +107,7 @@ DMARC, SPF, DKIM-Selektoren und BIMI direkt beim autoritativen Nameserver — da
 
 Die DMARC-Policy-Discovery folgt dem RFC-9989-DNS-Tree-Walk (klettert bis zur Organisations-Domain hoch, wenn eine Subdomain keinen eigenen `_dmarc`-Record hat) und liest neben `p=`, `rua=` und `ruf=` auch `t=`, `np=` und `psd=`.
 
-Jeder echte DNS- und Transport-Check wird dauerhaft lokal versioniert, getrennt vom Cache. Die App erkennt Drift wie „DMARC geändert“, „SPF include entfernt“, „neuer DKIM-Key“, „TLS-RPT geändert“ und „MTA-STS Policy geändert“ und korreliert Änderungen mit lokal gespeicherten DMARC-Reports, wenn danach eine höhere Fail-Rate sichtbar wird.
+Jeder echte DNS- und Transport-Check wird dauerhaft lokal versioniert, getrennt vom Cache. Domains aus gespeicherten DMARC-Reports werden automatisch täglich geprüft. Die App erkennt Drift wie „DMARC geändert“, „SPF include entfernt“, „neuer DKIM-Key“, „TLS-RPT geändert“ und „MTA-STS Policy geändert“ und korreliert Änderungen mit lokal gespeicherten DMARC-Reports, wenn danach eine höhere Fail-Rate sichtbar wird. Die DNS-History lässt sich über den Info-Button an der jeweiligen Domain in der Domain-Ampel öffnen.
 
 ![DNS-Check mit Transport-Sicherheit](docs/screenshots/de/dns.png)
 

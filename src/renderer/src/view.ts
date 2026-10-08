@@ -41,6 +41,7 @@ import {
 } from '../../shared/scanner-noise'
 import { t, type MessageKey } from '../../shared/i18n'
 import { normalizeDkimSelector } from '../../shared/dkim-selector'
+import { renderDnsHistory } from './dns-history-view'
 import { simulateRolloutReports, type RolloutSimulationMode } from '../../shared/rollout'
 import {
   DEFAULT_DATE_RANGE,
@@ -88,6 +89,11 @@ import {
   ipContextSendingServiceBtn,
   dnsDomainEl,
   domainAmpelEl,
+  dnsHistoryDialog,
+  dnsHistoryTitle,
+  dnsHistoryBody,
+  btnCloseDnsHistory,
+  btnDnsHistoryClose,
   domainDkimDialog,
   domainDkimTitle,
   domainDkimTabButton,
@@ -851,6 +857,7 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
           </div>
           ${reasons ? `<div class="ampel-reasons">${escapeHtml(reasons)}</div>` : ''}
         </button>
+        <button type="button" class="ampel-info" data-domain="${escapeHtml(h.domain)}" aria-label="${escapeHtml(t('health.dnsHistory', { domain: h.domain }))}" title="${escapeHtml(t('health.dnsHistory', { domain: h.domain }))}">i</button>
         <button type="button" class="ampel-settings" data-domain="${escapeHtml(h.domain)}" aria-label="${escapeHtml(t('health.dkimManage', { domain: h.domain }))}" title="${escapeHtml(t('health.dkimManage', { domain: h.domain }))}">⚙</button>
       </div>`
     })
@@ -864,6 +871,12 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
       applyView()
     })
   }
+  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('.ampel-info[data-domain]')) {
+    btn.addEventListener('click', () => {
+      const domain = btn.dataset.domain ?? ''
+      if (domain) void openDnsHistory(domain)
+    })
+  }
   for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>(
     '.ampel-settings[data-domain]'
   )) {
@@ -874,8 +887,30 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
   }
 }
 
+async function openDnsHistory(domain: string): Promise<void> {
+  const request = ++dnsHistoryRequest
+  dnsHistoryTitle.textContent = t('dns.historyDomainTitle', { domain })
+  dnsHistoryBody.innerHTML = `<p class="muted">${escapeHtml(t('dns.historyLoading'))}</p>`
+  dnsHistoryDialog.showModal()
+  try {
+    const history = await window.api.dnsHistory(domain)
+    if (request !== dnsHistoryRequest) return
+    dnsHistoryBody.innerHTML =
+      renderDnsHistory(history, { changesOpen: true }) ||
+      `<p class="muted">${escapeHtml(t('dns.historyEmpty'))}</p>`
+  } catch (error) {
+    if (request !== dnsHistoryRequest) return
+    dnsHistoryBody.innerHTML = `<p class="fail">${escapeHtml(
+      t('dns.historyLoadError', {
+        message: error instanceof Error ? error.message : String(error)
+      })
+    )}</p>`
+  }
+}
+
 let editingDkimDomain = ''
 let editingDkimSelectors: DomainDkimSelector[] = []
+let dnsHistoryRequest = 0
 let editingDomainSendingServiceId: string | null = null
 let editingDomainSendingServiceCard: HTMLElement | null = null
 let editingDomainSenderForm: HTMLFormElement | null = null
@@ -2883,6 +2918,8 @@ export function initView(): void {
   setVolumeDayClickHandler(filterVolumeByDay)
 
   btnCloseIpDetail.addEventListener('click', () => ipDetailDialog.close())
+  btnCloseDnsHistory.addEventListener('click', () => dnsHistoryDialog.close())
+  btnDnsHistoryClose.addEventListener('click', () => dnsHistoryDialog.close())
   btnCloseDomainDkim.addEventListener('click', () => domainDkimDialog.close())
   domainDkimTabButton.addEventListener('click', () => showDomainSettingsTab('dkim'))
   domainSendersTabButton.addEventListener('click', () => showDomainSettingsTab('senders'))
