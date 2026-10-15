@@ -1,5 +1,5 @@
 import { isIP } from 'net'
-import { configureDnsEnvironment, resolve4Reliable } from './dns-env'
+import { configureDnsEnvironment, resolve4Reliable, resolve6Reliable } from './dns-env'
 
 const LOOKUP_TIMEOUT_MS = 2000
 
@@ -100,4 +100,39 @@ export async function lookupDnsbl(ip: string): Promise<string[]> {
     })
   ])
   return hits
+}
+
+/** Resolve each MX host and return only blacklist hits for its IP addresses. */
+export async function lookupMxDnsbl(
+  mxRecords: Array<{ exchange: string }>
+): Promise<Array<{ exchange: string; addresses: Array<{ ip: string; lists: string[] }> }>> {
+  const hosts = await Promise.all(
+    mxRecords.map(async ({ exchange }) => {
+      const results = await Promise.allSettled([
+        resolve4Reliable(exchange),
+        resolve6Reliable(exchange)
+      ])
+      const addresses = new Set<string>()
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          for (const ip of result.value) addresses.add(ip)
+        }
+      }
+      return { exchange, addresses: [...addresses] }
+    })
+  )
+
+  const allIps = [...new Set(hosts.flatMap(({ addresses }) => addresses))]
+  const hitsByIp = new Map(
+    await Promise.all(
+      allIps.map(
+        async (ip) => [ip, (await lookupDnsbl(ip)).filter((list) => list !== 'dnswl')] as const
+      )
+    )
+  )
+
+  return hosts.map(({ exchange, addresses }) => ({
+    exchange,
+    addresses: addresses.map((ip) => ({ ip, lists: hitsByIp.get(ip) ?? [] }))
+  }))
 }

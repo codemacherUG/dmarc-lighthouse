@@ -28,6 +28,7 @@ import {
 import { encodeQuery } from './dnswire'
 import { loadSettings } from './settings'
 import { normalizeDkimSelector } from '../shared/dkim-selector'
+import { lookupMxDnsbl } from './dnsbl'
 
 export { normalizeDkimSelector } from '../shared/dkim-selector'
 
@@ -393,13 +394,19 @@ export async function checkDomainDns(
     Promise.all(selectors.map((sel) => checkDkimSelector(domain, sel, auth))),
     lookupBimi(domain, DEFAULT_BIMI_SELECTOR, auth),
     settings.dnssecEnabled ? checkDnssec(domain, settings) : undefined,
-    resolveMxRecords(domain, auth).then(
-      (records) => ({ records }),
-      (err: unknown) =>
+    resolveMxRecords(domain, auth)
+      .then(async (records) => ({
+        records,
+        ...(settings.dnsblEnabled !== false ? { blacklist: await lookupMxDnsbl(records) } : {})
+      }))
+      .catch((err: unknown) =>
         isEmptyDnsError(err)
-          ? { records: [] }
+          ? {
+              records: [],
+              ...(settings.dnsblEnabled !== false ? { blacklist: [] } : {})
+            }
           : { records: [], error: err instanceof Error ? err.message : String(err) }
-    )
+      )
   ])
   result.dkim.selectors = dkimSelectors
   result.bimi = bimi
