@@ -560,6 +560,11 @@ export interface DnsCheckResult {
     records: string[]
     error?: string
   }
+  /** MX records (optional on older cached results). */
+  mx?: {
+    records: Array<{ exchange: string; priority: number }>
+    error?: string
+  }
   dkim: {
     selectors: DkimSelectorCheck[]
   }

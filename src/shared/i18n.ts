@@ -994,6 +994,8 @@ const de = {
   'dns.dmarcMissing': 'DMARC: nicht gefunden',
   'dns.spfFound': 'SPF: {record}',
   'dns.spfMissing': 'SPF: nicht gefunden',
+  'dns.mxFound': 'MX: {records}',
+  'dns.mxMissing': 'MX: nicht gefunden',
   'dns.dkimFound': 'gefunden',
   'dns.dkimMissing': 'nicht gefunden',
   'dns.dkimNone':
@@ -2534,6 +2536,8 @@ const en: Dict = {
   'dns.dmarcMissing': 'DMARC: not found',
   'dns.spfFound': 'SPF: {record}',
   'dns.spfMissing': 'SPF: not found',
+  'dns.mxFound': 'MX: {records}',
+  'dns.mxMissing': 'MX: not found',
   'dns.dkimFound': 'found',
   'dns.dkimMissing': 'not found',
   'dns.dkimNone': 'DKIM: no selectors known — enter selectors or fetch reports again.',

@@ -225,6 +225,13 @@ export function initActions(): void {
       const spfLine = result.spf.found
         ? t('dns.spfFound', { record: result.spf.records[0] })
         : `${t('dns.spfMissing')}${result.spf.error ? ` (${result.spf.error})` : ''}`
+      const mxLine = result.mx?.records.length
+        ? t('dns.mxFound', {
+            records: result.mx.records
+              .map(({ priority, exchange }) => `${priority} ${exchange}`)
+              .join(', ')
+          })
+        : `${t('dns.mxMissing')}${result.mx?.error ? ` (${result.mx.error})` : ''}`
 
       let dkimHtml = ''
       if (result.dkim.selectors.length > 0) {
@@ -272,7 +279,7 @@ export function initActions(): void {
             ? `<span class="fail">${escapeHtml(t('dns.dnssecUnsigned', { resolver: result.dnssec.resolver }))}</span>`
             : `<span class="muted">${escapeHtml(t('dns.dnssecError', { message: result.dnssec.error ?? '—' }))}</span>`
         : ''
-      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
+      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br /><span class="mono">${escapeHtml(mxLine)}</span><br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
       dnsResultEl.className = 'dns-result ok'
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)

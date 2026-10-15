@@ -6,9 +6,11 @@ import {
   parseDnssecResponse,
   parseDnssecWireResponse,
   parseDmarcPolicy,
+  resolveMxRecords,
   resolveTxtRecords
 } from '../src/main/dnscheck'
 import { selectorsForDnsCheck } from '../src/shared/dkim-selector'
+import { resolveMxReliable } from '../src/main/dns-env'
 
 vi.mock('../src/main/dns-env', async () => {
   const actual = await vi.importActual<typeof import('../src/main/dns-env')>('../src/main/dns-env')
@@ -21,12 +23,72 @@ vi.mock('../src/main/dns-env', async () => {
       const record = txtByZone.get(zone)
       if (!record) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' })
       return [[record]]
-    })
+    }),
+    resolveMxReliable: vi.fn(async () => [
+      { exchange: 'mx2.example.com.', priority: 20 },
+      { exchange: 'mx1.example.com.', priority: 10 }
+    ])
   }
 })
 
 let txtByZone = new Map<string, string>()
 let txtByHost = new Map<string, string>()
+
+describe('resolveMxRecords', () => {
+  it('queries the recursive resolver when no authoritative resolver is available', async () => {
+    await expect(resolveMxRecords('example.com', null)).resolves.toEqual([
+      { exchange: 'mx1.example.com', priority: 10 },
+      { exchange: 'mx2.example.com', priority: 20 }
+    ])
+    expect(resolveMxReliable).toHaveBeenCalledWith('example.com')
+  })
+
+  it('uses authoritative MX records and orders them by preference', async () => {
+    const auth = {
+      resolveTxt: vi.fn(async () => []),
+      resolveCname: vi.fn(async () => []),
+      resolveMx: vi.fn(async () => [
+        { exchange: 'backup.example.com.', priority: 20 },
+        { exchange: 'Mail.Example.com.', priority: 10 }
+      ])
+    }
+
+    await expect(resolveMxRecords('example.com', auth)).resolves.toEqual([
+      { exchange: 'mail.example.com', priority: 10 },
+      { exchange: 'backup.example.com', priority: 20 }
+    ])
+    expect(auth.resolveMx).toHaveBeenCalledWith('example.com')
+  })
+
+  it('falls back to the recursive resolver when the authoritative query fails', async () => {
+    vi.mocked(resolveMxReliable).mockClear()
+    const auth = {
+      resolveTxt: vi.fn(async () => []),
+      resolveCname: vi.fn(async () => []),
+      resolveMx: vi.fn(async () => {
+        throw new Error('authoritative server unavailable')
+      })
+    }
+
+    await expect(resolveMxRecords('example.com', auth)).resolves.toEqual([
+      { exchange: 'mx1.example.com', priority: 10 },
+      { exchange: 'mx2.example.com', priority: 20 }
+    ])
+    expect(resolveMxReliable).toHaveBeenCalledWith('example.com')
+  })
+
+  it('treats a domain without MX data as an empty result', async () => {
+    const auth = {
+      resolveTxt: vi.fn(async () => []),
+      resolveCname: vi.fn(async () => []),
+      resolveMx: vi.fn(async () => {
+        throw Object.assign(new Error('No data'), { code: 'ENODATA' })
+      })
+    }
+
+    await expect(resolveMxRecords('example.com', auth)).resolves.toEqual([])
+  })
+})
 
 describe('normalizeDkimSelector', () => {
   it('keeps a bare selector', () => {
