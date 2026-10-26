@@ -20,6 +20,7 @@ import {
   isEmptyDnsError,
   resolve4Reliable,
   resolve6Reliable,
+  resolveMxReliable,
   resolveNsReliable,
   resolveTxtReliable,
   withDnsTimeout
@@ -27,6 +28,7 @@ import {
 import { encodeQuery } from './dnswire'
 import { loadSettings } from './settings'
 import { normalizeDkimSelector } from '../shared/dkim-selector'
+import { lookupMxDnsbl } from './dnsbl'
 
 export { normalizeDkimSelector } from '../shared/dkim-selector'
 
@@ -166,7 +168,11 @@ async function resolveHostIps(host: string): Promise<string[]> {
   return ips
 }
 
-type AuthResolver = Pick<ReturnType<typeof createResolverForServers>, 'resolveTxt' | 'resolveCname'>
+type AuthResolver = Pick<
+  ReturnType<typeof createResolverForServers>,
+  'resolveTxt' | 'resolveCname'
+> &
+  Partial<Pick<ReturnType<typeof createResolverForServers>, 'resolveMx'>>
 
 export interface AuthoritativeNs {
   zone: string
@@ -220,6 +226,31 @@ export async function resolveTxtRecords(
     return []
   }
   return resolveTxtReliable(name)
+}
+
+/** Resolve and normalize MX records, preferring the domain's authoritative nameserver. */
+export async function resolveMxRecords(
+  domain: string,
+  auth: AuthResolver | null
+): Promise<Array<{ exchange: string; priority: number }>> {
+  let records: Array<{ exchange: string; priority: number }>
+  try {
+    records =
+      auth?.resolveMx != null
+        ? await withDnsTimeout(auth.resolveMx(domain))
+        : await resolveMxReliable(domain)
+  } catch (err) {
+    if (isEmptyDnsError(err)) return []
+    if (!auth) throw err
+    records = await resolveMxReliable(domain)
+  }
+  return records
+    .map(({ exchange, priority }) => ({
+      exchange: exchange.toLowerCase().replace(/\.$/, ''),
+      priority
+    }))
+    .filter(({ exchange }) => Boolean(exchange))
+    .sort((a, b) => a.priority - b.priority || a.exchange.localeCompare(b.exchange))
 }
 
 /**
@@ -325,6 +356,7 @@ export async function checkDomainDns(
     domain,
     dmarc: { found: false, records: [], policy: null, rua: null, ruf: null },
     spf: { found: false, records: [] },
+    mx: { records: [] },
     dkim: { selectors: [] },
     resolver,
     checkedAt
@@ -358,13 +390,27 @@ export async function checkDomainDns(
   }
 
   const settings = loadSettings().global
-  const [dkimSelectors, bimi, dnssec] = await Promise.all([
+  const [dkimSelectors, bimi, dnssec, mx] = await Promise.all([
     Promise.all(selectors.map((sel) => checkDkimSelector(domain, sel, auth))),
     lookupBimi(domain, DEFAULT_BIMI_SELECTOR, auth),
-    settings.dnssecEnabled ? checkDnssec(domain, settings) : undefined
+    settings.dnssecEnabled ? checkDnssec(domain, settings) : undefined,
+    resolveMxRecords(domain, auth)
+      .then(async (records) => ({
+        records,
+        ...(settings.dnsblEnabled !== false ? { blacklist: await lookupMxDnsbl(records) } : {})
+      }))
+      .catch((err: unknown) =>
+        isEmptyDnsError(err)
+          ? {
+              records: [],
+              ...(settings.dnsblEnabled !== false ? { blacklist: [] } : {})
+            }
+          : { records: [], error: err instanceof Error ? err.message : String(err) }
+      )
   ])
   result.dkim.selectors = dkimSelectors
   result.bimi = bimi
+  result.mx = mx
   if (dnssec) result.dnssec = dnssec
 
   return result
