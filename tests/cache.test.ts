@@ -301,7 +301,7 @@ describe('sqlite cache', () => {
     expect(columns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['dkim_raw_result', 'spf_raw_result'])
     )
-    expect(version.value).toBe('13')
+    expect(version.value).toBe('14')
     expect(
       migrated
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tlsrpt_reports'")
@@ -919,5 +919,24 @@ describe('sqlite cache', () => {
     )
     expect(loaded.meta.lastUid).toBe(9)
     expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1', '198.51.100.9'])
+  })
+
+  it('persists and updates mailbox uidValidity watermarks', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    saveCache({
+      accountKey: 'acct1',
+      reports: [sampleReport('r1')],
+      lastUid: 12,
+      uidValidity: 1001,
+      lastUidArchive: 5,
+      uidValidityArchive: 2002,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+
+    const loaded = loadCachedReports('acct1')
+    expect(loaded.meta.uidValidity).toBe(1001)
+    expect(loaded.meta.uidValidityArchive).toBe(2002)
   })
 })

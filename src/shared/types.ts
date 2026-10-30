@@ -512,6 +512,16 @@ export interface DkimSelectorCheck {
   selector: string
   found: boolean
   record: string | null
+  /** True when the record explicitly revokes the key via an empty `p=` tag (RFC 6376 §3.6.1). */
+  revoked?: boolean
+  /** Key type from `k=` (defaults to `rsa` per RFC 6376; `ed25519` per RFC 8463). */
+  keyType?: string | null
+  /** Public key strength in bits (e.g. 1024, 2048 for RSA; 256 for Ed25519), when `p=` is parseable. */
+  keyBits?: number | null
+  /** True when RSA key is < 1024 bits (insecure) or 1024 bits (weak / should upgrade to 2048). */
+  weakKey?: boolean
+  /** True when `t=y` flag is set (domain is testing DKIM; verifiers treat signed/unsigned equally). */
+  testing?: boolean
   error?: string
 }
 
@@ -635,6 +645,24 @@ export interface DnsHistoryResult {
   correlations: DnsReportCorrelation[]
 }
 
+export interface BimiSvgValidation {
+  ok: boolean
+  bytes?: number
+  tinyPs?: boolean
+  hasTitle?: boolean
+  hasForbiddenElements?: boolean
+  error?: string
+}
+
+export interface BimiAuthorityValidation {
+  ok: boolean
+  subject?: string | null
+  issuer?: string | null
+  validTo?: string | null
+  expired?: boolean
+  error?: string
+}
+
 /** TXT at `{selector}._bimi.{domain}` (BIMI assertion record). */
 export interface BimiCheckResult {
   domain: string
@@ -644,6 +672,8 @@ export interface BimiCheckResult {
   records: string[]
   location: string | null
   authority: string | null
+  svgValidation?: BimiSvgValidation | null
+  authorityValidation?: BimiAuthorityValidation | null
   error?: string
 }
 
@@ -678,6 +708,8 @@ export interface DaneMxCheck {
   /** Rendered TLSA records, e.g. `3 1 1 a1b2…`. */
   tlsa: string[]
   found: boolean
+  /** True when the TLSA RRset was DNSSEC-authenticated (AD=1); false when unsigned (RFC 7672 requires DNSSEC). */
+  dnssecValidated?: boolean
   error?: string
 }
 
@@ -742,12 +774,18 @@ export interface AuthResultsBlock {
   skipped?: boolean
 }
 
+export type DkimCryptoStatus =
+  'verified' | 'bodyMismatch' | 'signatureInvalid' | 'keyMissing' | 'unverified'
+
 export interface DkimSignatureInfo {
   domain: string | null
   selector: string | null
   identity: string | null
   algorithm: string | null
   raw: string
+  /** Optional local cryptographic verification status against live DNS key. */
+  cryptoStatus?: DkimCryptoStatus
+  cryptoDetail?: string | null
 }
 
 export interface ArcSetInfo {

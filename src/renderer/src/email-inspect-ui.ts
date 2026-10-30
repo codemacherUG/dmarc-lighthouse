@@ -119,7 +119,17 @@ function extrasHtml(result: EmailInspectResult): string {
           selector: sig.selector || '—',
           domain: sig.domain || '—'
         })
-        return `<li class="mono">${escapeHtml(line)}</li>`
+        const cryptoBadge =
+          sig.cryptoStatus === 'verified'
+            ? ` <span class="badge">${escapeHtml(t('email.dkimCrypto.verified'))}</span>`
+            : sig.cryptoStatus === 'bodyMismatch'
+              ? ` <span class="badge bad">${escapeHtml(t('email.dkimCrypto.bodyMismatch'))}</span>`
+              : sig.cryptoStatus === 'signatureInvalid'
+                ? ` <span class="badge bad">${escapeHtml(t('email.dkimCrypto.signatureInvalid'))}</span>`
+                : sig.cryptoStatus === 'keyMissing'
+                  ? ` <span class="badge warn">${escapeHtml(t('email.dkimCrypto.keyMissing'))}</span>`
+                  : ''
+        return `<li class="mono">${escapeHtml(line)}${cryptoBadge}</li>`
       })
       .join('')
     parts.push(

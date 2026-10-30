@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isListedDnsblAnswer, reverseIpForDnsbl } from '../src/main/dnsbl'
+import { mapWithConcurrency } from '../src/main/ipinfo'
+import { buildReportSearchQuery } from '../src/main/imap'
 import { rdapIpPathSegment } from '../src/main/rdap'
 import { matchCloudProvider, parseCidr, type CloudPrefix } from '../src/shared/ipcidr'
 import {
@@ -332,23 +334,25 @@ describe('problem sources (rollout)', () => {
     ])
 
     expect(rows).toHaveLength(3)
-    expect(rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-      sourceIp: '192.0.2.10',
-      count: 5,
-      spfFail: 5,
-      dkimFail: 5,
-      headerFrom: 'mail.example.com'
-      }),
-      expect.objectContaining({
-        sourceIp: '192.0.2.10',
-        count: 2,
-        spfFail: 2,
-        dkimFail: 0,
-        headerFrom: 'newsletter.example.com'
-      }),
-      expect.objectContaining({ sourceIp: '198.51.100.1', count: 1 })
-    ]))
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceIp: '192.0.2.10',
+          count: 5,
+          spfFail: 5,
+          dkimFail: 5,
+          headerFrom: 'mail.example.com'
+        }),
+        expect.objectContaining({
+          sourceIp: '192.0.2.10',
+          count: 2,
+          spfFail: 2,
+          dkimFail: 0,
+          headerFrom: 'newsletter.example.com'
+        }),
+        expect.objectContaining({ sourceIp: '198.51.100.1', count: 1 })
+      ])
+    )
   })
 
   it('excludes reject fails and local_policy overrides', () => {
@@ -469,5 +473,37 @@ describe('rdapIpPathSegment', () => {
     expect(rdapIpPathSegment('fe80::1%eth0')).toBe('fe80::1')
     expect(rdapIpPathSegment('not-an-ip')).toBeNull()
     expect(rdapIpPathSegment('')).toBeNull()
+  })
+})
+
+describe('mapWithConcurrency', () => {
+  it('caps simultaneous executions while preserving order', async () => {
+    let active = 0
+    let maxActive = 0
+    const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    const out = await mapWithConcurrency(items, 3, async (n) => {
+      active += 1
+      if (active > maxActive) maxActive = active
+      await new Promise((r) => setTimeout(r, 5))
+      active -= 1
+      return n * 2
+    })
+    expect(maxActive).toBeLessThanOrEqual(3)
+    expect(out).toEqual([2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
+  })
+})
+
+describe('buildReportSearchQuery', () => {
+  it('includes TLS-RPT subjects when a subject filter is configured', () => {
+    const query = buildReportSearchQuery('Report Domain', 42)
+    expect(query).toEqual({
+      or: [
+        { subject: 'Report Domain' },
+        { subject: 'Report domain:' },
+        { subject: 'TLS-RPT' },
+        { subject: 'TLS Report' }
+      ],
+      uid: '43:*'
+    })
   })
 })

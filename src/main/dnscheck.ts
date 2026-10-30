@@ -1,12 +1,18 @@
+import { createPublicKey, X509Certificate } from 'crypto'
 import {
   bimiHost,
+  BIMI_SVG_MAX_BYTES,
   DEFAULT_BIMI_SELECTOR,
   isValidBimiSelector,
+  normalizeBimiHttpsUrl,
   normalizeBimiSelector,
-  parseBimiRecord
+  parseBimiRecord,
+  validateBimiSvgContent
 } from '../shared/bimi-builder'
 import type {
+  BimiAuthorityValidation,
   BimiCheckResult,
+  BimiSvgValidation,
   DkimSelectorCheck,
   DnsCheckResult,
   DnssecCheckResult,
@@ -29,6 +35,7 @@ import { encodeQuery } from './dnswire'
 import { loadSettings } from './settings'
 import { normalizeDkimSelector } from '../shared/dkim-selector'
 import { lookupMxDnsbl } from './dnsbl'
+import { appFetch } from './http'
 
 export { normalizeDkimSelector } from '../shared/dkim-selector'
 
@@ -198,6 +205,7 @@ export async function findAuthoritativeNs(domain: string): Promise<Authoritative
       }
       if (servers.length > 0) return { zone, names, servers }
     } catch {
+      // try parent zone
     }
   }
   return null
@@ -275,6 +283,92 @@ export async function discoverDmarcRecords(
   return { zone: domain, records: [], treeWalked: false, error: lastError }
 }
 
+export interface ParsedDkimKeyInfo {
+  found: boolean
+  revoked: boolean
+  keyType: string
+  keyBits: number | null
+  weakKey: boolean
+  testing: boolean
+}
+
+/**
+ * Inspect a DKIM DNS TXT record (`v=DKIM1; k=rsa; p=...; t=y`).
+ * An empty `p=` tag revokes the selector per RFC 6376 §3.6.1 (`found: false`, `revoked: true`).
+ */
+export function inspectDkimRecord(record: string | null | undefined): ParsedDkimKeyInfo {
+  if (!record || !record.trim()) {
+    return {
+      found: false,
+      revoked: false,
+      keyType: 'rsa',
+      keyBits: null,
+      weakKey: false,
+      testing: false
+    }
+  }
+  const tags = new Map<string, string>()
+  for (const part of record.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq <= 0) continue
+    const key = part.slice(0, eq).trim().toLowerCase()
+    const val = part.slice(eq + 1).trim()
+    if (key) tags.set(key, val)
+  }
+
+  const keyType = (tags.get('k') || 'rsa').toLowerCase()
+  const tFlags = (tags.get('t') || '')
+    .toLowerCase()
+    .split(':')
+    .map((s) => s.trim())
+  const testing = tFlags.includes('y')
+  const pRaw = (tags.get('p') ?? '').replace(/\s+/g, '')
+
+  if (!pRaw) {
+    return {
+      found: false,
+      revoked: tags.has('p'),
+      keyType,
+      keyBits: null,
+      weakKey: false,
+      testing
+    }
+  }
+
+  let keyBits: number | null = null
+  if (keyType === 'ed25519') {
+    try {
+      const bytes = Buffer.from(pRaw, 'base64')
+      if (bytes.length === 32) keyBits = 256
+    } catch {
+      keyBits = null
+    }
+  } else {
+    try {
+      const der = Buffer.from(pRaw, 'base64')
+      const keyObj = createPublicKey({ key: der, format: 'der', type: 'spki' })
+      const details = keyObj.asymmetricKeyDetails
+      if (typeof details?.modulusLength === 'number') {
+        keyBits = details.modulusLength
+      }
+    } catch {
+      // Fallback heuristic from base64 SPKI length when sample/test records use synthetic base64
+      keyBits = null
+    }
+  }
+
+  const weakKey = keyType === 'rsa' && keyBits != null && keyBits <= 1024
+
+  return {
+    found: true,
+    revoked: false,
+    keyType,
+    keyBits,
+    weakKey,
+    testing
+  }
+}
+
 async function checkDkimSelector(
   domain: string,
   selector: string,
@@ -283,7 +377,20 @@ async function checkDkimSelector(
   try {
     const txt = flattenTxt(await resolveTxtRecords(`${selector}._domainkey.${domain}`, auth))
     const record = txt.find((r) => /v\s*=\s*DKIM1/i.test(r) || /(?:^|;)\s*p\s*=/i.test(r)) ?? null
-    return { selector, found: record != null, record }
+    if (!record) {
+      return { selector, found: false, record: null }
+    }
+    const info = inspectDkimRecord(record)
+    return {
+      selector,
+      found: info.found,
+      record,
+      revoked: info.revoked,
+      keyType: info.keyType,
+      keyBits: info.keyBits,
+      weakKey: info.weakKey,
+      testing: info.testing
+    }
   } catch (err) {
     return {
       selector,
@@ -291,6 +398,75 @@ async function checkDkimSelector(
       record: null,
       error: err instanceof Error ? err.message : String(err)
     }
+  }
+}
+
+const BIMI_FETCH_TIMEOUT_MS = 5000
+
+export function parseBimiAuthorityPem(pemText: string, now = Date.now()): BimiAuthorityValidation {
+  const match =
+    /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/.exec(pemText)?.[0] ?? null
+  if (!match) {
+    return { ok: false, error: 'No PEM certificate found' }
+  }
+  try {
+    const cert = new X509Certificate(match)
+    const validToMs = Date.parse(cert.validTo)
+    const validFromMs = Date.parse(cert.validFrom)
+    const expired =
+      (Number.isFinite(validToMs) && validToMs < now) ||
+      (Number.isFinite(validFromMs) && validFromMs > now)
+    const validToIso = Number.isFinite(validToMs) ? new Date(validToMs).toISOString() : cert.validTo
+    return {
+      ok: !expired,
+      subject: cert.subject || null,
+      issuer: cert.issuer || null,
+      validTo: validToIso,
+      expired,
+      ...(expired ? { error: 'Certificate expired or not yet valid' } : {})
+    }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+async function validateBimiSvgUrl(locationRaw: string | null): Promise<BimiSvgValidation | null> {
+  if (!locationRaw) return null
+  const url = normalizeBimiHttpsUrl(locationRaw)
+  if (!url) return { ok: false, error: 'Invalid HTTPS URL' }
+  try {
+    const res = await appFetch(url, {
+      signal: AbortSignal.timeout(BIMI_FETCH_TIMEOUT_MS),
+      headers: { accept: 'image/svg+xml, text/xml, */*' }
+    })
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (buf.byteLength > BIMI_SVG_MAX_BYTES) {
+      return validateBimiSvgContent('', buf.byteLength)
+    }
+    return validateBimiSvgContent(buf.toString('utf8'), buf.byteLength)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+async function validateBimiAuthorityUrl(
+  authorityRaw: string | null
+): Promise<BimiAuthorityValidation | null> {
+  const trimmed = (authorityRaw ?? '').trim()
+  if (!trimmed || trimmed.toLowerCase() === 'self') return null
+  const url = normalizeBimiHttpsUrl(trimmed)
+  if (!url) return { ok: false, error: 'Invalid HTTPS URL' }
+  try {
+    const res = await appFetch(url, {
+      signal: AbortSignal.timeout(BIMI_FETCH_TIMEOUT_MS),
+      headers: { accept: 'application/x-pem-file, text/plain, */*' }
+    })
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+    const text = await res.text()
+    return parseBimiAuthorityPem(text)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -313,12 +489,21 @@ async function lookupBimi(
     const records = flattenTxt(await resolveTxtRecords(host, auth))
     const parsed =
       records.map(parseBimiRecord).find((r) => r.found) ?? parseBimiRecord(records[0] ?? '')
+    if (!parsed.found) {
+      return { ...empty, records }
+    }
+    const [svgValidation, authorityValidation] = await Promise.all([
+      validateBimiSvgUrl(parsed.location),
+      validateBimiAuthorityUrl(parsed.authority)
+    ])
     return {
       ...empty,
-      found: parsed.found,
+      found: true,
       records,
       location: parsed.location,
-      authority: parsed.authority
+      authority: parsed.authority,
+      ...(svgValidation ? { svgValidation } : {}),
+      ...(authorityValidation ? { authorityValidation } : {})
     }
   } catch (err) {
     if (isEmptyDnsError(err)) return empty

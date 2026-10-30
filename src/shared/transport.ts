@@ -107,10 +107,17 @@ export function evaluateTransportSecurity(
     }
   }
 
-  if (dane.mx.length === 0) note('transport.reason.noMx', 'warn')
-  else if (dane.mx.every((m) => m.found)) note('transport.reason.daneAll')
-  else if (dane.mx.some((m) => m.found)) note('transport.reason.danePartial', 'warn')
-  else note('transport.reason.noDane')
+  if (dane.mx.length === 0) {
+    note('transport.reason.noMx', 'warn')
+  } else if (dane.mx.some((m) => m.found && m.dnssecValidated === false)) {
+    note('transport.reason.daneUnsigned', 'warn')
+  } else if (dane.mx.every((m) => m.found)) {
+    note('transport.reason.daneAll')
+  } else if (dane.mx.some((m) => m.found)) {
+    note('transport.reason.danePartial', 'warn')
+  } else {
+    note('transport.reason.noDane')
+  }
 
   const order: Record<TransportReason['level'], number> = { bad: 0, warn: 1, ok: 2 }
   reasons.sort((a, b) => order[a.level] - order[b.level])

@@ -62,12 +62,16 @@ mac:
       arch:
         - x64
         - arm64
+  # Ad-hoc sign so the modified Electron bundle has a valid signature on Apple Silicon (arm64).
+  # Remove `identity: '-'` when CI has CSC_LINK / CSC_KEY_PASSWORD for a Developer ID certificate.
+  identity: '-'
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSDocumentsFolderUsageDescription: Application stores encrypted mailbox settings in the user data folder.
     - NSDownloadsFolderUsageDescription: Application may access downloads if you export reports later.
   # Enable when CI has APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
-  # (and CSC_LINK / CSC_KEY_PASSWORD for Developer ID). Until then releases are unsigned.
+  # (and CSC_LINK / CSC_KEY_PASSWORD for Developer ID). Until then releases are ad-hoc signed.
   notarize: false
 dmg:
   artifactName: ${name}-${version}-mac-${arch}.${ext}

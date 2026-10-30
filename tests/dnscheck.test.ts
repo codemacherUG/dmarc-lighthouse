@@ -1,7 +1,9 @@
+import { generateKeyPairSync } from 'crypto'
 import { describe, expect, it, vi } from 'vitest'
 import {
   ancestorZones,
   discoverDmarcRecords,
+  inspectDkimRecord,
   normalizeDkimSelector,
   parseDnssecResponse,
   parseDnssecWireResponse,
@@ -246,5 +248,55 @@ describe('discoverDmarcRecords', () => {
     const result = await discoverDmarcRecords('mail.foo.example.com', null)
     expect(result.records).toEqual([])
     expect(result.zone).toBe('mail.foo.example.com')
+  })
+})
+
+describe('inspectDkimRecord', () => {
+  it('treats an empty p= tag as a revoked key (found: false, revoked: true)', () => {
+    const info = inspectDkimRecord('v=DKIM1; k=rsa; p=')
+    expect(info).toMatchObject({
+      found: false,
+      revoked: true,
+      keyType: 'rsa',
+      keyBits: null,
+      weakKey: false,
+      testing: false
+    })
+  })
+
+  it('extracts RSA modulus bit length, weak-key flag and t=y testing mode', () => {
+    const { publicKey: pub1024 } = generateKeyPairSync('rsa', { modulusLength: 1024 })
+    const b64_1024 = (pub1024.export({ type: 'spki', format: 'der' }) as Buffer).toString('base64')
+    expect(inspectDkimRecord(`v=DKIM1; k=rsa; t=y:s; p=${b64_1024}`)).toEqual({
+      found: true,
+      revoked: false,
+      keyType: 'rsa',
+      keyBits: 1024,
+      weakKey: true,
+      testing: true
+    })
+
+    const { publicKey: pub2048 } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const b64_2048 = (pub2048.export({ type: 'spki', format: 'der' }) as Buffer).toString('base64')
+    expect(inspectDkimRecord(`v=DKIM1; p=${b64_2048}`)).toEqual({
+      found: true,
+      revoked: false,
+      keyType: 'rsa',
+      keyBits: 2048,
+      weakKey: false,
+      testing: false
+    })
+  })
+
+  it('recognizes ed25519 256-bit keys', () => {
+    const raw32 = Buffer.alloc(32, 7).toString('base64')
+    expect(inspectDkimRecord(`v=DKIM1; k=ed25519; p=${raw32}`)).toEqual({
+      found: true,
+      revoked: false,
+      keyType: 'ed25519',
+      keyBits: 256,
+      weakKey: false,
+      testing: false
+    })
   })
 })

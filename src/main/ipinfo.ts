@@ -9,6 +9,29 @@ import { loadSettings } from './settings'
 
 const ptrCache = new Map<string, IpInfo>()
 
+export const IP_ENRICHMENT_CONCURRENCY = 8
+
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return []
+  const limit = Math.max(1, Math.min(concurrency, items.length))
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const idx = nextIndex++
+      results[idx] = await fn(items[idx])
+    }
+  }
+
+  await Promise.all(Array.from({ length: limit }, () => worker()))
+  return results
+}
+
 function emptyInfo(ip: string): IpInfo {
   return {
     ip,
@@ -102,7 +125,7 @@ export async function resolveIps(ips: string[]): Promise<IpInfo[]> {
   }
 
   const missing = unique.filter((ip) => !ptrCache.has(ip))
-  const fresh = await Promise.all(missing.map((ip) => resolveOne(ip)))
+  const fresh = await mapWithConcurrency(missing, IP_ENRICHMENT_CONCURRENCY, (ip) => resolveOne(ip))
   if (enrichmentOn && fresh.length) {
     try {
       upsertIpEnrichment(fresh)

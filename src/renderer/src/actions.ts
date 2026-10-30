@@ -48,9 +48,7 @@ function showImportResult(result: AnalyzeResult): void {
   }
   const added = summary.added + summary.addedTlsRpt
   const updated = summary.updated + summary.updatedTlsRpt
-  const replacedNote = updated
-    ? t('status.importReplacedPart', { count: updated })
-    : ''
+  const replacedNote = updated ? t('status.importReplacedPart', { count: updated }) : ''
   showResult(
     result,
     t('status.imported', {
@@ -255,9 +253,18 @@ export function initActions(): void {
       if (result.dkim.selectors.length > 0) {
         dkimHtml = result.dkim.selectors
           .map((s) => {
-            const stateHtml = s.found
-              ? `<span class="pass">${escapeHtml(t('dns.dkimFound'))}</span>`
-              : `<span class="fail">${escapeHtml(t('dns.dkimMissing'))}</span>`
+            const metaParts: string[] = []
+            if (s.keyType && s.keyBits)
+              metaParts.push(`${s.keyType.toUpperCase()} ${s.keyBits}-bit`)
+            else if (s.keyType && s.found) metaParts.push(s.keyType.toUpperCase())
+            if (s.weakKey) metaParts.push(t('dns.dkimWeakKey'))
+            if (s.testing) metaParts.push('t=y')
+            const metaSuffix = metaParts.length ? ` (${escapeHtml(metaParts.join(', '))})` : ''
+            const stateHtml = s.revoked
+              ? `<span class="fail">${escapeHtml(t('dns.dkimRevoked'))}</span>`
+              : s.found
+                ? `<span class="${s.weakKey ? 'warn' : 'pass'}">${escapeHtml(t('dns.dkimFound'))}${metaSuffix}</span>`
+                : `<span class="fail">${escapeHtml(t('dns.dkimMissing'))}</span>`
             return t('dns.dkimLine', {
               selector: `<span class="mono">${escapeHtml(s.selector)}</span>`,
               state: stateHtml
@@ -274,12 +281,27 @@ export function initActions(): void {
         const detail = bimi?.error ? ` (${bimi.error})` : ''
         bimiHtml = `<span class="fail">${escapeHtml(t('dns.bimiMissing'))}${escapeHtml(detail)}</span>`
       } else {
-        bimiHtml = `<span class="pass">${escapeHtml(
+        const svgNote = bimi.svgValidation
+          ? bimi.svgValidation.ok
+            ? ` · SVG Tiny PS OK`
+            : ` · SVG: ${bimi.svgValidation.error ?? 'invalid'}`
+          : ''
+        const authNote = bimi.authorityValidation
+          ? bimi.authorityValidation.ok
+            ? ` · VMC OK (${(bimi.authorityValidation.validTo ?? '').slice(0, 10)})`
+            : ` · VMC: ${bimi.authorityValidation.error ?? 'invalid'}`
+          : ''
+        const bimiWarn =
+          (bimi.svgValidation && !bimi.svgValidation.ok) ||
+          (bimi.authorityValidation && !bimi.authorityValidation.ok)
+        bimiHtml = `<span class="${bimiWarn ? 'warn' : 'pass'}">${escapeHtml(
           t('dns.bimiFound', {
             selector: bimi.selector,
             location: bimi.location || '—',
             authority: bimi.authority || '—'
-          })
+          }) +
+            svgNote +
+            authNote
         )}</span>`
       }
 

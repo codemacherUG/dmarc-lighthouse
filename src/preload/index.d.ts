@@ -7,6 +7,7 @@ import type {
   DnsHistoryResult,
   DomainDkimSelector,
   DomainHealth,
+  DomainStats,
   SpfExpandResult,
   GeoLiteDownloadResult,
   GeoLiteStatus,
@@ -54,7 +55,7 @@ export interface DmarcLighthouseApi {
   expandSpf: (domain: string, record?: string | null) => Promise<SpfExpandResult>
   checkTransport: (domain: string) => Promise<TransportSecurityResult>
   dnsHistory: (domain: string) => Promise<DnsHistoryResult>
-  healthBatch: (reports: ReportRow[]) => Promise<DomainHealth[]>
+  healthBatch: (reportsOrStats: Array<ReportRow | DomainStats>) => Promise<DomainHealth[]>
   getDomainDkimSelectors: (domain: string) => Promise<DomainDkimSelector[]>
   saveDomainDkimSelectors: (
     domain: string,

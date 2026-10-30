@@ -1,5 +1,11 @@
+import { createHash, generateKeyPairSync, sign } from 'crypto'
 import { describe, expect, it } from 'vitest'
 import { t, type MessageKey } from '../src/shared/i18n'
+import {
+  canonicalizeDkimBody,
+  canonicalizeDkimHeaderLine,
+  verifyDkimSignatureCryptographically
+} from '../src/main/dkim-verify'
 import {
   decodeEmailBytes,
   decodeEncodedWords,
@@ -7,6 +13,7 @@ import {
   looksLikeEmailMessage,
   normalizeTlsVersion,
   parseAuthResults,
+  parseDkimSignature,
   parseReceivedHop,
   EmailInspectError
 } from '../src/shared/email-inspect'
@@ -253,5 +260,69 @@ hi
   it('rejects truncated Outlook MSG compound files', () => {
     const ole = Uint8Array.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])
     expect(() => decodeEmailBytes(ole)).toThrow(EmailInspectError)
+  })
+})
+
+describe('verifyDkimSignatureCryptographically', () => {
+  it('cryptographically verifies a relaxed/relaxed RSA-SHA256 DKIM signature and detects tampering', () => {
+    const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 1024 })
+    const pubDerB64 = (publicKey.export({ type: 'spki', format: 'der' }) as Buffer).toString(
+      'base64'
+    )
+    const dnsRecord = `v=DKIM1; k=rsa; p=${pubDerB64}`
+
+    const body = 'Hello DKIM world!   \r\n\r\n'
+    const canonBody = canonicalizeDkimBody(body, 'relaxed')
+    const bh = createHash('sha256').update(canonBody, 'utf8').digest('base64')
+
+    const fromHeader = 'From: Sender <sender@example.com>'
+    const toHeader = 'To: Receiver <rcpt@example.org>'
+    const subjectHeader = 'Subject:   Test   Message  '
+    const dateHeader = 'Date: Fri, 30 Oct 2026 12:00:00 +0000'
+    const dkimHeaderWithoutB = `DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=example.com; s=sel1; h=from:to:subject:date; bh=${bh}; b=`
+
+    const signingInput = Buffer.from(
+      [
+        `${canonicalizeDkimHeaderLine(fromHeader, 'relaxed')}\r\n`,
+        `${canonicalizeDkimHeaderLine(toHeader, 'relaxed')}\r\n`,
+        `${canonicalizeDkimHeaderLine(subjectHeader, 'relaxed')}\r\n`,
+        `${canonicalizeDkimHeaderLine(dateHeader, 'relaxed')}\r\n`,
+        canonicalizeDkimHeaderLine(dkimHeaderWithoutB, 'relaxed')
+      ].join(''),
+      'utf8'
+    )
+
+    const sigB64 = sign('sha256', signingInput, privateKey).toString('base64')
+    const fullDkimHeader = `${dkimHeaderWithoutB}${sigB64}`
+    const rawEmail = [
+      fromHeader,
+      toHeader,
+      subjectHeader,
+      dateHeader,
+      fullDkimHeader,
+      '',
+      body
+    ].join('\r\n')
+    const sigInfo = parseDkimSignature(fullDkimHeader.replace(/^DKIM-Signature:\s*/i, ''))
+
+    expect(verifyDkimSignatureCryptographically(rawEmail, sigInfo, dnsRecord)).toEqual({
+      status: 'verified',
+      detail: 'rsa-sha256'
+    })
+
+    // Body tampering -> bodyMismatch
+    const tamperedBodyEmail = rawEmail.replace('Hello DKIM world!', 'Tampered body!')
+    expect(verifyDkimSignatureCryptographically(tamperedBodyEmail, sigInfo, dnsRecord).status).toBe(
+      'bodyMismatch'
+    )
+
+    // Header tampering -> signatureInvalid
+    const tamperedHeaderEmail = rawEmail.replace('Test   Message', 'Altered Subject')
+    expect(
+      verifyDkimSignatureCryptographically(tamperedHeaderEmail, sigInfo, dnsRecord).status
+    ).toBe('signatureInvalid')
+
+    // Missing DNS record -> keyMissing
+    expect(verifyDkimSignatureCryptographically(rawEmail, sigInfo, null).status).toBe('keyMissing')
   })
 })

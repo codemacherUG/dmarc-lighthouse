@@ -8,6 +8,7 @@ import type {
   DnsHistoryResult,
   DomainDkimSelector,
   DomainHealth,
+  DomainStats,
   SpfExpandResult,
   GeoLiteDownloadResult,
   GeoLiteStatus,
@@ -77,8 +78,8 @@ const api = {
     ipcRenderer.invoke('dns:transport', domain),
   dnsHistory: (domain: string): Promise<DnsHistoryResult> =>
     ipcRenderer.invoke('dns:history', domain),
-  healthBatch: (reports: ReportRow[]): Promise<DomainHealth[]> =>
-    ipcRenderer.invoke('dns:healthBatch', reports),
+  healthBatch: (reportsOrStats: Array<ReportRow | DomainStats>): Promise<DomainHealth[]> =>
+    ipcRenderer.invoke('dns:healthBatch', reportsOrStats),
   getDomainDkimSelectors: (domain: string): Promise<DomainDkimSelector[]> =>
     ipcRenderer.invoke('dns:domainDkimSelectors:get', domain),
   saveDomainDkimSelectors: (
