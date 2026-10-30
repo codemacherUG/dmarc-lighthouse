@@ -16,6 +16,7 @@ import {
   saveDomainDkimSelectors,
   getIpEnrichment,
   getCachedReportDomains,
+  getDnsHealthCache,
   getDnsHistory,
   getLatestDnsHistoryCheckAt,
   importReports,
@@ -27,9 +28,11 @@ import {
   resetKnownSourceIps,
   saveCache,
   setCacheUserDataForTests,
+  upsertDnsHealthCache,
   upsertIpEnrichment,
   upsertSendingService
 } from '../src/main/cache'
+import { loadCombinedCachedAnalyzeResult } from '../src/main/imap'
 import type {
   DnsCheckResult,
   ReportRow,
@@ -938,5 +941,71 @@ describe('sqlite cache', () => {
     const loaded = loadCachedReports('acct1')
     expect(loaded.meta.uidValidity).toBe(1001)
     expect(loaded.meta.uidValidityArchive).toBe(2002)
+  })
+
+  it('combines cached reports across multiple accounts for the all-accounts view', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    const r1 = sampleReport('r1')
+    const r2 = { ...sampleReport('r2'), domain: 'other.org' }
+    saveCache({
+      accountKey: 'acct1',
+      reports: [r1],
+      lastUid: 10,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+    saveCache({
+      accountKey: 'acct2',
+      reports: [r2],
+      lastUid: 5,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+
+    const combined = await loadCombinedCachedAnalyzeResult([
+      'acct1',
+      'acct2',
+      LOCAL_IMPORT_ACCOUNT_KEY
+    ])
+    expect(combined.reports.map((r) => r.reportId).sort()).toEqual(['r1', 'r2'])
+    expect(combined.aggregate.reportCount).toBe(2)
+    expect(combined.aggregate.domains).toEqual(['example.com', 'other.org'])
+  })
+
+  it('updates dns_health_cache policy while preserving existing DKIM selectors on selector-less checks', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+
+    const initial = dnsResult({
+      checkedAt: '2026-08-19T08:00:00.000Z',
+      dmarc: 'v=DMARC1; p=none; rua=mailto:dmarc@example.com',
+      dkim: [{ selector: 'default', record: 'v=DKIM1; p=abc' }]
+    })
+    upsertDnsHealthCache('example.com', initial)
+    expect(getDnsHealthCache('example.com')?.dmarc.policy).toBe('none')
+
+    const updatedWithoutSelectors: DnsCheckResult = {
+      ...dnsResult({
+        checkedAt: '2026-08-19T09:00:00.000Z',
+        dmarc: 'v=DMARC1; p=reject; rua=mailto:dmarc@example.com',
+        dkim: []
+      }),
+      dmarc: {
+        found: true,
+        records: ['v=DMARC1; p=reject; rua=mailto:dmarc@example.com'],
+        policy: 'reject',
+        rua: 'mailto:dmarc@example.com',
+        ruf: null,
+        host: '_dmarc.example.com'
+      }
+    }
+    upsertDnsHealthCache('example.com', updatedWithoutSelectors)
+
+    const cached = getDnsHealthCache('example.com')
+    expect(cached?.dmarc.policy).toBe('reject')
+    expect(cached?.dkim.selectors).toEqual([
+      { selector: 'default', found: true, record: 'v=DKIM1; p=abc' }
+    ])
   })
 })

@@ -1780,6 +1780,51 @@
       </div>
     </dialog>
 
+    <dialog id="import-target-dialog">
+      <div class="settings-form">
+        <header class="dialog-header">
+          <h2 data-i18n="import.targetTitle">Import-Ziel wählen</h2>
+          <button
+            type="button"
+            id="btn-close-import-target"
+            class="btn ghost"
+            data-i18n-aria="settings.close"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <div class="dialog-body">
+          <label>
+            <span data-i18n="import.targetPrompt"
+              >In welches Konto sollen die importierten Reports gespeichert werden?</span
+            >
+            <select id="import-target-select"></select>
+          </label>
+        </div>
+        <footer class="dialog-footer">
+          <div class="dialog-actions">
+            <button
+              type="button"
+              id="btn-cancel-import-target"
+              class="btn secondary"
+              data-i18n="import.targetCancel"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              id="btn-confirm-import-target"
+              class="btn primary"
+              data-i18n="import.targetConfirm"
+            >
+              Importieren
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
     <dialog id="domain-dkim-dialog">
       <div class="domain-dkim-form">
         <header class="dialog-header">
@@ -2058,6 +2103,14 @@
         </header>
         <div id="dns-history-body" class="dns-history-body"></div>
         <footer class="dialog-actions">
+          <button
+            type="button"
+            id="btn-dns-history-check"
+            class="btn secondary"
+            data-i18n="dns.historyOpenCheck"
+          >
+            DNS-Check öffnen
+          </button>
           <button
             type="button"
             id="btn-dns-history-close"

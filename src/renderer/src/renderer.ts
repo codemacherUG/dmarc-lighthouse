@@ -51,7 +51,12 @@ void (async () => {
     aboutVersionEl.textContent = await window.api.getAppVersion()
     await loadSettings()
     const cached = await window.api.loadCache()
-    if (cached && cached.reports.length > 0) {
+    if (
+      cached &&
+      (cached.reports.length > 0 ||
+        cached.forensicReports.length > 0 ||
+        cached.tlsRptReports.length > 0)
+    ) {
       showResult(cached, t('status.cached', { count: cached.aggregate.reportCount }))
     }
   } catch (err) {

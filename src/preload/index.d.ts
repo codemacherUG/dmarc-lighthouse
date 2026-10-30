@@ -63,8 +63,11 @@ export interface DmarcLighthouseApi {
   ) => Promise<DomainDkimSelector[]>
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
-  openFiles: () => Promise<AnalyzeResult | null>
-  parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>) => Promise<AnalyzeResult>
+  openFiles: (targetAccountId?: string | null) => Promise<AnalyzeResult | null>
+  parseBuffers: (
+    files: Array<{ name: string; data: ArrayBuffer }>,
+    targetAccountId?: string | null
+  ) => Promise<AnalyzeResult>
   openEmailFile: () => Promise<EmailInspectResponse | null>
   parseEmail: (input: {
     name?: string

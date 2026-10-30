@@ -3070,6 +3070,7 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #export-dialog,
 #dns-dialog,
 #create-mailbox-dialog,
+#import-target-dialog,
 #status-log-dialog,
 #ip-detail-dialog,
 #diagnosis-dialog,
@@ -3899,11 +3900,13 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   border-left-color: var(--other);
 }
 
-#create-mailbox-dialog {
+#create-mailbox-dialog,
+#import-target-dialog {
   width: min(440px, calc(100vw - 32px));
 }
 
-#create-mailbox-dialog .dialog-body input {
+#create-mailbox-dialog .dialog-body input,
+#import-target-dialog .dialog-body select {
   width: 100%;
   box-sizing: border-box;
 }
@@ -3972,6 +3975,7 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
 #export-dialog::backdrop,
 #dns-dialog::backdrop,
 #create-mailbox-dialog::backdrop,
+#import-target-dialog::backdrop,
 #status-log-dialog::backdrop,
 #ip-detail-dialog::backdrop,
 #diagnosis-dialog::backdrop,

@@ -40,6 +40,7 @@ import {
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
+import { refreshDomainHealth } from './view'
 
 let currentStep: SpfBuilderStep = 'domain'
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
@@ -237,6 +238,7 @@ async function loadDnsTemplate(): Promise<void> {
   spfBuilderDomainStatusEl.className = 'builder-status'
   try {
     const result = await window.api.checkDns(domain)
+    void refreshDomainHealth(state.fullResult, { force: true })
     spfBuilderDomainEl.value = result.domain
     const existing =
       result.spf.records.find((r) => /v\s*=\s*spf1/i.test(r)) ?? result.spf.records[0] ?? null

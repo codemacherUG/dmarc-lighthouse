@@ -551,6 +551,11 @@ export function upsertDnsHealthCacheInDb(
   result: DnsCheckResult,
   ttlMs = DNS_HEALTH_TTL_MS
 ): void {
+  const existing = getDnsHealthCacheInDb(database, domain)
+  const mergedResult =
+    result.dkim.selectors.length === 0 && existing?.dkim.selectors.length
+      ? { ...result, dkim: existing.dkim }
+      : result
   const checkedAt = new Date().toISOString()
   const expiresAt = new Date(Date.now() + ttlMs).toISOString()
   database
@@ -562,7 +567,7 @@ export function upsertDnsHealthCacheInDb(
          checked_at = excluded.checked_at,
          expires_at = excluded.expires_at`
     )
-    .run(domain.trim().toLowerCase(), JSON.stringify(result), checkedAt, expiresAt)
+    .run(domain.trim().toLowerCase(), JSON.stringify(mergedResult), checkedAt, expiresAt)
 }
 
 export function getDomainDkimSelectorsInDb(

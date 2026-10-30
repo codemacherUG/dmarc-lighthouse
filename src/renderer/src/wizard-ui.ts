@@ -44,6 +44,7 @@ import {
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
+import { refreshDomainHealth } from './view'
 
 let currentStep: DmarcBuilderStep = 'domain'
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
@@ -222,6 +223,7 @@ async function loadDnsTemplate(): Promise<void> {
   builderDomainStatusEl.className = 'builder-status'
   try {
     const result = await window.api.checkDns(domain)
+    void refreshDomainHealth(state.fullResult, { force: true })
     builderDomainEl.value = result.domain
     ensureDefaultMailboxes(result.domain)
     const existing =

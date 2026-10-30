@@ -345,6 +345,45 @@ export async function loadCachedAnalyzeResult(
   return result
 }
 
+export async function loadCombinedCachedAnalyzeResult(
+  accountKeys: string[],
+  options: {
+    newReports?: number
+    newForensicReports?: number
+    newTlsRptReports?: number
+    skipped?: number
+    errors?: string[]
+  } = {}
+): Promise<AnalyzeResult> {
+  let reports: ReportRow[] = []
+  let forensicReports: ForensicReportRow[] = []
+  let tlsRptReports: TlsRptReportRow[] = []
+  const pendingSet = new Set<string>()
+
+  for (const key of accountKeys) {
+    const cached = loadCachedReports(key)
+    reports = mergeReports(reports, cached.reports)
+    forensicReports = mergeForensicReports(forensicReports, cached.forensicReports)
+    tlsRptReports = mergeTlsRptReports(tlsRptReports, cached.tlsRptReports)
+    for (const ip of cached.meta.pendingSourceIps) pendingSet.add(ip)
+  }
+
+  const pendingIps = [...pendingSet].sort()
+  const result = analyzeFromReports(reports, {
+    fromCache: true,
+    newReports: options.newReports ?? 0,
+    newForensicReports: options.newForensicReports ?? 0,
+    newTlsRptReports: options.newTlsRptReports ?? 0,
+    skipped: options.skipped ?? 0,
+    errors: options.errors ?? [],
+    forensicReports,
+    tlsRptReports
+  })
+  result.newSourceIps = []
+  result.newSendingSources = await resolveNewSendingSources(pendingIps, reports)
+  return result
+}
+
 async function fetchFromMailbox(
   client: ImapFlow,
   mailbox: string,

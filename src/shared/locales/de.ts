@@ -267,6 +267,12 @@ export const de = {
 
   'filter.title': 'Ansicht',
   'filter.account': 'Konto',
+  'filter.allAccounts': 'Alle Konten',
+  'import.targetTitle': 'Import-Ziel wählen',
+  'import.targetPrompt': 'In welches Konto sollen die importierten Reports gespeichert werden?',
+  'import.targetLocal': 'Lokaler Import-Speicher (kontoübergreifend)',
+  'import.targetCancel': 'Abbrechen',
+  'import.targetConfirm': 'Importieren',
   'filter.range': 'Zeitraum',
   'filter.rangeAll': 'Gesamt',
   'filter.range7': 'Letzte 7 Tage',
@@ -1023,6 +1029,7 @@ export const de = {
   'dns.historyAfter': 'Nachher',
   'dns.historyCorrelation':
     'Im letzten Report vom {reportDate}: Fail-Rate {after}% (vor der Änderung am {changeDate}: {before}%).',
+  'dns.historyOpenCheck': 'DNS-Check öffnen',
 
   'transport.title': 'Transport-Sicherheit',
   'transport.checking': 'Prüfe TLS-RPT, MTA-STS und DANE für {domain}…',

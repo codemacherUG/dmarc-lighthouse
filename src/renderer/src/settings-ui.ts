@@ -1,4 +1,4 @@
-import { suggestAccountName } from '../../shared/account'
+import { ALL_ACCOUNTS_ID, isAllAccountsId, suggestAccountName } from '../../shared/account'
 import { normalizeLocale, t } from '../../shared/i18n'
 import { normalizeTheme } from '../../shared/theme'
 import type {
@@ -153,8 +153,13 @@ export function setSwitchActiveAccount(fn: (id: string) => Promise<void>): void 
 }
 
 export function activeAccount(): AccountPublic | null {
-  if (!state.settings) return null
+  if (!state.settings || isAllAccountsId(state.settings.activeAccountId)) return null
   return state.settings.accounts.find((a) => a.id === state.settings?.activeAccountId) ?? null
+}
+
+export function anyAccountHasAuth(): boolean {
+  if (!state.settings) return false
+  return state.settings.accounts.some((a) => accountHasAuth(a))
 }
 
 export function dialogAccount(): AccountPublic | null {
@@ -449,12 +454,18 @@ function applyProviderPreset(provider: ProviderPreset): void {
 export function updateAccountUi(): void {
   const accounts = state.settings?.accounts ?? []
   accountFieldEl.classList.toggle('hidden', accounts.length <= 1)
-  accountSelectEl.innerHTML = accounts
-    .map(
-      (a) =>
-        `<option value="${escapeHtml(a.id)}"${a.id === state.settings?.activeAccountId ? ' selected' : ''}>${escapeHtml(a.label)}</option>`
+  const options: string[] = []
+  if (accounts.length > 1) {
+    const selected = isAllAccountsId(state.settings?.activeAccountId) ? ' selected' : ''
+    options.push(
+      `<option value="${ALL_ACCOUNTS_ID}"${selected}>${escapeHtml(t('filter.allAccounts'))}</option>`
     )
-    .join('')
+  }
+  for (const a of accounts) {
+    const selected = a.id === state.settings?.activeAccountId ? ' selected' : ''
+    options.push(`<option value="${escapeHtml(a.id)}"${selected}>${escapeHtml(a.label)}</option>`)
+  }
+  accountSelectEl.innerHTML = options.join('')
 }
 
 export function fillAccountForm(account: AccountPublic | null): void {
@@ -580,8 +591,10 @@ export async function loadSettings(): Promise<void> {
   fillGlobalForm(state.settings!.global)
   applyUiLocale(state.settings!.global.language)
   applyTheme(state.settings!.global.theme)
-  const account = activeAccount()
-  if (!accountHasAuth(account)) {
+  const hasReady = isAllAccountsId(state.settings?.activeAccountId)
+    ? anyAccountHasAuth()
+    : accountHasAuth(activeAccount())
+  if (!hasReady) {
     setStatus(t('status.needSettings'))
   }
 }
@@ -603,7 +616,10 @@ export function showSettingsTab(which: SettingsTab): void {
 }
 
 export function openSettings(): void {
-  state.dialogAccountId = state.settings?.activeAccountId ?? null
+  const activeId = state.settings?.activeAccountId ?? null
+  state.dialogAccountId = isAllAccountsId(activeId)
+    ? (state.settings?.accounts[0]?.id ?? null)
+    : activeId
   fillSettingsAccountSelect()
   fillAccountForm(dialogAccount())
   if (state.settings) fillGlobalForm(state.settings.global)
@@ -755,9 +771,14 @@ export function initSettingsUi(): void {
     if (!confirm(t('settings.confirmDelete', { label: account.label }))) return
     setBusy(true)
     try {
-      const wasActive = state.settings?.activeAccountId === state.dialogAccountId
+      const wasActive =
+        state.settings?.activeAccountId === state.dialogAccountId ||
+        isAllAccountsId(state.settings?.activeAccountId)
       applySettings(await window.api.deleteAccount(state.dialogAccountId))
-      state.dialogAccountId = state.settings?.activeAccountId ?? null
+      const nextActiveId = state.settings?.activeAccountId ?? null
+      state.dialogAccountId = isAllAccountsId(nextActiveId)
+        ? (state.settings?.accounts[0]?.id ?? null)
+        : nextActiveId
       fillSettingsAccountSelect()
       fillAccountForm(dialogAccount())
       settingsStatusEl.textContent = t('settings.accountDeleted')
@@ -862,10 +883,15 @@ export function initSettingsUi(): void {
     try {
       const result = await window.api.clearCache(state.dialogAccountId)
       settingsStatusEl.textContent = result.message
-      if (result.ok && state.dialogAccountId === state.settings?.activeAccountId) {
-        state.fullResult = null
-        applyView()
-        setStatus(t('status.cacheCleared'), 'ok')
+      if (result.ok) {
+        if (state.dialogAccountId === state.settings?.activeAccountId) {
+          state.fullResult = null
+          applyView()
+          setStatus(t('status.cacheCleared'), 'ok')
+        } else if (isAllAccountsId(state.settings?.activeAccountId)) {
+          await switchActiveAccountFn?.(ALL_ACCOUNTS_ID)
+          setStatus(t('status.cacheCleared'), 'ok')
+        }
       }
     } catch (err) {
       settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)

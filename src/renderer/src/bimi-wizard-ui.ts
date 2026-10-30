@@ -38,6 +38,7 @@ import {
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
+import { refreshDomainHealth } from './view'
 
 let currentStep: BimiBuilderStep = 'domain'
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
@@ -237,6 +238,7 @@ async function loadDnsTemplate(): Promise<void> {
       window.api.checkDns(domain),
       window.api.checkBimi(domain, selector)
     ])
+    void refreshDomainHealth(state.fullResult, { force: true })
     if (gen !== loadGen) return
     bimiBuilderDomainEl.value = dns.domain
     const dmarcOk = rememberDmarcPrereq(dns.dmarc.policy, dns.dmarc.records)

@@ -1,10 +1,14 @@
+import { ALL_ACCOUNTS_ID, isAllAccountsId } from '../../shared/account'
 import { t } from '../../shared/i18n'
 import { selectorsForDnsCheck } from '../../shared/dkim-selector'
 import type { AnalyzeResult } from '../../shared/types'
 import { applyProgress, setBusy, setStatus, setTopProgress } from './chrome'
 import {
   accountSelectEl,
+  btnCancelImportTarget,
   btnCloseExport,
+  btnCloseImportTarget,
+  btnConfirmImportTarget,
   btnDns,
   btnExport,
   btnExportCsv,
@@ -19,6 +23,8 @@ import {
   dropOverlay,
   exportDialog,
   filterDomainEl,
+  importTargetDialog,
+  importTargetSelectEl,
   progressLabelEl,
   settingsStatusEl
 } from './dom'
@@ -28,13 +34,14 @@ import { renderDnsHistory } from './dns-history-view'
 import {
   accountHasAuth,
   activeAccount,
+  anyAccountHasAuth,
   applySettings,
   openSettings,
   setSwitchActiveAccount
 } from './settings-ui'
 import { clearDrill, state } from './state'
 import { runTransportCheck } from './transport-view'
-import { applyView, clearSpfMarks, showResult } from './view'
+import { applyView, clearSpfMarks, refreshDomainHealth, showResult } from './view'
 
 /** Show an import result and report how much of it was written to the cache. */
 function showImportResult(result: AnalyzeResult): void {
@@ -77,7 +84,12 @@ export async function switchActiveAccount(id: string): Promise<void> {
   state.fullResult = null
   clearSpfMarks()
   const cached = await window.api.loadCache(id)
-  if (cached && cached.reports.length > 0) {
+  if (
+    cached &&
+    (cached.reports.length > 0 ||
+      cached.forensicReports.length > 0 ||
+      cached.tlsRptReports.length > 0)
+  ) {
     showResult(cached, t('status.cached', { count: cached.aggregate.reportCount }))
   } else {
     applyView()
@@ -133,8 +145,58 @@ async function doPdfExport(): Promise<void> {
   }
 }
 
+const LOCAL_IMPORT_OPTION_VALUE = '__local__'
+
+let importTargetResolver: ((accountId: string | null | false) => void) | null = null
+
+function finishImportTargetChoice(choice: string | null | false): void {
+  const resolve = importTargetResolver
+  importTargetResolver = null
+  if (importTargetDialog?.open) importTargetDialog.close()
+  resolve?.(choice)
+}
+
+/**
+ * When viewing "All accounts" with multiple configured accounts, let the user choose
+ * which account (or the shared local import store) receives the imported files.
+ */
+function resolveImportTargetAccountId(): Promise<string | null | false> {
+  const accounts = state.settings?.accounts ?? []
+  const activeId = state.settings?.activeAccountId ?? null
+  if (!isAllAccountsId(activeId) || accounts.length <= 1 || !importTargetDialog) {
+    return Promise.resolve(activeId)
+  }
+
+  const options = accounts.map(
+    (a, idx) =>
+      `<option value="${escapeHtml(a.id)}"${idx === 0 ? ' selected' : ''}>${escapeHtml(a.label)}</option>`
+  )
+  options.push(
+    `<option value="${LOCAL_IMPORT_OPTION_VALUE}">${escapeHtml(t('import.targetLocal'))}</option>`
+  )
+  importTargetSelectEl.innerHTML = options.join('')
+
+  return new Promise<string | null | false>((resolve) => {
+    importTargetResolver = resolve
+    importTargetDialog.showModal()
+    queueMicrotask(() => importTargetSelectEl.focus())
+  })
+}
+
 export function initActions(): void {
   setSwitchActiveAccount(switchActiveAccount)
+
+  btnCloseImportTarget?.addEventListener('click', () => finishImportTargetChoice(false))
+  btnCancelImportTarget?.addEventListener('click', () => finishImportTargetChoice(false))
+  btnConfirmImportTarget?.addEventListener('click', () => {
+    const val = importTargetSelectEl.value
+    finishImportTargetChoice(val === LOCAL_IMPORT_OPTION_VALUE ? LOCAL_IMPORT_OPTION_VALUE : val)
+  })
+  importTargetDialog?.addEventListener('cancel', () => {
+    const resolve = importTargetResolver
+    importTargetResolver = null
+    resolve?.(false)
+  })
 
   accountSelectEl.addEventListener('change', () => {
     if (state.busy) return
@@ -149,6 +211,31 @@ export function initActions(): void {
 
   btnFetch.addEventListener('click', async () => {
     if (state.busy) return
+    const activeId = state.settings?.activeAccountId ?? null
+    if (isAllAccountsId(activeId)) {
+      if (!anyAccountHasAuth()) {
+        openSettings()
+        settingsStatusEl.textContent = t('settings.needCredentials')
+        return
+      }
+      setBusy(true)
+      setStatus(t('status.fetchStart'))
+      progressLabelEl.textContent = ''
+      setTopProgress(null, true)
+      try {
+        const result = await window.api.fetchSaved(ALL_ACCOUNTS_ID)
+        state.selectedReportId = null
+        showResult(result)
+      } catch (err) {
+        setStatus(err instanceof Error ? err.message : String(err), 'error')
+      } finally {
+        setBusy(false)
+        setTopProgress(0, false)
+        progressLabelEl.textContent = ''
+      }
+      return
+    }
+
     const account = activeAccount()
     if (!account || !accountHasAuth(account)) {
       openSettings()
@@ -175,9 +262,11 @@ export function initActions(): void {
 
   btnOpenFiles.addEventListener('click', async () => {
     if (state.busy) return
+    const targetAccountId = await resolveImportTargetAccountId()
+    if (targetAccountId === false) return
     setBusy(true)
     try {
-      const result = await window.api.openFiles()
+      const result = await window.api.openFiles(targetAccountId)
       if (!result) return
       showImportResult(result)
     } catch (err) {
@@ -321,6 +410,7 @@ export function initActions(): void {
         : ''
       dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br /><span class="mono">${escapeHtml(mxLine)}</span>${mxBlacklistLine ? `<br />${escapeHtml(mxBlacklistLine)}` : ''}<br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
       dnsResultEl.className = 'dns-result ok'
+      void refreshDomainHealth(state.fullResult, { force: true })
     } catch (err) {
       dnsResultEl.textContent = err instanceof Error ? err.message : String(err)
       dnsResultEl.className = 'dns-result error'
@@ -363,6 +453,8 @@ export function initActions(): void {
       return
     }
     void (async () => {
+      const targetAccountId = await resolveImportTargetAccountId()
+      if (targetAccountId === false) return
       setBusy(true)
       try {
         const buffers = await Promise.all(
@@ -371,7 +463,7 @@ export function initActions(): void {
             data: await f.arrayBuffer()
           }))
         )
-        const result = await window.api.parseBuffers(buffers)
+        const result = await window.api.parseBuffers(buffers, targetAccountId)
         showImportResult(result)
       } catch (err) {
         setStatus(err instanceof Error ? err.message : String(err), 'error')

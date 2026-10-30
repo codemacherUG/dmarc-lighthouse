@@ -25,6 +25,7 @@ import type {
   ReportRow,
   SendingServiceInput
 } from '../shared/types'
+import { ALL_ACCOUNTS_ID, isAllAccountsId } from '../shared/account'
 import { alertableSendingSources } from '../shared/sending-services'
 import { normalizeTheme } from '../shared/theme'
 import {
@@ -44,6 +45,7 @@ import {
   recordTransportHistory,
   resetKnownSourceIps,
   saveDomainDkimSelectors as persistDomainDkimSelectors,
+  upsertDnsHealthCache,
   upsertSendingService
 } from './cache'
 import { analyzeFromReports } from '../shared/analyze'
@@ -75,6 +77,7 @@ import {
   fetchAndAnalyze,
   listMailboxes,
   loadCachedAnalyzeResult,
+  loadCombinedCachedAnalyzeResult,
   previousFailingTotal,
   testConnection
 } from './imap'
@@ -115,16 +118,29 @@ function accountReady(account: AccountPublic): boolean {
   return Boolean(account.user && (account.hasPassword || account.hasOAuth))
 }
 
-/** Cache owner for file imports: the active account, or the local slot without one. */
-function importTargetAccount(): ImportTargetAccount | null {
+/** Cache owner for file imports: the requested account, the active account, or the local slot. */
+function importTargetAccount(accountId?: string | null): ImportTargetAccount | null {
   try {
     const settingsPub = loadSettings()
-    const account = settingsPub.accounts.find((a) => a.id === settingsPub.activeAccountId)
+    const targetId = accountId ?? settingsPub.activeAccountId
+    if (!targetId || isAllAccountsId(targetId) || targetId === LOCAL_IMPORT_ACCOUNT_KEY) {
+      return null
+    }
+    const account = settingsPub.accounts.find((a) => a.id === targetId)
     if (!account?.user || !account.host) return null
     return { user: account.user, host: account.host, mailbox: account.mailbox }
   } catch {
     return null
   }
+}
+
+/** All cache keys included in the combined "All accounts" view. */
+function allAccountsCacheKeys(settingsPub = loadSettings()): string[] {
+  const keys = settingsPub.accounts
+    .filter((a) => a.user && a.host)
+    .map((a) => accountKeyFor(a.user, a.host, a.mailbox))
+  keys.push(LOCAL_IMPORT_ACCOUNT_KEY)
+  return [...new Set(keys)]
 }
 
 if (process.platform === 'linux') {
@@ -427,7 +443,11 @@ async function runSavedFetch(accountId?: string | null): Promise<AnalyzeResult> 
   }
   fetchInFlight = true
   try {
-    return await fetchAccount(accountId)
+    const targetId = accountId ?? loadSettings().activeAccountId
+    if (isAllAccountsId(targetId)) {
+      return await fetchAllAccountsCombined()
+    }
+    return await fetchAccount(targetId)
   } finally {
     fetchInFlight = false
   }
@@ -453,12 +473,64 @@ async function fetchAccount(accountId?: string | null): Promise<AnalyzeResult> {
   return result
 }
 
+/** Fetch all ready accounts and return the combined AnalyzeResult across all accounts. */
+async function fetchAllAccountsCombined(): Promise<AnalyzeResult> {
+  const settingsPub = loadSettings()
+  const readyAccounts = settingsPub.accounts.filter((a) => accountReady(a))
+  if (readyAccounts.length === 0) throw new Error(t('main.noAccount'))
+
+  let newReports = 0
+  let newForensicReports = 0
+  let newTlsRptReports = 0
+  let skipped = 0
+  const errors: string[] = []
+
+  for (const account of readyAccounts) {
+    try {
+      const res = await fetchAccount(account.id)
+      newReports += res.newReports ?? 0
+      newForensicReports += res.newForensicReports ?? 0
+      newTlsRptReports += res.newTlsRptReports ?? 0
+      skipped += res.skipped ?? 0
+      for (const err of res.errors ?? []) {
+        errors.push(`${account.label}: ${err}`)
+      }
+    } catch (err) {
+      const msg = `${account.label}: ${err instanceof Error ? err.message : String(err)}`
+      errors.push(msg)
+      mainWindow?.webContents.send('imap:progress', {
+        phase: 'error',
+        processed: 0,
+        total: 0,
+        parsed: 0,
+        skipped: 0,
+        message: msg
+      })
+    }
+  }
+
+  const combined = await loadCombinedCachedAnalyzeResult(allAccountsCacheKeys(settingsPub), {
+    newReports,
+    newForensicReports,
+    newTlsRptReports,
+    skipped,
+    errors: errors.slice(0, 50)
+  })
+  combined.accountId = ALL_ACCOUNTS_ID
+  mainWindow?.webContents.send('imap:result', combined)
+  return combined
+}
+
 /** Fetch all configured accounts sequentially (auto-fetch / tray action). */
 async function runAutoFetchAll(): Promise<void> {
   if (fetchInFlight) return
   fetchInFlight = true
   try {
     const settingsPub = loadSettings()
+    if (isAllAccountsId(settingsPub.activeAccountId)) {
+      await fetchAllAccountsCombined()
+      return
+    }
     for (const account of settingsPub.accounts) {
       if (!accountReady(account)) continue
       try {
@@ -516,7 +588,9 @@ async function runDnsAutoCheck(): Promise<void> {
           const selectors = getDomainDkimSelectors(domain)
             .filter((selector) => selector.enabled)
             .map((selector) => selector.selector)
-          recordDnsHistory(await checkDomainDns(domain, selectors))
+          const dnsResult = await checkDomainDns(domain, selectors)
+          recordDnsHistory(dnsResult)
+          upsertDnsHealthCache(dnsResult.domain, dnsResult)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           failures.push(`${domain}: ${message}`)
@@ -856,6 +930,11 @@ function registerIpc(): void {
     try {
       const settingsPub = loadSettings()
       const id = accountId ?? settingsPub.activeAccountId
+      if (isAllAccountsId(id)) {
+        const result = await loadCombinedCachedAnalyzeResult(allAccountsCacheKeys(settingsPub))
+        result.accountId = ALL_ACCOUNTS_ID
+        return result
+      }
       const account = settingsPub.accounts.find((a) => a.id === id)
       // No usable account yet: show reports that were imported from files.
       if (!account?.user || !account.host) return loadLocalImportResult()
@@ -881,6 +960,12 @@ function registerIpc(): void {
   ipcMain.handle('cache:clear', (_event, accountId?: string | null) => {
     const settingsPub = loadSettings()
     const id = accountId ?? settingsPub.activeAccountId
+    if (isAllAccountsId(id)) {
+      for (const key of allAccountsCacheKeys(settingsPub)) {
+        clearCache(key)
+      }
+      return { ok: true, message: t('main.cacheCleared') }
+    }
     const account = settingsPub.accounts.find((a) => a.id === id)
     if (!account) {
       // Without an account the only cached data can come from file imports.
@@ -894,6 +979,12 @@ function registerIpc(): void {
   ipcMain.handle('cache:resetKnownSources', (_event, accountId?: string | null) => {
     const settingsPub = loadSettings()
     const id = accountId ?? settingsPub.activeAccountId
+    if (isAllAccountsId(id)) {
+      for (const key of allAccountsCacheKeys(settingsPub)) {
+        resetKnownSourceIps(key)
+      }
+      return { ok: true, message: t('main.knownSourcesReset') }
+    }
     const account = settingsPub.accounts.find((a) => a.id === id)
     const key = account
       ? accountKeyFor(account.user, account.host, account.mailbox)
@@ -907,6 +998,12 @@ function registerIpc(): void {
     (_event, ips?: string[], accountId?: string | null) => {
       const settingsPub = loadSettings()
       const id = accountId ?? settingsPub.activeAccountId
+      if (isAllAccountsId(id)) {
+        for (const key of allAccountsCacheKeys(settingsPub)) {
+          acknowledgePendingSourceIps(key, ips)
+        }
+        return
+      }
       const account = settingsPub.accounts.find((a) => a.id === id)
       const key = account
         ? accountKeyFor(account.user, account.host, account.mailbox)
@@ -947,6 +1044,7 @@ function registerIpc(): void {
   ipcMain.handle('dns:check', async (_event, domain: string, selectors?: string[]) => {
     const result = await checkDomainDns(domain, selectors ?? [])
     recordDnsHistory(result)
+    upsertDnsHealthCache(result.domain, result)
     return result
   })
 
@@ -1009,7 +1107,7 @@ function registerIpc(): void {
     return downloadGeoLite(key)
   })
 
-  ipcMain.handle('files:open', async () => {
+  ipcMain.handle('files:open', async (_event, targetAccountId?: string | null) => {
     const openOptions = {
       title: t('main.openReports'),
       properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'>,
@@ -1030,12 +1128,25 @@ function registerIpc(): void {
       name: basename(p),
       data: readFileSync(p)
     }))
-    return importLocalFiles(buffers, importTargetAccount())
+    const imported = await importLocalFiles(buffers, importTargetAccount(targetAccountId))
+    if (isAllAccountsId(loadSettings().activeAccountId)) {
+      const combined = await loadCombinedCachedAnalyzeResult(allAccountsCacheKeys())
+      combined.accountId = ALL_ACCOUNTS_ID
+      combined.imported = imported.imported
+      combined.skipped = imported.skipped
+      combined.errors = imported.errors
+      return combined
+    }
+    return imported
   })
 
   ipcMain.handle(
     'files:parseBuffers',
-    async (_event, files: Array<{ name?: string; data?: ArrayBuffer | Uint8Array }>) => {
+    async (
+      _event,
+      files: Array<{ name?: string; data?: ArrayBuffer | Uint8Array }>,
+      targetAccountId?: string | null
+    ) => {
       const buffers: Array<{ name: string; data: Buffer }> = []
       for (const [index, f] of (Array.isArray(files) ? files : []).entries()) {
         if (!f?.data) continue
@@ -1045,7 +1156,16 @@ function registerIpc(): void {
           data: Buffer.from(f.data instanceof ArrayBuffer ? new Uint8Array(f.data) : f.data)
         })
       }
-      return importLocalFiles(buffers, importTargetAccount())
+      const imported = await importLocalFiles(buffers, importTargetAccount(targetAccountId))
+      if (isAllAccountsId(loadSettings().activeAccountId)) {
+        const combined = await loadCombinedCachedAnalyzeResult(allAccountsCacheKeys())
+        combined.accountId = ALL_ACCOUNTS_ID
+        combined.imported = imported.imported
+        combined.skipped = imported.skipped
+        combined.errors = imported.errors
+        return combined
+      }
+      return imported
     }
   )
 

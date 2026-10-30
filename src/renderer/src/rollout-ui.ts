@@ -21,6 +21,7 @@ import {
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
+import { refreshDomainHealth } from './view'
 
 const dnsByDomain = new Map<string, DnsCheckResult>()
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
@@ -217,6 +218,7 @@ async function evaluate(domain: string, forceDns = false): Promise<void> {
     try {
       dns = await window.api.checkDns(domain, selectorsFor(domain))
       dnsByDomain.set(domain, dns)
+      void refreshDomainHealth(state.fullResult, { force: true })
     } catch (err) {
       setMessage(
         t('rollout.error', { message: err instanceof Error ? err.message : String(err) }),

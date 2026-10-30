@@ -16,7 +16,12 @@ import type {
 import { PROVIDER_PRESETS } from '../shared/types'
 import { DEFAULT_SCANNER_NOISE_HOSTS } from '../shared/scanner-noise'
 import { DEFAULT_MAILBOX_NOISE_PROVIDERS } from '../shared/mailbox-ip'
-import { resolveAccountLabel, suggestAccountName } from '../shared/account'
+import {
+  ALL_ACCOUNTS_ID,
+  isAllAccountsId,
+  resolveAccountLabel,
+  suggestAccountName
+} from '../shared/account'
 import { detectSystemLocale, normalizeLocale, setLocale, t } from '../shared/i18n'
 import type { AppLocale } from '../shared/i18n'
 import { normalizeTheme, type AppTheme } from '../shared/theme'
@@ -492,9 +497,11 @@ export function loadSettings(): SettingsPublic {
   const settings = {
     accounts: stored.accounts.map(toPublicAccount),
     activeAccountId:
-      stored.activeAccountId && stored.accounts.some((a) => a.id === stored.activeAccountId)
-        ? stored.activeAccountId
-        : (stored.accounts[0]?.id ?? null),
+      isAllAccountsId(stored.activeAccountId) && stored.accounts.length > 1
+        ? ALL_ACCOUNTS_ID
+        : stored.activeAccountId && stored.accounts.some((a) => a.id === stored.activeAccountId)
+          ? stored.activeAccountId
+          : (stored.accounts[0]?.id ?? null),
     global: toPublicGlobal(stored.global)
   }
   setLocale(settings.global.language)
@@ -609,7 +616,10 @@ export function disconnectOAuth(accountId: string): SettingsPublic {
 export function deleteAccount(id: string): SettingsPublic {
   const stored = readStored()
   stored.accounts = stored.accounts.filter((a) => a.id !== id)
-  if (stored.activeAccountId === id) {
+  if (
+    stored.activeAccountId === id ||
+    (isAllAccountsId(stored.activeAccountId) && stored.accounts.length <= 1)
+  ) {
     stored.activeAccountId = stored.accounts[0]?.id ?? null
   }
   writeStored(stored)
@@ -618,7 +628,10 @@ export function deleteAccount(id: string): SettingsPublic {
 
 export function setActiveAccount(id: string): SettingsPublic {
   const stored = readStored()
-  if (stored.accounts.some((a) => a.id === id)) {
+  if (
+    (isAllAccountsId(id) && stored.accounts.length > 1) ||
+    stored.accounts.some((a) => a.id === id)
+  ) {
     stored.activeAccountId = id
     writeStored(stored)
   }
@@ -735,7 +748,10 @@ export async function resolveAccountConnection(
   accountId?: string | null
 ): Promise<ImapConnectionInput> {
   const stored = readStored()
-  const id = accountId ?? stored.activeAccountId ?? stored.accounts[0]?.id
+  const fallbackId = isAllAccountsId(stored.activeAccountId)
+    ? stored.accounts[0]?.id
+    : (stored.activeAccountId ?? stored.accounts[0]?.id)
+  const id = accountId && !isAllAccountsId(accountId) ? accountId : fallbackId
   const account = stored.accounts.find((a) => a.id === id)
   if (!account) throw new Error(t('main.noAccount'))
   return toConnection(account)

@@ -46,6 +46,9 @@ export const dnsHistoryBody = document.getElementById('dns-history-body') as HTM
 export const btnCloseDnsHistory = document.getElementById(
   'btn-close-dns-history'
 ) as HTMLButtonElement
+export const btnDnsHistoryCheck = document.getElementById(
+  'btn-dns-history-check'
+) as HTMLButtonElement
 export const btnDnsHistoryClose = document.getElementById(
   'btn-dns-history-close'
 ) as HTMLButtonElement
@@ -182,6 +185,21 @@ export const btnCancelCreateMailbox = document.getElementById(
 ) as HTMLButtonElement
 export const btnConfirmCreateMailbox = document.getElementById(
   'btn-confirm-create-mailbox'
+) as HTMLButtonElement
+export const importTargetDialog = document.getElementById(
+  'import-target-dialog'
+) as HTMLDialogElement
+export const importTargetSelectEl = document.getElementById(
+  'import-target-select'
+) as HTMLSelectElement
+export const btnCloseImportTarget = document.getElementById(
+  'btn-close-import-target'
+) as HTMLButtonElement
+export const btnCancelImportTarget = document.getElementById(
+  'btn-cancel-import-target'
+) as HTMLButtonElement
+export const btnConfirmImportTarget = document.getElementById(
+  'btn-confirm-import-target'
 ) as HTMLButtonElement
 export const settingsForm = document.getElementById('settings-form') as HTMLFormElement
 export const btnCloseSettings = document.getElementById('btn-close-settings') as HTMLButtonElement

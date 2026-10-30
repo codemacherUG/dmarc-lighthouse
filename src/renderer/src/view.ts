@@ -842,9 +842,12 @@ let domainHealthSource: AnalyzeResult | null = null
  * Ampel always uses the full loaded report set, windowed to the last
  * {@link DOMAIN_HEALTH_WINDOW_DAYS} days — not the dashboard date filter.
  */
-async function refreshDomainHealth(full: AnalyzeResult | null): Promise<void> {
+export async function refreshDomainHealth(
+  full: AnalyzeResult | null = state.fullResult,
+  options: { force?: boolean } = {}
+): Promise<void> {
   if (!domainAmpelEl) return
-  if (full && full === domainHealthSource) return
+  if (!options.force && full && full === domainHealthSource) return
   domainHealthSource = full
 
   const token = ++state.domainHealthToken
@@ -2273,8 +2276,7 @@ export function initView(): void {
       }
     },
     onDkimSaved: () => {
-      domainHealthSource = null
-      void refreshDomainHealth(state.fullResult)
+      void refreshDomainHealth(state.fullResult, { force: true })
     }
   })
   initDomainSettingsModalEvents()

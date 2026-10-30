@@ -6,11 +6,15 @@ import { renderDnsHistory } from './dns-history-view'
 import {
   btnCloseDnsHistory,
   btnCloseDomainDkim,
+  btnDnsHistoryCheck,
   btnDnsHistoryClose,
   btnDomainDkimAdd,
   btnDomainDkimSave,
   btnDomainSenderCancel,
   btnDomainSenderSave,
+  dnsDialog,
+  dnsDomainEl,
+  dnsForm,
   dnsHistoryBody,
   dnsHistoryDialog,
   dnsHistoryTitle,
@@ -38,6 +42,7 @@ import { state } from './state'
 
 let editingDkimDomain = ''
 let editingDkimSelectors: DomainDkimSelector[] = []
+let dnsHistoryDomain = ''
 let dnsHistoryRequest = 0
 let editingDomainSendingServiceId: string | null = null
 let editingDomainSendingServiceCard: HTMLElement | null = null
@@ -58,6 +63,7 @@ export function setDomainSettingsCallbacks(callbacks: {
 
 export async function openDnsHistory(domain: string): Promise<void> {
   const request = ++dnsHistoryRequest
+  dnsHistoryDomain = domain
   dnsHistoryTitle.textContent = t('dns.historyDomainTitle', { domain })
   dnsHistoryBody.innerHTML = `<p class="muted">${escapeHtml(t('dns.historyLoading'))}</p>`
   dnsHistoryDialog.showModal()
@@ -466,6 +472,17 @@ export function openDomainSettingsScreenshotDemo(): Promise<void> {
 export function initDomainSettingsModalEvents(): void {
   btnCloseDnsHistory.addEventListener('click', () => dnsHistoryDialog.close())
   btnDnsHistoryClose.addEventListener('click', () => dnsHistoryDialog.close())
+  btnDnsHistoryCheck?.addEventListener('click', () => {
+    const domain = dnsHistoryDomain.trim()
+    dnsHistoryDialog.close()
+    if (domain) {
+      dnsDomainEl.value = domain
+    }
+    if (!dnsDialog.open) dnsDialog.showModal()
+    if (domain) {
+      dnsForm.requestSubmit()
+    }
+  })
   btnCloseDomainDkim.addEventListener('click', () => domainDkimDialog.close())
   domainDkimTabButton.addEventListener('click', () => showDomainSettingsTab('dkim'))
   domainSendersTabButton.addEventListener('click', () => showDomainSettingsTab('senders'))

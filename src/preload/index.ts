@@ -90,9 +90,13 @@ const api = {
   geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),
   downloadGeoLite: (licenseKey?: string): Promise<GeoLiteDownloadResult> =>
     ipcRenderer.invoke('enrichment:downloadGeoLite', licenseKey),
-  openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
-  parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>): Promise<AnalyzeResult> =>
-    ipcRenderer.invoke('files:parseBuffers', files),
+  openFiles: (targetAccountId?: string | null): Promise<AnalyzeResult | null> =>
+    ipcRenderer.invoke('files:open', targetAccountId ?? null),
+  parseBuffers: (
+    files: Array<{ name: string; data: ArrayBuffer }>,
+    targetAccountId?: string | null
+  ): Promise<AnalyzeResult> =>
+    ipcRenderer.invoke('files:parseBuffers', files, targetAccountId ?? null),
   openEmailFile: (): Promise<EmailInspectResponse | null> => ipcRenderer.invoke('email:open'),
   parseEmail: (input: {
     name?: string

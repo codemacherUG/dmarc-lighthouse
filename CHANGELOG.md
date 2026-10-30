@@ -4,6 +4,9 @@
 
 ### English
 
+- Added an **All accounts** combined dashboard view in the toolbar when multiple IMAP accounts are configured, aggregating cached reports, fetching across all accounts sequentially, and prompting for the target account (or shared local store) when importing report files.
+- Updated the domain health traffic-light cache (`dns_health_cache`) immediately whenever a live DNS check runs (manual DNS check, rollout assistant, record wizards, or daily background check) and added an **Open DNS check** button to the DNS history dialog.
+- Properly ad-hoc signed macOS `.app` bundles (`identity: '-'` + `com.apple.security.cs.disable-library-validation`) so Apple Silicon (`arm64`) builds pass signature verification without `Apparency` errors.
 - Added deeper DKIM key inspection in the DNS check: detects revoked keys (`p=` empty), key algorithm (`rsa` / `ed25519`), RSA modulus length in bits (warning on keys ≤ 1024 bits), and testing mode (`t=y`).
 - Added live BIMI asset validation: checks the SVG logo (`l=`) against the SVG Tiny Portable/Secure (SVG Tiny PS) profile (≤ 32 KB, `baseProfile="tiny-ps"`, `<title>`, no scripts or forbidden elements) and validates the VMC/CMC certificate (`a=`) expiration window.
 - Added DNSSEC `AD`-bit validation and RFC 1035 TCP fallback (`TC=1`) to DANE/TLSA lookups, warning when TLSA records are published without DNSSEC.
@@ -19,6 +22,9 @@
 
 ### Deutsch
 
+- Kontoübergreifende Gesamtansicht (**Alle Konten**) in der Toolbar ergänzt (ab zwei eingerichteten IMAP-Konten): führt gecachte Reports aller Konten zusammen, ruft bei Klick auf „Reports abrufen" alle Postfächer nacheinander ab und fragt beim Datei-Import das Zielkonto (oder den lokalen Import-Speicher) ab.
+- Domain-Ampel (`dns_health_cache`) wird nach jedem Live-DNS-Check (manuell, Policy-Rollout, Wizards, täglicher Hintergrund-Check) sofort aktualisiert; außerdem führt im DNS-History-Dialog ein Button direkt zum DNS-Check der Domain.
+- macOS-Builds werden im Release-Workflow sauber ad-hoc-signiert (`identity: '-'` + `com.apple.security.cs.disable-library-validation`), sodass Apple-Silicon-Builds (`arm64`) keine Signaturfehler mehr melden.
 - Tiefere DKIM-Schlüsselprüfung im DNS-Check ergänzt: erkennt widerrufene Schlüssel (`p=` leer), Algorithmus (`rsa` / `ed25519`), RSA-Schlüssellänge in Bit (Warnung bei ≤ 1024 Bit) und den Testmodus (`t=y`).
 - Live-Validierung für BIMI ergänzt: prüft das SVG-Logo (`l=`) gegen das SVG-Tiny-PS-Profil (≤ 32 KB, `baseProfile="tiny-ps"`, `<title>`, keine Skripte/verbotenen Elemente) sowie das VMC-/CMC-Zertifikat (`a=`) auf seinen Gültigkeitszeitraum.
 - DANE/TLSA-Abfragen um TCP-Fallback bei gesetztem Truncated-Bit (`TC=1`) und Prüfung des DNSSEC-`AD`-Flags erweitert (inkl. Warnung bei unsignierten TLSA-Einträgen).
