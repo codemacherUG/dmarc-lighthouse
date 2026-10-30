@@ -190,6 +190,12 @@ Ready-made builds are available under [GitHub Releases](https://github.com/codem
 
 Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` are not updated automatically — NSIS setup, AppImage, and macOS ZIP are.
 
+> **macOS note (Gatekeeper):** Releases are currently ad-hoc signed and not notarized with an Apple Developer ID certificate. After copying `dmarc-lighthouse.app` to `/Applications`, macOS Gatekeeper may report that the app “is damaged” or cannot be verified because of the browser download quarantine flag. Remove the quarantine attribute once in Terminal before first launch:
+>
+> ```bash
+> xattr -cr /Applications/dmarc-lighthouse.app
+> ```
+
 ---
 
 ## Requirements

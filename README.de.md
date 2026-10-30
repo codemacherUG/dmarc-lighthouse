@@ -190,6 +190,12 @@ Fertige Builds liegen unter den [GitHub Releases](https://github.com/codemacherU
 
 Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.deb` werden nicht automatisch aktualisiert — NSIS-Setup, AppImage und macOS-ZIP schon.
 
+> **macOS-Hinweis (Gatekeeper):** Die macOS-Builds sind aktuell ad-hoc-signiert und nicht über eine Apple Developer ID notarisiert. Nach dem Kopieren von `dmarc-lighthouse.app` nach `/Applications` meldet Gatekeeper wegen des Quarantäne-Flags aus dem Browser-Download ggf., die App sei „beschädigt“ oder könne nicht überprüft werden. Vor dem ersten Start einmalig im Terminal das Quarantäne-Attribut entfernen:
+>
+> ```bash
+> xattr -cr /Applications/dmarc-lighthouse.app
+> ```
+
 ---
 
 ## Voraussetzungen
