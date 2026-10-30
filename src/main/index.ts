@@ -127,9 +127,9 @@ function importTargetAccount(): ImportTargetAccount | null {
   }
 }
 
-app.disableHardwareAcceleration()
-app.commandLine.appendSwitch('disable-gpu')
 if (process.platform === 'linux') {
+  app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('disable-gpu')
   app.commandLine.appendSwitch('no-sandbox')
   // Avoid Chromium FATAL on /dev/shm shared-memory create (ESRCH) when spawning windows.
   app.commandLine.appendSwitch('disable-dev-shm-usage')
@@ -1014,7 +1014,10 @@ function registerIpc(): void {
       title: t('main.openReports'),
       properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'>,
       filters: [
-        { name: 'DMARC / TLS-RPT Reports', extensions: ['xml', 'gz', 'zip', 'eml', 'mime', 'json'] },
+        {
+          name: 'DMARC / TLS-RPT Reports',
+          extensions: ['xml', 'gz', 'zip', 'eml', 'mime', 'json']
+        },
         { name: 'Alle Dateien / All files', extensions: ['*'] }
       ]
     }

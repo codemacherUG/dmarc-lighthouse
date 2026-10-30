@@ -196,4 +196,68 @@ export function validateBimiBuilderStep(
   return null
 }
 
+export const BIMI_SVG_MAX_BYTES = 32 * 1024
+
+/**
+ * Validate SVG content against the BIMI SVG Tiny Portable/Secure (SVG Tiny PS) profile:
+ * - max 32 KiB
+ * - `<svg>` root element with `baseProfile="tiny-ps"`
+ * - `<title>` element present
+ * - no `<script>`, `<foreignObject>`, `<image>`, `<a>` or inline `on*` event attributes
+ */
+export function validateBimiSvgContent(
+  svgText: string,
+  byteLength = new TextEncoder().encode(svgText).byteLength
+): {
+  ok: boolean
+  bytes: number
+  tinyPs: boolean
+  hasTitle: boolean
+  hasForbiddenElements: boolean
+  error?: string
+} {
+  if (byteLength > BIMI_SVG_MAX_BYTES) {
+    return {
+      ok: false,
+      bytes: byteLength,
+      tinyPs: false,
+      hasTitle: false,
+      hasForbiddenElements: false,
+      error: `SVG exceeds 32 KB (${byteLength} bytes)`
+    }
+  }
+  const hasSvgRoot = /<svg\b[^>]*>/i.test(svgText)
+  if (!hasSvgRoot) {
+    return {
+      ok: false,
+      bytes: byteLength,
+      tinyPs: false,
+      hasTitle: false,
+      hasForbiddenElements: false,
+      error: 'Not an SVG document'
+    }
+  }
+  const svgTagMatch = /<svg\b[^>]*>/i.exec(svgText)?.[0] ?? ''
+  const tinyPs = /\bbaseProfile\s*=\s*["']tiny-ps["']/i.test(svgTagMatch)
+  const hasTitle = /<title\b[^>]*>[\s\S]*?<\/title>/i.test(svgText)
+  const hasForbiddenElements =
+    /<(?:script|foreignObject|image|a|iframe|animate|set)\b/i.test(svgText) ||
+    /\bon[a-z]+\s*=/i.test(svgText)
+
+  const ok = tinyPs && hasTitle && !hasForbiddenElements && byteLength <= BIMI_SVG_MAX_BYTES
+  let error: string | undefined
+  if (!tinyPs) error = 'Missing baseProfile="tiny-ps"'
+  else if (!hasTitle) error = 'Missing <title> element'
+  else if (hasForbiddenElements) error = 'Contains forbidden elements/scripts'
+
+  return {
+    ok,
+    bytes: byteLength,
+    tinyPs,
+    hasTitle,
+    hasForbiddenElements,
+    ...(error ? { error } : {})
+  }
+}
+
 export { isValidDomain, normalizeDomain }

@@ -13,7 +13,7 @@ import type {
 } from '../shared/types'
 import { configureDnsEnvironment, resolveMxReliable, resolveTxtReliable } from './dns-env'
 import { appFetch, formatNetworkError } from './http'
-import { formatTlsa, queryTlsa } from './dnswire'
+import { formatTlsa, queryTlsaWithMeta } from './dnswire'
 
 const POLICY_TIMEOUT_MS = 8000
 /** RFC 8461 caps the policy at 64 kB; anything larger is not a policy file. */
@@ -95,12 +95,13 @@ async function checkMtaSts(domain: string): Promise<MtaStsCheck> {
 
 async function checkDaneForMx(host: string, preference: number): Promise<DaneMxCheck> {
   try {
-    const records = await queryTlsa(`_25._tcp.${host}`)
+    const { records, dnssecValidated } = await queryTlsaWithMeta(`_25._tcp.${host}`)
     return {
       host,
       preference,
       tlsa: records.map(formatTlsa),
-      found: records.length > 0
+      found: records.length > 0,
+      ...(records.length > 0 ? { dnssecValidated } : {})
     }
   } catch (err) {
     return { host, preference, tlsa: [], found: false, error: errorText(err) }

@@ -9,7 +9,8 @@ import {
   normalizeBimiSelector,
   parseBimiBuilderRecord,
   parseBimiRecord,
-  validateBimiBuilderStep
+  validateBimiBuilderStep,
+  validateBimiSvgContent
 } from '../src/shared/bimi-builder'
 
 describe('bimi-builder', () => {
@@ -135,5 +136,34 @@ describe('bimi-builder', () => {
         authority: ''
       })
     ).toBeNull()
+  })
+
+  it('validates BIMI SVG Tiny PS profile requirements', () => {
+    const validSvg = `<svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny-ps" viewBox="0 0 64 64"><title>Acme Corp</title><rect width="64" height="64" fill="#000"/></svg>`
+    expect(validateBimiSvgContent(validSvg)).toMatchObject({
+      ok: true,
+      tinyPs: true,
+      hasTitle: true,
+      hasForbiddenElements: false
+    })
+
+    const missingTinyPs = `<svg xmlns="http://www.w3.org/2000/svg"><title>Acme</title></svg>`
+    expect(validateBimiSvgContent(missingTinyPs)).toMatchObject({
+      ok: false,
+      tinyPs: false,
+      error: 'Missing baseProfile="tiny-ps"'
+    })
+
+    const withScript = `<svg baseProfile="tiny-ps"><title>Acme</title><script>alert(1)</script></svg>`
+    expect(validateBimiSvgContent(withScript)).toMatchObject({
+      ok: false,
+      hasForbiddenElements: true,
+      error: 'Contains forbidden elements/scripts'
+    })
+
+    expect(validateBimiSvgContent(validSvg, 40 * 1024)).toMatchObject({
+      ok: false,
+      error: 'SVG exceeds 32 KB (40960 bytes)'
+    })
   })
 })

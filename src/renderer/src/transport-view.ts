@@ -76,7 +76,9 @@ function daneLines(result: TransportSecurityResult): string[] {
   }
   return dane.mx.map((mx) => {
     const state = mx.found
-      ? `<span class="pass">${escapeHtml(t('transport.daneFound', { count: mx.tlsa.length }))}</span>`
+      ? mx.dnssecValidated === false
+        ? `<span class="warn">${escapeHtml(t('transport.daneUnsigned', { count: mx.tlsa.length }))}</span>`
+        : `<span class="pass">${escapeHtml(t('transport.daneFound', { count: mx.tlsa.length }))}</span>`
       : `<span class="muted">${escapeHtml(mx.error ? t('transport.daneError') : t('transport.daneMissing'))}</span>`
     return t('transport.daneLine', {
       host: `<span class="mono">${escapeHtml(mx.host)}</span>`,

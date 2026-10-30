@@ -45,9 +45,10 @@ interface MailboxFetchResult {
   errors: string[]
   uidList: number[]
   maxUid: number
+  uidValidity: number | null
 }
 
-function emptyMailboxFetch(maxUid: number): MailboxFetchResult {
+function emptyMailboxFetch(maxUid: number, uidValidity: number | null = null): MailboxFetchResult {
   return {
     reports: [],
     forensicReports: [],
@@ -55,8 +56,40 @@ function emptyMailboxFetch(maxUid: number): MailboxFetchResult {
     skipped: 0,
     errors: [],
     uidList: [],
-    maxUid
+    maxUid,
+    uidValidity
   }
+}
+
+function normalizeUidValidity(raw: unknown): number | null {
+  if (typeof raw === 'bigint') {
+    const n = Number(raw)
+    return Number.isSafeInteger(n) && n > 0 ? n : null
+  }
+  if (typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0) return raw
+  return null
+}
+
+/** Build IMAP search query matching configured subject filter plus standard DMARC/TLS-RPT subjects. */
+export function buildReportSearchQuery(
+  subjectFilter: string,
+  effectiveLastUid: number
+): Record<string, unknown> {
+  const filter = subjectFilter.trim()
+  const searchQuery: Record<string, unknown> = filter
+    ? {
+        or: [
+          { subject: filter },
+          { subject: 'Report domain:' },
+          { subject: 'TLS-RPT' },
+          { subject: 'TLS Report' }
+        ]
+      }
+    : { all: true as const }
+  if (effectiveLastUid > 0) {
+    searchQuery.uid = `${effectiveLastUid + 1}:*`
+  }
+  return searchQuery
 }
 
 /**
@@ -296,7 +329,9 @@ export async function createMailbox(
   }
 }
 
-export async function loadCachedAnalyzeResult(settings: ImapConnectionInput): Promise<AnalyzeResult> {
+export async function loadCachedAnalyzeResult(
+  settings: ImapConnectionInput
+): Promise<AnalyzeResult> {
   const key = accountKeyFor(settings.user, settings.host, settings.mailbox)
   const { reports, forensicReports, tlsRptReports, meta } = loadCachedReports(key)
   const result = analyzeFromReports(reports, {
@@ -314,6 +349,7 @@ async function fetchFromMailbox(
   client: ImapFlow,
   mailbox: string,
   lastUid: number,
+  storedUidValidity: number | null | undefined,
   subjectFilter: string,
   onProgress: ProgressCallback,
   label?: string
@@ -321,6 +357,15 @@ async function fetchFromMailbox(
   const path = await resolveServerMailboxPath(client, mailbox)
   const lock = await client.getMailboxLock(path)
   try {
+    const serverUidValidity = normalizeUidValidity(
+      client.mailbox && typeof client.mailbox === 'object' ? client.mailbox.uidValidity : null
+    )
+    const uidValidityReset =
+      storedUidValidity != null &&
+      serverUidValidity != null &&
+      storedUidValidity !== serverUidValidity
+    const effectiveLastUid = uidValidityReset ? 0 : lastUid
+
     const folderLabel = label || path
     onProgress({
       phase: 'searching',
@@ -329,27 +374,21 @@ async function fetchFromMailbox(
       parsed: 0,
       skipped: 0,
       message: label
-        ? lastUid > 0
-          ? t('imap.searchingNewFolder', { mailbox: folderLabel, uid: lastUid })
+        ? effectiveLastUid > 0
+          ? t('imap.searchingNewFolder', { mailbox: folderLabel, uid: effectiveLastUid })
           : t('imap.searchingFolder', { mailbox: folderLabel })
-        : lastUid > 0
-          ? t('imap.searchingNew', { uid: lastUid })
+        : effectiveLastUid > 0
+          ? t('imap.searchingNew', { uid: effectiveLastUid })
           : t('imap.searching')
     })
 
-    const filter = subjectFilter.trim()
-    const searchQuery: Record<string, unknown> = filter
-      ? { or: [{ subject: filter }, { subject: 'Report domain:' }] }
-      : { all: true as const }
-    if (lastUid > 0) {
-      searchQuery.uid = `${lastUid + 1}:*`
-    }
+    const searchQuery = buildReportSearchQuery(subjectFilter, effectiveLastUid)
 
     const uids = await client.search(searchQuery, { uid: true })
-    const uidList = Array.isArray(uids) ? uids.filter((u) => u > lastUid) : []
+    const uidList = Array.isArray(uids) ? uids.filter((u) => u > effectiveLastUid) : []
 
     if (uidList.length === 0) {
-      return emptyMailboxFetch(lastUid)
+      return emptyMailboxFetch(effectiveLastUid, serverUidValidity ?? storedUidValidity ?? null)
     }
 
     const total = uidList.length
@@ -366,7 +405,7 @@ async function fetchFromMailbox(
 
     const batch: MimeParseBatch = emptyMimeParseBatch()
     let processed = 0
-    let maxUid = lastUid
+    let maxUid = effectiveLastUid
 
     for await (const message of client.fetch(uidList, { uid: true, source: true }, { uid: true })) {
       processed += 1
@@ -393,7 +432,8 @@ async function fetchFromMailbox(
       skipped: batch.skipped,
       errors: batch.errors,
       uidList,
-      maxUid
+      maxUid,
+      uidValidity: serverUidValidity ?? storedUidValidity ?? null
     }
   } finally {
     lock.release()
@@ -411,7 +451,7 @@ async function searchMatchingUids(
   const path = await resolveServerMailboxPath(client, mailbox)
   const lock = await client.getMailboxLock(path)
   try {
-    const uids = await client.search({ subject: filter }, { uid: true })
+    const uids = await client.search(buildReportSearchQuery(filter, 0), { uid: true })
     return Array.isArray(uids) ? uids.filter((u) => u > 0).sort((a, b) => a - b) : []
   } finally {
     lock.release()
@@ -522,7 +562,9 @@ export async function fetchAndAnalyze(
   const accountKey = accountKeyFor(settings.user, settings.host, settings.mailbox)
   const cached = loadCachedReports(accountKey)
   const lastUid = cached.meta.lastUid
+  const uidValidity = cached.meta.uidValidity ?? null
   const lastUidArchive = cached.meta.lastUidArchive
+  const uidValidityArchive = cached.meta.uidValidityArchive ?? null
   const archiveMailbox = resolvedArchiveMailbox(settings)
 
   onProgress({
@@ -540,16 +582,18 @@ export async function fetchAndAnalyze(
         client,
         settings.mailbox,
         lastUid,
+        uidValidity,
         settings.subjectFilter,
         onProgress
       )
 
-      let archiveFetch: MailboxFetchResult = emptyMailboxFetch(lastUidArchive)
+      let archiveFetch: MailboxFetchResult = emptyMailboxFetch(lastUidArchive, uidValidityArchive)
       if (archiveMailbox) {
         archiveFetch = await fetchFromMailbox(
           client,
           archiveMailbox,
           lastUidArchive,
+          uidValidityArchive,
           settings.subjectFilter,
           onProgress,
           archiveMailbox
@@ -567,6 +611,34 @@ export async function fetchAndAnalyze(
       const totalFetched = sourceFetch.uidList.length + archiveFetch.uidList.length
 
       if (totalFetched === 0) {
+        const uidReset =
+          (uidValidity != null &&
+            sourceFetch.uidValidity != null &&
+            uidValidity !== sourceFetch.uidValidity) ||
+          (Boolean(archiveMailbox) &&
+            uidValidityArchive != null &&
+            archiveFetch.uidValidity != null &&
+            uidValidityArchive !== archiveFetch.uidValidity)
+        if (
+          uidReset ||
+          (uidValidity == null && sourceFetch.uidValidity != null) ||
+          (Boolean(archiveMailbox) &&
+            uidValidityArchive == null &&
+            archiveFetch.uidValidity != null)
+        ) {
+          saveCache({
+            accountKey,
+            reports: [],
+            forensicReports: [],
+            tlsRptReports: [],
+            lastUid: sourceFetch.maxUid,
+            uidValidity: sourceFetch.uidValidity,
+            lastUidArchive: archiveMailbox ? archiveFetch.maxUid : lastUidArchive,
+            uidValidityArchive: archiveMailbox ? archiveFetch.uidValidity : uidValidityArchive,
+            lastFailingTotal: cached.meta.lastFailingTotal,
+            knownSourceIps: cached.meta.knownSourceIps
+          })
+        }
         const notes: string[] = []
         if (archiveMailbox) {
           notes.push(...(await sweepSourceToArchive(client, settings, archiveMailbox, onProgress)))
@@ -603,10 +675,7 @@ export async function fetchAndAnalyze(
         const pendingIps = [
           ...new Set([...cached.meta.pendingSourceIps, ...(cachedResult.newSourceIps ?? [])])
         ]
-        cachedResult.newSendingSources = await resolveNewSendingSources(
-          pendingIps,
-          cached.reports
-        )
+        cachedResult.newSendingSources = await resolveNewSendingSources(pendingIps, cached.reports)
         return cachedResult
       }
 
@@ -668,7 +737,9 @@ export async function fetchAndAnalyze(
         forensicReports: freshForensic,
         tlsRptReports: freshTlsRpt,
         lastUid: sourceFetch.maxUid,
+        uidValidity: sourceFetch.uidValidity,
         lastUidArchive: archiveMailbox ? archiveFetch.maxUid : lastUidArchive,
+        uidValidityArchive: archiveMailbox ? archiveFetch.uidValidity : uidValidityArchive,
         lastFailingTotal: result.aggregate.failing,
         knownSourceIps: [...persistedKnownIps]
       })

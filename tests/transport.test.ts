@@ -6,7 +6,15 @@ import {
   parseMtaStsTxt,
   parseTlsRptRecord
 } from '../src/shared/transport'
-import { decodeTlsaAnswers, encodeName, encodeQuery, formatTlsa } from '../src/main/dnswire'
+import {
+  decodeTlsaAnswers,
+  decodeTlsaResponse,
+  encodeName,
+  encodeQuery,
+  encodeTcpDnsFrame,
+  formatTlsa,
+  isTruncatedDnsResponse
+} from '../src/main/dnswire'
 import type { DaneMxCheck, MtaStsCheck, TlsRptCheck } from '../src/shared/types'
 
 function base(input: {
@@ -182,6 +190,24 @@ describe('evaluateTransportSecurity', () => {
     expect(reasonKeys(out)).toContain('transport.reason.noDane')
     expect(out.reasons.find((r) => r.key === 'transport.reason.noDane')?.level).toBe('ok')
   })
+
+  it('warns when TLSA records exist without DNSSEC validation (AD=0)', () => {
+    const out = evaluateTransportSecurity(
+      base({
+        mx: [
+          {
+            host: 'mail.example.com',
+            preference: 10,
+            tlsa: ['3 1 1 abcd'],
+            found: true,
+            dnssecValidated: false
+          }
+        ]
+      })
+    )
+    expect(out.status).toBe('warn')
+    expect(reasonKeys(out)).toContain('transport.reason.daneUnsigned')
+  })
 })
 
 describe('DNS wire format', () => {
@@ -228,5 +254,19 @@ describe('DNS wire format', () => {
     const header = Buffer.alloc(12)
     header[3] = 3
     expect(decodeTlsaAnswers(header)).toEqual([])
+  })
+
+  it('detects TC=1 truncation and AD=1 DNSSEC flags and builds TCP DNS frames', () => {
+    const header = Buffer.alloc(12)
+    header.writeUInt16BE(0x83a0, 2) // QR=1, TC=1 (0x0200), RD=1, RA=1, AD=1 (0x0020)
+    expect(isTruncatedDnsResponse(header)).toBe(true)
+    const decoded = decodeTlsaResponse(header)
+    expect(decoded.truncated).toBe(true)
+    expect(decoded.dnssecValidated).toBe(true)
+
+    const query = encodeQuery('mail.example.com', 52, 0x4242)
+    const frame = encodeTcpDnsFrame(query)
+    expect(frame.readUInt16BE(0)).toBe(query.length)
+    expect(frame.subarray(2).equals(query)).toBe(true)
   })
 })
