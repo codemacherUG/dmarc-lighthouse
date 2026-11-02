@@ -434,16 +434,20 @@ export const en = {
   'settings.oauthHint': 'OAuth needs a client ID below — it identifies the app, not the mailbox.',
   'settings.oauthClientIds': 'OAuth client IDs',
   'settings.oauthGoogleClientId': 'Google client ID',
+  'settings.oauthGoogleClientSecret': 'Google client secret',
+  'settings.oauthGoogleClientSecretPlaceholder':
+    'Client secret from Google Cloud Console (GOCSPX-…)',
+  'settings.oauthGoogleClientSecretSaved': 'Saved — leave empty to keep',
   'settings.oauthMicrosoftClientId': 'Microsoft client ID',
   'settings.oauthClientHint':
-    'The client ID identifies this app to Google or Microsoft, not the mailbox. One ID covers every account of that provider. Public desktop app (PKCE, no secret).',
+    'The client ID identifies this app to Google or Microsoft, not the mailbox. One ID covers every account of that provider. Public desktop app with PKCE (Google also requires the generated client secret for “Desktop app” clients).',
   'settings.oauthSetupTitle': 'Create a client ID',
   'settings.oauthSetupGoogleTitle': 'Google (Gmail)',
   'settings.oauthSetupGoogle1': 'Open Google Cloud Console and pick or create a project.',
   'settings.oauthSetupGoogle2':
-    'APIs & Services → Credentials → Create OAuth client ID, type “Desktop app” (no secret).',
+    'APIs & Services → Credentials → Create OAuth client ID, type “Desktop app”.',
   'settings.oauthSetupGoogle3':
-    'Copy the client ID and paste it above. The first time, complete the OAuth consent screen and add your Gmail address as a test user.',
+    'Copy the client ID and the generated client secret and paste them above. The first time, complete the OAuth consent screen and add your Gmail address as a test user.',
   'settings.oauthSetupMicrosoftTitle': 'Microsoft 365 / Outlook',
   'settings.oauthSetupMicrosoft1':
     'Microsoft Entra admin center → App registrations → New registration.',
@@ -451,7 +455,7 @@ export const en = {
   'settings.oauthSetupMicrosoft3':
     'Authentication: allow public client flows. Add the delegated IMAP.AccessAsUser.All permission. Paste the Application (client) ID above.',
   'settings.oauthSetupEnv':
-    'You can also set the DMARC_GOOGLE_CLIENT_ID or DMARC_MS_CLIENT_ID environment variables.',
+    'You can also set the DMARC_GOOGLE_CLIENT_ID, DMARC_GOOGLE_CLIENT_SECRET, or DMARC_MS_CLIENT_ID environment variables.',
   'settings.mailboxFetch': 'Fetch from this mailbox',
   'settings.mailbox': 'Folder',
   'settings.archiveMailbox': 'Move after fetch to',
@@ -946,6 +950,8 @@ export const en = {
 
   'oauth.missingGoogleClientId':
     'Google OAuth client ID is missing (settings or DMARC_GOOGLE_CLIENT_ID).',
+  'oauth.missingGoogleClientSecret':
+    'Google OAuth client secret is missing (settings or DMARC_GOOGLE_CLIENT_SECRET).',
   'oauth.missingMicrosoftClientId':
     'Microsoft OAuth client ID is missing (settings or DMARC_MS_CLIENT_ID).',
   'oauth.invalidCallback': 'Invalid OAuth response (state/code).',

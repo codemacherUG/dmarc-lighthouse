@@ -1229,6 +1229,16 @@
                     spellcheck="false"
                   />
                 </label>
+                <label id="oauth-google-secret-field" class="span-2">
+                  <span data-i18n="settings.oauthGoogleClientSecret">Google Client-Secret</span>
+                  <input
+                    id="oauthGoogleClientSecret"
+                    name="oauthGoogleClientSecret"
+                    type="password"
+                    autocomplete="new-password"
+                    spellcheck="false"
+                  />
+                </label>
                 <label id="oauth-microsoft-field" class="span-2">
                   <span data-i18n="settings.oauthMicrosoftClientId">Microsoft Client-ID</span>
                   <input
@@ -1251,13 +1261,12 @@
                       Google Cloud Console öffnen, Projekt wählen oder anlegen.
                     </li>
                     <li data-i18n="settings.oauthSetupGoogle2">
-                      APIs und Dienste → Anmeldedaten → OAuth-Client-ID erstellen, Typ „Desktop-App“
-                      (kein Secret).
+                      APIs und Dienste → Anmeldedaten → OAuth-Client-ID erstellen, Typ „Desktop-App“.
                     </li>
                     <li data-i18n="settings.oauthSetupGoogle3">
-                      Client-ID kopieren und oben eintragen. Beim ersten Mal den
-                      OAuth-Zustimmungsbildschirm ausfüllen; als Testnutzer die eigene Gmail-Adresse
-                      eintragen.
+                      Client-ID und den generierten Clientschlüssel (Client-Secret) kopieren und oben
+                      eintragen. Beim ersten Mal den OAuth-Zustimmungsbildschirm ausfüllen; als
+                      Testnutzer die eigene Gmail-Adresse eintragen.
                     </li>
                   </ol>
                 </div>
@@ -1282,7 +1291,8 @@
                   </ol>
                 </div>
                 <p class="hint" data-i18n="settings.oauthSetupEnv">
-                  Alternativ die Umgebungsvariablen DMARC_GOOGLE_CLIENT_ID bzw. DMARC_MS_CLIENT_ID.
+                  Alternativ die Umgebungsvariablen DMARC_GOOGLE_CLIENT_ID,
+                  DMARC_GOOGLE_CLIENT_SECRET bzw. DMARC_MS_CLIENT_ID.
                 </p>
               </details>
             </fieldset>

@@ -71,6 +71,7 @@ interface StoredGlobal {
   language?: AppLocale
   theme?: AppTheme
   oauthGoogleClientId?: string
+  oauthGoogleClientSecretEncrypted?: string
   oauthMicrosoftClientId?: string
   enrichmentEnabled?: boolean
   geoIpOnlineFallback?: boolean
@@ -128,6 +129,8 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   language: 'de',
   theme: 'auto',
   oauthGoogleClientId: '',
+  oauthGoogleClientSecret: '',
+  hasOauthGoogleClientSecret: false,
   oauthMicrosoftClientId: '',
   enrichmentEnabled: true,
   geoIpOnlineFallback: true,
@@ -297,7 +300,11 @@ const GLOBAL_SECRET_ACCOUNT_ID = '__global__'
 
 export function hasEncryptedSecrets(): boolean {
   const stored = readStored()
-  if (stored.global.maxmindLicenseKeyEncrypted || stored.global.maxmindLicenseKey?.trim()) {
+  if (
+    stored.global.maxmindLicenseKeyEncrypted ||
+    stored.global.maxmindLicenseKey?.trim() ||
+    stored.global.oauthGoogleClientSecretEncrypted
+  ) {
     return true
   }
   return stored.accounts.some((a) => SECRET_FIELDS.some((f) => Boolean(a[f])))
@@ -308,6 +315,9 @@ export function secretsDecryptable(): boolean {
   const stored = readStored()
   if (stored.global.maxmindLicenseKeyEncrypted) {
     if (!tryDecryptSecret(stored.global.maxmindLicenseKeyEncrypted).ok) return false
+  }
+  if (stored.global.oauthGoogleClientSecretEncrypted) {
+    if (!tryDecryptSecret(stored.global.oauthGoogleClientSecretEncrypted).ok) return false
   }
   for (const a of stored.accounts) {
     for (const field of SECRET_FIELDS) {
@@ -326,6 +336,7 @@ export function exportSecretsForMigration(): {
   accessToken?: string
   accessTokenExpiresAt?: number
   maxmindLicenseKey?: string
+  oauthGoogleClientSecret?: string
 }[] {
   const stored = readStored()
   if (migrateMaxmindLicenseKey(stored)) writeStored(stored)
@@ -336,6 +347,7 @@ export function exportSecretsForMigration(): {
     accessToken?: string
     accessTokenExpiresAt?: number
     maxmindLicenseKey?: string
+    oauthGoogleClientSecret?: string
   }[] = []
   for (const a of stored.accounts) {
     const row: (typeof out)[number] = { accountId: a.id }
@@ -354,11 +366,21 @@ export function exportSecretsForMigration(): {
     if (a.accessTokenExpiresAt != null) row.accessTokenExpiresAt = a.accessTokenExpiresAt
     if (row.password || row.refreshToken || row.accessToken) out.push(row)
   }
+  const globalRow: (typeof out)[number] = { accountId: GLOBAL_SECRET_ACCOUNT_ID }
   if (stored.global.maxmindLicenseKeyEncrypted) {
     const r = tryDecryptSecret(stored.global.maxmindLicenseKeyEncrypted)
     if (r.ok && r.value) {
-      out.push({ accountId: GLOBAL_SECRET_ACCOUNT_ID, maxmindLicenseKey: r.value })
+      globalRow.maxmindLicenseKey = r.value
     }
+  }
+  if (stored.global.oauthGoogleClientSecretEncrypted) {
+    const r = tryDecryptSecret(stored.global.oauthGoogleClientSecretEncrypted)
+    if (r.ok && r.value) {
+      globalRow.oauthGoogleClientSecret = r.value
+    }
+  }
+  if (globalRow.maxmindLicenseKey || globalRow.oauthGoogleClientSecret) {
+    out.push(globalRow)
   }
   return out
 }
@@ -371,6 +393,7 @@ export function importSecretsFromMigration(
     accessToken?: string
     accessTokenExpiresAt?: number
     maxmindLicenseKey?: string
+    oauthGoogleClientSecret?: string
   }[]
 ): void {
   const stored = readStored()
@@ -395,6 +418,11 @@ export function importSecretsFromMigration(
   if (globalSnap?.maxmindLicenseKey) {
     stored.global.maxmindLicenseKeyEncrypted = encryptSecret(globalSnap.maxmindLicenseKey)
     delete stored.global.maxmindLicenseKey
+  }
+  if (globalSnap?.oauthGoogleClientSecret) {
+    stored.global.oauthGoogleClientSecretEncrypted = encryptSecret(
+      globalSnap.oauthGoogleClientSecret
+    )
   }
   writeStored(stored)
 }
@@ -470,6 +498,10 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     theme: normalizeTheme(g.theme),
     oauthGoogleClientId:
       g.oauthGoogleClientId?.trim() || process.env.DMARC_GOOGLE_CLIENT_ID?.trim() || '',
+    oauthGoogleClientSecret: '',
+    hasOauthGoogleClientSecret: Boolean(
+      g.oauthGoogleClientSecretEncrypted || process.env.DMARC_GOOGLE_CLIENT_SECRET?.trim()
+    ),
     oauthMicrosoftClientId:
       g.oauthMicrosoftClientId?.trim() || process.env.DMARC_MS_CLIENT_ID?.trim() || '',
     enrichmentEnabled: g.enrichmentEnabled ?? GLOBAL_DEFAULTS.enrichmentEnabled,
@@ -492,10 +524,20 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
   }
 }
 
+export function getGoogleOAuthClientSecret(): string {
+  const stored = readStored()
+  if (stored.global.oauthGoogleClientSecretEncrypted) {
+    const decrypted = decryptSecret(stored.global.oauthGoogleClientSecretEncrypted).trim()
+    if (decrypted) return decrypted
+  }
+  return process.env.DMARC_GOOGLE_CLIENT_SECRET?.trim() || ''
+}
+
 export function getOAuthClientConfig(global?: GlobalSettings): OAuthClientConfig {
   const g = global ?? loadSettings().global
   return {
     googleClientId: g.oauthGoogleClientId || process.env.DMARC_GOOGLE_CLIENT_ID || '',
+    googleClientSecret: getGoogleOAuthClientSecret(),
     microsoftClientId: g.oauthMicrosoftClientId || process.env.DMARC_MS_CLIENT_ID || ''
   }
 }
@@ -657,6 +699,11 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
   if (newKey) {
     maxmindLicenseKeyEncrypted = encryptSecret(newKey)
   }
+  let oauthGoogleClientSecretEncrypted = stored.global.oauthGoogleClientSecretEncrypted
+  const newGoogleSecret = String(input.oauthGoogleClientSecret ?? '').trim()
+  if (newGoogleSecret) {
+    oauthGoogleClientSecretEncrypted = encryptSecret(newGoogleSecret)
+  }
   stored.global = {
     autoFetchMinutes: normalizeMinutes(input.autoFetchMinutes),
     notifyOnFail: Boolean(input.notifyOnFail),
@@ -668,6 +715,7 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     language: normalizeLocale(input.language),
     theme: normalizeTheme(input.theme),
     oauthGoogleClientId: String(input.oauthGoogleClientId ?? '').trim(),
+    oauthGoogleClientSecretEncrypted,
     oauthMicrosoftClientId: String(input.oauthMicrosoftClientId ?? '').trim(),
     enrichmentEnabled: input.enrichmentEnabled !== false,
     geoIpOnlineFallback: Boolean(input.geoIpOnlineFallback),
@@ -713,11 +761,15 @@ export function exportSettingsForBackup(): {
     markSeenAfterFetch: a.markSeenAfterFetch
   }))
   const {
+    oauthGoogleClientSecret: _gs,
+    hasOauthGoogleClientSecret: _hgs,
     maxmindLicenseKey: _m,
     hasMaxmindLicenseKey: _h,
     pdfMonthlyLastRun: _p,
     ...globalRest
   } = pub.global
+  void _gs
+  void _hgs
   void _m
   void _h
   void _p

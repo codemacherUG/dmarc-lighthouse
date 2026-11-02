@@ -158,6 +158,13 @@ export interface GlobalSettings {
   theme: AppTheme
   /** Optional Google OAuth client ID (desktop/public PKCE client). */
   oauthGoogleClientId: string
+  /**
+   * Optional Google OAuth client secret (required by Google's token endpoint for "Desktop app" clients).
+   * Write-only: load always returns ''; non-empty on save replaces the stored secret.
+   */
+  oauthGoogleClientSecret: string
+  /** Whether an encrypted Google OAuth client secret (or DMARC_GOOGLE_CLIENT_SECRET) is configured. */
+  hasOauthGoogleClientSecret: boolean
   /** Optional Microsoft Entra / Azure AD application (client) ID. */
   oauthMicrosoftClientId: string
   /** Master switch for IP enrichment (PTR still runs when off). */
@@ -227,7 +234,14 @@ export interface ConfigBackupPayload {
   exportedAt: string
   activeAccountId: string | null
   accounts: ConfigBackupAccount[]
-  global: Omit<GlobalSettings, 'maxmindLicenseKey' | 'hasMaxmindLicenseKey' | 'pdfMonthlyLastRun'>
+  global: Omit<
+    GlobalSettings,
+    | 'oauthGoogleClientSecret'
+    | 'hasOauthGoogleClientSecret'
+    | 'maxmindLicenseKey'
+    | 'hasMaxmindLicenseKey'
+    | 'pdfMonthlyLastRun'
+  >
   sendingServices: SendingService[]
   domainDkimSelectors: Record<string, DomainDkimSelector[]>
 }

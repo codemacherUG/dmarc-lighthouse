@@ -214,10 +214,10 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 
 ### OAuth setup (optional)
 
-1. Create a **public desktop / native** OAuth client (PKCE, no client secret):
-   - Google Cloud Console → OAuth client type “Desktop”
+1. Create a **desktop / native** OAuth client (PKCE):
+   - Google Cloud Console → OAuth client type “Desktop” (copy both the client ID and the generated client secret)
    - Microsoft Entra ID → App registration → public client, redirect URI `http://127.0.0.1:17893/oauth/callback`
-2. Under **Settings → Accounts**, choose **OAuth** and paste the client ID there (or set `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID`). The same steps are under **Create a client ID**.
+2. Under **Settings → Accounts**, choose **OAuth** and paste the client ID (plus the Google client secret for Gmail) there, or set `DMARC_GOOGLE_CLIENT_ID`, `DMARC_GOOGLE_CLIENT_SECRET` / `DMARC_MS_CLIENT_ID`. The same steps are under **Create a client ID**.
 3. Save the account, then **Sign in with provider**.
 
 ---

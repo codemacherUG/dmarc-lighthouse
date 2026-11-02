@@ -214,10 +214,10 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 
 ### OAuth einrichten (optional)
 
-1. Öffentliche Desktop-/Native-OAuth-App anlegen (PKCE, ohne Client-Secret):
-   - Google Cloud Console → OAuth-Client-Typ „Desktop“
+1. Desktop-/Native-OAuth-App anlegen (PKCE):
+   - Google Cloud Console → OAuth-Client-Typ „Desktop“ (Client-ID und generierten Clientschlüssel kopieren)
    - Microsoft Entra ID → App-Registrierung → öffentlicher Client, Redirect-URI `http://127.0.0.1:17893/oauth/callback`
-2. Unter **Einstellungen → Konto-Verwaltung** Anmeldung **OAuth** wählen und die Client-ID dort eintragen (oder `DMARC_GOOGLE_CLIENT_ID` / `DMARC_MS_CLIENT_ID` setzen). Die Schritte stehen auch unter **Client-ID erstellen**.
+2. Unter **Einstellungen → Konto-Verwaltung** Anmeldung **OAuth** wählen und die Client-ID (bei Gmail zusätzlich das Google Client-Secret) dort eintragen (oder `DMARC_GOOGLE_CLIENT_ID`, `DMARC_GOOGLE_CLIENT_SECRET` / `DMARC_MS_CLIENT_ID` setzen). Die Schritte stehen auch unter **Client-ID erstellen**.
 3. Konto speichern, dann **Mit Anbieter anmelden**.
 
 ---

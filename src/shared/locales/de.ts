@@ -435,16 +435,20 @@ export const de = {
     'OAuth braucht eine Client-ID unten — sie gehört zur App, nicht zum Postfach.',
   'settings.oauthClientIds': 'OAuth-Client-IDs',
   'settings.oauthGoogleClientId': 'Google Client-ID',
+  'settings.oauthGoogleClientSecret': 'Google Client-Secret',
+  'settings.oauthGoogleClientSecretPlaceholder':
+    'Clientschlüssel aus der Google Cloud Console (GOCSPX-…)',
+  'settings.oauthGoogleClientSecretSaved': 'Gespeichert — leer lassen zum Behalten',
   'settings.oauthMicrosoftClientId': 'Microsoft Client-ID',
   'settings.oauthClientHint':
-    'Die Client-ID identifiziert diese App bei Google bzw. Microsoft, nicht das Postfach. Eine ID gilt für alle Konten desselben Anbieters. Öffentliche Desktop-App (PKCE, ohne Secret).',
+    'Die Client-ID identifiziert diese App bei Google bzw. Microsoft, nicht das Postfach. Eine ID gilt für alle Konten desselben Anbieters. Öffentliche Desktop-App mit PKCE (Google verlangt beim Typ „Desktop-App“ zusätzlich das generierte Client-Secret).',
   'settings.oauthSetupTitle': 'Client-ID erstellen',
   'settings.oauthSetupGoogleTitle': 'Google (Gmail)',
   'settings.oauthSetupGoogle1': 'Google Cloud Console öffnen, Projekt wählen oder anlegen.',
   'settings.oauthSetupGoogle2':
-    'APIs und Dienste → Anmeldedaten → OAuth-Client-ID erstellen, Typ „Desktop-App“ (kein Secret).',
+    'APIs und Dienste → Anmeldedaten → OAuth-Client-ID erstellen, Typ „Desktop-App“.',
   'settings.oauthSetupGoogle3':
-    'Client-ID kopieren und oben eintragen. Beim ersten Mal den OAuth-Zustimmungsbildschirm ausfüllen; als Testnutzer die eigene Gmail-Adresse eintragen.',
+    'Client-ID und den generierten Clientschlüssel (Client-Secret) kopieren und oben eintragen. Beim ersten Mal den OAuth-Zustimmungsbildschirm ausfüllen; als Testnutzer die eigene Gmail-Adresse eintragen.',
   'settings.oauthSetupMicrosoftTitle': 'Microsoft 365 / Outlook',
   'settings.oauthSetupMicrosoft2': 'Öffentlicher Client (Desktop/mobil). Redirect-URI:',
   'settings.oauthSetupMicrosoft1':
@@ -452,7 +456,7 @@ export const de = {
   'settings.oauthSetupMicrosoft3':
     'Authentifizierung: öffentliche Clientflows zulassen. API-Berechtigung IMAP.AccessAsUser.All (delegiert) hinzufügen. Anwendungs-ID oben eintragen.',
   'settings.oauthSetupEnv':
-    'Alternativ die Umgebungsvariablen DMARC_GOOGLE_CLIENT_ID bzw. DMARC_MS_CLIENT_ID.',
+    'Alternativ die Umgebungsvariablen DMARC_GOOGLE_CLIENT_ID, DMARC_GOOGLE_CLIENT_SECRET bzw. DMARC_MS_CLIENT_ID.',
   'settings.mailboxFetch': 'Abruf aus diesem Postfach',
   'settings.mailbox': 'Ordner',
   'settings.archiveMailbox': 'Nach Abruf verschieben nach',
@@ -951,6 +955,8 @@ export const de = {
 
   'oauth.missingGoogleClientId':
     'Google OAuth Client-ID fehlt (Einstellungen oder DMARC_GOOGLE_CLIENT_ID).',
+  'oauth.missingGoogleClientSecret':
+    'Google OAuth Client-Secret fehlt (Einstellungen oder DMARC_GOOGLE_CLIENT_SECRET).',
   'oauth.missingMicrosoftClientId':
     'Microsoft OAuth Client-ID fehlt (Einstellungen oder DMARC_MS_CLIENT_ID).',
   'oauth.invalidCallback': 'Ungültige OAuth-Antwort (State/Code).',

@@ -262,6 +262,9 @@ export const passwordFieldEl = document.getElementById('password-field') as HTML
 export const oauthActionsEl = document.getElementById('oauth-actions') as HTMLElement
 export const oauthClientIdsEl = document.getElementById('oauth-client-ids') as HTMLElement
 export const oauthGoogleFieldEl = document.getElementById('oauth-google-field') as HTMLElement
+export const oauthGoogleSecretFieldEl = document.getElementById(
+  'oauth-google-secret-field'
+) as HTMLElement
 export const oauthMicrosoftFieldEl = document.getElementById('oauth-microsoft-field') as HTMLElement
 export const oauthSetupGoogleEl = document.getElementById('oauth-setup-google') as HTMLElement
 export const oauthSetupMicrosoftEl = document.getElementById('oauth-setup-microsoft') as HTMLElement
@@ -307,6 +310,9 @@ export const languageEl = document.getElementById('language') as HTMLSelectEleme
 export const themeEl = document.getElementById('theme') as HTMLSelectElement
 export const oauthGoogleClientIdEl = document.getElementById(
   'oauthGoogleClientId'
+) as HTMLInputElement
+export const oauthGoogleClientSecretEl = document.getElementById(
+  'oauthGoogleClientSecret'
 ) as HTMLInputElement
 export const oauthMicrosoftClientIdEl = document.getElementById(
   'oauthMicrosoftClientId'

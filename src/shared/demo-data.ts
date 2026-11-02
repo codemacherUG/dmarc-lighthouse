@@ -335,6 +335,8 @@ export function buildDemoSettings(language: AppLocale = 'de'): SettingsPublic {
       language,
       theme: 'auto',
       oauthGoogleClientId: '',
+      oauthGoogleClientSecret: '',
+      hasOauthGoogleClientSecret: false,
       oauthMicrosoftClientId: '',
       enrichmentEnabled: true,
       geoIpOnlineFallback: true,

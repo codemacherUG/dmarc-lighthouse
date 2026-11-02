@@ -14,6 +14,7 @@ export interface OAuthTokens {
 
 export interface OAuthClientConfig {
   googleClientId: string
+  googleClientSecret?: string
   microsoftClientId: string
 }
 
@@ -22,6 +23,7 @@ interface ProviderEndpoints {
   tokenUrl: string
   scopes: string[]
   clientId: string
+  clientSecret?: string
 }
 
 function base64Url(buf: Buffer): string {
@@ -38,11 +40,13 @@ function endpoints(provider: OAuthProvider, config: OAuthClientConfig): Provider
   if (provider === 'google') {
     const clientId = config.googleClientId.trim()
     if (!clientId) throw new Error(t('oauth.missingGoogleClientId'))
+    const clientSecret = config.googleClientSecret?.trim() || undefined
     return {
       authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
       tokenUrl: 'https://oauth2.googleapis.com/token',
       scopes: ['https://mail.google.com/', 'openid', 'email'],
-      clientId
+      clientId,
+      clientSecret
     }
   }
   const clientId = config.microsoftClientId.trim()
@@ -186,6 +190,9 @@ async function exchangeToken(
   const json = (await res.json()) as Record<string, unknown>
   if (!res.ok) {
     const desc = String(json.error_description ?? json.error ?? res.statusText)
+    if (/client_secret is missing/i.test(desc)) {
+      throw new Error(t('oauth.missingGoogleClientSecret'))
+    }
     throw new Error(desc)
   }
   return json
@@ -255,13 +262,17 @@ export async function authorizeInteractive(
 
     await openExternalSafe(url.toString())
     const code = await loop.wait()
-    const json = await exchangeToken(ep.tokenUrl, {
+    const tokenBody: Record<string, string> = {
       client_id: ep.clientId,
       grant_type: 'authorization_code',
       code,
       redirect_uri: loop.redirectUri,
       code_verifier: verifier
-    })
+    }
+    if (ep.clientSecret) {
+      tokenBody.client_secret = ep.clientSecret
+    }
+    const json = await exchangeToken(ep.tokenUrl, tokenBody)
     let email = ''
     try {
       email = await fetchEmail(provider, String(json.access_token ?? ''))
@@ -282,12 +293,16 @@ export async function refreshAccessToken(
   email: string
 ): Promise<OAuthTokens> {
   const ep = endpoints(provider, config)
-  const json = await exchangeToken(ep.tokenUrl, {
+  const tokenBody: Record<string, string> = {
     client_id: ep.clientId,
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
     scope: ep.scopes.join(' ')
-  })
+  }
+  if (ep.clientSecret) {
+    tokenBody.client_secret = ep.clientSecret
+  }
+  const json = await exchangeToken(ep.tokenUrl, tokenBody)
   return toTokens(json, email, refreshToken)
 }
 

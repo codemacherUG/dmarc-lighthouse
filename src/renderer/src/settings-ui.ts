@@ -67,7 +67,9 @@ import {
   oauthActionsEl,
   oauthClientIdsEl,
   oauthGoogleClientIdEl,
+  oauthGoogleClientSecretEl,
   oauthGoogleFieldEl,
+  oauthGoogleSecretFieldEl,
   oauthMicrosoftClientIdEl,
   oauthMicrosoftFieldEl,
   oauthSetupGoogleEl,
@@ -191,6 +193,7 @@ export function syncAuthModeUi(): void {
   oauthActionsEl.classList.toggle('hidden', !oauth)
   oauthClientIdsEl.classList.toggle('hidden', !oauth)
   oauthGoogleFieldEl.classList.toggle('hidden', oauth && !google && microsoft)
+  oauthGoogleSecretFieldEl.classList.toggle('hidden', oauth && !google && microsoft)
   oauthMicrosoftFieldEl.classList.toggle('hidden', oauth && !microsoft && google)
   oauthSetupGoogleEl.classList.toggle('hidden', oauth && !google && microsoft)
   oauthSetupMicrosoftEl.classList.toggle('hidden', oauth && !microsoft && google)
@@ -427,6 +430,8 @@ export function readGlobalForm(): GlobalSettings {
     language: normalizeLocale(languageEl.value),
     theme: normalizeTheme(themeEl.value),
     oauthGoogleClientId: oauthGoogleClientIdEl.value.trim(),
+    oauthGoogleClientSecret: oauthGoogleClientSecretEl.value.trim(),
+    hasOauthGoogleClientSecret: Boolean(state.settings?.global.hasOauthGoogleClientSecret),
     oauthMicrosoftClientId: oauthMicrosoftClientIdEl.value.trim(),
     enrichmentEnabled: enrichmentEnabledEl.checked,
     geoIpOnlineFallback: geoIpOnlineFallbackEl.checked,
@@ -535,6 +540,10 @@ export function fillGlobalForm(global: GlobalSettings): void {
   themeEl.value = normalizeTheme(global.theme)
   applyTheme(normalizeTheme(global.theme))
   oauthGoogleClientIdEl.value = global.oauthGoogleClientId ?? ''
+  oauthGoogleClientSecretEl.value = ''
+  oauthGoogleClientSecretEl.placeholder = global.hasOauthGoogleClientSecret
+    ? t('settings.oauthGoogleClientSecretSaved')
+    : t('settings.oauthGoogleClientSecretPlaceholder')
   oauthMicrosoftClientIdEl.value = global.oauthMicrosoftClientId ?? ''
   enrichmentEnabledEl.checked = global.enrichmentEnabled !== false
   cloudRangesEnabledEl.checked = global.cloudRangesEnabled !== false
@@ -649,6 +658,9 @@ export function refreshSettingsLocale(): void {
     passwordHintEl.textContent = account?.hasPassword
       ? t('settings.passwordSaved')
       : t('settings.passwordHint')
+    oauthGoogleClientSecretEl.placeholder = state.settings.global.hasOauthGoogleClientSecret
+      ? t('settings.oauthGoogleClientSecretSaved')
+      : t('settings.oauthGoogleClientSecretPlaceholder')
   }
 }
 
@@ -791,6 +803,7 @@ export function initSettingsUi(): void {
     setBusy(true)
     try {
       applySettings(await window.api.saveGlobalSettings(readGlobalForm()))
+      fillGlobalForm(state.settings!.global)
       applySettings(await window.api.saveAccount(readAccountForm()))
       state.dialogAccountId = state.dialogAccountId ?? state.settings?.activeAccountId ?? null
       applySettings(await window.api.oauthLogin(state.dialogAccountId!))

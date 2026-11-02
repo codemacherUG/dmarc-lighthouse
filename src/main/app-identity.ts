@@ -98,6 +98,8 @@ export interface SafeStorageSecretSnapshot {
   accessTokenExpiresAt?: number
   /** Present on the `__global__` sentinel row when a MaxMind key is stored. */
   maxmindLicenseKey?: string
+  /** Present on the `__global__` sentinel row when a Google OAuth client secret is stored. */
+  oauthGoogleClientSecret?: string
 }
 
 function writeMarker(name: string): void {
