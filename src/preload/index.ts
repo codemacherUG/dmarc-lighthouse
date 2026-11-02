@@ -18,6 +18,7 @@ import type {
   CreateMailboxResult,
   ListMailboxesResult,
   RdapInfo,
+  ReportRetentionCleanupResult,
   ReportRow,
   SettingsPublic,
   TestConnectionResult,
@@ -90,9 +91,13 @@ const api = {
   geoLiteStatus: (): Promise<GeoLiteStatus> => ipcRenderer.invoke('enrichment:geoLiteStatus'),
   downloadGeoLite: (licenseKey?: string): Promise<GeoLiteDownloadResult> =>
     ipcRenderer.invoke('enrichment:downloadGeoLite', licenseKey),
-  openFiles: (): Promise<AnalyzeResult | null> => ipcRenderer.invoke('files:open'),
-  parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>): Promise<AnalyzeResult> =>
-    ipcRenderer.invoke('files:parseBuffers', files),
+  openFiles: (targetAccountId?: string | null): Promise<AnalyzeResult | null> =>
+    ipcRenderer.invoke('files:open', targetAccountId ?? null),
+  parseBuffers: (
+    files: Array<{ name: string; data: ArrayBuffer }>,
+    targetAccountId?: string | null
+  ): Promise<AnalyzeResult> =>
+    ipcRenderer.invoke('files:parseBuffers', files, targetAccountId ?? null),
   openEmailFile: (): Promise<EmailInspectResponse | null> => ipcRenderer.invoke('email:open'),
   parseEmail: (input: {
     name?: string
@@ -116,6 +121,17 @@ const api = {
     ipcRenderer.invoke('report:chooseDir'),
   runMonthlyReport: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('report:monthlyNow'),
+  pruneExpiredReports: (
+    retentionDays?: number
+  ): Promise<ReportRetentionCleanupResult & { message: string }> =>
+    ipcRenderer.invoke('cache:pruneExpired', retentionDays),
+  exportConfigBackup: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('config:export'),
+  importConfigBackup: (): Promise<{
+    ok: boolean
+    message: string
+    settings: SettingsPublic | null
+  }> => ipcRenderer.invoke('config:import'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   openThirdPartyNotices: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('app:openThirdPartyNotices'),

@@ -1,3 +1,10 @@
+/** Special account selection value that aggregates reports across all configured accounts. */
+export const ALL_ACCOUNTS_ID = '__all__'
+
+export function isAllAccountsId(id: string | null | undefined): boolean {
+  return id === ALL_ACCOUNTS_ID
+}
+
 /** Suggest a short account name — prefer the email domain, else a cleaned IMAP host. */
 export function suggestAccountName(user: string, host: string): string {
   const email = user.trim().toLowerCase()

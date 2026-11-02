@@ -267,6 +267,12 @@ export const en = {
 
   'filter.title': 'View',
   'filter.account': 'Account',
+  'filter.allAccounts': 'All accounts',
+  'import.targetTitle': 'Choose import target',
+  'import.targetPrompt': 'Which account should store the imported reports?',
+  'import.targetLocal': 'Local import store (shared)',
+  'import.targetCancel': 'Cancel',
+  'import.targetConfirm': 'Import',
   'filter.range': 'Date range',
   'filter.rangeAll': 'All time',
   'filter.range7': 'Last 7 days',
@@ -401,6 +407,7 @@ export const en = {
   'settings.tabNoise': 'Noise',
   'settings.tabGeneral': 'Fetch & notifications',
   'settings.tabEnrichment': 'Enrichment',
+  'settings.tabBackup': 'Retention & backup',
   'settings.accountSetupHint':
     'Set up Gmail, Microsoft 365/Outlook, or a custom IMAP account and test the connection.',
   'settings.newAccount': 'New account',
@@ -509,6 +516,24 @@ export const en = {
   'settings.ignoredPlaceholder': 'One IP per line, e.g. 203.0.113.5 or 66.249.* for prefixes',
   'settings.ignoredHint':
     'These IPs will not trigger a “new source” alert. Prefixes end with *, e.g. 66.249.*.',
+  'settings.retentionAndBackup': 'Retention & configuration backup',
+  'settings.retentionGroup': 'Report retention',
+  'settings.backupGroup': 'Configuration backup',
+  'settings.reportRetentionDays': 'Keep reports (days)',
+  'settings.reportRetentionTitle': '0 = keep indefinitely',
+  'settings.reportRetentionHint':
+    '0 = keep indefinitely. Older aggregate, forensic, and TLS-RPT reports are pruned automatically from the local cache on startup and after each fetch. DNS history, known source IPs, and sending services are kept.',
+  'settings.retentionPruneNow': 'Prune old reports now',
+  'settings.retentionPruned': 'Removed {count} expired reports (> {days} days).',
+  'settings.retentionDisabledNote': 'Retention is set to 0 (keep indefinitely).',
+  'settings.backupExport': 'Export configuration…',
+  'settings.backupImport': 'Import configuration…',
+  'settings.backupExportTitle': 'Save configuration backup',
+  'settings.backupImportTitle': 'Import configuration backup',
+  'settings.backupInvalid': 'Invalid configuration backup file.',
+  'settings.backupImported': 'Configuration imported ({count} accounts).',
+  'settings.backupHint':
+    'Exports accounts (without passwords/OAuth tokens), global settings, sending services, and domain DKIM selectors as a JSON file.',
   'settings.scannerNoise': 'Recipient scanners',
   'settings.noiseIntro':
     'Two kinds of report noise. Mailbox forwarding only with the dashboard filter; recipient-side email-security gateways are always omitted from problem sources.',
@@ -1016,6 +1041,7 @@ export const en = {
   'dns.historyAfter': 'After',
   'dns.historyCorrelation':
     'Latest report on {reportDate}: fail rate {after}% (before the change on {changeDate}: {before}%).',
+  'dns.historyOpenCheck': 'Open DNS check',
 
   'transport.title': 'Transport security',
   'transport.checking': 'Checking TLS-RPT, MTA-STS and DANE for {domain}…',
@@ -1363,8 +1389,38 @@ export const en = {
   'spfBuilder.result.liveMissing': 'No SPF record in DNS yet.',
   'spfBuilder.result.liveSame': 'Matches the generated record.',
   'spfBuilder.result.liveDifferent': 'Differs from the generated record.',
-  'spfBuilder.expand.title': 'Resolved addresses',
-  'spfBuilder.expand.lookups': '{count} DNS lookups (limit 10)',
+  'spfBuilder.expand.title': 'Resolved addresses ({count})',
+  'spfBuilder.expand.lookups': '{count} / 10 DNS lookups',
+  'spfBuilder.expand.treeTitle': 'SPF lookup tree',
+  'spfBuilder.expand.treeLookups': '{count} lookups',
+  'spfBuilder.expand.treeLookupSingle': '1 lookup',
+  'spfBuilder.expand.treeNoLookup': '0 lookups',
+  'spfBuilder.expand.treeDuplicate': 'duplicate',
+  'spfBuilder.expand.treeCycle': 'loop',
+  'spfBuilder.expand.treeEmpty': 'empty (0 IPs)',
+  'spfBuilder.expand.optimizerTitle': 'Optimizer',
+  'spfBuilder.expand.optimizerClean':
+    'No issues found — lookup budget is healthy, with no duplicate includes or redundant networks.',
+  'spfBuilder.expand.hint.lookupLimitExceeded':
+    'DNS lookup limit exceeded ({lookups}/10) — receivers abort evaluation with SPF permerror.',
+  'spfBuilder.expand.hint.lookupBudgetHigh':
+    'High lookup usage ({lookups}/10) — little headroom if an included provider adds nested includes.',
+  'spfBuilder.expand.hint.duplicateInclude':
+    'Duplicate {subject} — already included and wastes 1 DNS lookup.',
+  'spfBuilder.expand.hint.nestedDuplicateInclude':
+    'Nested duplicate {subject} — already resolved via another branch (+1 DNS lookup).',
+  'spfBuilder.expand.hint.redundantCidr':
+    'Redundant network {subject} — already covered by {related}.',
+  'spfBuilder.expand.hint.coveredByInclude':
+    '{subject} is already covered by {related} and can likely be removed.',
+  'spfBuilder.expand.hint.emptyMechanism':
+    'Mechanism {subject} currently resolves to no IP addresses but still costs 1 DNS lookup.',
+  'spfBuilder.expand.hint.deprecatedPtr':
+    'Deprecated mechanism {subject} (discouraged by RFC 7208) — slow and consumes DNS lookups.',
+  'spfBuilder.expand.hint.allPass':
+    'Critical: {subject} authorizes every server on the internet to send for this domain.',
+  'spfBuilder.expand.hint.allSoftfail':
+    'Note: {subject} only softfails unauthorized senders; use -all for strict enforcement.',
   'spfBuilder.expand.empty': 'No IPs/CIDRs resolved.',
   'spfBuilder.expand.errors': 'Notes / errors',
   'spfBuilder.expand.loading': 'Expanding SPF…',

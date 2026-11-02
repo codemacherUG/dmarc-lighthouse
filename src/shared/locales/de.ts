@@ -267,6 +267,12 @@ export const de = {
 
   'filter.title': 'Ansicht',
   'filter.account': 'Konto',
+  'filter.allAccounts': 'Alle Konten',
+  'import.targetTitle': 'Import-Ziel wählen',
+  'import.targetPrompt': 'In welches Konto sollen die importierten Reports gespeichert werden?',
+  'import.targetLocal': 'Lokaler Import-Speicher (kontoübergreifend)',
+  'import.targetCancel': 'Abbrechen',
+  'import.targetConfirm': 'Importieren',
   'filter.range': 'Zeitraum',
   'filter.rangeAll': 'Gesamt',
   'filter.range7': 'Letzte 7 Tage',
@@ -401,6 +407,7 @@ export const de = {
   'settings.tabNoise': 'Rauschen',
   'settings.tabGeneral': 'Abruf & Benachrichtigungen',
   'settings.tabEnrichment': 'Anreicherung',
+  'settings.tabBackup': 'Aufbewahrung & Backup',
   'settings.accountSetupHint':
     'Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die Verbindung testen.',
   'settings.newAccount': 'Neues Konto',
@@ -510,6 +517,24 @@ export const de = {
   'settings.ignoredPlaceholder': 'Eine IP pro Zeile, z. B. 203.0.113.5 oder 66.249.* für Präfixe',
   'settings.ignoredHint':
     'Diese IPs lösen keinen „Neue Quelle"-Alert aus. Präfixe mit * am Ende, z. B. 66.249.*.',
+  'settings.retentionAndBackup': 'Aufbewahrung & Konfigurations-Backup',
+  'settings.retentionGroup': 'Report-Aufbewahrung',
+  'settings.backupGroup': 'Konfigurations-Backup',
+  'settings.reportRetentionDays': 'Reports aufbewahren (Tage)',
+  'settings.reportRetentionTitle': '0 = unbegrenzt behalten',
+  'settings.reportRetentionHint':
+    '0 = unbegrenzt. Ältere Aggregate-, Forensik- und TLS-RPT-Reports werden beim Start und nach jedem Abruf automatisch aus dem lokalen Cache entfernt. DNS-History, bekannte Quell-IPs und Sende-Dienste bleiben erhalten.',
+  'settings.retentionPruneNow': 'Alte Reports jetzt bereinigen',
+  'settings.retentionPruned': '{count} abgelaufene Reports (> {days} Tage) entfernt.',
+  'settings.retentionDisabledNote': 'Aufbewahrungsfrist ist auf 0 (unbegrenzt) gesetzt.',
+  'settings.backupExport': 'Konfiguration exportieren…',
+  'settings.backupImport': 'Konfiguration importieren…',
+  'settings.backupExportTitle': 'Konfigurations-Backup speichern',
+  'settings.backupImportTitle': 'Konfigurations-Backup importieren',
+  'settings.backupInvalid': 'Ungültige Konfigurations-Backup-Datei.',
+  'settings.backupImported': 'Konfiguration importiert ({count} Konten).',
+  'settings.backupHint':
+    'Exportiert Konten (ohne Passwörter/OAuth-Token), globale Einstellungen, Sende-Dienste und Domain-DKIM-Selektoren als JSON-Datei.',
   'settings.scannerNoise': 'Empfänger-Sicherheitsfilter',
   'settings.noiseIntro':
     'Zwei Arten von Report-Rauschen. Mailbox-Weiterleitung nur mit dem Dashboard-Filter; Empfänger-Sicherheitsfilter immer aus den Problemquellen.',
@@ -1023,6 +1048,7 @@ export const de = {
   'dns.historyAfter': 'Nachher',
   'dns.historyCorrelation':
     'Im letzten Report vom {reportDate}: Fail-Rate {after}% (vor der Änderung am {changeDate}: {before}%).',
+  'dns.historyOpenCheck': 'DNS-Check öffnen',
 
   'transport.title': 'Transport-Sicherheit',
   'transport.checking': 'Prüfe TLS-RPT, MTA-STS und DANE für {domain}…',
@@ -1371,8 +1397,38 @@ export const de = {
   'spfBuilder.result.liveMissing': 'Noch kein SPF-Record im DNS.',
   'spfBuilder.result.liveSame': 'Entspricht dem erzeugten Record.',
   'spfBuilder.result.liveDifferent': 'Weicht vom erzeugten Record ab.',
-  'spfBuilder.expand.title': 'Aufgelöste Adressen',
-  'spfBuilder.expand.lookups': '{count} DNS-Lookups (Limit 10)',
+  'spfBuilder.expand.title': 'Aufgelöste Adressen ({count})',
+  'spfBuilder.expand.lookups': '{count} / 10 DNS-Lookups',
+  'spfBuilder.expand.treeTitle': 'SPF-Lookup-Baum',
+  'spfBuilder.expand.treeLookups': '{count} Lookups',
+  'spfBuilder.expand.treeLookupSingle': '1 Lookup',
+  'spfBuilder.expand.treeNoLookup': '0 Lookups',
+  'spfBuilder.expand.treeDuplicate': 'Duplikat',
+  'spfBuilder.expand.treeCycle': 'Schleife',
+  'spfBuilder.expand.treeEmpty': 'leer (0 IPs)',
+  'spfBuilder.expand.optimizerTitle': 'Optimierer',
+  'spfBuilder.expand.optimizerClean':
+    'Keine Probleme erkannt — Lookup-Budget im grünen Bereich, keine doppelten Includes oder redundanten Netze.',
+  'spfBuilder.expand.hint.lookupLimitExceeded':
+    'DNS-Lookup-Limit überschritten ({lookups}/10) — Empfänger brechen die Prüfung mit SPF permerror ab.',
+  'spfBuilder.expand.hint.lookupBudgetHigh':
+    'Hoher Lookup-Verbrauch ({lookups}/10) — wenig Reserve, falls ein eingebundener Dienst weitere Includes ergänzt.',
+  'spfBuilder.expand.hint.duplicateInclude':
+    'Doppeltes Include {subject} — ist bereits eingebunden und kostet unnötig 1 DNS-Lookup.',
+  'spfBuilder.expand.hint.nestedDuplicateInclude':
+    'Verschachteltes Duplikat {subject} — wurde bereits über einen anderen Zweig aufgelöst (+1 DNS-Lookup).',
+  'spfBuilder.expand.hint.redundantCidr':
+    'Redundantes Netz {subject} — ist bereits in {related} enthalten.',
+  'spfBuilder.expand.hint.coveredByInclude':
+    '{subject} ist bereits durch {related} abgedeckt und kann ggf. entfallen.',
+  'spfBuilder.expand.hint.emptyMechanism':
+    'Mechanismus {subject} liefert aktuell keine IP-Adressen, kostet aber 1 DNS-Lookup.',
+  'spfBuilder.expand.hint.deprecatedPtr':
+    'Veralteter Mechanismus {subject} (RFC 7208 rät von ptr ab) — langsam und kostet DNS-Lookups.',
+  'spfBuilder.expand.hint.allPass':
+    'Kritisch: {subject} erlaubt jedem Server weltweit den Versand für diese Domain.',
+  'spfBuilder.expand.hint.allSoftfail':
+    'Hinweis: {subject} markiert nicht autorisierte Sender nur als Softfail; für volle Durchsetzung -all verwenden.',
   'spfBuilder.expand.empty': 'Keine IPs/CIDRs aufgelöst.',
   'spfBuilder.expand.errors': 'Hinweise / Fehler',
   'spfBuilder.expand.loading': 'Löse SPF auf…',

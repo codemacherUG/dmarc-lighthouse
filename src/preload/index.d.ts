@@ -17,6 +17,7 @@ import type {
   CreateMailboxResult,
   ListMailboxesResult,
   RdapInfo,
+  ReportRetentionCleanupResult,
   ReportRow,
   SettingsPublic,
   TestConnectionResult,
@@ -63,8 +64,11 @@ export interface DmarcLighthouseApi {
   ) => Promise<DomainDkimSelector[]>
   geoLiteStatus: () => Promise<GeoLiteStatus>
   downloadGeoLite: (licenseKey?: string) => Promise<GeoLiteDownloadResult>
-  openFiles: () => Promise<AnalyzeResult | null>
-  parseBuffers: (files: Array<{ name: string; data: ArrayBuffer }>) => Promise<AnalyzeResult>
+  openFiles: (targetAccountId?: string | null) => Promise<AnalyzeResult | null>
+  parseBuffers: (
+    files: Array<{ name: string; data: ArrayBuffer }>,
+    targetAccountId?: string | null
+  ) => Promise<AnalyzeResult>
   openEmailFile: () => Promise<EmailInspectResponse | null>
   parseEmail: (input: {
     name?: string
@@ -83,6 +87,15 @@ export interface DmarcLighthouseApi {
   ) => Promise<{ ok: boolean; message: string }>
   chooseReportDir: () => Promise<{ ok: boolean; dir: string }>
   runMonthlyReport: () => Promise<{ ok: boolean; message: string }>
+  pruneExpiredReports: (
+    retentionDays?: number
+  ) => Promise<ReportRetentionCleanupResult & { message: string }>
+  exportConfigBackup: () => Promise<{ ok: boolean; message: string }>
+  importConfigBackup: () => Promise<{
+    ok: boolean
+    message: string
+    settings: SettingsPublic | null
+  }>
   getAppVersion: () => Promise<string>
   openThirdPartyNotices: () => Promise<{ ok: boolean; message: string }>
   checkForUpdates: () => Promise<{ ok: boolean; message: string }>

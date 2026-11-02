@@ -148,6 +148,25 @@ export function isAuthorizedSender(ip: string, prefixes: CloudPrefix[]): boolean
   return matchCloudProvider(ip, prefixes) != null
 }
 
+/** True when `childCidr` is completely contained inside `parentCidr`. */
+export function isCidrSubnetOf(childCidr: string, parentCidr: string): boolean {
+  const child = parseCidr('child', childCidr)
+  const parent = parseCidr('parent', parentCidr)
+  if (!child || !parent || child.kind !== parent.kind) return false
+  const childLen = child.prefixLen ?? 0
+  const parentLen = parent.prefixLen ?? 0
+  if (childLen < parentLen) return false
+  if (child.kind === 'v4') {
+    if (child.start == null || child.end == null || parent.start == null || parent.end == null) {
+      return false
+    }
+    return child.start >= parent.start && child.end <= parent.end
+  }
+  const [childAddr] = (child.cidr ?? '').split('/')
+  if (!childAddr || !parent.cidr) return false
+  return ipv6Matches(childAddr, parent.cidr, parentLen)
+}
+
 /** Longest-prefix match against loaded ranges. */
 export function matchCloudProvider(ip: string, prefixes: CloudPrefix[]): string | null {
   const trimmed = ip.trim()

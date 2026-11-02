@@ -251,6 +251,7 @@ export function installScreenshotApi(): void {
     },
     openSettingsDemo(): void {
       openSettings()
+      applyTheme('light')
       showSettingsTab('account')
     },
     closeSettings(): void {

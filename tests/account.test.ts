@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { resolveAccountLabel, suggestAccountName } from '../src/shared/account'
+import {
+  ALL_ACCOUNTS_ID,
+  isAllAccountsId,
+  resolveAccountLabel,
+  suggestAccountName
+} from '../src/shared/account'
+
+describe('isAllAccountsId', () => {
+  it('recognizes the all-accounts sentinel', () => {
+    expect(isAllAccountsId(ALL_ACCOUNTS_ID)).toBe(true)
+    expect(isAllAccountsId('__all__')).toBe(true)
+    expect(isAllAccountsId('acc-1')).toBe(false)
+    expect(isAllAccountsId(null)).toBe(false)
+    expect(isAllAccountsId(undefined)).toBe(false)
+  })
+})
 
 describe('suggestAccountName', () => {
   it('uses the email domain', () => {

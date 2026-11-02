@@ -1,4 +1,4 @@
-import { suggestAccountName } from '../../shared/account'
+import { ALL_ACCOUNTS_ID, isAllAccountsId, suggestAccountName } from '../../shared/account'
 import { normalizeLocale, t } from '../../shared/i18n'
 import { normalizeTheme } from '../../shared/theme'
 import type {
@@ -34,6 +34,9 @@ import {
   btnOauthLogin,
   btnPdfDir,
   btnPdfNow,
+  btnRetentionPruneNow,
+  btnBackupExport,
+  btnBackupImport,
   btnResetKnownSources,
   btnSettings,
   btnTest,
@@ -77,6 +80,7 @@ import {
   pdfMonthlyDirEl,
   pdfMonthlyEnabledEl,
   pdfMonthlyLastEl,
+  reportRetentionDaysEl,
   portEl,
   providerEl,
   rdapEnabledEl,
@@ -89,8 +93,10 @@ import {
   subjectFilterEl,
   tabAccountEl,
   tabAppearanceEl,
+  tabBackupEl,
   tabBtnAccount,
   tabBtnAppearance,
+  tabBtnBackup,
   tabBtnEnrichment,
   tabBtnGeneral,
   tabBtnNoise,
@@ -111,7 +117,7 @@ import {
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
-type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'enrichment'
+type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'enrichment' | 'backup'
 
 function mailboxNoiseCheckbox(id: MailboxNoiseProvider): HTMLInputElement | null {
   return document.getElementById(`mailbox-noise-${id}`) as HTMLInputElement | null
@@ -153,8 +159,13 @@ export function setSwitchActiveAccount(fn: (id: string) => Promise<void>): void 
 }
 
 export function activeAccount(): AccountPublic | null {
-  if (!state.settings) return null
+  if (!state.settings || isAllAccountsId(state.settings.activeAccountId)) return null
   return state.settings.accounts.find((a) => a.id === state.settings?.activeAccountId) ?? null
+}
+
+export function anyAccountHasAuth(): boolean {
+  if (!state.settings) return false
+  return state.settings.accounts.some((a) => accountHasAuth(a))
 }
 
 export function dialogAccount(): AccountPublic | null {
@@ -433,7 +444,8 @@ export function readGlobalForm(): GlobalSettings {
     pdfMonthlyEnabled: pdfMonthlyEnabledEl.checked,
     pdfMonthlyDir: pdfMonthlyDirEl.value.trim(),
     // Owned by the scheduler in the main process; sent back unchanged.
-    pdfMonthlyLastRun: state.settings?.global.pdfMonthlyLastRun ?? ''
+    pdfMonthlyLastRun: state.settings?.global.pdfMonthlyLastRun ?? '',
+    reportRetentionDays: Math.max(0, Math.round(Number(reportRetentionDaysEl?.value) || 0))
   }
 }
 
@@ -449,12 +461,18 @@ function applyProviderPreset(provider: ProviderPreset): void {
 export function updateAccountUi(): void {
   const accounts = state.settings?.accounts ?? []
   accountFieldEl.classList.toggle('hidden', accounts.length <= 1)
-  accountSelectEl.innerHTML = accounts
-    .map(
-      (a) =>
-        `<option value="${escapeHtml(a.id)}"${a.id === state.settings?.activeAccountId ? ' selected' : ''}>${escapeHtml(a.label)}</option>`
+  const options: string[] = []
+  if (accounts.length > 1) {
+    const selected = isAllAccountsId(state.settings?.activeAccountId) ? ' selected' : ''
+    options.push(
+      `<option value="${ALL_ACCOUNTS_ID}"${selected}>${escapeHtml(t('filter.allAccounts'))}</option>`
     )
-    .join('')
+  }
+  for (const a of accounts) {
+    const selected = a.id === state.settings?.activeAccountId ? ' selected' : ''
+    options.push(`<option value="${escapeHtml(a.id)}"${selected}>${escapeHtml(a.label)}</option>`)
+  }
+  accountSelectEl.innerHTML = options.join('')
 }
 
 export function fillAccountForm(account: AccountPublic | null): void {
@@ -536,6 +554,9 @@ export function fillGlobalForm(global: GlobalSettings): void {
   pdfMonthlyLastEl.textContent = global.pdfMonthlyLastRun
     ? t('settings.pdfMonthlyLast', { date: formatDate(global.pdfMonthlyLastRun) })
     : t('settings.pdfMonthlyNever')
+  if (reportRetentionDaysEl) {
+    reportRetentionDaysEl.value = String(global.reportRetentionDays ?? 0)
+  }
   void refreshGeoLiteStatus()
 }
 
@@ -580,8 +601,10 @@ export async function loadSettings(): Promise<void> {
   fillGlobalForm(state.settings!.global)
   applyUiLocale(state.settings!.global.language)
   applyTheme(state.settings!.global.theme)
-  const account = activeAccount()
-  if (!accountHasAuth(account)) {
+  const hasReady = isAllAccountsId(state.settings?.activeAccountId)
+    ? anyAccountHasAuth()
+    : accountHasAuth(activeAccount())
+  if (!hasReady) {
     setStatus(t('status.needSettings'))
   }
 }
@@ -592,7 +615,8 @@ export function showSettingsTab(which: SettingsTab): void {
     { id: 'appearance', btn: tabBtnAppearance, panel: tabAppearanceEl },
     { id: 'noise', btn: tabBtnNoise, panel: tabNoiseEl },
     { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
-    { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
+    { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl },
+    { id: 'backup', btn: tabBtnBackup, panel: tabBackupEl }
   ]
   for (const tab of tabs) {
     const active = tab.id === which
@@ -603,7 +627,10 @@ export function showSettingsTab(which: SettingsTab): void {
 }
 
 export function openSettings(): void {
-  state.dialogAccountId = state.settings?.activeAccountId ?? null
+  const activeId = state.settings?.activeAccountId ?? null
+  state.dialogAccountId = isAllAccountsId(activeId)
+    ? (state.settings?.accounts[0]?.id ?? null)
+    : activeId
   fillSettingsAccountSelect()
   fillAccountForm(dialogAccount())
   if (state.settings) fillGlobalForm(state.settings.global)
@@ -633,6 +660,7 @@ export function initSettingsUi(): void {
   tabBtnNoise.addEventListener('click', () => showSettingsTab('noise'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
+  tabBtnBackup?.addEventListener('click', () => showSettingsTab('backup'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
   dnssecEnabledEl.addEventListener('change', () => syncDnssecResolverUi())
@@ -682,6 +710,67 @@ export function initSettingsUi(): void {
       settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
     } finally {
       btnPdfNow.disabled = false
+    }
+  })
+
+  btnRetentionPruneNow?.addEventListener('click', async () => {
+    if (state.busy) return
+    btnRetentionPruneNow.disabled = true
+    try {
+      const nextGlobal = readGlobalForm()
+      applySettings(await window.api.saveGlobalSettings(nextGlobal))
+      const res = await window.api.pruneExpiredReports(nextGlobal.reportRetentionDays)
+      settingsStatusEl.textContent = res.message
+      const total = res.deletedReports + res.deletedForensic + res.deletedTlsRpt
+      if (total > 0 && state.settings?.activeAccountId) {
+        await switchActiveAccountFn?.(state.settings.activeAccountId)
+      }
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      btnRetentionPruneNow.disabled = false
+    }
+  })
+
+  btnBackupExport?.addEventListener('click', async () => {
+    if (state.busy) return
+    btnBackupExport.disabled = true
+    try {
+      applySettings(await window.api.saveGlobalSettings(readGlobalForm()))
+      const res = await window.api.exportConfigBackup()
+      if (res.message) settingsStatusEl.textContent = res.message
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      btnBackupExport.disabled = false
+    }
+  })
+
+  btnBackupImport?.addEventListener('click', async () => {
+    if (state.busy) return
+    btnBackupImport.disabled = true
+    try {
+      const res = await window.api.importConfigBackup()
+      if (res.message) settingsStatusEl.textContent = res.message
+      if (res.ok && res.settings) {
+        applySettings(res.settings)
+        const nextActiveId = res.settings.activeAccountId
+        state.dialogAccountId = isAllAccountsId(nextActiveId)
+          ? (res.settings.accounts[0]?.id ?? null)
+          : nextActiveId
+        fillSettingsAccountSelect()
+        fillAccountForm(dialogAccount())
+        fillGlobalForm(res.settings.global)
+        applyUiLocale(res.settings.global.language)
+        applyTheme(res.settings.global.theme)
+        if (nextActiveId) {
+          await switchActiveAccountFn?.(nextActiveId)
+        }
+      }
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      btnBackupImport.disabled = false
     }
   })
 
@@ -755,9 +844,14 @@ export function initSettingsUi(): void {
     if (!confirm(t('settings.confirmDelete', { label: account.label }))) return
     setBusy(true)
     try {
-      const wasActive = state.settings?.activeAccountId === state.dialogAccountId
+      const wasActive =
+        state.settings?.activeAccountId === state.dialogAccountId ||
+        isAllAccountsId(state.settings?.activeAccountId)
       applySettings(await window.api.deleteAccount(state.dialogAccountId))
-      state.dialogAccountId = state.settings?.activeAccountId ?? null
+      const nextActiveId = state.settings?.activeAccountId ?? null
+      state.dialogAccountId = isAllAccountsId(nextActiveId)
+        ? (state.settings?.accounts[0]?.id ?? null)
+        : nextActiveId
       fillSettingsAccountSelect()
       fillAccountForm(dialogAccount())
       settingsStatusEl.textContent = t('settings.accountDeleted')
@@ -862,10 +956,15 @@ export function initSettingsUi(): void {
     try {
       const result = await window.api.clearCache(state.dialogAccountId)
       settingsStatusEl.textContent = result.message
-      if (result.ok && state.dialogAccountId === state.settings?.activeAccountId) {
-        state.fullResult = null
-        applyView()
-        setStatus(t('status.cacheCleared'), 'ok')
+      if (result.ok) {
+        if (state.dialogAccountId === state.settings?.activeAccountId) {
+          state.fullResult = null
+          applyView()
+          setStatus(t('status.cacheCleared'), 'ok')
+        } else if (isAllAccountsId(state.settings?.activeAccountId)) {
+          await switchActiveAccountFn?.(ALL_ACCOUNTS_ID)
+          setStatus(t('status.cacheCleared'), 'ok')
+        }
       }
     } catch (err) {
       settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)

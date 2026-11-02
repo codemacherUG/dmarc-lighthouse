@@ -16,20 +16,25 @@ import {
   saveDomainDkimSelectors,
   getIpEnrichment,
   getCachedReportDomains,
+  getDnsHealthCache,
   getDnsHistory,
   getLatestDnsHistoryCheckAt,
   importReports,
+  listAllDomainDkimSelectors,
   loadCachedReports,
   mergeReports,
+  pruneExpiredReports,
   recordDnsHistory,
   recordTransportHistory,
   reseedKnownIps,
   resetKnownSourceIps,
   saveCache,
   setCacheUserDataForTests,
+  upsertDnsHealthCache,
   upsertIpEnrichment,
   upsertSendingService
 } from '../src/main/cache'
+import { loadCombinedCachedAnalyzeResult } from '../src/main/imap'
 import type {
   DnsCheckResult,
   ReportRow,
@@ -938,5 +943,121 @@ describe('sqlite cache', () => {
     const loaded = loadCachedReports('acct1')
     expect(loaded.meta.uidValidity).toBe(1001)
     expect(loaded.meta.uidValidityArchive).toBe(2002)
+  })
+
+  it('combines cached reports across multiple accounts for the all-accounts view', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+    const r1 = sampleReport('r1')
+    const r2 = { ...sampleReport('r2'), domain: 'other.org' }
+    saveCache({
+      accountKey: 'acct1',
+      reports: [r1],
+      lastUid: 10,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+    saveCache({
+      accountKey: 'acct2',
+      reports: [r2],
+      lastUid: 5,
+      lastFailingTotal: 1,
+      knownSourceIps: ['192.0.2.1']
+    })
+
+    const combined = await loadCombinedCachedAnalyzeResult([
+      'acct1',
+      'acct2',
+      LOCAL_IMPORT_ACCOUNT_KEY
+    ])
+    expect(combined.reports.map((r) => r.reportId).sort()).toEqual(['r1', 'r2'])
+    expect(combined.aggregate.reportCount).toBe(2)
+    expect(combined.aggregate.domains).toEqual(['example.com', 'other.org'])
+  })
+
+  it('updates dns_health_cache policy while preserving existing DKIM selectors on selector-less checks', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+
+    const initial = dnsResult({
+      checkedAt: '2026-08-19T08:00:00.000Z',
+      dmarc: 'v=DMARC1; p=none; rua=mailto:dmarc@example.com',
+      dkim: [{ selector: 'default', record: 'v=DKIM1; p=abc' }]
+    })
+    upsertDnsHealthCache('example.com', initial)
+    expect(getDnsHealthCache('example.com')?.dmarc.policy).toBe('none')
+
+    const updatedWithoutSelectors: DnsCheckResult = {
+      ...dnsResult({
+        checkedAt: '2026-08-19T09:00:00.000Z',
+        dmarc: 'v=DMARC1; p=reject; rua=mailto:dmarc@example.com',
+        dkim: []
+      }),
+      dmarc: {
+        found: true,
+        records: ['v=DMARC1; p=reject; rua=mailto:dmarc@example.com'],
+        policy: 'reject',
+        rua: 'mailto:dmarc@example.com',
+        ruf: null,
+        host: '_dmarc.example.com'
+      }
+    }
+    upsertDnsHealthCache('example.com', updatedWithoutSelectors)
+
+    const cached = getDnsHealthCache('example.com')
+    expect(cached?.dmarc.policy).toBe('reject')
+    expect(cached?.dkim.selectors).toEqual([
+      { selector: 'default', found: true, record: 'v=DKIM1; p=abc' }
+    ])
+  })
+
+  it('prunes expired reports while keeping recent reports, UID watermarks, and DKIM selector configs', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+
+    const oldReport: ReportRow = {
+      ...sampleReport('old-r1'),
+      dateBegin: '2026-01-01T00:00:00.000Z',
+      dateEnd: '2026-01-02T00:00:00.000Z'
+    }
+    const recentReport: ReportRow = {
+      ...sampleReport('recent-r2'),
+      dateBegin: '2026-10-20T00:00:00.000Z',
+      dateEnd: '2026-10-21T00:00:00.000Z'
+    }
+
+    saveCache({
+      accountKey: 'acct1',
+      reports: [oldReport, recentReport],
+      lastUid: 42,
+      uidValidity: 9001,
+      lastFailingTotal: 2,
+      knownSourceIps: ['192.0.2.1']
+    })
+    saveDomainDkimSelectors('example.com', [
+      { selector: 's1', enabled: true },
+      { selector: 's2', enabled: false }
+    ])
+
+    const nowMs = new Date('2026-11-01T00:00:00.000Z').getTime()
+    const pruned = pruneExpiredReports(90, nowMs)
+    expect(pruned).toEqual({
+      deletedReports: 1,
+      deletedForensic: 0,
+      deletedTlsRpt: 0
+    })
+
+    const loaded = loadCachedReports('acct1')
+    expect(loaded.reports.map((r) => r.reportId)).toEqual(['recent-r2'])
+    expect(loaded.meta.lastUid).toBe(42)
+    expect(loaded.meta.uidValidity).toBe(9001)
+    expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1'])
+
+    expect(listAllDomainDkimSelectors()).toEqual({
+      'example.com': [
+        { selector: 's1', enabled: true },
+        { selector: 's2', enabled: false }
+      ]
+    })
   })
 })
