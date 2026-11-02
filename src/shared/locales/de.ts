@@ -1378,8 +1378,38 @@ export const de = {
   'spfBuilder.result.liveMissing': 'Noch kein SPF-Record im DNS.',
   'spfBuilder.result.liveSame': 'Entspricht dem erzeugten Record.',
   'spfBuilder.result.liveDifferent': 'Weicht vom erzeugten Record ab.',
-  'spfBuilder.expand.title': 'Aufgelöste Adressen',
-  'spfBuilder.expand.lookups': '{count} DNS-Lookups (Limit 10)',
+  'spfBuilder.expand.title': 'Aufgelöste Adressen ({count})',
+  'spfBuilder.expand.lookups': '{count} / 10 DNS-Lookups',
+  'spfBuilder.expand.treeTitle': 'SPF-Lookup-Baum',
+  'spfBuilder.expand.treeLookups': '{count} Lookups',
+  'spfBuilder.expand.treeLookupSingle': '1 Lookup',
+  'spfBuilder.expand.treeNoLookup': '0 Lookups',
+  'spfBuilder.expand.treeDuplicate': 'Duplikat',
+  'spfBuilder.expand.treeCycle': 'Schleife',
+  'spfBuilder.expand.treeEmpty': 'leer (0 IPs)',
+  'spfBuilder.expand.optimizerTitle': 'Optimierer',
+  'spfBuilder.expand.optimizerClean':
+    'Keine Probleme erkannt — Lookup-Budget im grünen Bereich, keine doppelten Includes oder redundanten Netze.',
+  'spfBuilder.expand.hint.lookupLimitExceeded':
+    'DNS-Lookup-Limit überschritten ({lookups}/10) — Empfänger brechen die Prüfung mit SPF permerror ab.',
+  'spfBuilder.expand.hint.lookupBudgetHigh':
+    'Hoher Lookup-Verbrauch ({lookups}/10) — wenig Reserve, falls ein eingebundener Dienst weitere Includes ergänzt.',
+  'spfBuilder.expand.hint.duplicateInclude':
+    'Doppeltes Include {subject} — ist bereits eingebunden und kostet unnötig 1 DNS-Lookup.',
+  'spfBuilder.expand.hint.nestedDuplicateInclude':
+    'Verschachteltes Duplikat {subject} — wurde bereits über einen anderen Zweig aufgelöst (+1 DNS-Lookup).',
+  'spfBuilder.expand.hint.redundantCidr':
+    'Redundantes Netz {subject} — ist bereits in {related} enthalten.',
+  'spfBuilder.expand.hint.coveredByInclude':
+    '{subject} ist bereits durch {related} abgedeckt und kann ggf. entfallen.',
+  'spfBuilder.expand.hint.emptyMechanism':
+    'Mechanismus {subject} liefert aktuell keine IP-Adressen, kostet aber 1 DNS-Lookup.',
+  'spfBuilder.expand.hint.deprecatedPtr':
+    'Veralteter Mechanismus {subject} (RFC 7208 rät von ptr ab) — langsam und kostet DNS-Lookups.',
+  'spfBuilder.expand.hint.allPass':
+    'Kritisch: {subject} erlaubt jedem Server weltweit den Versand für diese Domain.',
+  'spfBuilder.expand.hint.allSoftfail':
+    'Hinweis: {subject} markiert nicht autorisierte Sender nur als Softfail; für volle Durchsetzung -all verwenden.',
   'spfBuilder.expand.empty': 'Keine IPs/CIDRs aufgelöst.',
   'spfBuilder.expand.errors': 'Hinweise / Fehler',
   'spfBuilder.expand.loading': 'Löse SPF auf…',

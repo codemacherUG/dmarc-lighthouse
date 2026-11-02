@@ -15,7 +15,7 @@ import {
   type SpfBuilderStep
 } from '../../shared/spf-builder'
 import { t, type MessageKey } from '../../shared/i18n'
-import type { SpfExpandResult } from '../../shared/types'
+import type { SpfExpandResult, SpfLookupTreeNode, SpfOptimizationHint } from '../../shared/types'
 import {
   btnCloseSpfBuilder,
   btnSpfBuilder,
@@ -128,6 +128,96 @@ function copyButton(value: string): string {
   return `<button type="button" class="btn secondary btn-copy" data-copy="${escapeHtml(value)}" data-label-key="spfBuilder.result.copy">${escapeHtml(t('spfBuilder.result.copy'))}</button>`
 }
 
+function formatNodeLookups(count: number): string {
+  if (count === 0) return t('spfBuilder.expand.treeNoLookup')
+  if (count === 1) return t('spfBuilder.expand.treeLookupSingle')
+  return t('spfBuilder.expand.treeLookups', { count })
+}
+
+function renderTreeNode(node: SpfLookupTreeNode, isRoot = false): string {
+  const badges: string[] = []
+  if (!isRoot) {
+    const lookupClass = node.totalLookups >= 5 ? 'bad' : node.totalLookups >= 1 ? 'info' : 'neutral'
+    badges.push(
+      `<span class="spf-tree-badge ${lookupClass}">${escapeHtml(formatNodeLookups(node.totalLookups))}</span>`
+    )
+  }
+  if (node.duplicate && !node.cycle) {
+    badges.push(
+      `<span class="spf-tree-badge warn">${escapeHtml(t('spfBuilder.expand.treeDuplicate'))}</span>`
+    )
+  }
+  if (node.cycle) {
+    badges.push(
+      `<span class="spf-tree-badge bad">${escapeHtml(t('spfBuilder.expand.treeCycle'))}</span>`
+    )
+  }
+  if (node.empty && !node.error) {
+    badges.push(
+      `<span class="spf-tree-badge warn">${escapeHtml(t('spfBuilder.expand.treeEmpty'))}</span>`
+    )
+  }
+
+  const recordSnippet =
+    !isRoot && node.record
+      ? `<div class="spf-tree-record mono">${escapeHtml(node.record)}</div>`
+      : ''
+  const errorSnippet = node.error
+    ? `<div class="spf-tree-error">${escapeHtml(node.error)}</div>`
+    : ''
+  const leafCidrs =
+    (node.kind === 'a' || node.kind === 'mx') && node.cidrs.length > 0
+      ? `<div class="spf-tree-cidrs mono">${node.cidrs.map((c) => escapeHtml(c)).join(', ')}</div>`
+      : ''
+
+  const childrenHtml =
+    node.children.length > 0
+      ? `<ul class="spf-tree-children">${node.children.map((c) => renderTreeNode(c, false)).join('')}</ul>`
+      : ''
+
+  return `<li class="spf-tree-node spf-tree-kind-${escapeHtml(node.kind)}">
+    <div class="spf-tree-row">
+      <code class="spf-tree-term mono">${escapeHtml(node.term)}</code>
+      <span class="spf-tree-badges">${badges.join('')}</span>
+    </div>
+    ${recordSnippet}
+    ${leafCidrs}
+    ${errorSnippet}
+    ${childrenHtml}
+  </li>`
+}
+
+function formatOptimizationHint(hint: SpfOptimizationHint): string {
+  switch (hint.code) {
+    case 'lookup-limit-exceeded':
+      return t('spfBuilder.expand.hint.lookupLimitExceeded', { lookups: hint.lookups ?? 0 })
+    case 'lookup-budget-high':
+      return t('spfBuilder.expand.hint.lookupBudgetHigh', { lookups: hint.lookups ?? 0 })
+    case 'duplicate-include':
+      return t('spfBuilder.expand.hint.duplicateInclude', { subject: hint.subject ?? '' })
+    case 'nested-duplicate-include':
+      return t('spfBuilder.expand.hint.nestedDuplicateInclude', { subject: hint.subject ?? '' })
+    case 'redundant-cidr':
+      return t('spfBuilder.expand.hint.redundantCidr', {
+        subject: hint.subject ?? '',
+        related: hint.related ?? ''
+      })
+    case 'covered-by-include':
+      return t('spfBuilder.expand.hint.coveredByInclude', {
+        subject: hint.subject ?? '',
+        related: hint.related ?? ''
+      })
+    case 'empty-mechanism':
+      return t('spfBuilder.expand.hint.emptyMechanism', { subject: hint.subject ?? '' })
+    case 'deprecated-ptr':
+      return t('spfBuilder.expand.hint.deprecatedPtr', { subject: hint.subject ?? '' })
+    case 'all-pass':
+      return t('spfBuilder.expand.hint.allPass', { subject: hint.subject ?? '+all' })
+    case 'all-softfail':
+      return t('spfBuilder.expand.hint.allSoftfail', { subject: hint.subject ?? '~all' })
+  }
+}
+
 function renderExpand(result: SpfExpandResult | null, error?: string): void {
   if (error) {
     spfBuilderExpandEl.innerHTML = `<p class="builder-status error">${escapeHtml(error)}</p>`
@@ -137,6 +227,33 @@ function renderExpand(result: SpfExpandResult | null, error?: string): void {
     spfBuilderExpandEl.innerHTML = `<p class="hint">${escapeHtml(t('spfBuilder.expand.loading'))}</p>`
     return
   }
+
+  const budgetPct = Math.min(100, Math.round((result.lookups / 10) * 100))
+  const budgetTone = result.lookups > 10 ? 'bad' : result.lookups >= 8 ? 'warn' : 'ok'
+
+  const treeHtml =
+    result.tree && result.tree.children.length > 0
+      ? `<div class="spf-tree-section">
+          <span class="builder-result-label">${escapeHtml(t('spfBuilder.expand.treeTitle'))}</span>
+          <ul class="spf-tree-root">${renderTreeNode(result.tree, true)}</ul>
+        </div>`
+      : ''
+
+  const hints = result.hints ?? []
+  const optimizerHtml = `<div class="spf-optimizer-section">
+    <span class="builder-result-label">${escapeHtml(t('spfBuilder.expand.optimizerTitle'))}</span>
+    ${
+      hints.length === 0
+        ? `<p class="spf-optimizer-clean">${escapeHtml(t('spfBuilder.expand.optimizerClean'))}</p>`
+        : `<ul class="spf-optimizer-list">${hints
+            .map(
+              (h) =>
+                `<li class="spf-optimizer-item ${escapeHtml(h.severity)}">${escapeHtml(formatOptimizationHint(h))}</li>`
+            )
+            .join('')}</ul>`
+    }
+  </div>`
+
   const cidrList =
     result.cidrs.length > 0
       ? `<ul class="spf-expand-list mono">${result.cidrs.map((c) => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
@@ -147,9 +264,23 @@ function renderExpand(result: SpfExpandResult | null, error?: string): void {
       : ''
   spfBuilderExpandEl.innerHTML = `
     <article class="builder-result-card">
-      <div class="builder-result-field">
-        <span class="builder-result-label">${escapeHtml(t('spfBuilder.expand.title'))}</span>
-        <p class="hint">${escapeHtml(t('spfBuilder.expand.lookups', { count: String(result.lookups) }))}</p>
+      <div class="spf-lookup-budget">
+        <div class="spf-lookup-budget-head">
+          <span class="builder-result-label">${escapeHtml(t('spfBuilder.expand.treeTitle'))}</span>
+          <span class="spf-lookup-budget-count ${budgetTone}">${escapeHtml(
+            t('spfBuilder.expand.lookups', { count: String(result.lookups) })
+          )}</span>
+        </div>
+        <div class="spf-lookup-meter" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${result.lookups}">
+          <div class="spf-lookup-meter-fill ${budgetTone}" style="width: ${budgetPct}%"></div>
+        </div>
+      </div>
+      ${treeHtml}
+      ${optimizerHtml}
+      <div class="builder-result-field spf-cidrs-section">
+        <span class="builder-result-label">${escapeHtml(
+          t('spfBuilder.expand.title', { count: result.cidrs.length })
+        )}</span>
         ${cidrList}
       </div>
       ${errors}

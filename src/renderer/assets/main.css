@@ -3756,6 +3756,174 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   margin-top: 12px;
 }
 
+.spf-lookup-budget {
+  margin-bottom: 12px;
+}
+
+.spf-lookup-budget-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.spf-lookup-budget-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.spf-lookup-budget-count.ok {
+  color: var(--ok);
+}
+
+.spf-lookup-budget-count.warn {
+  color: var(--warn);
+}
+
+.spf-lookup-budget-count.bad {
+  color: var(--bad);
+}
+
+.spf-lookup-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 65%, transparent);
+  overflow: hidden;
+}
+
+.spf-lookup-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.spf-lookup-meter-fill.ok {
+  background: var(--ok);
+}
+
+.spf-lookup-meter-fill.warn {
+  background: var(--warn);
+}
+
+.spf-lookup-meter-fill.bad {
+  background: var(--bad);
+}
+
+.spf-tree-section,
+.spf-optimizer-section,
+.spf-cidrs-section {
+  margin-top: 14px;
+}
+
+.spf-tree-root,
+.spf-tree-children {
+  list-style: none;
+  margin: 6px 0 0;
+  padding-left: 0;
+}
+
+.spf-tree-children {
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+  margin-left: 6px;
+}
+
+.spf-tree-node {
+  margin: 6px 0;
+}
+
+.spf-tree-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.spf-tree-term {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.spf-tree-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.spf-tree-badge {
+  display: inline-block;
+  font-size: 0.74rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.spf-tree-badge.info {
+  border-color: color-mix(in srgb, var(--other) 45%, var(--line));
+  color: var(--ink);
+}
+
+.spf-tree-badge.warn {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+  color: var(--warn);
+}
+
+.spf-tree-badge.bad {
+  border-color: color-mix(in srgb, var(--bad) 55%, var(--line));
+  color: var(--bad);
+}
+
+.spf-tree-record,
+.spf-tree-cidrs {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.spf-tree-error {
+  font-size: 0.78rem;
+  color: var(--bad);
+  margin-top: 2px;
+}
+
+.spf-optimizer-clean {
+  margin: 6px 0 0;
+  font-size: 0.86rem;
+  color: var(--ok);
+}
+
+.spf-optimizer-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  display: grid;
+  gap: 6px;
+}
+
+.spf-optimizer-item {
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 60%, var(--bg-panel));
+}
+
+.spf-optimizer-item.error {
+  border-left-color: var(--bad);
+}
+
+.spf-optimizer-item.warn {
+  border-left-color: var(--warn);
+}
+
+.spf-optimizer-item.info {
+  border-left-color: var(--other);
+}
+
 .spf-expand-list {
   margin: 8px 0 0;
   padding-left: 1.2rem;

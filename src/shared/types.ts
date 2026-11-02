@@ -833,13 +833,68 @@ export interface EmailInspectResult {
 export type EmailInspectResponse =
   { ok: true; result: EmailInspectResult } | { ok: false; message: string }
 
-/** Expanded SPF allowlist (ip4/ip6/include/a/mx/redirect → CIDRs). */
+export type SpfTreeNodeKind =
+  'root' | 'include' | 'redirect' | 'a' | 'mx' | 'exists' | 'ptr' | 'ip4' | 'ip6'
+
+export interface SpfLookupTreeNode {
+  kind: SpfTreeNodeKind
+  /** Mechanism token (e.g. `include:_spf.google.com`, `a`, `mx:mail.example.com`). */
+  term: string
+  /** Target domain or host when applicable. */
+  target: string | null
+  /** Resolved TXT record for root/include/redirect nodes. */
+  record: string | null
+  /** DNS lookups consumed by this node alone (excluding children). */
+  ownLookups: number
+  /** Total DNS lookups consumed by this node and all its descendants. */
+  totalLookups: number
+  /** Direct CIDRs resolved at this node (`ip4:`, `ip6:`, `a`, `mx`). */
+  cidrs: string[]
+  /** True when an `include:` / `redirect=` target was already resolved earlier in the tree. */
+  duplicate?: boolean
+  /** True when a recursive loop was detected. */
+  cycle?: boolean
+  /** True when `a` / `mx` / `include` resolved to zero addresses and zero child mechanisms. */
+  empty?: boolean
+  /** Node-specific lookup or syntax error. */
+  error?: string | null
+  children: SpfLookupTreeNode[]
+}
+
+export type SpfOptimizationSeverity = 'error' | 'warn' | 'info'
+
+export type SpfOptimizationCode =
+  | 'lookup-limit-exceeded'
+  | 'lookup-budget-high'
+  | 'duplicate-include'
+  | 'nested-duplicate-include'
+  | 'redundant-cidr'
+  | 'covered-by-include'
+  | 'empty-mechanism'
+  | 'deprecated-ptr'
+  | 'all-pass'
+  | 'all-softfail'
+
+export interface SpfOptimizationHint {
+  code: SpfOptimizationCode
+  severity: SpfOptimizationSeverity
+  /** Mechanism or CIDR affected (e.g. `include:spf.example.com`, `ip4:203.0.113.5/32`). */
+  subject?: string
+  /** Other mechanism or CIDR that already covers/duplicates `subject`. */
+  related?: string
+  /** Lookup count when relevant. */
+  lookups?: number
+}
+
+/** Expanded SPF allowlist (ip4/ip6/include/a/mx/redirect → CIDRs) plus lookup tree & hints. */
 export interface SpfExpandResult {
   domain: string
   record: string | null
   cidrs: string[]
   lookups: number
   errors: string[]
+  tree?: SpfLookupTreeNode
+  hints?: SpfOptimizationHint[]
 }
 
 export interface DashboardFilter {

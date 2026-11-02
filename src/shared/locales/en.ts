@@ -1370,8 +1370,38 @@ export const en = {
   'spfBuilder.result.liveMissing': 'No SPF record in DNS yet.',
   'spfBuilder.result.liveSame': 'Matches the generated record.',
   'spfBuilder.result.liveDifferent': 'Differs from the generated record.',
-  'spfBuilder.expand.title': 'Resolved addresses',
-  'spfBuilder.expand.lookups': '{count} DNS lookups (limit 10)',
+  'spfBuilder.expand.title': 'Resolved addresses ({count})',
+  'spfBuilder.expand.lookups': '{count} / 10 DNS lookups',
+  'spfBuilder.expand.treeTitle': 'SPF lookup tree',
+  'spfBuilder.expand.treeLookups': '{count} lookups',
+  'spfBuilder.expand.treeLookupSingle': '1 lookup',
+  'spfBuilder.expand.treeNoLookup': '0 lookups',
+  'spfBuilder.expand.treeDuplicate': 'duplicate',
+  'spfBuilder.expand.treeCycle': 'loop',
+  'spfBuilder.expand.treeEmpty': 'empty (0 IPs)',
+  'spfBuilder.expand.optimizerTitle': 'Optimizer',
+  'spfBuilder.expand.optimizerClean':
+    'No issues found — lookup budget is healthy, with no duplicate includes or redundant networks.',
+  'spfBuilder.expand.hint.lookupLimitExceeded':
+    'DNS lookup limit exceeded ({lookups}/10) — receivers abort evaluation with SPF permerror.',
+  'spfBuilder.expand.hint.lookupBudgetHigh':
+    'High lookup usage ({lookups}/10) — little headroom if an included provider adds nested includes.',
+  'spfBuilder.expand.hint.duplicateInclude':
+    'Duplicate {subject} — already included and wastes 1 DNS lookup.',
+  'spfBuilder.expand.hint.nestedDuplicateInclude':
+    'Nested duplicate {subject} — already resolved via another branch (+1 DNS lookup).',
+  'spfBuilder.expand.hint.redundantCidr':
+    'Redundant network {subject} — already covered by {related}.',
+  'spfBuilder.expand.hint.coveredByInclude':
+    '{subject} is already covered by {related} and can likely be removed.',
+  'spfBuilder.expand.hint.emptyMechanism':
+    'Mechanism {subject} currently resolves to no IP addresses but still costs 1 DNS lookup.',
+  'spfBuilder.expand.hint.deprecatedPtr':
+    'Deprecated mechanism {subject} (discouraged by RFC 7208) — slow and consumes DNS lookups.',
+  'spfBuilder.expand.hint.allPass':
+    'Critical: {subject} authorizes every server on the internet to send for this domain.',
+  'spfBuilder.expand.hint.allSoftfail':
+    'Note: {subject} only softfails unauthorized senders; use -all for strict enforcement.',
   'spfBuilder.expand.empty': 'No IPs/CIDRs resolved.',
   'spfBuilder.expand.errors': 'Notes / errors',
   'spfBuilder.expand.loading': 'Expanding SPF…',

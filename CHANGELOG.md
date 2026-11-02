@@ -4,6 +4,7 @@
 
 ### English
 
+- Added an **SPF lookup tree and optimizer** to the SPF record wizard: visualizes RFC 7208 DNS lookup costs per mechanism (`include:`, `redirect=`, `a`, `mx`, `ip4:`, `ip6:`, `exists:`, `ptr`) with a 10-lookup budget bar and flags duplicate/nested includes, redundant or already-covered CIDR ranges, empty `a`/`mx` mechanisms, deprecated `ptr`, and `+all`/`~all`.
 - Added an **All accounts** combined dashboard view in the toolbar when multiple IMAP accounts are configured, aggregating cached reports, fetching across all accounts sequentially, and prompting for the target account (or shared local store) when importing report files.
 - Updated the domain health traffic-light cache (`dns_health_cache`) immediately whenever a live DNS check runs (manual DNS check, rollout assistant, record wizards, or daily background check) and added an **Open DNS check** button to the DNS history dialog.
 - Properly ad-hoc signed macOS `.app` bundles (`identity: '-'` + `com.apple.security.cs.disable-library-validation`) so Apple Silicon (`arm64`) builds pass signature verification without `Apparency` errors.
@@ -22,6 +23,7 @@
 
 ### Deutsch
 
+- **SPF-Lookup-Baum & Optimierer** im SPF-Wizard ergänzt: zeigt die DNS-Lookup-Kosten nach RFC 7208 pro Mechanismus (`include:`, `redirect=`, `a`, `mx`, `ip4:`, `ip6:`, `exists:`, `ptr`) als Baumansicht samt 10-Lookup-Budgetbalken und erkennt doppelte/verschachtelte Includes, redundante oder bereits abgedeckte IP-Netze, leere `a`/`mx`-Mechanismen, veraltetes `ptr` sowie `+all`/`~all`.
 - Kontoübergreifende Gesamtansicht (**Alle Konten**) in der Toolbar ergänzt (ab zwei eingerichteten IMAP-Konten): führt gecachte Reports aller Konten zusammen, ruft bei Klick auf „Reports abrufen" alle Postfächer nacheinander ab und fragt beim Datei-Import das Zielkonto (oder den lokalen Import-Speicher) ab.
 - Domain-Ampel (`dns_health_cache`) wird nach jedem Live-DNS-Check (manuell, Policy-Rollout, Wizards, täglicher Hintergrund-Check) sofort aktualisiert; außerdem führt im DNS-History-Dialog ein Button direkt zum DNS-Check der Domain.
 - macOS-Builds werden im Release-Workflow sauber ad-hoc-signiert (`identity: '-'` + `com.apple.security.cs.disable-library-validation`), sodass Apple-Silicon-Builds (`arm64`) keine Signaturfehler mehr melden.
