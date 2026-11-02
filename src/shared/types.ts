@@ -202,6 +202,40 @@ export interface GlobalSettings {
   pdfMonthlyDir: string
   /** Read-only: when the last monthly report was written (ISO), '' if never. */
   pdfMonthlyLastRun: string
+  /** Days to keep aggregate, forensic, and TLS-RPT reports in cache (0 = keep forever). */
+  reportRetentionDays: number
+}
+
+export interface ConfigBackupAccount {
+  id: string
+  name?: string
+  provider: ProviderPreset
+  authMode?: AuthMode
+  host: string
+  port: number
+  secure: boolean
+  user: string
+  mailbox: string
+  archiveMailbox?: string
+  subjectFilter: string
+  markSeenAfterFetch?: boolean
+}
+
+export interface ConfigBackupPayload {
+  format: 'dmarc-lighthouse-config'
+  version: 1
+  exportedAt: string
+  activeAccountId: string | null
+  accounts: ConfigBackupAccount[]
+  global: Omit<GlobalSettings, 'maxmindLicenseKey' | 'hasMaxmindLicenseKey' | 'pdfMonthlyLastRun'>
+  sendingServices: SendingService[]
+  domainDkimSelectors: Record<string, DomainDkimSelector[]>
+}
+
+export interface ReportRetentionCleanupResult {
+  deletedReports: number
+  deletedForensic: number
+  deletedTlsRpt: number
 }
 
 export interface SettingsPublic {

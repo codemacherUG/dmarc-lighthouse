@@ -407,6 +407,7 @@ export const en = {
   'settings.tabNoise': 'Noise',
   'settings.tabGeneral': 'Fetch & notifications',
   'settings.tabEnrichment': 'Enrichment',
+  'settings.tabBackup': 'Retention & backup',
   'settings.accountSetupHint':
     'Set up Gmail, Microsoft 365/Outlook, or a custom IMAP account and test the connection.',
   'settings.newAccount': 'New account',
@@ -515,6 +516,24 @@ export const en = {
   'settings.ignoredPlaceholder': 'One IP per line, e.g. 203.0.113.5 or 66.249.* for prefixes',
   'settings.ignoredHint':
     'These IPs will not trigger a “new source” alert. Prefixes end with *, e.g. 66.249.*.',
+  'settings.retentionAndBackup': 'Retention & configuration backup',
+  'settings.retentionGroup': 'Report retention',
+  'settings.backupGroup': 'Configuration backup',
+  'settings.reportRetentionDays': 'Keep reports (days)',
+  'settings.reportRetentionTitle': '0 = keep indefinitely',
+  'settings.reportRetentionHint':
+    '0 = keep indefinitely. Older aggregate, forensic, and TLS-RPT reports are pruned automatically from the local cache on startup and after each fetch. DNS history, known source IPs, and sending services are kept.',
+  'settings.retentionPruneNow': 'Prune old reports now',
+  'settings.retentionPruned': 'Removed {count} expired reports (> {days} days).',
+  'settings.retentionDisabledNote': 'Retention is set to 0 (keep indefinitely).',
+  'settings.backupExport': 'Export configuration…',
+  'settings.backupImport': 'Import configuration…',
+  'settings.backupExportTitle': 'Save configuration backup',
+  'settings.backupImportTitle': 'Import configuration backup',
+  'settings.backupInvalid': 'Invalid configuration backup file.',
+  'settings.backupImported': 'Configuration imported ({count} accounts).',
+  'settings.backupHint':
+    'Exports accounts (without passwords/OAuth tokens), global settings, sending services, and domain DKIM selectors as a JSON file.',
   'settings.scannerNoise': 'Recipient scanners',
   'settings.noiseIntro':
     'Two kinds of report noise. Mailbox forwarding only with the dashboard filter; recipient-side email-security gateways are always omitted from problem sources.',

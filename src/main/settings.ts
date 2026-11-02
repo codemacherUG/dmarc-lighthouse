@@ -6,6 +6,8 @@ import type {
   AccountPublic,
   AccountSettingsInput,
   AuthMode,
+  ConfigBackupAccount,
+  ConfigBackupPayload,
   DnssecResolver,
   GlobalSettings,
   ImapConnectionInput,
@@ -90,6 +92,7 @@ interface StoredGlobal {
   pdfMonthlyDir?: string
   /** Written by the scheduler, never by the settings form. */
   pdfMonthlyLastRun?: string
+  reportRetentionDays?: number
 }
 
 interface StoredSettingsV2 {
@@ -141,7 +144,14 @@ const GLOBAL_DEFAULTS: GlobalSettings = {
   scannerNoiseHosts: DEFAULT_SCANNER_NOISE_HOSTS,
   pdfMonthlyEnabled: false,
   pdfMonthlyDir: '',
-  pdfMonthlyLastRun: ''
+  pdfMonthlyLastRun: '',
+  reportRetentionDays: 0
+}
+
+function normalizeRetentionDays(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.min(3650, Math.round(n))
 }
 
 function normalizeDnssecResolver(value: unknown): DnssecResolver {
@@ -477,7 +487,8 @@ function toPublicGlobal(g: StoredGlobal): GlobalSettings {
     scannerNoiseHosts: g.scannerNoiseHosts ?? DEFAULT_SCANNER_NOISE_HOSTS,
     pdfMonthlyEnabled: Boolean(g.pdfMonthlyEnabled),
     pdfMonthlyDir: (g.pdfMonthlyDir ?? '').trim(),
-    pdfMonthlyLastRun: g.pdfMonthlyLastRun ?? ''
+    pdfMonthlyLastRun: g.pdfMonthlyLastRun ?? '',
+    reportRetentionDays: normalizeRetentionDays(g.reportRetentionDays)
   }
 }
 
@@ -673,8 +684,187 @@ export function saveGlobalSettings(input: GlobalSettings): SettingsPublic {
     pdfMonthlyEnabled: Boolean(input.pdfMonthlyEnabled),
     pdfMonthlyDir: String(input.pdfMonthlyDir ?? '').trim(),
     // Owned by the scheduler: the form round-trips a display value only.
-    pdfMonthlyLastRun: stored.global.pdfMonthlyLastRun ?? ''
+    pdfMonthlyLastRun: stored.global.pdfMonthlyLastRun ?? '',
+    reportRetentionDays: normalizeRetentionDays(input.reportRetentionDays)
   }
+  writeStored(stored)
+  return loadSettings()
+}
+
+/** Export accounts (without secrets) and global settings for a configuration backup file. */
+export function exportSettingsForBackup(): {
+  activeAccountId: string | null
+  accounts: ConfigBackupAccount[]
+  global: ConfigBackupPayload['global']
+} {
+  const pub = loadSettings()
+  const accounts: ConfigBackupAccount[] = pub.accounts.map((a) => ({
+    id: a.id,
+    name: a.name,
+    provider: a.provider,
+    authMode: a.authMode,
+    host: a.host,
+    port: a.port,
+    secure: a.secure,
+    user: a.user,
+    mailbox: a.mailbox,
+    archiveMailbox: a.archiveMailbox,
+    subjectFilter: a.subjectFilter,
+    markSeenAfterFetch: a.markSeenAfterFetch
+  }))
+  const {
+    maxmindLicenseKey: _m,
+    hasMaxmindLicenseKey: _h,
+    pdfMonthlyLastRun: _p,
+    ...globalRest
+  } = pub.global
+  void _m
+  void _h
+  void _p
+  return {
+    activeAccountId: pub.activeAccountId,
+    accounts,
+    global: globalRest
+  }
+}
+
+/**
+ * Merge imported backup accounts and global settings into the local settings store.
+ * Preserves existing encrypted passwords/OAuth tokens when an account matches by ID or user+host+mailbox.
+ */
+export function importSettingsFromBackup(backup: {
+  activeAccountId?: string | null
+  accounts?: ConfigBackupAccount[]
+  global?: Partial<GlobalSettings>
+}): SettingsPublic {
+  const stored = readStored()
+  migrateMaxmindLicenseKey(stored)
+
+  if (Array.isArray(backup.accounts)) {
+    for (const incoming of backup.accounts) {
+      if (!incoming || typeof incoming !== 'object') continue
+      const user = String(incoming.user ?? '').trim()
+      const host = String(incoming.host ?? '').trim()
+      if (!user || !host) continue
+      const mailbox = String(incoming.mailbox ?? '').trim() || 'INBOX'
+      const existing = stored.accounts.find(
+        (a) =>
+          (incoming.id && a.id === incoming.id) ||
+          (a.user.toLowerCase() === user.toLowerCase() &&
+            a.host.toLowerCase() === host.toLowerCase() &&
+            (a.mailbox || 'INBOX').toLowerCase() === mailbox.toLowerCase())
+      )
+      const provider: ProviderPreset =
+        incoming.provider && incoming.provider in PROVIDER_PRESETS ? incoming.provider : 'custom'
+      const merged: StoredAccount = {
+        id: existing?.id ?? (incoming.id && incoming.id.trim() ? incoming.id.trim() : randomUUID()),
+        name: String(incoming.name ?? '').trim(),
+        provider,
+        authMode: normalizeAuthMode(incoming.authMode ?? existing?.authMode),
+        host,
+        port: Number(incoming.port) || 993,
+        secure: incoming.secure ?? true,
+        user,
+        mailbox,
+        archiveMailbox: String(incoming.archiveMailbox ?? '').trim(),
+        subjectFilter: String(incoming.subjectFilter ?? 'Report Domain'),
+        passwordEncrypted: existing?.passwordEncrypted,
+        refreshTokenEncrypted: existing?.refreshTokenEncrypted,
+        accessTokenEncrypted: existing?.accessTokenEncrypted,
+        accessTokenExpiresAt: existing?.accessTokenExpiresAt,
+        markSeenAfterFetch: Boolean(incoming.markSeenAfterFetch)
+      }
+      if (existing) {
+        stored.accounts = stored.accounts.map((a) => (a.id === existing.id ? merged : a))
+      } else {
+        stored.accounts.push(merged)
+      }
+    }
+  }
+
+  if (backup.global && typeof backup.global === 'object') {
+    const g = backup.global
+    const current = toPublicGlobal(stored.global)
+    stored.global = {
+      ...stored.global,
+      autoFetchMinutes: normalizeMinutes(g.autoFetchMinutes ?? current.autoFetchMinutes),
+      notifyOnFail: g.notifyOnFail !== undefined ? Boolean(g.notifyOnFail) : current.notifyOnFail,
+      passRateAlertThreshold: normalizeThreshold(
+        g.passRateAlertThreshold ?? current.passRateAlertThreshold
+      ),
+      notifyNewSource:
+        g.notifyNewSource !== undefined ? Boolean(g.notifyNewSource) : current.notifyNewSource,
+      ignoredSources:
+        typeof g.ignoredSources === 'string' ? g.ignoredSources : current.ignoredSources,
+      runInTray: g.runInTray !== undefined ? Boolean(g.runInTray) : current.runInTray,
+      openAtLogin: g.openAtLogin !== undefined ? Boolean(g.openAtLogin) : current.openAtLogin,
+      language: g.language ? normalizeLocale(g.language) : current.language,
+      theme: g.theme ? normalizeTheme(g.theme) : current.theme,
+      oauthGoogleClientId:
+        typeof g.oauthGoogleClientId === 'string'
+          ? g.oauthGoogleClientId.trim()
+          : current.oauthGoogleClientId,
+      oauthMicrosoftClientId:
+        typeof g.oauthMicrosoftClientId === 'string'
+          ? g.oauthMicrosoftClientId.trim()
+          : current.oauthMicrosoftClientId,
+      enrichmentEnabled:
+        g.enrichmentEnabled !== undefined
+          ? Boolean(g.enrichmentEnabled)
+          : current.enrichmentEnabled,
+      geoIpOnlineFallback:
+        g.geoIpOnlineFallback !== undefined
+          ? Boolean(g.geoIpOnlineFallback)
+          : current.geoIpOnlineFallback,
+      dnsblEnabled: g.dnsblEnabled !== undefined ? Boolean(g.dnsblEnabled) : current.dnsblEnabled,
+      cloudRangesEnabled:
+        g.cloudRangesEnabled !== undefined
+          ? Boolean(g.cloudRangesEnabled)
+          : current.cloudRangesEnabled,
+      rdapEnabled: g.rdapEnabled !== undefined ? Boolean(g.rdapEnabled) : current.rdapEnabled,
+      dnssecEnabled:
+        g.dnssecEnabled !== undefined ? Boolean(g.dnssecEnabled) : current.dnssecEnabled,
+      dnssecResolver:
+        g.dnssecResolver !== undefined
+          ? normalizeDnssecResolver(g.dnssecResolver)
+          : current.dnssecResolver,
+      dnssecResolverUrl:
+        g.dnssecResolverUrl !== undefined
+          ? normalizeDnssecResolverUrl(g.dnssecResolverUrl)
+          : current.dnssecResolverUrl,
+      hideMailboxNoise:
+        g.hideMailboxNoise !== undefined ? Boolean(g.hideMailboxNoise) : current.hideMailboxNoise,
+      mailboxNoiseProviders:
+        typeof g.mailboxNoiseProviders === 'string'
+          ? g.mailboxNoiseProviders
+          : current.mailboxNoiseProviders,
+      scannerNoiseHosts:
+        typeof g.scannerNoiseHosts === 'string' ? g.scannerNoiseHosts : current.scannerNoiseHosts,
+      pdfMonthlyEnabled:
+        g.pdfMonthlyEnabled !== undefined
+          ? Boolean(g.pdfMonthlyEnabled)
+          : current.pdfMonthlyEnabled,
+      pdfMonthlyDir:
+        typeof g.pdfMonthlyDir === 'string' ? g.pdfMonthlyDir.trim() : current.pdfMonthlyDir,
+      reportRetentionDays: normalizeRetentionDays(
+        g.reportRetentionDays ?? current.reportRetentionDays
+      )
+    }
+  }
+
+  if (backup.activeAccountId !== undefined) {
+    if (isAllAccountsId(backup.activeAccountId) && stored.accounts.length > 1) {
+      stored.activeAccountId = ALL_ACCOUNTS_ID
+    } else if (
+      backup.activeAccountId &&
+      stored.accounts.some((a) => a.id === backup.activeAccountId)
+    ) {
+      stored.activeAccountId = backup.activeAccountId
+    } else if (!stored.activeAccountId && stored.accounts.length > 0) {
+      stored.activeAccountId = stored.accounts[0]!.id
+    }
+  }
+
   writeStored(stored)
   return loadSettings()
 }

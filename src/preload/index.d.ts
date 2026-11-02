@@ -17,6 +17,7 @@ import type {
   CreateMailboxResult,
   ListMailboxesResult,
   RdapInfo,
+  ReportRetentionCleanupResult,
   ReportRow,
   SettingsPublic,
   TestConnectionResult,
@@ -86,6 +87,15 @@ export interface DmarcLighthouseApi {
   ) => Promise<{ ok: boolean; message: string }>
   chooseReportDir: () => Promise<{ ok: boolean; dir: string }>
   runMonthlyReport: () => Promise<{ ok: boolean; message: string }>
+  pruneExpiredReports: (
+    retentionDays?: number
+  ) => Promise<ReportRetentionCleanupResult & { message: string }>
+  exportConfigBackup: () => Promise<{ ok: boolean; message: string }>
+  importConfigBackup: () => Promise<{
+    ok: boolean
+    message: string
+    settings: SettingsPublic | null
+  }>
   getAppVersion: () => Promise<string>
   openThirdPartyNotices: () => Promise<{ ok: boolean; message: string }>
   checkForUpdates: () => Promise<{ ok: boolean; message: string }>

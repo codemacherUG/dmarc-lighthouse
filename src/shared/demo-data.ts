@@ -351,7 +351,8 @@ export function buildDemoSettings(language: AppLocale = 'de'): SettingsPublic {
       scannerNoiseHosts: DEFAULT_SCANNER_NOISE_HOSTS,
       pdfMonthlyEnabled: true,
       pdfMonthlyDir: '',
-      pdfMonthlyLastRun: '2026-08-01T06:00:00.000Z'
+      pdfMonthlyLastRun: '2026-08-01T06:00:00.000Z',
+      reportRetentionDays: 0
     }
   }
 }

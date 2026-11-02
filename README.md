@@ -127,7 +127,7 @@ Under **Tools → Inspect email**, open a saved `.eml` or Outlook `.msg` (or pas
 
 ### Settings
 
-Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), system tray, UI language, and appearance (light / dark / system). Domain-specific DKIM and sending-service settings are managed from the domain-health view:
+Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (GeoIP / DNSBL / RDAP), report retention, configuration backup, system tray, UI language, and appearance (light / dark / system). Domain-specific DKIM and sending-service settings are managed from the domain-health view:
 
 ![Settings dialog with account management](docs/screenshots/en/settings.png)
 
@@ -144,7 +144,8 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Auth**                    | App password **or** OAuth (PKCE) for Gmail and Microsoft 365 IMAP                                                                                                                                                                |
 | **Multiple accounts**       | Any number of IMAP accounts/profiles with separate caches plus a combined **All accounts** view (with target-account selection on file import); custom display name (default: email domain); switch via toolbar                 |
 | **File import**             | DMARC: XML, GZ, ZIP, EML/MIME; TLS-RPT: JSON, JSON.GZ, or EML/MIME — dialog or drag & drop; imports go into the cache and are still there after a restart                                                                        |
-| **Local cache**             | SQLite store for aggregate, forensic, and TLS-RPT reports; legacy JSON caches are migrated once                                                                                                                                  |
+| **Local cache & retention** | SQLite store for aggregate, forensic, and TLS-RPT reports with optional automatic retention cleanup after N days; legacy JSON caches are migrated once                                                                          |
+| **Configuration backup**    | Export and import accounts (preserving local encrypted secrets), global settings, sending services, and domain DKIM selectors as JSON                                                                                           |
 | **Forensic / RUF**          | ARF failure reports (sanitized headers); separate table in the UI                                                                                                                                                                |
 | **TLS-RPT reports**         | Import JSON/JSON.GZ or EML/MIME, or fetch via IMAP; filter by domain, inspect session counts and failure reasons, and open policy rows for MTA/MX, IP, and reason-code details. Unknown JSON fields are not retained                 |
 | **Aggregate report schema** | Ingests both the legacy (RFC 7489) and the RFC 9990 DMARC 2.0 aggregate report XML schema (new namespace/extensions), covered by regression fixtures                                                                             |

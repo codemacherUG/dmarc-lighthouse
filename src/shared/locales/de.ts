@@ -407,6 +407,7 @@ export const de = {
   'settings.tabNoise': 'Rauschen',
   'settings.tabGeneral': 'Abruf & Benachrichtigungen',
   'settings.tabEnrichment': 'Anreicherung',
+  'settings.tabBackup': 'Aufbewahrung & Backup',
   'settings.accountSetupHint':
     'Gmail, Microsoft 365/Outlook oder ein eigenes IMAP-Konto einrichten und die Verbindung testen.',
   'settings.newAccount': 'Neues Konto',
@@ -516,6 +517,24 @@ export const de = {
   'settings.ignoredPlaceholder': 'Eine IP pro Zeile, z. B. 203.0.113.5 oder 66.249.* für Präfixe',
   'settings.ignoredHint':
     'Diese IPs lösen keinen „Neue Quelle"-Alert aus. Präfixe mit * am Ende, z. B. 66.249.*.',
+  'settings.retentionAndBackup': 'Aufbewahrung & Konfigurations-Backup',
+  'settings.retentionGroup': 'Report-Aufbewahrung',
+  'settings.backupGroup': 'Konfigurations-Backup',
+  'settings.reportRetentionDays': 'Reports aufbewahren (Tage)',
+  'settings.reportRetentionTitle': '0 = unbegrenzt behalten',
+  'settings.reportRetentionHint':
+    '0 = unbegrenzt. Ältere Aggregate-, Forensik- und TLS-RPT-Reports werden beim Start und nach jedem Abruf automatisch aus dem lokalen Cache entfernt. DNS-History, bekannte Quell-IPs und Sende-Dienste bleiben erhalten.',
+  'settings.retentionPruneNow': 'Alte Reports jetzt bereinigen',
+  'settings.retentionPruned': '{count} abgelaufene Reports (> {days} Tage) entfernt.',
+  'settings.retentionDisabledNote': 'Aufbewahrungsfrist ist auf 0 (unbegrenzt) gesetzt.',
+  'settings.backupExport': 'Konfiguration exportieren…',
+  'settings.backupImport': 'Konfiguration importieren…',
+  'settings.backupExportTitle': 'Konfigurations-Backup speichern',
+  'settings.backupImportTitle': 'Konfigurations-Backup importieren',
+  'settings.backupInvalid': 'Ungültige Konfigurations-Backup-Datei.',
+  'settings.backupImported': 'Konfiguration importiert ({count} Konten).',
+  'settings.backupHint':
+    'Exportiert Konten (ohne Passwörter/OAuth-Token), globale Einstellungen, Sende-Dienste und Domain-DKIM-Selektoren als JSON-Datei.',
   'settings.scannerNoise': 'Empfänger-Sicherheitsfilter',
   'settings.noiseIntro':
     'Zwei Arten von Report-Rauschen. Mailbox-Weiterleitung nur mit dem Dashboard-Filter; Empfänger-Sicherheitsfilter immer aus den Problemquellen.',

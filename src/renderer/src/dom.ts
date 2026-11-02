@@ -242,11 +242,13 @@ export const tabBtnAppearance = document.getElementById('tab-btn-appearance') as
 export const tabBtnGeneral = document.getElementById('tab-btn-general') as HTMLButtonElement
 export const tabBtnNoise = document.getElementById('tab-btn-noise') as HTMLButtonElement
 export const tabBtnEnrichment = document.getElementById('tab-btn-enrichment') as HTMLButtonElement
+export const tabBtnBackup = document.getElementById('tab-btn-backup') as HTMLButtonElement
 export const tabAccountEl = document.getElementById('tab-account') as HTMLElement
 export const tabAppearanceEl = document.getElementById('tab-appearance') as HTMLElement
 export const tabGeneralEl = document.getElementById('tab-general') as HTMLElement
 export const tabNoiseEl = document.getElementById('tab-noise') as HTMLElement
 export const tabEnrichmentEl = document.getElementById('tab-enrichment') as HTMLElement
+export const tabBackupEl = document.getElementById('tab-backup') as HTMLElement
 
 export const providerEl = document.getElementById('provider') as HTMLSelectElement
 export const authModeEl = document.getElementById('authMode') as HTMLSelectElement
@@ -284,6 +286,14 @@ export const pdfMonthlyDirEl = document.getElementById('pdfMonthlyDir') as HTMLI
 export const btnPdfDir = document.getElementById('btn-pdf-dir') as HTMLButtonElement
 export const btnPdfNow = document.getElementById('btn-pdf-now') as HTMLButtonElement
 export const pdfMonthlyLastEl = document.getElementById('pdf-monthly-last') as HTMLSpanElement
+export const reportRetentionDaysEl = document.getElementById(
+  'reportRetentionDays'
+) as HTMLInputElement
+export const btnRetentionPruneNow = document.getElementById(
+  'btn-retention-prune-now'
+) as HTMLButtonElement
+export const btnBackupExport = document.getElementById('btn-backup-export') as HTMLButtonElement
+export const btnBackupImport = document.getElementById('btn-backup-import') as HTMLButtonElement
 export const notifyOnFailEl = document.getElementById('notifyOnFail') as HTMLInputElement
 export const notifyNewSourceEl = document.getElementById('notifyNewSource') as HTMLInputElement
 export const passRateAlertThresholdEl = document.getElementById(

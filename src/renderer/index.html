@@ -1071,6 +1071,17 @@
           >
             Anreicherung
           </button>
+          <button
+            type="button"
+            id="tab-btn-backup"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-backup"
+            data-i18n="settings.tabBackup"
+          >
+            Aufbewahrung &amp; Backup
+          </button>
         </nav>
 
         <div class="dialog-body">
@@ -1712,6 +1723,69 @@
                   </button>
                   <span id="geolite-status" class="hint" role="status"></span>
                 </div>
+              </div>
+            </fieldset>
+          </section>
+
+          <section id="tab-backup" class="tab-panel hidden" role="tabpanel">
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.retentionGroup">Report-Aufbewahrung</legend>
+              <div class="settings-grid">
+                <label class="span-2">
+                  <span data-i18n="settings.reportRetentionDays">Reports aufbewahren (Tage)</span>
+                  <div class="inline-actions">
+                    <input
+                      id="reportRetentionDays"
+                      name="reportRetentionDays"
+                      type="number"
+                      min="0"
+                      max="3650"
+                      step="1"
+                      value="0"
+                      data-i18n-title="settings.reportRetentionTitle"
+                      title="0 = unbegrenzt behalten"
+                    />
+                    <button
+                      type="button"
+                      id="btn-retention-prune-now"
+                      class="btn secondary"
+                      data-i18n="settings.retentionPruneNow"
+                    >
+                      Alte Reports jetzt bereinigen
+                    </button>
+                  </div>
+                </label>
+              </div>
+              <p class="hint" data-i18n="settings.reportRetentionHint">
+                0 = unbegrenzt. Ältere Aggregate-, Forensik- und TLS-RPT-Reports werden beim Start
+                und nach jedem Abruf automatisch aus dem lokalen Cache entfernt. DNS-History,
+                bekannte Quell-IPs und Sende-Dienste bleiben erhalten.
+              </p>
+            </fieldset>
+
+            <fieldset class="settings-group">
+              <legend data-i18n="settings.backupGroup">Konfigurations-Backup</legend>
+              <p class="hint" data-i18n="settings.backupHint">
+                Exportiert Konten (ohne Passwörter/OAuth-Token), globale Einstellungen, Sende-Dienste
+                und Domain-DKIM-Selektoren als JSON-Datei.
+              </p>
+              <div class="enrichment-actions">
+                <button
+                  type="button"
+                  id="btn-backup-export"
+                  class="btn secondary"
+                  data-i18n="settings.backupExport"
+                >
+                  Konfiguration exportieren…
+                </button>
+                <button
+                  type="button"
+                  id="btn-backup-import"
+                  class="btn secondary"
+                  data-i18n="settings.backupImport"
+                >
+                  Konfiguration importieren…
+                </button>
               </div>
             </fieldset>
           </section>

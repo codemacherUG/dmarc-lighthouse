@@ -127,7 +127,7 @@ Unter **Tools → E-Mail prüfen** eine gespeicherte `.eml` oder Outlook-`.msg` 
 
 ### Einstellungen
 
-Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), System-Tray, Sprache und Erscheinungsbild (Hell / Dunkel / System). Domainbezogene DKIM- und Sende-Dienst-Einstellungen werden direkt in der Domain-Ampel verwaltet:
+Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (GeoIP / DNSBL / RDAP), Report-Aufbewahrung, Konfigurations-Backup, System-Tray, Sprache und Erscheinungsbild (Hell / Dunkel / System). Domainbezogene DKIM- und Sende-Dienst-Einstellungen werden direkt in der Domain-Ampel verwaltet:
 
 ![Einstellungen-Dialog mit Konto-Verwaltung](docs/screenshots/de/settings.png)
 
@@ -144,7 +144,8 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Anmeldung**               | App-Passwort **oder** OAuth (PKCE) für Gmail und Microsoft 365 IMAP                                                                                                                                                           |
 | **Mehrere Konten**          | Beliebig viele IMAP-Konten/Profile mit eigenem Cache sowie kombinierter **Alle Konten**-Gesamtansicht (inkl. Zielkonto-Auswahl beim Datei-Import); eigene Bezeichnung (Standard: E-Mail-Domain); Umschalten in der Toolbar       |
 | **Datei-Import**            | DMARC: XML, GZ, ZIP, EML/MIME; TLS-RPT: JSON, JSON.GZ oder EML/MIME — Dialog oder Drag & Drop; Importe landen im Cache und stehen nach dem Neustart wieder bereit                                                               |
-| **Lokaler Cache**           | SQLite für Aggregate-, Forensik- und TLS-RPT-Reports; alte JSON-Caches werden einmalig migriert                                                                                                                                |
+| **Lokaler Cache & Aufbewahrung** | SQLite für Aggregate-, Forensik- und TLS-RPT-Reports mit optionaler automatischer Bereinigung nach X Tagen; alte JSON-Caches werden einmalig migriert                                                                      |
+| **Konfigurations-Backup**   | Export und Import von Konten (lokale verschlüsselte Zugangsdaten bleiben erhalten), globalen Einstellungen, Sende-Diensten und Domain-DKIM-Selektoren als JSON                                                                  |
 | **Forensik / RUF**          | ARF-Failure-Reports (bereinigte Header); eigene Tabelle in der UI                                                                                                                                                             |
 | **TLS-RPT-Berichte**        | JSON/JSON.GZ oder EML/MIME importieren oder IMAP-Abruf; Domainfilter, Sitzungszahlen und Fehlerursachen; klickbare Policy-Zeilen mit Details zu MTA/MX, IPs und Fehlercodes. Unbekannte JSON-Felder werden nicht gespeichert      |
 | **Aggregate-Report-Schema** | Verarbeitet sowohl das klassische (RFC 7489) als auch das neue RFC-9990-DMARC-2.0-Schema (neuer Namespace/Extensions), abgesichert durch Regressions-Fixtures                                                                 |

@@ -619,3 +619,21 @@ export function saveDomainDkimSelectorsInDb(
     throw error
   }
 }
+
+export function listAllDomainDkimSelectorsInDb(
+  database: DatabaseSync
+): Record<string, DomainDkimSelector[]> {
+  const rows = database
+    .prepare(
+      `SELECT domain, selector, enabled
+       FROM domain_dkim_selectors
+       ORDER BY domain, selector`
+    )
+    .all() as Array<{ domain: string; selector: string; enabled: number }>
+  const out: Record<string, DomainDkimSelector[]> = {}
+  for (const row of rows) {
+    if (!out[row.domain]) out[row.domain] = []
+    out[row.domain].push({ selector: row.selector, enabled: row.enabled === 1 })
+  }
+  return out
+}

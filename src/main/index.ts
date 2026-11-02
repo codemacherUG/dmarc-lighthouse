@@ -18,10 +18,12 @@ import type {
   AccountSettingsInput,
   AnalyzeResult,
   AppTheme,
+  ConfigBackupPayload,
   EmailInspectResult,
   DomainDkimSelector,
   GlobalSettings,
   NewSendingSourceGroup,
+  ReportRetentionCleanupResult,
   ReportRow,
   SendingServiceInput
 } from '../shared/types'
@@ -39,8 +41,10 @@ import {
   getDnsHealthCache,
   getLatestDnsHistoryCheckAt,
   getDomainDkimSelectors,
+  listAllDomainDkimSelectors,
   listSendingServices,
   loadCachedReports,
+  pruneExpiredReports,
   recordDnsHistory,
   recordTransportHistory,
   resetKnownSourceIps,
@@ -90,9 +94,11 @@ import {
   deleteAccount,
   disconnectOAuth,
   exportSecretsForMigration,
+  exportSettingsForBackup,
   getMaxmindLicenseKey,
   hasEncryptedSecrets,
   importSecretsFromMigration,
+  importSettingsFromBackup,
   isIgnoredSource,
   loadSettings,
   parseIgnoredSources,
@@ -464,6 +470,10 @@ async function fetchAccount(accountId?: string | null): Promise<AnalyzeResult> {
   const result = await fetchAndAnalyze(connection, (progress) => {
     mainWindow?.webContents.send('imap:progress', progress)
   })
+  const retentionDays = settingsPub.global.reportRetentionDays
+  if (retentionDays > 0) {
+    pruneExpiredReports(retentionDays)
+  }
   result.accountId = account.id
   runAlerts(account, prevFailing, result)
   if ((result.newReports ?? 0) > 0) {
@@ -887,6 +897,9 @@ function registerIpc(): void {
 
   ipcMain.handle('settings:saveGlobal', (_event, input: GlobalSettings) => {
     const saved = saveGlobalSettings(input)
+    if (saved.global.reportRetentionDays > 0) {
+      pruneExpiredReports(saved.global.reportRetentionDays)
+    }
     clearIpInfoMemoryCache()
     applyOpenAtLogin(saved.global)
     applyNativeTheme(saved.global.theme)
@@ -894,6 +907,138 @@ function registerIpc(): void {
     scheduleMonthlyReport()
     updateTray()
     return saved
+  })
+
+  ipcMain.handle(
+    'cache:pruneExpired',
+    (_event, retentionDays?: number): ReportRetentionCleanupResult & { message: string } => {
+      const days =
+        typeof retentionDays === 'number' && Number.isFinite(retentionDays)
+          ? Math.max(0, Math.round(retentionDays))
+          : loadSettings().global.reportRetentionDays
+      const res = pruneExpiredReports(days)
+      const total = res.deletedReports + res.deletedForensic + res.deletedTlsRpt
+      return {
+        ...res,
+        message:
+          days <= 0
+            ? t('settings.retentionDisabledNote')
+            : t('settings.retentionPruned', { count: total, days })
+      }
+    }
+  )
+
+  ipcMain.handle('config:export', async () => {
+    const date = new Date().toISOString().slice(0, 10)
+    const saveOptions = {
+      title: t('settings.backupExportTitle'),
+      defaultPath: `dmarc-lighthouse-config-${date}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    }
+    const save = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, saveOptions)
+      : await dialog.showSaveDialog(saveOptions)
+    if (save.canceled || !save.filePath) return { ok: false, message: t('main.cancelled') }
+
+    const settingsSnap = exportSettingsForBackup()
+    const payload: ConfigBackupPayload = {
+      format: 'dmarc-lighthouse-config',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      activeAccountId: settingsSnap.activeAccountId,
+      accounts: settingsSnap.accounts,
+      global: settingsSnap.global,
+      sendingServices: listSendingServices(),
+      domainDkimSelectors: listAllDomainDkimSelectors()
+    }
+    writeFileSync(save.filePath, JSON.stringify(payload, null, 2), 'utf8')
+    return { ok: true, message: t('main.saved', { path: save.filePath }) }
+  })
+
+  ipcMain.handle('config:import', async () => {
+    const openOptions = {
+      title: t('settings.backupImportTitle'),
+      properties: ['openFile'] as Array<'openFile'>,
+      filters: [
+        { name: 'JSON', extensions: ['json'] },
+        { name: 'Alle Dateien / All files', extensions: ['*'] }
+      ]
+    }
+    const picked = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, openOptions)
+      : await dialog.showOpenDialog(openOptions)
+    if (picked.canceled || picked.filePaths.length === 0) {
+      return { ok: false, message: t('main.cancelled'), settings: null }
+    }
+    try {
+      const raw = JSON.parse(
+        readFileSync(picked.filePaths[0]!, 'utf8')
+      ) as Partial<ConfigBackupPayload> | null
+      if (!raw || typeof raw !== 'object' || raw.format !== 'dmarc-lighthouse-config') {
+        return { ok: false, message: t('settings.backupInvalid'), settings: null }
+      }
+      const nextSettings = importSettingsFromBackup({
+        activeAccountId: raw.activeAccountId,
+        accounts: raw.accounts,
+        global: raw.global
+      })
+      if (Array.isArray(raw.sendingServices)) {
+        for (const svc of raw.sendingServices) {
+          if (!svc || typeof svc !== 'object' || typeof svc.provider !== 'string') continue
+          upsertSendingService({
+            id: typeof svc.id === 'string' ? svc.id : undefined,
+            provider: svc.provider,
+            domain: svc.domain ?? null,
+            cidr: svc.cidr ?? null,
+            asn: typeof svc.asn === 'number' ? svc.asn : null,
+            status:
+              svc.status === 'known' ||
+              svc.status === 'unknown' ||
+              svc.status === 'retired' ||
+              svc.status === 'investigate'
+                ? svc.status
+                : 'known',
+            note: svc.note ?? null,
+            team: svc.team ?? null
+          })
+        }
+      }
+      if (raw.domainDkimSelectors && typeof raw.domainDkimSelectors === 'object') {
+        for (const [domain, list] of Object.entries(raw.domainDkimSelectors)) {
+          if (!domain.trim() || !Array.isArray(list)) continue
+          const valid = list
+            .map((item) => {
+              const sel =
+                item && typeof item.selector === 'string'
+                  ? normalizeDkimSelector(item.selector)
+                  : null
+              if (!sel) return null
+              return { selector: sel, enabled: Boolean(item.enabled) }
+            })
+            .filter((item): item is DomainDkimSelector => Boolean(item))
+          if (valid.length > 0) {
+            persistDomainDkimSelectors(domain, valid)
+          }
+        }
+      }
+      clearIpInfoMemoryCache()
+      applyOpenAtLogin(nextSettings.global)
+      applyNativeTheme(nextSettings.global.theme)
+      scheduleAutoFetch()
+      scheduleMonthlyReport()
+      updateTray()
+      return {
+        ok: true,
+        message: t('settings.backupImported', { count: nextSettings.accounts.length }),
+        settings: nextSettings
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+        settings: null
+      }
+    }
   })
 
   ipcMain.handle('settings:previewTheme', (_event, theme: AppTheme) => {
@@ -1324,6 +1469,13 @@ app.whenReady().then(() => {
   }
 
   const settings = loadSettings()
+  if (!capture && settings.global.reportRetentionDays > 0) {
+    try {
+      pruneExpiredReports(settings.global.reportRetentionDays)
+    } catch {
+      // Optional startup retention cleanup.
+    }
+  }
   startHidden = capture ? false : shouldStartHidden()
   if (!capture) applyOpenAtLogin(settings.global)
   applyNativeTheme(settings.global.theme)

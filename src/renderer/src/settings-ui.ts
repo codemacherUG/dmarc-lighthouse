@@ -34,6 +34,9 @@ import {
   btnOauthLogin,
   btnPdfDir,
   btnPdfNow,
+  btnRetentionPruneNow,
+  btnBackupExport,
+  btnBackupImport,
   btnResetKnownSources,
   btnSettings,
   btnTest,
@@ -77,6 +80,7 @@ import {
   pdfMonthlyDirEl,
   pdfMonthlyEnabledEl,
   pdfMonthlyLastEl,
+  reportRetentionDaysEl,
   portEl,
   providerEl,
   rdapEnabledEl,
@@ -89,8 +93,10 @@ import {
   subjectFilterEl,
   tabAccountEl,
   tabAppearanceEl,
+  tabBackupEl,
   tabBtnAccount,
   tabBtnAppearance,
+  tabBtnBackup,
   tabBtnEnrichment,
   tabBtnGeneral,
   tabBtnNoise,
@@ -111,7 +117,7 @@ import {
 
 export const NEW_ACCOUNT_VALUE = '__new__'
 
-type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'enrichment'
+type SettingsTab = 'account' | 'appearance' | 'general' | 'noise' | 'enrichment' | 'backup'
 
 function mailboxNoiseCheckbox(id: MailboxNoiseProvider): HTMLInputElement | null {
   return document.getElementById(`mailbox-noise-${id}`) as HTMLInputElement | null
@@ -438,7 +444,8 @@ export function readGlobalForm(): GlobalSettings {
     pdfMonthlyEnabled: pdfMonthlyEnabledEl.checked,
     pdfMonthlyDir: pdfMonthlyDirEl.value.trim(),
     // Owned by the scheduler in the main process; sent back unchanged.
-    pdfMonthlyLastRun: state.settings?.global.pdfMonthlyLastRun ?? ''
+    pdfMonthlyLastRun: state.settings?.global.pdfMonthlyLastRun ?? '',
+    reportRetentionDays: Math.max(0, Math.round(Number(reportRetentionDaysEl?.value) || 0))
   }
 }
 
@@ -547,6 +554,9 @@ export function fillGlobalForm(global: GlobalSettings): void {
   pdfMonthlyLastEl.textContent = global.pdfMonthlyLastRun
     ? t('settings.pdfMonthlyLast', { date: formatDate(global.pdfMonthlyLastRun) })
     : t('settings.pdfMonthlyNever')
+  if (reportRetentionDaysEl) {
+    reportRetentionDaysEl.value = String(global.reportRetentionDays ?? 0)
+  }
   void refreshGeoLiteStatus()
 }
 
@@ -605,7 +615,8 @@ export function showSettingsTab(which: SettingsTab): void {
     { id: 'appearance', btn: tabBtnAppearance, panel: tabAppearanceEl },
     { id: 'noise', btn: tabBtnNoise, panel: tabNoiseEl },
     { id: 'general', btn: tabBtnGeneral, panel: tabGeneralEl },
-    { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl }
+    { id: 'enrichment', btn: tabBtnEnrichment, panel: tabEnrichmentEl },
+    { id: 'backup', btn: tabBtnBackup, panel: tabBackupEl }
   ]
   for (const tab of tabs) {
     const active = tab.id === which
@@ -649,6 +660,7 @@ export function initSettingsUi(): void {
   tabBtnNoise.addEventListener('click', () => showSettingsTab('noise'))
   tabBtnGeneral.addEventListener('click', () => showSettingsTab('general'))
   tabBtnEnrichment.addEventListener('click', () => showSettingsTab('enrichment'))
+  tabBtnBackup?.addEventListener('click', () => showSettingsTab('backup'))
   btnCloseInfo.addEventListener('click', () => infoDialog.close())
   btnInfoOk.addEventListener('click', () => infoDialog.close())
   dnssecEnabledEl.addEventListener('change', () => syncDnssecResolverUi())
@@ -698,6 +710,67 @@ export function initSettingsUi(): void {
       settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
     } finally {
       btnPdfNow.disabled = false
+    }
+  })
+
+  btnRetentionPruneNow?.addEventListener('click', async () => {
+    if (state.busy) return
+    btnRetentionPruneNow.disabled = true
+    try {
+      const nextGlobal = readGlobalForm()
+      applySettings(await window.api.saveGlobalSettings(nextGlobal))
+      const res = await window.api.pruneExpiredReports(nextGlobal.reportRetentionDays)
+      settingsStatusEl.textContent = res.message
+      const total = res.deletedReports + res.deletedForensic + res.deletedTlsRpt
+      if (total > 0 && state.settings?.activeAccountId) {
+        await switchActiveAccountFn?.(state.settings.activeAccountId)
+      }
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      btnRetentionPruneNow.disabled = false
+    }
+  })
+
+  btnBackupExport?.addEventListener('click', async () => {
+    if (state.busy) return
+    btnBackupExport.disabled = true
+    try {
+      applySettings(await window.api.saveGlobalSettings(readGlobalForm()))
+      const res = await window.api.exportConfigBackup()
+      if (res.message) settingsStatusEl.textContent = res.message
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      btnBackupExport.disabled = false
+    }
+  })
+
+  btnBackupImport?.addEventListener('click', async () => {
+    if (state.busy) return
+    btnBackupImport.disabled = true
+    try {
+      const res = await window.api.importConfigBackup()
+      if (res.message) settingsStatusEl.textContent = res.message
+      if (res.ok && res.settings) {
+        applySettings(res.settings)
+        const nextActiveId = res.settings.activeAccountId
+        state.dialogAccountId = isAllAccountsId(nextActiveId)
+          ? (res.settings.accounts[0]?.id ?? null)
+          : nextActiveId
+        fillSettingsAccountSelect()
+        fillAccountForm(dialogAccount())
+        fillGlobalForm(res.settings.global)
+        applyUiLocale(res.settings.global.language)
+        applyTheme(res.settings.global.theme)
+        if (nextActiveId) {
+          await switchActiveAccountFn?.(nextActiveId)
+        }
+      }
+    } catch (err) {
+      settingsStatusEl.textContent = err instanceof Error ? err.message : String(err)
+    } finally {
+      btnBackupImport.disabled = false
     }
   })
 

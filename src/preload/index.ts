@@ -18,6 +18,7 @@ import type {
   CreateMailboxResult,
   ListMailboxesResult,
   RdapInfo,
+  ReportRetentionCleanupResult,
   ReportRow,
   SettingsPublic,
   TestConnectionResult,
@@ -120,6 +121,17 @@ const api = {
     ipcRenderer.invoke('report:chooseDir'),
   runMonthlyReport: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('report:monthlyNow'),
+  pruneExpiredReports: (
+    retentionDays?: number
+  ): Promise<ReportRetentionCleanupResult & { message: string }> =>
+    ipcRenderer.invoke('cache:pruneExpired', retentionDays),
+  exportConfigBackup: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('config:export'),
+  importConfigBackup: (): Promise<{
+    ok: boolean
+    message: string
+    settings: SettingsPublic | null
+  }> => ipcRenderer.invoke('config:import'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   openThirdPartyNotices: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('app:openThirdPartyNotices'),

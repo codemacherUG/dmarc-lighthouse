@@ -11,6 +11,7 @@ import type {
   DomainDkimSelector,
   ForensicReportRow,
   IpInfo,
+  ReportRetentionCleanupResult,
   ReportRow,
   SendingService,
   SendingServiceInput,
@@ -25,6 +26,7 @@ import {
   getDnsHistoryInDb,
   getDomainDkimSelectorsInDb,
   getLatestDnsHistoryCheckAtInDb,
+  listAllDomainDkimSelectorsInDb,
   recordHistorySnapshotInDb,
   saveDomainDkimSelectorsInDb,
   upsertDnsHealthCacheInDb
@@ -1477,6 +1479,84 @@ export function addDiscoveredDomainDkimSelectors(domain: string, selectors: stri
 
 export function saveDomainDkimSelectors(domain: string, selectors: DomainDkimSelector[]): void {
   saveDomainDkimSelectorsInDb(openDb(), domain, selectors)
+}
+
+export function listAllDomainDkimSelectors(): Record<string, DomainDkimSelector[]> {
+  return listAllDomainDkimSelectorsInDb(openDb())
+}
+
+/**
+ * Delete cached aggregate, forensic, and TLS-RPT reports older than `retentionDays`.
+ * Preserves IMAP UID watermarks, known source IPs, sending services, and DNS history.
+ */
+export function pruneExpiredReports(
+  retentionDays: number,
+  nowMs = Date.now()
+): ReportRetentionCleanupResult {
+  const days = Math.floor(retentionDays)
+  if (!Number.isFinite(days) || days <= 0) {
+    return { deletedReports: 0, deletedForensic: 0, deletedTlsRpt: 0 }
+  }
+  const cutoffMs = nowMs - days * 86_400_000
+  const database = openDb()
+
+  const reportRows = database
+    .prepare('SELECT account_key, report_id, date_begin, date_end FROM reports')
+    .all() as Array<{
+    account_key: string
+    report_id: string
+    date_begin: string
+    date_end: string
+  }>
+  const expiredReports = reportRows.filter((r) => {
+    const ts = new Date(r.date_end || r.date_begin).getTime()
+    return Number.isFinite(ts) && ts < cutoffMs
+  })
+
+  const forensicRows = database
+    .prepare('SELECT account_key, id, arrival_date FROM forensic_reports')
+    .all() as Array<{ account_key: string; id: string; arrival_date: string | null }>
+  const expiredForensic = forensicRows.filter((f) => {
+    if (!f.arrival_date) return false
+    const ts = new Date(f.arrival_date).getTime()
+    return Number.isFinite(ts) && ts < cutoffMs
+  })
+
+  const tlsRptRows = database
+    .prepare('SELECT account_key, id, date_begin, date_end FROM tlsrpt_reports')
+    .all() as Array<{ account_key: string; id: string; date_begin: string; date_end: string }>
+  const expiredTlsRpt = tlsRptRows.filter((t) => {
+    const ts = new Date(t.date_end || t.date_begin).getTime()
+    return Number.isFinite(ts) && ts < cutoffMs
+  })
+
+  if (expiredReports.length === 0 && expiredForensic.length === 0 && expiredTlsRpt.length === 0) {
+    return { deletedReports: 0, deletedForensic: 0, deletedTlsRpt: 0 }
+  }
+
+  const delReport = database.prepare('DELETE FROM reports WHERE account_key = ? AND report_id = ?')
+  const delForensic = database.prepare(
+    'DELETE FROM forensic_reports WHERE account_key = ? AND id = ?'
+  )
+  const delTlsRpt = database.prepare('DELETE FROM tlsrpt_reports WHERE account_key = ? AND id = ?')
+
+  withTransaction(database, () => {
+    for (const r of expiredReports) {
+      delReport.run(r.account_key, r.report_id)
+    }
+    for (const f of expiredForensic) {
+      delForensic.run(f.account_key, f.id)
+    }
+    for (const t of expiredTlsRpt) {
+      delTlsRpt.run(t.account_key, t.id)
+    }
+  })
+
+  return {
+    deletedReports: expiredReports.length,
+    deletedForensic: expiredForensic.length,
+    deletedTlsRpt: expiredTlsRpt.length
+  }
 }
 
 export function recordDnsHistory(result: DnsCheckResult): DnsDriftEvent[] {
