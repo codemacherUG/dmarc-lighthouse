@@ -1051,6 +1051,49 @@ body.simulation-mode {
   gap: 4px;
 }
 
+.stat-interactive {
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.stat-interactive:hover,
+.stat-interactive:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--tint-accent) 40%, var(--bg-muted));
+  outline: none;
+}
+
+.stat-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.stat-delta {
+  font-size: 0.72rem;
+  font-weight: 650;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line);
+}
+
+.stat-delta.ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+  background: color-mix(in srgb, var(--ok) 10%, var(--bg-panel));
+}
+
+.stat-delta.bad {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
+  background: color-mix(in srgb, var(--bad) 10%, var(--bg-panel));
+}
+
 .stat-label {
   color: var(--muted);
   font-size: 0.72rem;
@@ -1925,6 +1968,78 @@ input[type='checkbox']:focus-visible {
   flex: 1 1 100%;
   margin-top: 0;
   gap: 6px;
+}
+
+.filter-panel .filter-row > label.filter-search-field {
+  flex: 1.4 1 200px;
+  min-width: min(190px, 100%);
+}
+
+.section-jump-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.filter-panel.is-stuck .section-jump-bar {
+  flex: 1 1 100%;
+  margin-top: 2px;
+  padding-top: 4px;
+  gap: 4px;
+}
+
+.jump-pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 550;
+  line-height: 1.3;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.jump-pill:hover,
+.jump-pill:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--tint-accent) 45%, var(--bg-muted));
+  outline: none;
+}
+
+.jump-pill.has-alert {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+}
+
+.jump-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 80%, var(--bg-panel));
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.jump-pill.has-alert .jump-badge {
+  background: color-mix(in srgb, var(--warn) 22%, var(--bg-panel));
+  color: var(--warn);
 }
 
 .inline-actions {

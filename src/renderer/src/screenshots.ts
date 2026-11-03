@@ -247,7 +247,7 @@ export function installScreenshotApi(): void {
       await new Promise((r) => setTimeout(r, 900))
       seedDemoIps()
       applyView()
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+      await new Promise((r) => setTimeout(r, 50))
     },
     openSettingsDemo(): void {
       openSettings()
@@ -341,7 +341,7 @@ export function installScreenshotApi(): void {
         toggle.textContent = '▴'
         toggle.setAttribute('aria-expanded', 'true')
       }
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      await new Promise((resolve) => setTimeout(resolve, 50))
       if (widget) {
         const top = widget.getBoundingClientRect().top + window.scrollY - 72
         window.scrollTo({ top: Math.max(0, top), behavior: 'instant' })
@@ -413,7 +413,7 @@ export function installScreenshotApi(): void {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
       document.documentElement.classList.add('screenshot-full')
       document.body.classList.add('screenshot-full')
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+      await new Promise((r) => setTimeout(r, 50))
       const app = document.getElementById('app')
       const width = Math.ceil(
         Math.max(document.documentElement.scrollWidth, app?.scrollWidth ?? 0, 1400)

@@ -86,6 +86,7 @@ import {
   filterHideMailboxNoiseEl,
   filterPanelEl,
   filterRangeEl,
+  filterSearchEl,
   simulationModeEl,
   filterToEl,
   filterCustomWrap,
@@ -96,6 +97,8 @@ import {
   newSendingSourcesBannerEl,
   reportsBody,
   scannerNoiseHostsEl,
+  sectionJumpBarEl,
+  summaryEl,
   tableFrom,
   tableIps,
   tableOrgs
@@ -135,6 +138,7 @@ export { openDiagnosis, openDomainSettingsScreenshotDemo }
 
 const NEW_SENDING_SOURCES_WIDGET_ID = 'newSendingSources'
 const collapsedWidgetIds = readCollapsedWidgetIds(window.localStorage)
+const userToggledWidgets = new Set<string>()
 
 function isWidgetCollapsed(widgetId: string): boolean {
   return collapsedWidgetIds.has(widgetId)
@@ -144,6 +148,50 @@ function setWidgetCollapsed(widgetId: string, collapsed: boolean): void {
   if (collapsed) collapsedWidgetIds.add(widgetId)
   else collapsedWidgetIds.delete(widgetId)
   writeCollapsedWidgetIds(window.localStorage, collapsedWidgetIds)
+}
+
+function syncWidgetCollapsedDom(widgetId: string): void {
+  const widget = document.querySelector<HTMLElement>(`.dashboard-widget[data-widget="${widgetId}"]`)
+  if (!widget) return
+  const collapsed = isWidgetCollapsed(widgetId)
+  widget.classList.toggle('is-collapsed', collapsed)
+  const button = widget.querySelector<HTMLButtonElement>(`[data-widget-collapse-id="${widgetId}"]`)
+  if (button) updateWidgetToggle(button, collapsed)
+  const title = widget.querySelector<HTMLHeadingElement>(':scope > .widget-heading h2')
+  title?.setAttribute('aria-expanded', String(!collapsed))
+}
+
+/** Expand a dashboard widget if collapsed and scroll it smoothly into view. */
+export function jumpToWidget(widgetId: string, subSelector?: string): void {
+  const widget = document.querySelector<HTMLElement>(`.dashboard-widget[data-widget="${widgetId}"]`)
+  if (!widget) return
+  if (isWidgetCollapsed(widgetId)) {
+    userToggledWidgets.add(widgetId)
+    setWidgetCollapsed(widgetId, false)
+    syncWidgetCollapsedDom(widgetId)
+    refreshExpandedWidgetLayout(widgetId)
+  }
+  const target = (subSelector ? widget.querySelector<HTMLElement>(subSelector) : null) ?? widget
+  requestAnimationFrame(() => {
+    const top = target.getBoundingClientRect().top + window.scrollY - 84
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+  })
+}
+
+function autoSyncEmptyAuxiliaryWidgets(result: AnalyzeResult | null): void {
+  if (!result) return
+  const aux: Array<{ id: string; count: number }> = [
+    { id: 'forensic', count: result.forensicReports?.length ?? 0 },
+    { id: 'tlsrpt', count: result.tlsRptReports?.length ?? 0 }
+  ]
+  for (const { id, count } of aux) {
+    if (userToggledWidgets.has(id)) continue
+    const shouldCollapse = count === 0
+    if (isWidgetCollapsed(id) !== shouldCollapse) {
+      setWidgetCollapsed(id, shouldCollapse)
+      syncWidgetCollapsedDom(id)
+    }
+  }
 }
 
 function updateWidgetToggle(button: HTMLButtonElement, collapsed: boolean): void {
@@ -206,6 +254,7 @@ function initCollapsibleWidgets(): void {
       title.setAttribute('aria-expanded', String(!collapsed))
     }
     const toggleWidget = (): void => {
+      userToggledWidgets.add(widgetId)
       const collapsed = !isWidgetCollapsed(widgetId)
       setWidgetCollapsed(widgetId, collapsed)
       applyState()
@@ -221,6 +270,67 @@ function initCollapsibleWidgets(): void {
   }
 }
 
+function computePreviousPeriodDelta(current: AnalyzeResult | null): {
+  passRateDiff: number | null
+  failingDiff: number | null
+} {
+  const preset = filterRangeEl.value
+  const days = preset === '7' ? 7 : preset === '30' ? 30 : preset === '90' ? 90 : 0
+  if (!current || !state.fullResult || days <= 0 || current.aggregate.total === 0) {
+    return { passRateDiff: null, failingDiff: null }
+  }
+  const now = new Date()
+  const fmt = (d: Date): string => d.toISOString().slice(0, 10)
+  const prevEnd = new Date(now.getTime() - days * 86_400_000)
+  const prevStart = new Date(now.getTime() - 2 * days * 86_400_000)
+
+  const simulated = simulationInput(state.fullResult)
+  const hideMailboxNoise = filterHideMailboxNoiseEl.checked
+  const scannerNoiseIps = collectScannerNoiseIps()
+  const prevResult = applyDashboardFilter(simulated.result, {
+    range: 'custom',
+    from: fmt(prevStart),
+    to: fmt(prevEnd),
+    domain: filterDomainEl.value,
+    disposition: normalizeDispositionFilter(filterDispositionEl.value),
+    org: state.drill.org,
+    sourceIp: state.drill.sourceIp,
+    headerFrom: state.drill.headerFrom,
+    hideMailboxNoise,
+    mailboxIps: hideMailboxNoise ? collectMailboxIps() : undefined,
+    mailboxNoiseProviders: enabledMailboxNoiseProviders(),
+    scannerNoiseIps: scannerNoiseIps.size ? scannerNoiseIps : undefined
+  })
+
+  if (prevResult.aggregate.total === 0) {
+    return { passRateDiff: null, failingDiff: null }
+  }
+  const passRateDiff =
+    Math.round((current.aggregate.passRate - prevResult.aggregate.passRate) * 10) / 10
+  const failingDiff = current.aggregate.failing - prevResult.aggregate.failing
+  return { passRateDiff, failingDiff }
+}
+
+function renderDeltaBadge(
+  key: 'passRate' | 'failing',
+  diff: number | null,
+  invertGood = false
+): void {
+  const el = document.querySelector<HTMLElement>(`[data-delta="${key}"]`)
+  if (!el) return
+  if (diff == null || diff === 0) {
+    el.classList.add('hidden')
+    el.textContent = ''
+    return
+  }
+  const sign = diff > 0 ? '+' : ''
+  const formatted = key === 'passRate' ? `${sign}${diff.toFixed(1)}%` : `${sign}${diff}`
+  const isGood = invertGood ? diff < 0 : diff > 0
+  el.textContent = formatted
+  el.className = `stat-delta ${isGood ? 'ok' : 'bad'}`
+  el.title = t('kpi.deltaVsPrev', { delta: formatted })
+}
+
 function updateSummary(result: AnalyzeResult | null): void {
   const map: Record<string, string> = {
     reportCount: result ? String(result.aggregate.reportCount) : '—',
@@ -234,6 +344,9 @@ function updateSummary(result: AnalyzeResult | null): void {
     const el = document.querySelector<HTMLElement>(`[data-key="${key}"]`)
     if (el) el.textContent = value
   }
+  const { passRateDiff, failingDiff } = computePreviousPeriodDelta(result)
+  renderDeltaBadge('passRate', passRateDiff, false)
+  renderDeltaBadge('failing', failingDiff, true)
 }
 
 function bindIpDetailButtons(root: ParentNode): void {
@@ -335,14 +448,78 @@ function compareBucket(
   return ipAware ? compareIp(a.name, b.name) : compareText(a.name, b.name)
 }
 
-function sendingDomainsForIp(ip: string): string[] {
-  const domains = new Set<string>()
+let cachedDomainsResult: AnalyzeResult | null = null
+let cachedDomainsByIp = new Map<string, string[]>()
+const ipSearchTextCache = new Map<string, string>()
+const reportSearchCache = new WeakMap<ReportRow, { text: string; ips: string[] }>()
+
+function ensureDomainsByIpCache(): Map<string, string[]> {
+  if (cachedDomainsResult === state.fullResult) return cachedDomainsByIp
+  cachedDomainsResult = state.fullResult
+  cachedDomainsByIp = new Map()
+  ipSearchTextCache.clear()
+  const sets = new Map<string, Set<string>>()
   for (const report of state.fullResult?.reports ?? []) {
     for (const record of report.records) {
-      if (record.sourceIp === ip) domains.add(record.headerFrom || report.domain)
+      if (!record.sourceIp) continue
+      const dom = record.headerFrom || report.domain
+      if (!dom) continue
+      let set = sets.get(record.sourceIp)
+      if (!set) {
+        set = new Set()
+        sets.set(record.sourceIp, set)
+      }
+      set.add(dom)
     }
   }
-  return [...domains]
+  for (const [ip, set] of sets) {
+    cachedDomainsByIp.set(ip, [...set])
+  }
+  return cachedDomainsByIp
+}
+
+function sendingDomainsForIp(ip: string): string[] {
+  return ensureDomainsByIpCache().get(ip) ?? []
+}
+
+function activeSearchTokens(): string[] {
+  const q = state.searchQuery.trim().toLowerCase()
+  if (!q) return []
+  return q.split(/\s+/).filter(Boolean)
+}
+
+function ipSearchString(ip: string): string {
+  ensureDomainsByIpCache()
+  const cached = ipSearchTextCache.get(ip)
+  if (cached !== undefined) return cached
+  const info = state.ipLabelCache.get(ip)
+  const str = [
+    ip,
+    ...sendingDomainsForIp(ip),
+    info?.ptr ?? '',
+    info?.provider ?? '',
+    info?.asOrg ?? '',
+    info?.cloudProvider ?? '',
+    info?.country ?? '',
+    info?.countryCode ?? '',
+    info?.city ?? '',
+    info?.asn != null ? `as${info.asn}` : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  ipSearchTextCache.set(ip, str)
+  return str
+}
+
+function filterBucketRows(rows: NamedBucket[], withIpMeta = false): NamedBucket[] {
+  const tokens = activeSearchTokens()
+  if (tokens.length === 0) return rows
+  return rows.filter((r) => {
+    const base = `${r.name} ${r.provider ?? ''} ${r.label ?? ''}`.toLowerCase()
+    const hay = withIpMeta ? `${base} ${ipSearchString(r.name)}` : base
+    return tokens.every((token) => hay.includes(token))
+  })
 }
 
 function renderBucketTable(
@@ -355,15 +532,16 @@ function renderBucketTable(
   } = {}
 ): void {
   const cols = options.withIpMeta ? 4 : 3
-  if (!rows.length) {
+  const filteredRows = filterBucketRows(rows, Boolean(options.withIpMeta))
+  if (!filteredRows.length) {
     tbody.innerHTML = `<tr class="empty"><td colspan="${cols}">${escapeHtml(t('table.noData'))}</td></tr>`
     return
   }
   const sorted = options.sort
-    ? sortRows(rows, options.sort, (a, b, key) =>
+    ? sortRows(filteredRows, options.sort, (a, b, key) =>
         compareBucket(a, b, key, Boolean(options.withIpMeta))
       )
-    : rows
+    : filteredRows
   // Only the primary row is focusable; the meta row stays clickable but out of the tab order.
   const clickAttrs = options.onRowClick
     ? ` tabindex="0" title="${escapeHtml(t('filter.clickToFilter'))}"`
@@ -542,7 +720,21 @@ function renderProblemSources(rows: ProblemSourceRow[]): void {
   const visibleRows = rows.filter(
     (row) => !ignored.has(problemSourceIgnoreKey(row.sourceIp, row.headerFrom))
   )
-  const grouped = groupProblemSources(visibleRows, (ip) => state.ipLabelCache.get(ip)).slice(0, 40)
+  const tokens = activeSearchTokens()
+  const groupedAll = groupProblemSources(visibleRows, (ip) => state.ipLabelCache.get(ip))
+  const grouped = (
+    tokens.length === 0
+      ? groupedAll
+      : groupedAll.filter((r) => {
+          const allIps = [r.sourceIp, ...(r.extraIps ?? [])]
+          const base = `${r.headerFrom ?? ''} ${problemCategoryLabel(r)}`.toLowerCase()
+          return tokens.every(
+            (token) =>
+              base.includes(token) || allIps.some((ip) => ipSearchString(ip).includes(token))
+          )
+        })
+  ).slice(0, 40)
+  setJumpBadgeCount('problemSources', grouped.length, grouped.length > 0)
   if (!grouped.length) {
     tableProblemSources.innerHTML = `<tr class="empty"><td colspan="7">${escapeHtml(t('problems.empty'))}</td></tr>`
     return
@@ -605,7 +797,7 @@ function renderProblemSources(rows: ProblemSourceRow[]): void {
 }
 
 function renderFilterChips(): void {
-  const chips: Array<{ key: keyof DrillFilters; label: string; value: string }> = []
+  const chips: Array<{ key: keyof DrillFilters | 'search'; label: string; value: string }> = []
   if (state.drill.org) chips.push({ key: 'org', label: t('table.org'), value: state.drill.org })
   if (state.drill.sourceIp)
     chips.push({
@@ -615,6 +807,12 @@ function renderFilterChips(): void {
     })
   if (state.drill.headerFrom)
     chips.push({ key: 'headerFrom', label: t('detail.from'), value: state.drill.headerFrom })
+  if (state.searchQuery.trim())
+    chips.push({
+      key: 'search',
+      label: t('filter.searchChip'),
+      value: state.searchQuery.trim()
+    })
 
   filterChipsEl.classList.toggle('hidden', chips.length === 0)
   filterChipsEl.innerHTML = chips
@@ -630,8 +828,13 @@ function renderFilterChips(): void {
 
   for (const btn of filterChipsEl.querySelectorAll<HTMLButtonElement>('.chip-remove')) {
     btn.addEventListener('click', () => {
-      const key = btn.dataset.chip as keyof DrillFilters
-      delete state.drill[key]
+      const key = btn.dataset.chip as keyof DrillFilters | 'search'
+      if (key === 'search') {
+        state.searchQuery = ''
+        if (filterSearchEl) filterSearchEl.value = ''
+      } else {
+        delete state.drill[key]
+      }
       applyView()
     })
   }
@@ -661,6 +864,7 @@ function hasActiveFilters(): boolean {
     filterDispositionEl.value !== 'all' ||
     simulationModeEl.value !== 'off' ||
     filterHideMailboxNoiseEl.checked ||
+    Boolean(state.searchQuery.trim()) ||
     Boolean(state.drill.org || state.drill.sourceIp || state.drill.headerFrom)
   )
 }
@@ -678,6 +882,8 @@ export function resetFilters(): void {
   filterDispositionEl.value = 'all'
   simulationModeEl.value = 'off'
   filterHideMailboxNoiseEl.checked = false
+  state.searchQuery = ''
+  if (filterSearchEl) filterSearchEl.value = ''
   rangeBeforeDayFilter = null
   clearDrill()
   syncCustomRangeVisibility()
@@ -1055,6 +1261,7 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
     let foundScannerNoise = false
     for (const info of infos) {
       state.ipLabelCache.set(info.ip, info)
+      ipSearchTextCache.delete(info.ip)
       if (isMailboxIpInfo(info, mailboxProviders)) foundMailbox = true
       if (isScannerNoiseIpInfo(info, matchers)) foundScannerNoise = true
     }
@@ -1083,6 +1290,25 @@ async function enrichIpLabels(ips: string[]): Promise<void> {
   } catch {
     // Enrichment ist optional.
   }
+}
+
+function setJumpBadgeCount(widgetId: string, count: number, highlightWarn = false): void {
+  const badge = sectionJumpBarEl?.querySelector<HTMLElement>(`[data-jump-count="${widgetId}"]`)
+  const pill = sectionJumpBarEl?.querySelector<HTMLElement>(`[data-jump-widget="${widgetId}"]`)
+  if (badge) {
+    badge.textContent = count > 0 ? String(count) : ''
+    badge.classList.toggle('hidden', count <= 0)
+  }
+  pill?.classList.toggle('has-alert', highlightWarn && count > 0)
+}
+
+function updateJumpBarBadges(result: AnalyzeResult | null): void {
+  const domainCount = state.domainHealthCache.length || (result?.aggregate.domains.length ?? 0)
+  setJumpBadgeCount('health', domainCount)
+  setJumpBadgeCount('tables', filterBucketRows(result?.dashboard.bySourceIp ?? [], true).length)
+  setJumpBadgeCount('reports', filterReportRows(result?.reports ?? []).length)
+  setJumpBadgeCount('forensic', filterForensicRows(result?.forensicReports ?? []).length)
+  setJumpBadgeCount('tlsrpt', result?.tlsRptReports?.length ?? 0)
 }
 
 export function renderDetail(report: ReportRow | null): void {
@@ -1205,8 +1431,30 @@ function forensicRowElement(r: ForensicReportRow): HTMLTableRowElement {
 
 let forensicTable: WindowedTable<ForensicReportRow> | null = null
 
+function filterForensicRows(rows: ForensicReportRow[]): ForensicReportRow[] {
+  const tokens = activeSearchTokens()
+  if (tokens.length === 0) return rows
+  return rows.filter((r) => {
+    const base = [
+      r.reportedDomain,
+      r.sourceIp,
+      r.orgName,
+      r.headerFrom,
+      r.envelopeFrom,
+      r.authFailure,
+      r.subject,
+      r.feedbackType
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    const hay = r.sourceIp ? `${base} ${ipSearchString(r.sourceIp)}` : base
+    return tokens.every((token) => hay.includes(token))
+  })
+}
+
 function renderForensic(result: AnalyzeResult | null): void {
-  const rows = result?.forensicReports ?? []
+  const rows = filterForensicRows(result?.forensicReports ?? [])
   forensicTable?.setRows(rows.length ? sortRows(rows, sortForensic, compareForensic) : [])
 }
 
@@ -1307,8 +1555,41 @@ function reportRowElement(report: ReportRow): HTMLTableRowElement {
 
 let reportsTable: WindowedTable<ReportRow> | null = null
 
+function getReportSearchEntry(r: ReportRow): { text: string; ips: string[] } {
+  const cached = reportSearchCache.get(r)
+  if (cached) return cached
+  const parts = new Set<string>()
+  const ips = new Set<string>()
+  if (r.reportId) parts.add(r.reportId.toLowerCase())
+  if (r.orgName) parts.add(r.orgName.toLowerCase())
+  if (r.domain) parts.add(r.domain.toLowerCase())
+  if (r.policyP) parts.add(r.policyP.toLowerCase())
+  for (const rec of r.records) {
+    if (rec.sourceIp) ips.add(rec.sourceIp)
+    if (rec.headerFrom) parts.add(rec.headerFrom.toLowerCase())
+    if (rec.dkimDomain) parts.add(rec.dkimDomain.toLowerCase())
+    if (rec.spfDomain) parts.add(rec.spfDomain.toLowerCase())
+  }
+  const entry = { text: [...parts].join(' '), ips: [...ips] }
+  reportSearchCache.set(r, entry)
+  return entry
+}
+
+function filterReportRows(rows: ReportRow[]): ReportRow[] {
+  const tokens = activeSearchTokens()
+  if (tokens.length === 0) return rows
+  return rows.filter((r) => {
+    const entry = getReportSearchEntry(r)
+    return tokens.every(
+      (token) =>
+        entry.text.includes(token) || entry.ips.some((ip) => ipSearchString(ip).includes(token))
+    )
+  })
+}
+
 export function renderReports(result: AnalyzeResult | null): void {
-  const rows = result ? sortRows(result.reports, sortReports, compareReport) : []
+  const filtered = result ? filterReportRows(result.reports) : []
+  const rows = filtered.length ? sortRows(filtered, sortReports, compareReport) : []
   if (rows.length === 0) {
     state.selectedReportId = null
     reportsTable?.setRows([])
@@ -2058,6 +2339,7 @@ export function applyView(): void {
     renderForensic(null)
     renderTlsRpt(null)
     renderNewSendingSourcesBanner(null)
+    updateJumpBarBadges(null)
     btnExport.disabled = true
     return
   }
@@ -2081,11 +2363,13 @@ export function applyView(): void {
     mailboxNoiseProviders,
     scannerNoiseIps: scannerNoiseIps.size ? scannerNoiseIps : undefined
   })
+  autoSyncEmptyAuxiliaryWidgets(state.viewResult)
   updateSummary(state.viewResult)
   renderDashboard(state.viewResult)
   renderReports(state.viewResult)
   renderForensic(state.viewResult)
   renderTlsRpt(state.viewResult)
+  updateJumpBarBadges(state.viewResult)
   btnExport.disabled =
     state.viewResult.reports.length === 0 && (state.viewResult.forensicReports?.length ?? 0) === 0
 }
@@ -2327,6 +2611,114 @@ export function initView(): void {
     applyView()
     void persistHideMailboxNoise()
   })
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  const applySearchOnly = (): void => {
+    renderFilterChips()
+    syncFilterResetButton()
+    const res = state.viewResult
+    const d = res?.dashboard
+    renderBucketTable(tableOrgs, d?.byOrg ?? [], {
+      sort: sortOrgs,
+      onRowClick: (name) => setDrillFilter('org', name)
+    })
+    renderIpTable(d?.bySourceIp ?? [])
+    renderBucketTable(tableFrom, d?.byHeaderFrom ?? [], {
+      sort: sortFrom,
+      onRowClick: (name) => setDrillFilter('headerFrom', name)
+    })
+    renderProblemSources(d?.problemSources ?? [])
+    renderReports(res)
+    renderForensic(res)
+    updateJumpBarBadges(res)
+  }
+
+  filterSearchEl?.addEventListener('input', () => {
+    state.searchQuery = filterSearchEl.value
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = setTimeout(() => {
+      searchDebounceTimer = null
+      applySearchOnly()
+    }, 80)
+  })
+  filterSearchEl?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && filterSearchEl.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer)
+        searchDebounceTimer = null
+      }
+      filterSearchEl.value = ''
+      state.searchQuery = ''
+      applySearchOnly()
+    }
+  })
+  document.addEventListener('keydown', (event) => {
+    if (!filterSearchEl) return
+    if (document.querySelector('dialog[open]')) return
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+      event.preventDefault()
+      filterSearchEl.focus()
+      filterSearchEl.select()
+      return
+    }
+    if (
+      event.key === '/' &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !(
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement
+      )
+    ) {
+      event.preventDefault()
+      filterSearchEl.focus()
+      filterSearchEl.select()
+    }
+  })
+  sectionJumpBarEl?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null
+    const btn = target?.closest<HTMLButtonElement>('[data-jump-widget]')
+    if (!btn?.dataset.jumpWidget) return
+    jumpToWidget(btn.dataset.jumpWidget)
+  })
+  const handleKpiAction = (action: string | undefined): void => {
+    switch (action) {
+      case 'reports':
+        jumpToWidget('reports')
+        break
+      case 'messages':
+        jumpToWidget('charts', '.volume-card')
+        break
+      case 'pass':
+        jumpToWidget('tables')
+        break
+      case 'fail':
+        jumpToWidget('problemSources')
+        break
+      case 'passRate':
+        jumpToWidget('charts')
+        break
+      case 'range':
+        filterRangeEl.focus()
+        break
+    }
+  }
+  summaryEl?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null
+    const card = target?.closest<HTMLElement>('[data-kpi-action]')
+    if (card) handleKpiAction(card.dataset.kpiAction)
+  })
+  summaryEl?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    const target = event.target instanceof Element ? event.target : null
+    const card = target?.closest<HTMLElement>('[data-kpi-action]')
+    if (!card) return
+    event.preventDefault()
+    handleKpiAction(card.dataset.kpiAction)
+  })
   btnFilterReset.addEventListener('click', () => resetFilters())
   btnResetIgnoredProblemSources?.addEventListener('click', () => {
     writeIgnoredProblemSourceKeys(
@@ -2389,14 +2781,7 @@ function ipFromContextRow(target: EventTarget | null): string | null {
 
 /** Distinct header-From domains seen for this IP across the loaded reports. */
 function domainsForIp(ip: string): string[] {
-  const domains = new Set<string>()
-  for (const report of state.fullResult?.reports ?? []) {
-    for (const rec of report.records) {
-      if (rec.sourceIp !== ip) continue
-      domains.add(rec.headerFrom || report.domain)
-    }
-  }
-  return [...domains].filter(Boolean).sort()
+  return [...sendingDomainsForIp(ip)].filter(Boolean).sort()
 }
 
 /** Opens domain settings with a sender-service draft from a known IP's context menu. */

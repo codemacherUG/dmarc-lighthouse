@@ -60,21 +60,28 @@ function report(input: {
   }
 }
 
+function daysAgoIso(days: number, timeSuffix = 'T00:00:00.000Z'): string {
+  const now = new Date()
+  const base = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const target = new Date(base - days * 86_400_000)
+  return `${target.toISOString().slice(0, 10)}${timeSuffix}`
+}
+
 /** Anonymized sample data for README screenshots (RFC 5737 / 3849 docs ranges). */
 export function buildDemoReports(): ReportRow[] {
   return [
     report({
       id: 'demo-g-001',
       org: 'google.com',
-      begin: '2026-07-27T00:00:00.000Z',
-      end: '2026-07-28T00:00:00.000Z',
+      begin: daysAgoIso(2),
+      end: daysAgoIso(1),
       records: [rec({ sourceIp: '2001:db8:1::10', count: 12, passesDmarc: true })]
     }),
     report({
       id: 'demo-g-002',
       org: 'google.com',
-      begin: '2026-07-26T00:00:00.000Z',
-      end: '2026-07-27T00:00:00.000Z',
+      begin: daysAgoIso(3),
+      end: daysAgoIso(2),
       records: [
         rec({ sourceIp: '192.0.2.10', count: 8, passesDmarc: true }),
         rec({ sourceIp: '198.51.100.20', count: 2, passesDmarc: false, disposition: 'quarantine' })
@@ -83,8 +90,8 @@ export function buildDemoReports(): ReportRow[] {
     report({
       id: 'demo-ms-001',
       org: 'Enterprise Outlook',
-      begin: '2026-07-25T00:00:00.000Z',
-      end: '2026-07-26T00:00:00.000Z',
+      begin: daysAgoIso(4),
+      end: daysAgoIso(3),
       records: [
         rec({
           sourceIp: '192.0.2.40',
@@ -98,8 +105,8 @@ export function buildDemoReports(): ReportRow[] {
     report({
       id: 'demo-ms-002',
       org: 'Enterprise Outlook',
-      begin: '2026-07-20T00:00:00.000Z',
-      end: '2026-07-21T00:00:00.000Z',
+      begin: daysAgoIso(9),
+      end: daysAgoIso(8),
       records: [
         rec({ sourceIp: '192.0.2.41', count: 30, passesDmarc: true }),
         rec({ sourceIp: '203.0.113.15', count: 3, passesDmarc: false, disposition: 'reject' })
@@ -108,15 +115,15 @@ export function buildDemoReports(): ReportRow[] {
     report({
       id: 'demo-yahoo-001',
       org: 'Yahoo',
-      begin: '2026-07-18T00:00:00.000Z',
-      end: '2026-07-19T00:00:00.000Z',
+      begin: daysAgoIso(11),
+      end: daysAgoIso(10),
       records: [rec({ sourceIp: '198.51.100.55', count: 9, passesDmarc: true })]
     }),
     report({
       id: 'demo-gmx-001',
       org: 'GMX',
-      begin: '2026-07-15T00:00:00.000Z',
-      end: '2026-07-16T00:00:00.000Z',
+      begin: daysAgoIso(14),
+      end: daysAgoIso(13),
       records: [
         rec({ sourceIp: '192.0.2.80', count: 6, passesDmarc: true }),
         rec({
@@ -131,22 +138,22 @@ export function buildDemoReports(): ReportRow[] {
     report({
       id: 'demo-g-003',
       org: 'google.com',
-      begin: '2026-07-10T00:00:00.000Z',
-      end: '2026-07-11T00:00:00.000Z',
+      begin: daysAgoIso(19),
+      end: daysAgoIso(18),
       records: [rec({ sourceIp: '2001:db8:2::22', count: 15, passesDmarc: true })]
     }),
     report({
       id: 'demo-ms-003',
       org: 'Enterprise Outlook',
-      begin: '2026-07-05T00:00:00.000Z',
-      end: '2026-07-06T00:00:00.000Z',
+      begin: daysAgoIso(24),
+      end: daysAgoIso(23),
       records: [rec({ sourceIp: '192.0.2.40', count: 22, passesDmarc: true })]
     }),
     report({
       id: 'demo-g-004',
       org: 'google.com',
-      begin: '2026-06-28T00:00:00.000Z',
-      end: '2026-06-29T00:00:00.000Z',
+      begin: daysAgoIso(31),
+      end: daysAgoIso(30),
       records: [
         rec({ sourceIp: '192.0.2.10', count: 11, passesDmarc: true }),
         rec({
@@ -160,22 +167,22 @@ export function buildDemoReports(): ReportRow[] {
     report({
       id: 'demo-yahoo-002',
       org: 'Yahoo',
-      begin: '2026-06-20T00:00:00.000Z',
-      end: '2026-06-21T00:00:00.000Z',
+      begin: daysAgoIso(39),
+      end: daysAgoIso(38),
       records: [rec({ sourceIp: '198.51.100.55', count: 7, passesDmarc: true })]
     }),
     report({
       id: 'demo-gmx-002',
       org: 'GMX',
-      begin: '2026-06-12T00:00:00.000Z',
-      end: '2026-06-13T00:00:00.000Z',
+      begin: daysAgoIso(47),
+      end: daysAgoIso(46),
       records: [rec({ sourceIp: '192.0.2.80', count: 5, passesDmarc: true })]
     }),
     report({
       id: 'demo-ms-004',
       org: 'Enterprise Outlook',
-      begin: '2026-06-01T00:00:00.000Z',
-      end: '2026-06-02T00:00:00.000Z',
+      begin: daysAgoIso(58),
+      end: daysAgoIso(57),
       records: [
         rec({ sourceIp: '192.0.2.40', count: 18, passesDmarc: true }),
         rec({
@@ -197,7 +204,7 @@ export function buildDemoForensic(): ForensicReportRow[] {
       reportId: 'arf-001',
       orgName: 'google.com',
       reportedDomain: 'example.com',
-      arrivalDate: '2026-07-28T09:15:00.000Z',
+      arrivalDate: daysAgoIso(1, 'T09:15:00.000Z'),
       sourceIp: '203.0.113.50',
       authFailure: 'dmarc',
       deliveryResult: 'delivered',
@@ -213,7 +220,7 @@ export function buildDemoForensic(): ForensicReportRow[] {
       reportId: 'arf-002',
       orgName: 'Enterprise Outlook',
       reportedDomain: 'example.com',
-      arrivalDate: '2026-07-22T14:40:00.000Z',
+      arrivalDate: daysAgoIso(7, 'T14:40:00.000Z'),
       sourceIp: '198.51.100.90',
       authFailure: 'spf',
       deliveryResult: 'spam',
@@ -229,7 +236,7 @@ export function buildDemoForensic(): ForensicReportRow[] {
       reportId: 'arf-003',
       orgName: 'Yahoo',
       reportedDomain: 'example.com',
-      arrivalDate: '2026-07-12T07:05:00.000Z',
+      arrivalDate: daysAgoIso(17, 'T07:05:00.000Z'),
       sourceIp: '192.0.2.200',
       authFailure: 'dkim',
       deliveryResult: 'reject',
@@ -251,10 +258,10 @@ export function buildDemoAnalyzeResult(): AnalyzeResult {
     tlsRptReports: [
       {
         id: 'demo-tlsrpt-1',
-        reportId: 'demo-report-2026-09-30',
+        reportId: 'demo-report-tlsrpt-1',
         orgName: 'mx.demo-provider.example',
-        dateBegin: '2026-09-29T00:00:00.000Z',
-        dateEnd: '2026-09-30T00:00:00.000Z',
+        dateBegin: daysAgoIso(3),
+        dateEnd: daysAgoIso(2),
         successfulSessions: 1210,
         failedSessions: 3,
         policies: [

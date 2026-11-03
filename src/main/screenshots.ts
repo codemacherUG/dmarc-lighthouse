@@ -261,6 +261,7 @@ async function captureLocaleSet(
 
 /** Capture anonymized README screenshots, then quit. */
 export async function runScreenshotCapture(win: BrowserWindow): Promise<void> {
+  win.webContents.setBackgroundThrottling(false)
   await ready(win)
   // Let the normal settings/cache bootstrap finish, then overwrite with demo data.
   await wait(800)

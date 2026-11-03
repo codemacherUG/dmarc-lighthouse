@@ -1,6 +1,12 @@
 import type { CloudPrefix } from '../../shared/ipcidr'
 import type { RolloutSimulationMode } from '../../shared/rollout'
-import type { AnalyzeResult, DomainHealth, IpInfo, SendingService, SettingsPublic } from '../../shared/types'
+import type {
+  AnalyzeResult,
+  DomainHealth,
+  IpInfo,
+  SendingService,
+  SettingsPublic
+} from '../../shared/types'
 
 export type DrillFilters = { org?: string; sourceIp?: string; headerFrom?: string }
 
@@ -15,6 +21,8 @@ export const state = {
   viewResult: null as AnalyzeResult | null,
   /** Drill-down filters set by clicking rows in the aggregate tables. */
   drill: {} as DrillFilters,
+  /** Free-text search query filtering dashboard tables and reports. */
+  searchQuery: '' as string,
   ipLabelCache: new Map<string, IpInfo>(),
   sendingServices: [] as SendingService[],
   selectedDetailIp: null as string | null,

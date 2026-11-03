@@ -415,6 +415,17 @@
                 </option>
               </select>
             </label>
+            <label class="filter-search-field">
+              <span data-i18n="filter.search">Suche</span>
+              <input
+                id="filter-search"
+                type="search"
+                data-i18n-placeholder="filter.searchPlaceholder"
+                placeholder="IP, PTR, Org, Domain, Report-ID… (Ctrl+F)"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
             <div class="filter-mailbox-noise-wrap">
               <label class="checkbox filter-mailbox-noise">
                 <input
@@ -444,6 +455,46 @@
               </span>
             </div>
           </div>
+          <nav
+            id="section-jump-bar"
+            class="section-jump-bar"
+            data-i18n-aria="jump.navLabel"
+            aria-label="Schnellnavigation"
+          >
+            <button type="button" class="jump-pill" data-jump-widget="summary">
+              <span data-i18n="jump.summary">Übersicht</span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="health">
+              <span data-i18n="jump.health">Ampel</span>
+              <span class="jump-badge hidden" data-jump-count="health"></span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="problemSources">
+              <span data-i18n="jump.problems">Probleme</span>
+              <span class="jump-badge hidden" data-jump-count="problemSources"></span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="charts">
+              <span data-i18n="jump.charts">Charts</span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="tables">
+              <span data-i18n="jump.tables">Quellen</span>
+              <span class="jump-badge hidden" data-jump-count="tables"></span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="reports">
+              <span data-i18n="jump.reports">Reports</span>
+              <span class="jump-badge hidden" data-jump-count="reports"></span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="forensic">
+              <span data-i18n="jump.forensic">Forensik</span>
+              <span class="jump-badge hidden" data-jump-count="forensic"></span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="tlsrpt">
+              <span data-i18n="jump.tlsrpt">TLS-RPT</span>
+              <span class="jump-badge hidden" data-jump-count="tlsrpt"></span>
+            </button>
+            <button type="button" class="jump-pill" data-jump-widget="ipMap">
+              <span data-i18n="jump.map">Karte</span>
+            </button>
+          </nav>
           <div id="filter-chips" class="filter-chips hidden"></div>
         </section>
       </div>
@@ -473,27 +524,75 @@
           </span>
         </div>
         <div id="summary" class="summary-grid">
-          <div class="stat">
+          <div
+            class="stat stat-interactive"
+            role="button"
+            tabindex="0"
+            data-kpi-action="reports"
+            data-i18n-title="kpi.reportsHint"
+            title="Zu den einzelnen Reports springen"
+          >
             <span class="stat-label" data-i18n="kpi.reports">Reports</span>
             <span class="stat-value" data-key="reportCount">—</span>
           </div>
-          <div class="stat">
+          <div
+            class="stat stat-interactive"
+            role="button"
+            tabindex="0"
+            data-kpi-action="messages"
+            data-i18n-title="kpi.messagesHint"
+            title="Zum Volumen-Verlauf springen"
+          >
             <span class="stat-label" data-i18n="kpi.messages">Nachrichten</span>
             <span class="stat-value" data-key="total">—</span>
           </div>
-          <div class="stat">
+          <div
+            class="stat stat-interactive"
+            role="button"
+            tabindex="0"
+            data-kpi-action="pass"
+            data-i18n-title="kpi.passHint"
+            title="Zu den Aufschlüsselungen springen"
+          >
             <span class="stat-label" data-i18n="kpi.pass">Pass</span>
             <span class="stat-value ok" data-key="passing">—</span>
           </div>
-          <div class="stat">
+          <div
+            class="stat stat-interactive"
+            role="button"
+            tabindex="0"
+            data-kpi-action="fail"
+            data-i18n-title="kpi.failHint"
+            title="Zu den Problemquellen springen"
+          >
             <span class="stat-label" data-i18n="kpi.fail">Fail</span>
-            <span class="stat-value bad" data-key="failing">—</span>
+            <div class="stat-value-row">
+              <span class="stat-value bad" data-key="failing">—</span>
+              <span class="stat-delta hidden" data-delta="failing"></span>
+            </div>
           </div>
-          <div class="stat">
+          <div
+            class="stat stat-interactive"
+            role="button"
+            tabindex="0"
+            data-kpi-action="passRate"
+            data-i18n-title="kpi.passRateHint"
+            title="Zu den Alignment-Diagrammen springen"
+          >
             <span class="stat-label" data-i18n="kpi.passRate">Pass-Rate</span>
-            <span class="stat-value" data-key="passRate">—</span>
+            <div class="stat-value-row">
+              <span class="stat-value" data-key="passRate">—</span>
+              <span class="stat-delta hidden" data-delta="passRate"></span>
+            </div>
           </div>
-          <div class="stat">
+          <div
+            class="stat stat-interactive"
+            role="button"
+            tabindex="0"
+            data-kpi-action="range"
+            data-i18n-title="kpi.rangeHint"
+            title="Zeitraum-Filter wählen"
+          >
             <span class="stat-label" data-i18n="kpi.range">Zeitraum</span>
             <span class="stat-value small" data-key="range">—</span>
           </div>
