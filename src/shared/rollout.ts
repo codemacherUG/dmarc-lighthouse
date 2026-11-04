@@ -10,6 +10,7 @@ import {
   type DmarcBuilderInput,
   type DmarcPolicy
 } from './dmarc-builder'
+import { validateSpfRecordSyntax } from './spf-builder'
 import type {
   DnsCheckResult,
   FailCategory,
@@ -174,6 +175,12 @@ export function readCurrentPolicy(dns: DnsCheckResult | null | undefined): Rollo
   const parsed = record ? parseDmarcRecord(record) : {}
   const selectors = dns?.dkim.selectors ?? []
   const pct = normalizePct(parsed.pct ?? 100)
+  const spfInvalid =
+    Boolean(dns?.spf.found) &&
+    (Boolean(dns?.spf.multipleRecords) ||
+      (dns?.spf.records.length ?? 0) > 1 ||
+      (dns?.spf.syntaxErrors ?? dns?.spf.records.flatMap((r) => validateSpfRecordSyntax(r)) ?? [])
+        .length > 0)
   return {
     found: Boolean(dns?.dmarc.found),
     policy: dns?.dmarc.found ? (parsed.policy ?? 'none') : null,
@@ -181,7 +188,7 @@ export function readCurrentPolicy(dns: DnsCheckResult | null | undefined): Rollo
     // A legacy pct<100 record is on a partial rollout even without t=y.
     testing: Boolean(parsed.testing) || pct < 100,
     rua: parsed.rua ?? '',
-    spfOk: dns ? dns.spf.found : null,
+    spfOk: dns ? dns.spf.found && !spfInvalid : null,
     dkimOk: !dns || selectors.length === 0 ? null : selectors.every((s) => s.found)
   }
 }

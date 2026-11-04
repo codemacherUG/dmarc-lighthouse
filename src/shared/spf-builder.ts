@@ -1,4 +1,5 @@
 import { isValidDomain, normalizeDomain } from './dmarc-builder'
+import { normalizeAuthorizedSenderEntry } from './ipcidr'
 
 export type SpfAllQualifier = '-all' | '~all' | '?all' | '+all'
 export type SpfBuilderStep = 'domain' | 'mechanisms' | 'result'
@@ -62,6 +63,103 @@ export function isSpfDnsName(value: string): boolean {
   return Boolean(v) && /^[a-z0-9_]([a-z0-9._-]*[a-z0-9_])?$/i.test(v)
 }
 
+/** Validates an RFC 7208 `<domain-spec>` (DNS hostname or hostname with SPF macros). */
+export function isValidSpfDomainSpec(value: string): boolean {
+  const v = value.trim().replace(/\.$/, '')
+  if (!v) return false
+  const macroReplaced = v.replace(/%(?:\{[slodiphcrtv][0-9]*r?[.\-+,/_=]*\}|%|-|_)/gi, 'a')
+  if (macroReplaced.includes('%')) return false
+  return isSpfDnsName(macroReplaced)
+}
+
+function isValidSpfDualCidr(value: string): boolean {
+  const m = /^(?:\/(\d{1,2}))?(?:\/\/(\d{1,3}))?$/.exec(value.trim())
+  if (!m || (!m[1] && !m[2])) return false
+  if (m[1] !== undefined) {
+    const v4 = Number(m[1])
+    if (!Number.isInteger(v4) || v4 < 0 || v4 > 32) return false
+  }
+  if (m[2] !== undefined) {
+    const v6 = Number(m[2])
+    if (!Number.isInteger(v6) || v6 < 0 || v6 > 128) return false
+  }
+  return true
+}
+
+/**
+ * Check whether a single token from a `v=spf1` record is syntactically valid per RFC 7208.
+ * Bare hostnames (e.g. `mail.example.org` without `a:` or `include:`) or malformed mechanisms
+ * cause an immediate `permerror` on strict receivers.
+ */
+export function isValidSpfTerm(rawTerm: string): boolean {
+  const trimmed = rawTerm.trim()
+  if (!trimmed || /^v\s*=\s*spf1$/i.test(trimmed)) return true
+
+  const hasQualifier = /^[+\-~?]/.test(trimmed)
+  const term = hasQualifier ? trimmed.slice(1) : trimmed
+  if (!term) return false
+
+  const eqIdx = term.indexOf('=')
+  const colonIdx = term.indexOf(':')
+  if (eqIdx > 0 && (colonIdx === -1 || eqIdx < colonIdx)) {
+    if (hasQualifier) return false
+    const name = term.slice(0, eqIdx).toLowerCase()
+    const val = term.slice(eqIdx + 1)
+    if (!/^[a-z][a-z0-9_.-]*$/i.test(name)) return false
+    if (name === 'redirect' || name === 'exp') return isValidSpfDomainSpec(val)
+    return val.length > 0
+  }
+
+  const lower = term.toLowerCase()
+  if (lower === 'all' || lower === 'ptr' || lower === 'a' || lower === 'mx') return true
+  if (lower.startsWith('include:')) return isValidSpfDomainSpec(term.slice(8))
+  if (lower.startsWith('exists:')) return isValidSpfDomainSpec(term.slice(7))
+  if (lower.startsWith('ptr:')) return isValidSpfDomainSpec(term.slice(4))
+
+  if (lower.startsWith('a:') || lower.startsWith('mx:')) {
+    const rest = term.slice(lower.startsWith('mx:') ? 3 : 2)
+    const slashIdx = rest.indexOf('/')
+    if (slashIdx === -1) return isValidSpfDomainSpec(rest)
+    return isValidSpfDomainSpec(rest.slice(0, slashIdx)) && isValidSpfDualCidr(rest.slice(slashIdx))
+  }
+
+  if (lower.startsWith('a/') || lower.startsWith('mx/')) {
+    const rest = term.slice(lower.startsWith('mx/') ? 2 : 1)
+    return isValidSpfDualCidr(rest)
+  }
+
+  if (lower.startsWith('ip4:')) {
+    const val = term.slice(4).trim()
+    if (!val || val.includes(':')) return false
+    return normalizeAuthorizedSenderEntry(val.includes('/') ? val : `${val}/32`) !== null
+  }
+
+  if (lower.startsWith('ip6:')) {
+    const val = term.slice(4).trim()
+    if (!val || !val.includes(':')) return false
+    return normalizeAuthorizedSenderEntry(val.includes('/') ? val : `${val}/128`) !== null
+  }
+
+  return false
+}
+
+/**
+ * Return all syntactically invalid tokens in a `v=spf1` record per RFC 7208 §4.6.1.
+ * Empty array means the record syntax is valid.
+ */
+export function validateSpfRecordSyntax(record: string): string[] {
+  const invalid: string[] = []
+  for (const raw of record
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean)) {
+    if (/^v\s*=\s*spf1$/i.test(raw)) continue
+    if (!isValidSpfTerm(raw)) invalid.push(raw)
+  }
+  return invalid
+}
+
 export function normalizeSpfAll(value: unknown): SpfAllQualifier {
   if (value === '~all' || value === '?all' || value === '+all' || value === '-all') return value
   return '-all'
@@ -74,7 +172,11 @@ function stripIpPrefix(raw: string, kind: 'ip4' | 'ip6'): string {
 }
 
 function stripInclude(raw: string): string {
-  return raw.trim().replace(/^include:/i, '').toLowerCase().replace(/\.$/, '')
+  return raw
+    .trim()
+    .replace(/^include:/i, '')
+    .toLowerCase()
+    .replace(/\.$/, '')
 }
 
 export function normalizeSpfBuilderInput(input: SpfBuilderInput): SpfBuilderInput {

@@ -8,6 +8,7 @@ import {
   type DmarcReport
 } from '@koduhai/dmarc-parser'
 import { analyzeFromReports } from '../shared/analyze'
+import { isRelaxedAligned } from '../shared/domain'
 import type {
   AnalyzeResult,
   ForensicReportRow,
@@ -27,25 +28,40 @@ function toIso(date: Date | null | undefined): string | null {
 
 function serializeReport(report: DmarcReport): ReportRow {
   const summary = summarize(report)
-  const records: SerializedRecord[] = report.records.map((rec) => ({
-    sourceIp: rec.sourceIp,
-    count: rec.count,
-    disposition: rec.disposition,
-    dkimResult: rec.dkimResult,
-    spfResult: rec.spfResult,
-    headerFrom: rec.headerFrom,
-    dkimDomain: rec.dkimDomain,
-    spfDomain: rec.spfDomain,
-    dkimSelectors: [
-      ...new Set(
-        (rec.dkimAuth ?? []).map((a) => a.selector?.trim()).filter((s): s is string => Boolean(s))
-      )
-    ],
-    spfRawResult: rec.spfAuth?.[0]?.result ?? null,
-    dkimRawResult: rec.dkimAuth?.[0]?.result ?? null,
-    passesDmarc: recordPassesDmarc(rec),
-    reasons: (rec.reasons ?? []).map((r) => ({ type: r.type, comment: r.comment }))
-  }))
+  const records: SerializedRecord[] = report.records.map((rec) => {
+    const targetDomain = rec.headerFrom || report.meta.domain
+    const dkimAuth = rec.dkimAuth ?? []
+    const alignedDkimAuth = dkimAuth.filter(
+      (a) =>
+        !a.domain ||
+        isRelaxedAligned(a.domain, targetDomain) ||
+        isRelaxedAligned(a.domain, report.meta.domain)
+    )
+    const primaryDkim =
+      alignedDkimAuth.find((a) => (a.result ?? '').toLowerCase() === 'pass') ??
+      alignedDkimAuth[0] ??
+      dkimAuth[0]
+
+    return {
+      sourceIp: rec.sourceIp,
+      count: rec.count,
+      disposition: rec.disposition,
+      dkimResult: rec.dkimResult,
+      spfResult: rec.spfResult,
+      headerFrom: rec.headerFrom,
+      dkimDomain: primaryDkim?.domain ?? rec.dkimDomain,
+      spfDomain: rec.spfDomain,
+      dkimSelectors: [
+        ...new Set(
+          alignedDkimAuth.map((a) => a.selector?.trim()).filter((s): s is string => Boolean(s))
+        )
+      ],
+      spfRawResult: rec.spfAuth?.[0]?.result ?? null,
+      dkimRawResult: primaryDkim?.result ?? null,
+      passesDmarc: recordPassesDmarc(rec),
+      reasons: (rec.reasons ?? []).map((r) => ({ type: r.type, comment: r.comment }))
+    }
+  })
 
   return {
     reportId: report.meta.reportId,

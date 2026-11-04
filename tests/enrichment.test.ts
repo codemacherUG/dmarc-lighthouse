@@ -137,13 +137,19 @@ describe('domain health / Ampel', () => {
         domain: 'Example.COM',
         records: [
           record({ count: 8, passesDmarc: true, dkimSelectors: ['s1'] }),
-          record({ count: 2, passesDmarc: false, dkimSelectors: ['s2'] })
+          record({ count: 2, passesDmarc: false, dkimSelectors: ['s2'] }),
+          record({
+            count: 3,
+            passesDmarc: false,
+            dkimDomain: 'server109.greatnet.de',
+            dkimSelectors: ['rsa1']
+          })
         ]
       }),
       report({ domain: 'other.org', records: [record({ count: 1, passesDmarc: true })] })
     ])
     expect(stats[0]?.domain).toBe('example.com')
-    expect(stats[0]?.total).toBe(10)
+    expect(stats[0]?.total).toBe(13)
     expect(stats[0]?.passing).toBe(8)
     expect(stats[0]?.dkimSelectors).toEqual(['s1', 's2'])
   })

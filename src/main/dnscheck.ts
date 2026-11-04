@@ -20,6 +20,7 @@ import type {
   DnsResolverInfo
 } from '../shared/types'
 import { t } from '../shared/i18n'
+import { validateSpfRecordSyntax } from '../shared/spf-builder'
 import {
   configureDnsEnvironment,
   createResolverForServers,
@@ -570,6 +571,13 @@ export async function checkDomainDns(
     const spf = txt.filter((r) => /v\s*=\s*spf1/i.test(r))
     result.spf.records = spf
     result.spf.found = spf.length > 0
+    if (spf.length > 1) {
+      result.spf.multipleRecords = true
+    }
+    const syntaxErrors = [...new Set(spf.flatMap((r) => validateSpfRecordSyntax(r)))]
+    if (syntaxErrors.length > 0) {
+      result.spf.syntaxErrors = syntaxErrors
+    }
   } catch (err) {
     result.spf.error = err instanceof Error ? err.message : String(err)
   }

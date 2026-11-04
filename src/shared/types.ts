@@ -616,6 +616,10 @@ export interface DnsCheckResult {
   spf: {
     found: boolean
     records: string[]
+    /** Invalid tokens in the SPF record that trigger an RFC 7208 `permerror`. */
+    syntaxErrors?: string[]
+    /** True when multiple `v=spf1` TXT records exist (RFC 7208 §3.2 `permerror`). */
+    multipleRecords?: boolean
     error?: string
   }
   /** MX records (optional on older cached results). */
@@ -882,7 +886,7 @@ export type EmailInspectResponse =
   { ok: true; result: EmailInspectResult } | { ok: false; message: string }
 
 export type SpfTreeNodeKind =
-  'root' | 'include' | 'redirect' | 'a' | 'mx' | 'exists' | 'ptr' | 'ip4' | 'ip6'
+  'root' | 'include' | 'redirect' | 'a' | 'mx' | 'exists' | 'ptr' | 'ip4' | 'ip6' | 'invalid'
 
 export interface SpfLookupTreeNode {
   kind: SpfTreeNodeKind
@@ -912,6 +916,8 @@ export interface SpfLookupTreeNode {
 export type SpfOptimizationSeverity = 'error' | 'warn' | 'info'
 
 export type SpfOptimizationCode =
+  | 'syntax-error'
+  | 'multiple-records'
   | 'lookup-limit-exceeded'
   | 'lookup-budget-high'
   | 'duplicate-include'

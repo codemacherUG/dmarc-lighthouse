@@ -72,4 +72,29 @@ describe('spf-expand helpers', () => {
     expect(hintCodes).toContain('empty-mechanism')
     expect(hintCodes).toContain('all-softfail')
   })
+
+  it('flags bare hostnames in SPF records as RFC 7208 syntax errors in the tree and optimizer', async () => {
+    const result = await expandSpf('impetuum.de', {
+      record: 'v=spf1 include:spf.protection.outlook.com a mx mail.xa0.serverdomain.org -all',
+      resolvers: {
+        resolveTxt: async () => [['v=spf1 ip4:52.100.0.0/15 -all']],
+        resolve4: async () => ['89.107.184.138'],
+        resolve6: async () => [],
+        resolveMx: async () => [
+          { exchange: 'impetuum-de.mail.protection.outlook.com', priority: 10 }
+        ]
+      }
+    })
+
+    const invalidNode = result.tree?.children.find((c) => c.kind === 'invalid')
+    expect(invalidNode?.term).toBe('mail.xa0.serverdomain.org')
+    expect(result.errors.some((e) => e.includes('mail.xa0.serverdomain.org'))).toBe(true)
+    expect(result.hints).toContainEqual(
+      expect.objectContaining({
+        code: 'syntax-error',
+        severity: 'error',
+        subject: 'mail.xa0.serverdomain.org'
+      })
+    )
+  })
 })

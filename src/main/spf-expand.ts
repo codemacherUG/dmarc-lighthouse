@@ -1,5 +1,6 @@
 import { isCidrSubnetOf, normalizeAuthorizedSenderEntry } from '../shared/ipcidr'
 import { t } from '../shared/i18n'
+import { isValidSpfTerm } from '../shared/spf-builder'
 import type { SpfExpandResult, SpfLookupTreeNode, SpfOptimizationHint } from '../shared/types'
 import {
   configureDnsEnvironment,
@@ -154,6 +155,14 @@ export function buildSpfOptimizationHints(
 
   const walk = (node: SpfLookupTreeNode, depth: number): void => {
     for (const child of node.children) {
+      if (child.kind === 'invalid') {
+        pushHint({
+          code: 'syntax-error',
+          severity: 'error',
+          subject: child.term,
+          related: node.target ?? undefined
+        })
+      }
       if (child.kind === 'ptr') {
         pushHint({
           code: 'deprecated-ptr',
@@ -311,6 +320,22 @@ export async function expandSpf(
       let redirect: string | null = null
       let redirectRawTerm = ''
       for (const rawTerm of parseSpfTerms(record)) {
+        if (!isValidSpfTerm(rawTerm)) {
+          const msg = `${key}: invalid SPF mechanism "${rawTerm}" (RFC 7208 PermError)`
+          errors.push(msg)
+          node.children.push({
+            kind: 'invalid',
+            term: rawTerm,
+            target: null,
+            record: null,
+            ownLookups: 0,
+            totalLookups: 0,
+            cidrs: [],
+            error: msg,
+            children: []
+          })
+          continue
+        }
         const term = stripQualifier(rawTerm)
         const lower = term.toLowerCase()
 

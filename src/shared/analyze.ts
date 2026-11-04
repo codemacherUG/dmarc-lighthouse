@@ -22,11 +22,9 @@ import type {
   VolumePoint
 } from './types'
 import { isRelaxedAligned } from './domain'
-import {
-  isLikelyMailboxIp,
-  type MailboxNoiseProvider
-} from './mailbox-ip'
+import { isLikelyMailboxIp, type MailboxNoiseProvider } from './mailbox-ip'
 import { matchesScannerNoise, type ScannerNoiseMatcher } from './scanner-noise'
+import { validateSpfRecordSyntax } from './spf-builder'
 import { emptyAnalyzeResult, emptyDashboard } from './types'
 
 type MailboxIpInfo = Pick<IpInfo, 'cloudProvider' | 'provider' | 'asn' | 'asOrg' | 'senderKind'>
@@ -52,12 +50,7 @@ export function mailboxNoiseProviderFromInfo(
   if (/\b(microsoft 365|outlook|hotmail)\b/.test(provider)) return 'microsoft'
   if (/\b(yahoo|aol)\b/.test(provider)) return 'yahoo'
   if (/\bicloud\b/.test(provider)) return 'apple'
-  if (
-    info.asn === 10310 ||
-    info.asn === 26101 ||
-    info.asn === 14778 ||
-    info.asn === 1668
-  ) {
+  if (info.asn === 10310 || info.asn === 26101 || info.asn === 14778 || info.asn === 1668) {
     return 'yahoo'
   }
   if (info.asn === 714) return 'apple'
@@ -484,10 +477,22 @@ export function buildDashboard(reports: ReportRow[]): DashboardData {
   const dmarc: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
   const spf: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
   const dkim: AlignmentBreakdown = { pass: 0, fail: 0, other: 0 }
-  const dispositionMap = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
-  const byOrg = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
-  const bySourceIp = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
-  const byHeaderFrom = new Map<string, { count: number; passing: number; failing: number; delivered: number }>()
+  const dispositionMap = new Map<
+    string,
+    { count: number; passing: number; failing: number; delivered: number }
+  >()
+  const byOrg = new Map<
+    string,
+    { count: number; passing: number; failing: number; delivered: number }
+  >()
+  const bySourceIp = new Map<
+    string,
+    { count: number; passing: number; failing: number; delivered: number }
+  >()
+  const byHeaderFrom = new Map<
+    string,
+    { count: number; passing: number; failing: number; delivered: number }
+  >()
   const volumeMap = new Map<string, VolumePoint>()
 
   for (const report of reports) {
@@ -828,8 +833,10 @@ export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
       selectors: new Set<string>()
     }
     for (const rec of r.records) {
-      for (const sel of rec.dkimSelectors ?? []) {
-        if (sel) cur.selectors.add(sel)
+      if (!rec.dkimDomain || isRelaxedAligned(rec.dkimDomain, domain)) {
+        for (const sel of rec.dkimSelectors ?? []) {
+          if (sel) cur.selectors.add(sel)
+        }
       }
       const n = rec.count || 0
       cur.total += n
@@ -872,7 +879,11 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
 
   const dmarcFound = dns.dmarc.found
   const policy = dns.dmarc.policy?.toLowerCase() ?? null
-  const spfOk = dns.spf.found
+  const spfMultiple = Boolean(dns.spf.multipleRecords) || dns.spf.records.length > 1
+  const spfSyntaxErrors =
+    dns.spf.syntaxErrors ?? dns.spf.records.flatMap((r) => validateSpfRecordSyntax(r))
+  const spfInvalid = dns.spf.found && (spfMultiple || spfSyntaxErrors.length > 0)
+  const spfOk = dns.spf.found && !spfInvalid
   const selectors = dns.dkim.selectors
   const dkimOk = selectors.length === 0 ? null : selectors.every((s) => s.found)
 
@@ -883,9 +894,12 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
     status = 'bad'
     reasons.push('health.reason.noDmarc')
   }
-  if (!spfOk) {
+  if (!dns.spf.found) {
     status = 'bad'
     reasons.push('health.reason.noSpf')
+  } else if (spfInvalid) {
+    status = 'bad'
+    reasons.push('health.reason.spfInvalid')
   }
   if (stats.total > 0 && stats.passRate < 90) {
     status = 'bad'

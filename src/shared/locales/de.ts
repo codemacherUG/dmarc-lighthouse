@@ -743,6 +743,7 @@ export const de = {
   'health.reason.dnsPending': 'DNS wird geprüft',
   'health.reason.noDmarc': 'Kein DMARC-Record',
   'health.reason.noSpf': 'Kein SPF-Record',
+  'health.reason.spfInvalid': 'SPF-Syntaxfehler (PermError)',
   'health.reason.lowPassRate': 'Gesundheitsrate unter 90%',
   'health.reason.policyNone': 'Policy p=none',
   'health.reason.passRateWarn': 'Gesundheitsrate unter 98%',
@@ -1043,6 +1044,8 @@ export const de = {
   'dns.dmarcMissing': 'DMARC: nicht gefunden',
   'dns.spfFound': 'SPF: {record}',
   'dns.spfMissing': 'SPF: nicht gefunden',
+  'dns.spfSyntaxError': 'SPF-Syntaxfehler (RFC 7208 PermError): ungültiges Token {tokens}',
+  'dns.spfMultipleError': 'SPF-Fehler (RFC 7208 PermError): mehrere v=spf1-Records ({count})',
   'dns.mxFound': 'MX: {records}',
   'dns.mxMissing': 'MX: nicht gefunden',
   'dns.mxBlacklistClean': 'MX-Blacklist: keine Treffer ({count} IPs geprüft)',
@@ -1432,9 +1435,14 @@ export const de = {
   'spfBuilder.expand.treeDuplicate': 'Duplikat',
   'spfBuilder.expand.treeCycle': 'Schleife',
   'spfBuilder.expand.treeEmpty': 'leer (0 IPs)',
+  'spfBuilder.expand.treeInvalid': 'PermError (ungültig)',
   'spfBuilder.expand.optimizerTitle': 'Optimierer',
   'spfBuilder.expand.optimizerClean':
     'Keine Probleme erkannt — Lookup-Budget im grünen Bereich, keine doppelten Includes oder redundanten Netze.',
+  'spfBuilder.expand.hint.syntaxError':
+    'Syntaxfehler (RFC 7208 PermError): „{subject}“ ist kein gültiger SPF-Mechanismus (z. B. fehlendes a: oder include:) — strenge Empfänger lehnen den gesamten SPF-Record ab.',
+  'spfBuilder.expand.hint.multipleRecords':
+    'Mehrere v=spf1-Records im DNS gefunden — führt nach RFC 7208 §3.2 sofort zu SPF permerror.',
   'spfBuilder.expand.hint.lookupLimitExceeded':
     'DNS-Lookup-Limit überschritten ({lookups}/10) — Empfänger brechen die Prüfung mit SPF permerror ab.',
   'spfBuilder.expand.hint.lookupBudgetHigh':

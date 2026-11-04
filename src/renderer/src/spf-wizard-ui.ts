@@ -10,6 +10,7 @@ import {
   SPF_BUILDER_STEPS,
   spfRecordsEquivalent,
   spfStepIndex,
+  validateSpfRecordSyntax,
   type SpfAllQualifier,
   type SpfBuilderInput,
   type SpfBuilderStep
@@ -136,7 +137,11 @@ function formatNodeLookups(count: number): string {
 
 function renderTreeNode(node: SpfLookupTreeNode, isRoot = false): string {
   const badges: string[] = []
-  if (!isRoot) {
+  if (node.kind === 'invalid') {
+    badges.push(
+      `<span class="spf-tree-badge bad">${escapeHtml(t('spfBuilder.expand.treeInvalid'))}</span>`
+    )
+  } else if (!isRoot) {
     const lookupClass = node.totalLookups >= 5 ? 'bad' : node.totalLookups >= 1 ? 'info' : 'neutral'
     badges.push(
       `<span class="spf-tree-badge ${lookupClass}">${escapeHtml(formatNodeLookups(node.totalLookups))}</span>`
@@ -189,6 +194,10 @@ function renderTreeNode(node: SpfLookupTreeNode, isRoot = false): string {
 
 function formatOptimizationHint(hint: SpfOptimizationHint): string {
   switch (hint.code) {
+    case 'syntax-error':
+      return t('spfBuilder.expand.hint.syntaxError', { subject: hint.subject ?? '' })
+    case 'multiple-records':
+      return t('spfBuilder.expand.hint.multipleRecords')
     case 'lookup-limit-exceeded':
       return t('spfBuilder.expand.hint.lookupLimitExceeded', { lookups: hint.lookups ?? 0 })
     case 'lookup-budget-high':
@@ -337,9 +346,16 @@ async function renderResult(): Promise<void> {
     spfBuilderLiveEl.innerHTML = `<p class="hint">${escapeHtml(t('spfBuilder.result.liveMissing'))}</p>`
   } else {
     const same = spfRecordsEquivalent(liveDnsValue, record.value)
+    const liveSyntaxErrors = validateSpfRecordSyntax(liveDnsValue)
+    const liveErrorHtml = liveSyntaxErrors.length
+      ? `<p class="builder-status error">${escapeHtml(
+          t('dns.spfSyntaxError', { tokens: liveSyntaxErrors.join(', ') })
+        )}</p>`
+      : ''
     spfBuilderLiveEl.innerHTML = `<div class="builder-live-card">
       <span class="builder-result-label">${escapeHtml(t('spfBuilder.result.liveTitle'))}</span>
       <code class="mono">${escapeHtml(liveDnsValue)}</code>
+      ${liveErrorHtml}
       <p class="hint">${escapeHtml(same ? t('spfBuilder.result.liveSame') : t('spfBuilder.result.liveDifferent'))}</p>
     </div>`
   }

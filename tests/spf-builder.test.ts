@@ -3,8 +3,10 @@ import {
   buildSpfRecord,
   parseSpfRecord,
   spfRecordsEquivalent,
-  validateSpfBuilderStep
+  validateSpfBuilderStep,
+  validateSpfRecordSyntax
 } from '../src/shared/spf-builder'
+import { mergeDomainHealth } from '../src/shared/analyze'
 
 describe('spf-builder', () => {
   it('builds a record from includes, IPs and all', () => {
@@ -25,9 +27,7 @@ describe('spf-builder', () => {
   })
 
   it('parses an existing SPF record', () => {
-    const parsed = parseSpfRecord(
-      'v=spf1 include:_spf.google.com ip4:203.0.113.0/24 mx ~all'
-    )
+    const parsed = parseSpfRecord('v=spf1 include:_spf.google.com ip4:203.0.113.0/24 mx ~all')
     expect(parsed.includes).toEqual(['_spf.google.com'])
     expect(parsed.ip4).toEqual(['203.0.113.0/24'])
     expect(parsed.useMx).toBe(true)
@@ -86,5 +86,52 @@ describe('spf-builder', () => {
         all: '-all'
       })
     ).toBeNull()
+  })
+
+  it('detects RFC 7208 syntax errors such as bare hostnames and marks domain health bad', () => {
+    expect(
+      validateSpfRecordSyntax(
+        'v=spf1 include:spf.protection.outlook.com a mx mail.xa0.serverdomain.org -all'
+      )
+    ).toEqual(['mail.xa0.serverdomain.org'])
+
+    expect(
+      validateSpfRecordSyntax(
+        'v=spf1 a:outbound.ib-lsa.de include:spf.mail.s-web.de ip4:217.110.196.234 ~all'
+      )
+    ).toEqual([])
+
+    const health = mergeDomainHealth(
+      {
+        domain: 'impetuum.de',
+        total: 100,
+        passing: 100,
+        failing: 0,
+        passRate: 100,
+        dkimSelectors: ['selector1']
+      },
+      {
+        domain: 'impetuum.de',
+        checkedAt: '2026-11-04T10:00:00.000Z',
+        dmarc: {
+          found: true,
+          records: ['v=DMARC1; p=reject; rua=mailto:dmarc@codemacher.de'],
+          policy: 'reject',
+          rua: 'mailto:dmarc@codemacher.de',
+          ruf: null
+        },
+        spf: {
+          found: true,
+          records: ['v=spf1 include:spf.protection.outlook.com a mx mail.xa0.serverdomain.org -all']
+        },
+        dkim: {
+          selectors: [{ selector: 'selector1', found: true, record: 'v=DKIM1; p=abc' }]
+        }
+      }
+    )
+
+    expect(health.spfOk).toBe(false)
+    expect(health.status).toBe('bad')
+    expect(health.reasons).toContain('health.reason.spfInvalid')
   })
 })

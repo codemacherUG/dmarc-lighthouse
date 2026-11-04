@@ -1,4 +1,5 @@
 import { ALL_ACCOUNTS_ID, isAllAccountsId } from '../../shared/account'
+import { isRelaxedAligned } from '../../shared/domain'
 import { t } from '../../shared/i18n'
 import { selectorsForDnsCheck } from '../../shared/dkim-selector'
 import type { AnalyzeResult } from '../../shared/types'
@@ -110,7 +111,9 @@ function collectDkimSelectors(domain: string): string[] {
         rec.dkimDomain?.toLowerCase() === d ||
         rec.headerFrom?.toLowerCase() === d
       ) {
-        for (const sel of rec.dkimSelectors ?? []) selectors.add(sel)
+        if (!rec.dkimDomain || isRelaxedAligned(rec.dkimDomain, d)) {
+          for (const sel of rec.dkimSelectors ?? []) selectors.add(sel)
+        }
       }
     }
   }
@@ -312,6 +315,16 @@ export function initActions(): void {
       const spfLine = result.spf.found
         ? t('dns.spfFound', { record: result.spf.records[0] })
         : `${t('dns.spfMissing')}${result.spf.error ? ` (${result.spf.error})` : ''}`
+      const spfErrorLines: string[] = []
+      if (result.spf.multipleRecords || result.spf.records.length > 1) {
+        spfErrorLines.push(t('dns.spfMultipleError', { count: result.spf.records.length }))
+      }
+      if (result.spf.syntaxErrors?.length) {
+        spfErrorLines.push(t('dns.spfSyntaxError', { tokens: result.spf.syntaxErrors.join(', ') }))
+      }
+      const spfErrorHtml = spfErrorLines.length
+        ? `<br /><span class="fail">${spfErrorLines.map((l) => escapeHtml(l)).join('<br />')}</span>`
+        : ''
       const mxLine = result.mx?.records.length
         ? t('dns.mxFound', {
             records: result.mx.records
@@ -408,7 +421,7 @@ export function initActions(): void {
             ? `<span class="fail">${escapeHtml(t('dns.dnssecUnsigned', { resolver: result.dnssec.resolver }))}</span>`
             : `<span class="muted">${escapeHtml(t('dns.dnssecError', { message: result.dnssec.error ?? '—' }))}</span>`
         : ''
-      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br /><span class="mono">${escapeHtml(mxLine)}</span>${mxBlacklistLine ? `<br />${escapeHtml(mxBlacklistLine)}` : ''}<br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
+      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span>${spfErrorHtml}<br /><span class="mono">${escapeHtml(mxLine)}</span>${mxBlacklistLine ? `<br />${escapeHtml(mxBlacklistLine)}` : ''}<br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
       dnsResultEl.className = 'dns-result ok'
       void refreshDomainHealth(state.fullResult, { force: true })
     } catch (err) {
