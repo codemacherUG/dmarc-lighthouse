@@ -471,6 +471,10 @@ export function buildDemoEmailInspect(): EmailInspectResult {
   })
   return {
     ...result,
+    dkimSignatures: result.dkimSignatures.map((sig) => ({
+      ...sig,
+      cryptoStatus: 'verified' as const
+    })),
     hops: result.hops.map((hop) => {
       if (hop.fromIp === '192.0.2.10') {
         return {

@@ -51,27 +51,33 @@ import {
 
 function fillDnsDemo(): void {
   dnsDomainEl.value = 'example.com'
+  const resolverLine = t('dns.resolverAuth', {
+    ns: 'ns1.example.net, ns2.example.net',
+    zone: 'example.com'
+  })
   const dmarcLine = t('dns.dmarcFound', {
     policy: 'reject',
     rua: 'mailto:dmarc@example.com',
     ruf: 'mailto:dmarc@example.com'
   })
   const spfLine = t('dns.spfFound', { record: 'v=spf1 include:_spf.example.net -all' })
+  const mxLine = t('dns.mxFound', { records: '10 mx1.example.net, 20 mx2.example.net' })
+  const mxBlacklistLine = t('dns.mxBlacklistClean', { count: 2 })
   const dkimHtml = t('dns.dkimLine', {
     selector: '<span class="mono">selector1</span>',
-    state: `<span class="pass">${escapeHtml(t('dns.dkimFound'))}</span>`
+    state: `<span class="pass">${escapeHtml(t('dns.dkimFound'))} (RSA 2048-bit)</span>`
   })
   const bimiHtml = `<span class="pass">${escapeHtml(
-    t('dns.bimiFound', {
+    `${t('dns.bimiFound', {
       selector: 'default',
       location: 'https://example.com/logo.svg',
       authority: 'https://example.com/vmc.pem'
-    })
+    })} · SVG Tiny PS OK · VMC OK (2027-06-01)`
   )}</span>`
   const dnssecHtml = `<span class="pass">${escapeHtml(
     t('dns.dnssecValidated', { resolver: 'cloudflare-dns.com' })
   )}</span>`
-  dnsResultEl.innerHTML = `<strong>example.com</strong><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br />${dkimHtml}<br />${bimiHtml}<br />${dnssecHtml}`
+  dnsResultEl.innerHTML = `<strong>example.com</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span><br /><span class="mono">${escapeHtml(mxLine)}</span><br />${escapeHtml(mxBlacklistLine)}<br />${dkimHtml}<br />${bimiHtml}<br />${dnssecHtml}`
   dnsResultEl.className = 'dns-result ok'
 }
 
