@@ -235,13 +235,16 @@ async function withClient<T>(
 export async function testConnection(settings: ImapConnectionInput): Promise<TestConnectionResult> {
   try {
     return await withClient(settings, async (client) => {
-      const lock = await client.getMailboxLock(settings.mailbox)
+      // Same path resolution as the fetch, so the test does not fail on folders
+      // the fetch can open (e.g. Gmail labels with a different delimiter/case).
+      const path = await resolveServerMailboxPath(client, settings.mailbox || 'INBOX')
+      const lock = await client.getMailboxLock(path)
       try {
         const exists =
           client.mailbox && typeof client.mailbox === 'object' ? client.mailbox.exists : 0
         return {
           ok: true,
-          message: t('imap.connectOk', { mailbox: settings.mailbox, count: exists }),
+          message: t('imap.connectOk', { mailbox: path, count: exists }),
           mailboxExists: exists
         }
       } finally {
@@ -251,7 +254,7 @@ export async function testConnection(settings: ImapConnectionInput): Promise<Tes
   } catch (err) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : String(err)
+      message: formatImapError(err)
     }
   }
 }
