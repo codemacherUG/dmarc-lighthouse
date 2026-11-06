@@ -67,15 +67,11 @@ function showImportResult(result: AnalyzeResult): void {
   )
 }
 
-/** Copy the active account's domain into the DNS-check field after a switch. */
+/** Copy the active domain filter into the DNS-check field after an account switch. */
 function syncDnsDomainFromAccount(): void {
   const domains = state.fullResult?.aggregate.domains ?? []
-  if (domains.length === 0) {
-    dnsDomainEl.value = ''
-    return
-  }
-  const selected = filterDomainEl.value
-  dnsDomainEl.value = selected && domains.includes(selected) ? selected : domains[0]
+  const selected = filterDomainEl.value.trim()
+  dnsDomainEl.value = selected && domains.includes(selected) ? selected : ''
 }
 
 export async function switchActiveAccount(id: string): Promise<void> {

@@ -3074,6 +3074,16 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   border-color: var(--accent);
 }
 
+.ampel-card.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-muted));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.ampel-card.is-selected .ampel-domain {
+  color: var(--accent);
+}
+
 .ampel-card.ok {
   border-left-color: var(--ok);
 }

@@ -22,7 +22,6 @@ import {
   btnSpfBuilder,
   btnSpfBuilderBack,
   btnSpfBuilderNext,
-  dnsDomainEl,
   filterDomainEl,
   spfBuilderAllEl,
   spfBuilderDialog,
@@ -410,12 +409,8 @@ async function loadDnsTemplate(): Promise<void> {
 }
 
 function suggestInitialDomain(): string {
-  const fromDns = dnsDomainEl.value.trim()
-  if (fromDns) return normalizeDomain(fromDns)
   const fromFilter = filterDomainEl.value.trim()
-  if (fromFilter) return normalizeDomain(fromFilter)
-  const domains = state.fullResult?.aggregate.domains ?? []
-  return domains[0] ? normalizeDomain(domains[0]) : ''
+  return fromFilter ? normalizeDomain(fromFilter) : ''
 }
 
 export function openSpfBuilder(): void {

@@ -28,7 +28,13 @@ let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let lastAssessment: RolloutAssessment | null = null
 
 function domainOptions(): string[] {
-  const domains = state.fullResult?.aggregate.domains ?? []
+  const result = state.fullResult
+  const domains = [
+    ...(result?.aggregate.domains ?? []),
+    ...(result?.forensicReports ?? []).map((r) => r.reportedDomain ?? ''),
+    ...(result?.tlsRptReports ?? []).flatMap((r) => r.policies.map((p) => p.policyDomain)),
+    filterDomainEl.value
+  ]
   return [...new Set(domains.map((d) => normalizeDomain(d)).filter(Boolean))].sort()
 }
 

@@ -20,6 +20,9 @@ import {
   btnCloseDns,
   dnsDialog,
   dnsDomainEl,
+  dnsResultEl,
+  dnsTransportEl,
+  filterDomainEl,
   infoDialog,
   languageEl,
   navDns,
@@ -304,6 +307,14 @@ export function initChrome(): void {
   })
 
   const openDnsDialog = (): void => {
+    const selected = filterDomainEl.value.trim()
+    if (dnsDomainEl.value.trim().toLowerCase() !== selected.toLowerCase()) {
+      dnsDomainEl.value = selected
+      dnsResultEl.textContent = ''
+      dnsResultEl.className = 'dns-result muted hidden'
+      dnsTransportEl.innerHTML = ''
+      dnsTransportEl.classList.add('hidden')
+    }
     if (!dnsDialog.open) dnsDialog.showModal()
     queueMicrotask(() => {
       dnsDomainEl.focus()

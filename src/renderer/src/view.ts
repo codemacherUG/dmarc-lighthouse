@@ -77,7 +77,10 @@ import {
   ipContextMenu,
   ipContextNoiseBtn,
   ipContextSendingServiceBtn,
+  dnsDialog,
   dnsDomainEl,
+  dnsResultEl,
+  dnsTransportEl,
   domainAmpelEl,
   tableProblemSources,
   filterChipsEl,
@@ -965,20 +968,34 @@ export function filterVolumeByDay(date: string): void {
   applyView()
 }
 
+export function syncDomainAmpelSelection(): void {
+  if (!domainAmpelEl) return
+  const selectedDomain = filterDomainEl?.value.trim().toLowerCase() ?? ''
+  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('.ampel-card[data-domain]')) {
+    const domain = (btn.dataset.domain ?? '').trim().toLowerCase()
+    const isSelected = Boolean(selectedDomain) && domain === selectedDomain
+    btn.classList.toggle('is-selected', isSelected)
+    btn.setAttribute('aria-pressed', String(isSelected))
+    btn.closest('.ampel-card-wrap')?.classList.toggle('is-selected', isSelected)
+  }
+}
+
 export function renderDomainAmpel(rows: DomainHealth[]): void {
   if (!rows.length) {
     domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(t('health.empty'))}</p>`
     return
   }
+  const selectedDomain = filterDomainEl?.value.trim().toLowerCase() ?? ''
   domainAmpelEl.innerHTML = rows
     .map((h) => {
       const statusLabel = t(`health.status.${h.status}` as MessageKey)
       const policy =
         h.dmarcPolicy != null ? escapeHtml(t('health.policy', { policy: h.dmarcPolicy })) : '—'
       const reasons = h.reasons.map((key) => t(key as MessageKey)).join(' · ')
+      const isSelected = Boolean(selectedDomain) && h.domain.trim().toLowerCase() === selectedDomain
       return `
-      <div class="ampel-card-wrap">
-        <button type="button" class="ampel-card ${h.status}" data-domain="${escapeHtml(h.domain)}" title="${escapeHtml(statusLabel)}">
+      <div class="ampel-card-wrap${isSelected ? ' is-selected' : ''}">
+        <button type="button" class="ampel-card ${h.status}${isSelected ? ' is-selected' : ''}" data-domain="${escapeHtml(h.domain)}" aria-pressed="${isSelected ? 'true' : 'false'}" title="${escapeHtml(statusLabel)}">
           <div class="ampel-domain">${escapeHtml(h.domain)}</div>
           <div class="ampel-meta">
             <span>${escapeHtml(statusLabel)}</span>
@@ -999,7 +1016,12 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
     btn.addEventListener('click', () => {
       const domain = btn.dataset.domain ?? ''
       if (!domain) return
-      selectDomainFilter(domain)
+      if (filterDomainEl.value.trim().toLowerCase() === domain.trim().toLowerCase()) {
+        filterDomainEl.value = ''
+        if (simulationModeEl.value !== 'off') simulationModeEl.value = 'off'
+      } else {
+        selectDomainFilter(domain)
+      }
       applyView()
     })
   }
@@ -1023,6 +1045,14 @@ export function renderDomainAmpel(rows: DomainHealth[]): void {
 function selectDomainFilter(domain: string): void {
   const wanted = domain.trim().toLowerCase()
   const match = [...filterDomainEl.options].find((o) => o.value.toLowerCase() === wanted)
+  if (!match && domain.trim()) {
+    const opt = document.createElement('option')
+    opt.value = domain.trim()
+    opt.textContent = domain.trim()
+    filterDomainEl.appendChild(opt)
+    filterDomainEl.value = opt.value
+    return
+  }
   filterDomainEl.value = match?.value ?? domain
 }
 
@@ -1622,10 +1652,7 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
     `<option value="">${escapeHtml(t('filter.allDomains'))}</option>` +
     domains.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')
   if (domains.includes(current)) filterDomainEl.value = current
-  const aggregateDomains = result?.aggregate.domains ?? []
-  if (aggregateDomains.length === 1 && !dnsDomainEl.value) {
-    dnsDomainEl.value = aggregateDomains[0]
-  }
+  else filterDomainEl.value = ''
 }
 
 /** Names newly observed source IPs by detected network and From domain. */
@@ -2325,9 +2352,26 @@ function renderNewSendingSourcesBanner(result: AnalyzeResult | null): void {
   newSendingSourcesBannerEl.appendChild(list)
 }
 
+let lastSyncedFilterDomain: string | null = null
+
+function syncDnsDialogDomain(): void {
+  const selected = filterDomainEl.value.trim()
+  if (lastSyncedFilterDomain === selected || dnsDialog?.open) return
+  lastSyncedFilterDomain = selected
+  if (dnsDomainEl.value.trim().toLowerCase() !== selected.toLowerCase()) {
+    dnsDomainEl.value = selected
+    dnsResultEl.textContent = ''
+    dnsResultEl.className = 'dns-result muted hidden'
+    dnsTransportEl.innerHTML = ''
+    dnsTransportEl.classList.add('hidden')
+  }
+}
+
 export function applyView(): void {
   renderFilterChips()
   syncFilterResetButton()
+  syncDomainAmpelSelection()
+  syncDnsDialogDomain()
   if (!state.fullResult) {
     state.viewResult = null
     state.spfExpandToken++

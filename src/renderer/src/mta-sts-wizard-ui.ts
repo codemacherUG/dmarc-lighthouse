@@ -24,7 +24,6 @@ import {
   btnMtaStsBuilder,
   btnMtaStsBuilderBack,
   btnMtaStsBuilderNext,
-  dnsDomainEl,
   filterDomainEl,
   mtaStsBuilderDialog,
   mtaStsBuilderDomainEl,
@@ -40,7 +39,6 @@ import {
   mtaStsBuilderStepsEl
 } from './dom'
 import { escapeHtml } from './format'
-import { state } from './state'
 
 let currentStep: MtaStsBuilderStep = 'domain'
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
@@ -317,12 +315,8 @@ function requestDnsTemplate(): Promise<void> {
 }
 
 function suggestInitialDomain(): string {
-  const fromDns = dnsDomainEl.value.trim()
-  if (fromDns) return normalizeDomain(fromDns)
   const fromFilter = filterDomainEl.value.trim()
-  if (fromFilter) return normalizeDomain(fromFilter)
-  const domains = state.fullResult?.aggregate.domains ?? []
-  return domains[0] ? normalizeDomain(domains[0]) : ''
+  return fromFilter ? normalizeDomain(fromFilter) : ''
 }
 
 export function openMtaStsBuilder(): void {
