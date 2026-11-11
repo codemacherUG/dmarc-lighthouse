@@ -745,6 +745,8 @@ export const en = {
   'health.reason.policyNone': 'Policy p=none',
   'health.reason.passRateWarn': 'Health rate below 98%',
   'health.reason.dkimMissing': 'DKIM selector missing in DNS',
+  'health.dkimMissingInDns': 'missing in DNS',
+  'health.dkimUnverified': 'Unverified – not checked',
   'health.reason.policyWeak': 'Policy is not quarantine/reject',
   'health.reason.ok': 'Policy and health rate look good',
   'health.status.ok': 'OK',
@@ -758,7 +760,17 @@ export const en = {
   'health.domainTabSenders': 'Sending services',
   'health.dkimSettingsClose': 'Close DKIM settings',
   'health.dkimSettingsHint':
-    'New selectors found in reports are added automatically. Disable selectors no longer in use or add more.',
+    'Selectors found in reports are added automatically. What matters is whether a selector provably belongs to your domain – only then does the health status check that its key is in DNS.',
+  'health.dkimLegendEnabled':
+    'Provably yours: its signature was valid in recent reports, or you added the selector yourself. The key is published in DNS.',
+  'health.dkimLegendUnverifiedTerm': 'Unverified',
+  'health.dkimLegendUnverified':
+    'Unclear whether the selector is yours. It only appeared in mail with an invalid signature – anyone could have made it up, such as a spammer abusing your domain as sender. The app therefore does not look it up in DNS, and the health status is unaffected. Enter it below if it is yours after all.',
+  'health.dkimLegendMissingTerm': 'Missing in DNS',
+  'health.dkimLegendMissing':
+    'The selector is yours, but DNS no longer has a key for it – for example because the DNS record was deleted by mistake. Mail using this selector fails DKIM, so the health status turns yellow.',
+  'health.dkimLegendDisabled':
+    'Unticked by you, for example an old key after a rotation. Never checked.',
   'health.dkimSelector': 'DKIM selector',
   'health.dkimAdd': 'Add',
   'health.dkimSave': 'Save',

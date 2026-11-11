@@ -73,6 +73,7 @@ import { emailInspectPdfFilename } from '../shared/email-inspect-html'
 import { inspectEmailBuffer, inspectEmailText } from './email-inspect'
 import { importLocalFiles, loadLocalImportResult, type ImportTargetAccount } from './import'
 import { checkBimiDns, checkDomainDns, normalizeDkimSelector } from './dnscheck'
+import { isDkimSelectorChecked } from '../shared/dkim-selector'
 import { checkTransportSecurity } from './transport'
 import { expandSpf } from './spf-expand'
 import { exportReportZip, exportReportsCsv, exportReportsJson } from './export'
@@ -596,11 +597,11 @@ async function runDnsAutoCheck(): Promise<void> {
       if (dnsIsDue) {
         try {
           const selectors = getDomainDkimSelectors(domain)
-            .filter((selector) => selector.enabled)
+            .filter(isDkimSelectorChecked)
             .map((selector) => selector.selector)
           const dnsResult = await checkDomainDns(domain, selectors)
           recordDnsHistory(dnsResult)
-          upsertDnsHealthCache(dnsResult.domain, dnsResult)
+          upsertDnsHealthCache(dnsResult.domain, dnsResult, undefined, { replaceDkim: true })
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           failures.push(`${domain}: ${message}`)
@@ -1013,7 +1014,11 @@ function registerIpc(): void {
                   ? normalizeDkimSelector(item.selector)
                   : null
               if (!sel) return null
-              return { selector: sel, enabled: Boolean(item.enabled) }
+              return {
+                selector: sel,
+                enabled: Boolean(item.enabled),
+                ...(item.manual === true ? { manual: true } : {})
+              }
             })
             .filter((item): item is DomainDkimSelector => Boolean(item))
           if (valid.length > 0) {
@@ -1231,12 +1236,12 @@ function registerIpc(): void {
         if (entry == null || typeof entry !== 'object') {
           throw new Error('Each DKIM selector setting must be an object')
         }
-        const { selector, enabled } = entry
+        const { selector, enabled, manual } = entry
         const normalized = typeof selector === 'string' ? normalizeDkimSelector(selector) : null
         if (!normalized || typeof enabled !== 'boolean') {
           throw new Error('Each DKIM selector must have a valid selector name and enabled state')
         }
-        return { selector: normalized, enabled }
+        return { selector: normalized, enabled, ...(manual === true ? { manual: true } : {}) }
       })
       const unique = [...new Map(selectors.map((item) => [item.selector, item])).values()]
       persistDomainDkimSelectors(domain, unique)

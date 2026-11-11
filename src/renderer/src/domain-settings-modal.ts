@@ -1,4 +1,4 @@
-import { normalizeDkimSelector } from '../../shared/dkim-selector'
+import { isDkimSelectorChecked, normalizeDkimSelector } from '../../shared/dkim-selector'
 import { t, type MessageKey } from '../../shared/i18n'
 import { parseDomainList } from '../../shared/sending-services'
 import type { DomainDkimSelector, SendingService, SendingServiceStatus } from '../../shared/types'
@@ -93,20 +93,39 @@ export function showDomainSettingsTab(tab: 'dkim' | 'senders'): void {
   domainSendersTabPanel.classList.toggle('hidden', dkimActive)
 }
 
+/** Selectors the last Ampel DNS check did not find for this domain (lowercased). */
+function missingDkimSelectors(domain: string): Set<string> {
+  const wanted = domain.trim().toLowerCase()
+  const health = state.domainHealthCache.find((h) => h.domain.trim().toLowerCase() === wanted)
+  return new Set((health?.dkimMissingSelectors ?? []).map((s) => s.toLowerCase()))
+}
+
 function renderDomainDkimSelectors(): void {
   if (editingDkimSelectors.length === 0) {
     domainDkimList.innerHTML = `<p class="muted">${escapeHtml(t('health.dkimEmpty'))}</p>`
     return
   }
+  const missing = missingDkimSelectors(editingDkimDomain)
   domainDkimList.innerHTML = editingDkimSelectors
-    .map(
-      ({ selector, enabled }) => `
-      <label class="domain-dkim-row">
+    .map((entry) => {
+      const { selector, enabled } = entry
+      const isChecked = isDkimSelectorChecked(entry)
+      const isMissing = isChecked && missing.has(selector.toLowerCase())
+      const missingLabel = isMissing
+        ? `<b class="fail">${escapeHtml(t('health.dkimMissingInDns'))}</b> · `
+        : ''
+      const stateKey: MessageKey = !enabled
+        ? 'health.dkimDisabled'
+        : isChecked
+          ? 'health.dkimEnabled'
+          : 'health.dkimUnverified'
+      return `
+      <label class="domain-dkim-row${isMissing ? ' is-missing' : ''}${enabled && !isChecked ? ' is-unverified' : ''}">
         <input type="checkbox" data-selector="${escapeHtml(selector)}" ${enabled ? 'checked' : ''} />
         <code>${escapeHtml(selector)}</code>
-        <span class="muted">${escapeHtml(t(enabled ? 'health.dkimEnabled' : 'health.dkimDisabled'))}</span>
+        <span class="muted">${missingLabel}${escapeHtml(t(stateKey))}</span>
       </label>`
-    )
+    })
     .join('')
 }
 
@@ -415,12 +434,19 @@ function addDomainDkimSelector(): void {
     domainDkimStatus.textContent = t('health.dkimInvalid')
     return
   }
-  if (editingDkimSelectors.some((item) => item.selector === selector)) {
+  const existing = editingDkimSelectors.find((item) => item.selector === selector)
+  if (existing && isDkimSelectorChecked(existing)) {
     domainDkimStatus.textContent = t('health.dkimAlreadyExists')
     return
   }
-  editingDkimSelectors.push({ selector, enabled: true })
-  editingDkimSelectors.sort((a, b) => a.selector.localeCompare(b.selector))
+  if (existing) {
+    // Entering an unverified selector by hand opts it into the DNS check.
+    existing.enabled = true
+    existing.manual = true
+  } else {
+    editingDkimSelectors.push({ selector, enabled: true, manual: true })
+    editingDkimSelectors.sort((a, b) => a.selector.localeCompare(b.selector))
+  }
   domainDkimInput.value = ''
   domainDkimStatus.textContent = ''
   renderDomainDkimSelectors()

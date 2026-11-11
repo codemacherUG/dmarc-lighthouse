@@ -283,6 +283,12 @@ export interface SerializedRecord {
   spfDomain: string | null
   /** DKIM selectors seen in auth_results (for DNS checks). */
   dkimSelectors: string[]
+  /**
+   * Aligned DKIM selectors whose signature verified (`pass`). A pass proves the key was
+   * published, so only these count as the domain's own. Undefined on records cached
+   * before this was tracked.
+   */
+  dkimPassSelectors?: string[]
   /** Raw (unaligned) SPF auth_results outcome for `spfDomain`, e.g. "pass"/"fail"/"none". */
   spfRawResult?: string | null
   /** Raw (unaligned) DKIM auth_results outcome for `dkimDomain`. */
@@ -519,12 +525,16 @@ export interface DomainStats {
   passRate: number
   /** DKIM selectors seen in report auth results. */
   dkimSelectors: string[]
+  /** Subset of `dkimSelectors` that passed DKIM at least once (proven to be the domain's own). */
+  dkimVerifiedSelectors: string[]
 }
 
 export interface DomainHealth extends DomainStats {
   dmarcPolicy: string | null
   spfOk: boolean | null
   dkimOk: boolean | null
+  /** Enabled DKIM selectors that have no record in DNS. */
+  dkimMissingSelectors: string[]
   status: DomainHealthStatus
   /** i18n message keys explaining the status. */
   reasons: string[]
@@ -533,6 +543,10 @@ export interface DomainHealth extends DomainStats {
 export interface DomainDkimSelector {
   selector: string
   enabled: boolean
+  /** Added by the user: always checked in DNS while enabled. */
+  manual?: boolean
+  /** Passed DKIM in the current Ampel window (set by the last Ampel run). */
+  verified?: boolean
 }
 
 export interface RdapInfo {

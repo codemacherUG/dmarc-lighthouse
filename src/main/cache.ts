@@ -29,6 +29,7 @@ import {
   listAllDomainDkimSelectorsInDb,
   recordHistorySnapshotInDb,
   saveDomainDkimSelectorsInDb,
+  setVerifiedDomainDkimSelectorsInDb,
   upsertDnsHealthCacheInDb
 } from './cache-dns'
 import {
@@ -179,6 +180,7 @@ function openDb(): DatabaseSync {
       passes_dmarc INTEGER NOT NULL,
       reasons_json TEXT NOT NULL,
       selectors_json TEXT NOT NULL,
+      pass_selectors_json TEXT,
       PRIMARY KEY (account_key, report_id, ordinal),
       FOREIGN KEY (account_key, report_id)
         REFERENCES reports(account_key, report_id) ON DELETE CASCADE
@@ -246,6 +248,8 @@ function openDb(): DatabaseSync {
       domain TEXT NOT NULL,
       selector TEXT NOT NULL,
       enabled INTEGER NOT NULL DEFAULT 1,
+      manual INTEGER NOT NULL DEFAULT 0,
+      verified INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (domain, selector)
     );
 
@@ -546,6 +550,22 @@ function migrateSchema(database: DatabaseSync): void {
     version = 14
     setSchemaVersion(database, version)
   }
+  // v15: only DKIM selectors that passed (or were added by hand) are checked in DNS.
+  if (version < 15) {
+    for (const ddl of [
+      'ALTER TABLE report_records ADD COLUMN pass_selectors_json TEXT',
+      'ALTER TABLE domain_dkim_selectors ADD COLUMN manual INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE domain_dkim_selectors ADD COLUMN verified INTEGER NOT NULL DEFAULT 0'
+    ]) {
+      try {
+        database.exec(ddl)
+      } catch {
+        // Column may already exist on newly created DBs.
+      }
+    }
+    version = 15
+    setSchemaVersion(database, version)
+  }
 }
 
 /** One-time import of legacy per-account `*.json` cache files. */
@@ -656,6 +676,7 @@ function recordFromRow(rec: {
   passes_dmarc: number
   reasons_json: string
   selectors_json: string
+  pass_selectors_json: string | null
 }): SerializedRecord {
   return normalizeRecord({
     sourceIp: rec.source_ip,
@@ -670,7 +691,10 @@ function recordFromRow(rec: {
     spfRawResult: rec.spf_raw_result,
     passesDmarc: Boolean(rec.passes_dmarc),
     reasons: JSON.parse(rec.reasons_json || '[]'),
-    dkimSelectors: JSON.parse(rec.selectors_json || '[]')
+    dkimSelectors: JSON.parse(rec.selectors_json || '[]'),
+    ...(rec.pass_selectors_json != null
+      ? { dkimPassSelectors: JSON.parse(rec.pass_selectors_json) as string[] }
+      : {})
   })
 }
 
@@ -701,7 +725,7 @@ function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
     .prepare(
       `SELECT report_id, source_ip, count, disposition, dkim_result, spf_result, header_from,
               dkim_domain, spf_domain, dkim_raw_result, spf_raw_result, passes_dmarc,
-              reasons_json, selectors_json
+              reasons_json, selectors_json, pass_selectors_json
        FROM report_records
        WHERE account_key = ?
        ORDER BY report_id, ordinal ASC`
@@ -721,6 +745,7 @@ function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
     passes_dmarc: number
     reasons_json: string
     selectors_json: string
+    pass_selectors_json: string | null
   }>
 
   const recordsByReport = new Map<string, SerializedRecord[]>()
@@ -864,8 +889,8 @@ function writeAccountCache(
     `INSERT INTO report_records(
        account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
        header_from, dkim_domain, spf_domain, dkim_raw_result, spf_raw_result, passes_dmarc,
-       reasons_json, selectors_json
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       reasons_json, selectors_json, pass_selectors_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
 
   for (const report of input.reports) {
@@ -900,7 +925,8 @@ function writeAccountCache(
         rec.spfRawResult ?? null,
         rec.passesDmarc ? 1 : 0,
         JSON.stringify(rec.reasons ?? []),
-        JSON.stringify(rec.dkimSelectors ?? [])
+        JSON.stringify(rec.dkimSelectors ?? []),
+        rec.dkimPassSelectors ? JSON.stringify(rec.dkimPassSelectors) : null
       )
     })
   }
@@ -1124,8 +1150,8 @@ function upsertAccountReports(
     `INSERT INTO report_records(
        account_key, report_id, ordinal, source_ip, count, disposition, dkim_result, spf_result,
        header_from, dkim_domain, spf_domain, dkim_raw_result, spf_raw_result, passes_dmarc,
-       reasons_json, selectors_json
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       reasons_json, selectors_json, pass_selectors_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
   const ipStmt = database.prepare(
     `INSERT INTO known_source_ips(account_key, source_ip) VALUES (?, ?)
@@ -1169,7 +1195,8 @@ function upsertAccountReports(
         rec.spfRawResult ?? null,
         rec.passesDmarc ? 1 : 0,
         JSON.stringify(rec.reasons ?? []),
-        JSON.stringify(rec.dkimSelectors ?? [])
+        JSON.stringify(rec.dkimSelectors ?? []),
+        rec.dkimPassSelectors ? JSON.stringify(rec.dkimPassSelectors) : null
       )
       if (rec.sourceIp) ipStmt.run(accountKey, rec.sourceIp)
     })
@@ -1465,8 +1492,13 @@ export function getDnsHealthCache(domain: string): DnsCheckResult | null {
   return getDnsHealthCacheInDb(openDb(), domain)
 }
 
-export function upsertDnsHealthCache(domain: string, result: DnsCheckResult, ttlMs?: number): void {
-  upsertDnsHealthCacheInDb(openDb(), domain, result, ttlMs)
+export function upsertDnsHealthCache(
+  domain: string,
+  result: DnsCheckResult,
+  ttlMs?: number,
+  options?: { replaceDkim?: boolean }
+): void {
+  upsertDnsHealthCacheInDb(openDb(), domain, result, ttlMs, options)
 }
 
 export function getDomainDkimSelectors(domain: string): DomainDkimSelector[] {
@@ -1475,6 +1507,11 @@ export function getDomainDkimSelectors(domain: string): DomainDkimSelector[] {
 
 export function addDiscoveredDomainDkimSelectors(domain: string, selectors: string[]): void {
   addDiscoveredDomainDkimSelectorsInDb(openDb(), domain, selectors)
+}
+
+/** Mark which selectors passed DKIM in the current Ampel window; all others lose the flag. */
+export function setVerifiedDomainDkimSelectors(domain: string, verified: string[]): void {
+  setVerifiedDomainDkimSelectorsInDb(openDb(), domain, verified)
 }
 
 export function saveDomainDkimSelectors(domain: string, selectors: DomainDkimSelector[]): void {

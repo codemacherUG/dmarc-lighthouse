@@ -2813,6 +2813,14 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   background: color-mix(in srgb, var(--accent) 5%, var(--bg-muted));
 }
 
+.domain-dkim-row.is-unverified code {
+  color: var(--muted);
+}
+
+.domain-dkim-row.is-missing {
+  border-color: var(--warn);
+}
+
 .domain-dkim-row input[type='checkbox'] {
   grid-column: 1;
 }
@@ -2832,6 +2840,24 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   font-size: 0.78rem;
   font-weight: 500;
   white-space: nowrap;
+}
+
+.domain-dkim-legend {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.3rem 0.75rem;
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.domain-dkim-legend dt {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.domain-dkim-legend dd {
+  margin: 0;
 }
 
 .domain-dkim-add {

@@ -41,7 +41,7 @@ function domainOptions(): string[] {
 function selectorsFor(domain: string): string[] {
   const reports = state.fullResult?.reports ?? []
   const stats = buildDomainStats(reports).find((s) => s.domain === domain)
-  return stats?.dkimSelectors ?? []
+  return stats?.dkimVerifiedSelectors ?? []
 }
 
 function stageLabel(id: string): string {

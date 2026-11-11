@@ -239,9 +239,11 @@ export function installScreenshotApi(): void {
           failing: 2,
           passRate: 98,
           dkimSelectors: ['selector1'],
+          dkimVerifiedSelectors: ['selector1'],
           dmarcPolicy: 'reject',
           spfOk: true,
           dkimOk: true,
+          dkimMissingSelectors: [],
           status: 'ok',
           reasons: ['health.reason.ok']
         }

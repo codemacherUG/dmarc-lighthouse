@@ -56,6 +56,14 @@ function serializeReport(report: DmarcReport): ReportRow {
           alignedDkimAuth.map((a) => a.selector?.trim()).filter((s): s is string => Boolean(s))
         )
       ],
+      dkimPassSelectors: [
+        ...new Set(
+          alignedDkimAuth
+            .filter((a) => (a.result ?? '').toLowerCase() === 'pass')
+            .map((a) => a.selector?.trim())
+            .filter((s): s is string => Boolean(s))
+        )
+      ],
       spfRawResult: rec.spfAuth?.[0]?.result ?? null,
       dkimRawResult: primaryDkim?.result ?? null,
       passesDmarc: recordPassesDmarc(rec),

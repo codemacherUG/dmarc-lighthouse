@@ -10,6 +10,14 @@ export function normalizeDkimSelector(raw: string): string | null {
   return selector
 }
 
+/**
+ * Whether a configured selector is checked in DNS. Selectors only seen in failing
+ * signatures (forged or foreign mail) are listed but never checked.
+ */
+export function isDkimSelectorChecked(selector: DomainDkimSelector): boolean {
+  return selector.enabled && Boolean(selector.manual || selector.verified)
+}
+
 export function selectorsForDnsCheck(
   manual: string[],
   configured: DomainDkimSelector[],
@@ -17,7 +25,7 @@ export function selectorsForDnsCheck(
 ): string[] {
   if (manual.length > 0) return manual
   if (configured.length > 0) {
-    return configured.filter(({ enabled }) => enabled).map(({ selector }) => selector)
+    return configured.filter(isDkimSelectorChecked).map(({ selector }) => selector)
   }
   return discovered
 }

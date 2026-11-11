@@ -2049,10 +2049,21 @@
         <div class="dialog-body domain-dkim-body">
           <section id="domain-tab-dkim" class="domain-tab-panel" role="tabpanel" aria-labelledby="domain-tab-btn-dkim">
             <p class="hint" data-i18n="health.dkimSettingsHint">
-              Neue Selectoren aus Reports werden automatisch ergänzt. Deaktiviere nicht mehr
-              verwendete Selectoren oder füge weitere hinzu.
+              Selector aus Reports werden automatisch ergänzt. Entscheidend ist, ob ein Selector
+              nachweislich zu deiner Domain gehört – nur dann prüft die Ampel, ob sein Schlüssel
+              im DNS steht.
             </p>
             <div id="domain-dkim-list" class="domain-dkim-list"></div>
+            <dl class="domain-dkim-legend">
+              <dt data-i18n="health.dkimEnabled">Aktiv</dt>
+              <dd data-i18n="health.dkimLegendEnabled"></dd>
+              <dt data-i18n="health.dkimLegendUnverifiedTerm">Unbestätigt</dt>
+              <dd data-i18n="health.dkimLegendUnverified"></dd>
+              <dt data-i18n="health.dkimLegendMissingTerm">Fehlt im DNS</dt>
+              <dd data-i18n="health.dkimLegendMissing"></dd>
+              <dt data-i18n="health.dkimDisabled">Deaktiviert</dt>
+              <dd data-i18n="health.dkimLegendDisabled"></dd>
+            </dl>
             <div class="domain-dkim-add">
               <label>
                 <span data-i18n="health.dkimSelector">DKIM-Selector</span>

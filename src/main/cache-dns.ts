@@ -549,11 +549,14 @@ export function upsertDnsHealthCacheInDb(
   database: DatabaseSync,
   domain: string,
   result: DnsCheckResult,
-  ttlMs = DNS_HEALTH_TTL_MS
+  ttlMs = DNS_HEALTH_TTL_MS,
+  options: { replaceDkim?: boolean } = {}
 ): void {
   const existing = getDnsHealthCacheInDb(database, domain)
+  // A check without selectors normally keeps the cached DKIM state. Callers that pass the
+  // authoritative selector set (Ampel) replace it, so dropped selectors do not linger.
   const mergedResult =
-    result.dkim.selectors.length === 0 && existing?.dkim.selectors.length
+    !options.replaceDkim && result.dkim.selectors.length === 0 && existing?.dkim.selectors.length
       ? { ...result, dkim: existing.dkim }
       : result
   const checkedAt = new Date().toISOString()
@@ -576,11 +579,46 @@ export function getDomainDkimSelectorsInDb(
 ): DomainDkimSelector[] {
   const rows = database
     .prepare(
-      `SELECT selector, enabled FROM domain_dkim_selectors
+      `SELECT selector, enabled, manual, verified FROM domain_dkim_selectors
        WHERE domain = ? ORDER BY selector`
     )
-    .all(domain.trim().toLowerCase()) as Array<{ selector: string; enabled: number }>
-  return rows.map(({ selector, enabled }) => ({ selector, enabled: enabled === 1 }))
+    .all(domain.trim().toLowerCase()) as unknown as DkimSelectorRow[]
+  return rows.map(rowToDkimSelector)
+}
+
+interface DkimSelectorRow {
+  selector: string
+  enabled: number
+  manual: number
+  verified: number
+}
+
+function rowToDkimSelector(row: DkimSelectorRow): DomainDkimSelector {
+  return {
+    selector: row.selector,
+    enabled: row.enabled === 1,
+    ...(row.manual === 1 ? { manual: true } : {}),
+    ...(row.verified === 1 ? { verified: true } : {})
+  }
+}
+
+export function setVerifiedDomainDkimSelectorsInDb(
+  database: DatabaseSync,
+  domain: string,
+  verified: string[]
+): void {
+  const normalizedDomain = domain.trim().toLowerCase()
+  const wanted = new Set(verified)
+  const rows = database
+    .prepare('SELECT selector, verified FROM domain_dkim_selectors WHERE domain = ?')
+    .all(normalizedDomain) as Array<{ selector: string; verified: number }>
+  const update = database.prepare(
+    'UPDATE domain_dkim_selectors SET verified = ? WHERE domain = ? AND selector = ?'
+  )
+  for (const row of rows) {
+    const next = wanted.has(row.selector) ? 1 : 0
+    if (next !== row.verified) update.run(next, normalizedDomain, row.selector)
+  }
 }
 
 export function addDiscoveredDomainDkimSelectorsInDb(
@@ -604,14 +642,27 @@ export function saveDomainDkimSelectorsInDb(
   selectors: DomainDkimSelector[]
 ): void {
   const normalizedDomain = domain.trim().toLowerCase()
+  // `verified` is derived from reports, not user input: keep what the last Ampel run stored.
+  const verified = new Set(
+    getDomainDkimSelectorsInDb(database, normalizedDomain)
+      .filter((item) => item.verified)
+      .map((item) => item.selector)
+  )
   database.exec('BEGIN')
   try {
     database.prepare('DELETE FROM domain_dkim_selectors WHERE domain = ?').run(normalizedDomain)
     const insert = database.prepare(
-      `INSERT INTO domain_dkim_selectors(domain, selector, enabled) VALUES (?, ?, ?)`
+      `INSERT INTO domain_dkim_selectors(domain, selector, enabled, manual, verified)
+       VALUES (?, ?, ?, ?, ?)`
     )
-    for (const { selector, enabled } of selectors) {
-      insert.run(normalizedDomain, selector, enabled ? 1 : 0)
+    for (const { selector, enabled, manual } of selectors) {
+      insert.run(
+        normalizedDomain,
+        selector,
+        enabled ? 1 : 0,
+        manual ? 1 : 0,
+        verified.has(selector) ? 1 : 0
+      )
     }
     database.exec('COMMIT')
   } catch (error) {
@@ -625,15 +676,15 @@ export function listAllDomainDkimSelectorsInDb(
 ): Record<string, DomainDkimSelector[]> {
   const rows = database
     .prepare(
-      `SELECT domain, selector, enabled
+      `SELECT domain, selector, enabled, manual, verified
        FROM domain_dkim_selectors
        ORDER BY domain, selector`
     )
-    .all() as Array<{ domain: string; selector: string; enabled: number }>
+    .all() as unknown as Array<DkimSelectorRow & { domain: string }>
   const out: Record<string, DomainDkimSelector[]> = {}
   for (const row of rows) {
     if (!out[row.domain]) out[row.domain] = []
-    out[row.domain].push({ selector: row.selector, enabled: row.enabled === 1 })
+    out[row.domain].push(rowToDkimSelector(row))
   }
   return out
 }

@@ -812,6 +812,18 @@ export function isHealthyDmarcOutcome(rec: SerializedRecord): boolean {
   return isHealthyForwardingOverride(rec)
 }
 
+/**
+ * Selectors of a record that verified. Records cached before per-selector results were
+ * stored fall back to the record-level DKIM outcome.
+ */
+function passedDkimSelectors(rec: SerializedRecord): string[] {
+  if (rec.dkimPassSelectors) return rec.dkimPassSelectors
+  const passed =
+    (rec.dkimResult ?? '').toLowerCase() === 'pass' ||
+    (rec.dkimRawResult ?? '').toLowerCase() === 'pass'
+  return passed ? (rec.dkimSelectors ?? []) : []
+}
+
 /** Aggregate per-domain Ampel stats from records (healthy-outcome rate, not raw DMARC pass rate). */
 export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
   const map = new Map<
@@ -821,6 +833,7 @@ export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
       passing: number
       failing: number
       selectors: Set<string>
+      verified: Set<string>
     }
   >()
   for (const r of reports) {
@@ -830,12 +843,16 @@ export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
       total: 0,
       passing: 0,
       failing: 0,
-      selectors: new Set<string>()
+      selectors: new Set<string>(),
+      verified: new Set<string>()
     }
     for (const rec of r.records) {
       if (!rec.dkimDomain || isRelaxedAligned(rec.dkimDomain, domain)) {
         for (const sel of rec.dkimSelectors ?? []) {
           if (sel) cur.selectors.add(sel)
+        }
+        for (const sel of passedDkimSelectors(rec)) {
+          if (sel) cur.verified.add(sel)
         }
       }
       const n = rec.count || 0
@@ -852,7 +869,8 @@ export function buildDomainStats(reports: ReportRow[]): DomainStats[] {
       passing: v.passing,
       failing: v.failing,
       passRate: v.total ? Math.round((v.passing / v.total) * 1000) / 10 : 100,
-      dkimSelectors: [...v.selectors].sort()
+      dkimSelectors: [...v.selectors].sort(),
+      dkimVerifiedSelectors: [...v.verified].sort()
     }))
     .sort((a, b) => b.total - a.total)
 }
@@ -872,6 +890,7 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
       dmarcPolicy: null,
       spfOk: null,
       dkimOk: null,
+      dkimMissingSelectors: [],
       status: 'unknown',
       reasons: ['health.reason.dnsPending']
     }
@@ -885,7 +904,8 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
   const spfInvalid = dns.spf.found && (spfMultiple || spfSyntaxErrors.length > 0)
   const spfOk = dns.spf.found && !spfInvalid
   const selectors = dns.dkim.selectors
-  const dkimOk = selectors.length === 0 ? null : selectors.every((s) => s.found)
+  const dkimMissingSelectors = selectors.filter((s) => !s.found).map((s) => s.selector)
+  const dkimOk = selectors.length === 0 ? null : dkimMissingSelectors.length === 0
 
   const reasons: string[] = []
   let status: DomainHealthStatus = 'ok'
@@ -935,6 +955,7 @@ export function mergeDomainHealth(stats: DomainStats, dns: DnsCheckResult | null
     dmarcPolicy: policy,
     spfOk,
     dkimOk,
+    dkimMissingSelectors,
     status,
     reasons
   }

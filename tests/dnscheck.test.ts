@@ -115,17 +115,19 @@ describe('normalizeDkimSelector', () => {
 })
 
 describe('selectorsForDnsCheck', () => {
-  it('uses the enabled domain selectors before selectors from reports', () => {
+  it('uses the enabled verified or manual domain selectors before selectors from reports', () => {
     expect(
       selectorsForDnsCheck(
         [],
         [
-          { selector: 'dkim', enabled: true },
-          { selector: 'mail4', enabled: false }
+          { selector: 'dkim', enabled: true, verified: true },
+          { selector: 'byhand', enabled: true, manual: true },
+          { selector: 'forged', enabled: true },
+          { selector: 'mail4', enabled: false, verified: true }
         ],
         ['dkim', 'mail4', 'mail8']
       )
-    ).toEqual(['dkim'])
+    ).toEqual(['dkim', 'byhand'])
   })
 
   it('uses report selectors when no domain settings exist', () => {

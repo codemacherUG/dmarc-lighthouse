@@ -207,6 +207,47 @@ describe('domain health / Ampel', () => {
     expect(health.reasons).toContain('health.reason.policyNone')
   })
 
+  it('only verifies selectors whose signature passed', () => {
+    const stats = buildDomainStats([
+      report({
+        records: [
+          record({ dkimSelectors: ['s1', 'forged'], dkimPassSelectors: ['s1'] }),
+          record({
+            dkimSelectors: ['spoof'],
+            dkimPassSelectors: [],
+            dkimResult: 'fail',
+            passesDmarc: false
+          }),
+          // Cached before per-selector results existed: fall back to the record outcome.
+          record({ dkimSelectors: ['legacy-ok'], dkimResult: 'pass' }),
+          record({ dkimSelectors: ['legacy-bad'], dkimResult: 'fail', passesDmarc: false })
+        ]
+      })
+    ])[0]!
+    expect(stats.dkimSelectors).toEqual(['forged', 'legacy-bad', 'legacy-ok', 's1', 'spoof'])
+    expect(stats.dkimVerifiedSelectors).toEqual(['legacy-ok', 's1'])
+  })
+
+  it('lists DKIM selectors that are missing in DNS', () => {
+    const stats = buildDomainStats([
+      report({ records: [record({ count: 100, passesDmarc: true })] })
+    ])[0]!
+    const health = mergeDomainHealth(
+      stats,
+      dns({
+        dkim: {
+          selectors: [
+            { selector: 's1', found: true, record: 'v=DKIM1; p=abc' },
+            { selector: 'old2019', found: false, record: null }
+          ]
+        }
+      })
+    )
+    expect(health.status).toBe('warn')
+    expect(health.reasons).toContain('health.reason.dkimMissing')
+    expect(health.dkimMissingSelectors).toEqual(['old2019'])
+  })
+
   it('returns unknown without DNS', () => {
     const stats = buildDomainStats([report()])[0]!
     expect(mergeDomainHealth(stats, null).status).toBe('unknown')

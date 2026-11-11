@@ -14,6 +14,7 @@ import {
   addDiscoveredDomainDkimSelectors,
   getDomainDkimSelectors,
   saveDomainDkimSelectors,
+  setVerifiedDomainDkimSelectors,
   getIpEnrichment,
   getCachedReportDomains,
   getDnsHealthCache,
@@ -70,6 +71,7 @@ function sampleReport(id: string): ReportRow {
         dkimRawResult: 'pass',
         spfRawResult: 'pass',
         dkimSelectors: ['s1'],
+        dkimPassSelectors: ['s1'],
         passesDmarc: true,
         reasons: []
       }
@@ -188,6 +190,29 @@ describe('sqlite cache', () => {
     if (dir) rmSync(dir, { recursive: true, force: true })
   })
 
+  it('tracks manual and verified DKIM selectors separately from the enabled state', () => {
+    dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
+    setCacheUserDataForTests(dir)
+
+    addDiscoveredDomainDkimSelectors('example.com', ['real', 'forged'])
+    setVerifiedDomainDkimSelectors('Example.com', ['real'])
+    // Saving user settings must not drop the report-derived verified flag.
+    saveDomainDkimSelectors('example.com', [
+      { selector: 'real', enabled: true },
+      { selector: 'forged', enabled: true },
+      { selector: 'byhand', enabled: true, manual: true }
+    ])
+    expect(getDomainDkimSelectors('example.com')).toEqual([
+      { selector: 'byhand', enabled: true, manual: true },
+      { selector: 'forged', enabled: true },
+      { selector: 'real', enabled: true, verified: true }
+    ])
+
+    // A rotated key no longer passes in the window and loses the flag.
+    setVerifiedDomainDkimSelectors('example.com', [])
+    expect(getDomainDkimSelectors('example.com').filter((s) => s.verified)).toEqual([])
+  })
+
   it('preserves per-domain DKIM selector settings and adds newly discovered selectors', () => {
     dir = mkdtempSync(join(tmpdir(), 'dmarc-cache-'))
     setCacheUserDataForTests(dir)
@@ -248,6 +273,7 @@ describe('sqlite cache', () => {
     expect(loaded.meta.knownSourceIps).toEqual(['192.0.2.1', '203.0.113.1'])
     expect(loaded.reports).toHaveLength(1)
     expect(loaded.reports[0].records[0].dkimSelectors).toEqual(['s1'])
+    expect(loaded.reports[0].records[0].dkimPassSelectors).toEqual(['s1'])
     expect(loaded.reports[0].records[0].dkimRawResult).toBe('pass')
     expect(loaded.reports[0].records[0].spfRawResult).toBe('pass')
     expect(loaded.forensicReports).toHaveLength(1)
@@ -306,7 +332,7 @@ describe('sqlite cache', () => {
     expect(columns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['dkim_raw_result', 'spf_raw_result'])
     )
-    expect(version.value).toBe('14')
+    expect(version.value).toBe('15')
     expect(
       migrated
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tlsrpt_reports'")
@@ -1003,12 +1029,15 @@ describe('sqlite cache', () => {
       }
     }
     upsertDnsHealthCache('example.com', updatedWithoutSelectors)
-
     const cached = getDnsHealthCache('example.com')
     expect(cached?.dmarc.policy).toBe('reject')
     expect(cached?.dkim.selectors).toEqual([
       { selector: 'default', found: true, record: 'v=DKIM1; p=abc' }
     ])
+
+    // The Ampel passes the authoritative selector set and replaces the cached state.
+    upsertDnsHealthCache('example.com', updatedWithoutSelectors, undefined, { replaceDkim: true })
+    expect(getDnsHealthCache('example.com')?.dkim.selectors).toEqual([])
   })
 
   it('prunes expired reports while keeping recent reports, UID watermarks, and DKIM selector configs', () => {

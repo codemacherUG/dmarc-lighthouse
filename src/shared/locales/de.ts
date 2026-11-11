@@ -748,6 +748,8 @@ export const de = {
   'health.reason.policyNone': 'Policy p=none',
   'health.reason.passRateWarn': 'Gesundheitsrate unter 98%',
   'health.reason.dkimMissing': 'DKIM-Selektor fehlt im DNS',
+  'health.dkimMissingInDns': 'fehlt im DNS',
+  'health.dkimUnverified': 'Unbestätigt – wird nicht geprüft',
   'health.reason.policyWeak': 'Policy nicht quarantine/reject',
   'health.reason.ok': 'Policy und Gesundheitsrate in Ordnung',
   'health.status.ok': 'OK',
@@ -761,7 +763,17 @@ export const de = {
   'health.domainTabSenders': 'Sende-Dienste',
   'health.dkimSettingsClose': 'DKIM-Einstellungen schließen',
   'health.dkimSettingsHint':
-    'Neue Selector aus Reports werden automatisch ergänzt. Deaktiviere nicht mehr verwendete Selector oder füge weitere hinzu.',
+    'Selector aus Reports werden automatisch ergänzt. Entscheidend ist, ob ein Selector nachweislich zu deiner Domain gehört – nur dann prüft die Ampel, ob sein Schlüssel im DNS steht.',
+  'health.dkimLegendEnabled':
+    'Gehört nachweislich zu dir: Die Signatur war in den letzten Reports gültig, oder du hast den Selector selbst eingetragen. Der Schlüssel steht im DNS.',
+  'health.dkimLegendUnverifiedTerm': 'Unbestätigt',
+  'health.dkimLegendUnverified':
+    'Unklar, ob der Selector deiner ist. Er kam nur in Mails mit ungültiger Signatur vor – jeder kann ihn erfunden haben, etwa ein Spammer, der deine Domain als Absender missbraucht. Die App schaut deshalb gar nicht im DNS nach, und die Ampel bleibt unberührt. Trage ihn unten ein, falls er doch deiner ist.',
+  'health.dkimLegendMissingTerm': 'Fehlt im DNS',
+  'health.dkimLegendMissing':
+    'Der Selector ist deiner, aber im DNS gibt es keinen Schlüssel mehr dazu – zum Beispiel, weil der DNS-Eintrag versehentlich gelöscht wurde. Mails mit diesem Selector fallen bei DKIM durch, deshalb wird die Ampel gelb.',
+  'health.dkimLegendDisabled':
+    'Von dir abgewählt, zum Beispiel ein alter Schlüssel nach einem Wechsel. Wird nie geprüft.',
   'health.dkimSelector': 'DKIM-Selector',
   'health.dkimAdd': 'Hinzufügen',
   'health.dkimSave': 'Speichern',

@@ -6,12 +6,14 @@ import type {
   ReportRow
 } from '../shared/types'
 import { buildDomainStats, mergeDomainHealth, reportsForDomainHealth } from '../shared/analyze'
+import { isDkimSelectorChecked } from '../shared/dkim-selector'
 import { checkDomainDns, normalizeDkimSelector } from './dnscheck'
 import {
   addDiscoveredDomainDkimSelectors,
   getDnsHealthCache,
   getDomainDkimSelectors,
   recordDnsHistory,
+  setVerifiedDomainDkimSelectors,
   upsertDnsHealthCache
 } from './cache'
 
@@ -28,7 +30,7 @@ async function dnsForDomain(domain: string, selectors: string[]): Promise<DnsChe
   }
   const result = await checkDomainDns(domain, selectors)
   recordDnsHistory(result)
-  upsertDnsHealthCache(domain, result)
+  upsertDnsHealthCache(domain, result, undefined, { replaceDkim: true })
   return result
 }
 
@@ -54,8 +56,14 @@ export async function buildDomainHealth(
             .map(normalizeDkimSelector)
             .filter((selector): selector is string => Boolean(selector))
           addDiscoveredDomainDkimSelectors(s.domain, discovered)
+          // Only selectors that passed DKIM are proven to be ours; forged or foreign
+          // signatures must not turn the Ampel yellow.
+          const verified = (s.dkimVerifiedSelectors ?? [])
+            .map(normalizeDkimSelector)
+            .filter((selector): selector is string => Boolean(selector))
+          setVerifiedDomainDkimSelectors(s.domain, verified)
           const activeSelectors = getDomainDkimSelectors(s.domain)
-            .filter(({ enabled }) => enabled)
+            .filter(isDkimSelectorChecked)
             .map(({ selector }) => selector)
           const dns = await dnsForDomain(s.domain, activeSelectors)
           return mergeDomainHealth(s, dns)

@@ -437,7 +437,9 @@ export function domainHealthFromReports(
   dnsFor?: (domain: string, selectors: string[]) => DnsCheckResult | null
 ): DomainHealth[] {
   return buildDomainStats(reports)
-    .map((stats) => mergeDomainHealth(stats, dnsFor?.(stats.domain, stats.dkimSelectors) ?? null))
+    .map((stats) =>
+      mergeDomainHealth(stats, dnsFor?.(stats.domain, stats.dkimVerifiedSelectors) ?? null)
+    )
     .sort((a, b) => b.total - a.total)
 }
 
