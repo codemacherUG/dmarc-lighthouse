@@ -24,7 +24,6 @@ import {
   btnMtaStsBuilder,
   btnMtaStsBuilderBack,
   btnMtaStsBuilderNext,
-  filterDomainEl,
   mtaStsBuilderDialog,
   mtaStsBuilderDomainEl,
   mtaStsBuilderDomainStatusEl,
@@ -39,16 +38,21 @@ import {
   mtaStsBuilderStepsEl
 } from './dom'
 import { escapeHtml } from './format'
+import {
+  bindWizardCopyButtons,
+  createInflightDeduper,
+  suggestInitialWizardDomain,
+  syncWizardStepDom,
+  wizardCopyButtonHtml
+} from './wizard-common'
 
 let currentStep: MtaStsBuilderStep = 'domain'
-let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let liveDnsValue: string | null = null
 let livePolicyText: string | null = null
 let liveId: string | null = null
 let loadGen = 0
 let appliedKey = ''
-let inflight: Promise<void> | null = null
-let inflightKey = ''
+const templateDeduper = createInflightDeduper()
 
 function readInput(): MtaStsBuilderInput {
   return {
@@ -80,33 +84,18 @@ function resolvedId(input: MtaStsBuilderInput): string {
   return ''
 }
 
-function centerActiveStep(list: HTMLElement): void {
-  const active = list.querySelector<HTMLElement>('li.active')
-  if (!active) return
-  const listRect = list.getBoundingClientRect()
-  const activeRect = active.getBoundingClientRect()
-  const left =
-    list.scrollLeft + (activeRect.left - listRect.left) - (list.clientWidth - activeRect.width) / 2
-  list.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-}
-
 function showStep(step: MtaStsBuilderStep): void {
   currentStep = step
-  const idx = mtaStsStepIndex(step)
-  for (const li of mtaStsBuilderStepsEl.querySelectorAll('li')) {
-    const s = li.getAttribute('data-step') as MtaStsBuilderStep | null
-    if (!s) continue
-    const si = mtaStsStepIndex(s)
-    li.classList.toggle('active', s === step)
-    li.classList.toggle('done', si >= 0 && si < idx)
-  }
-  centerActiveStep(mtaStsBuilderStepsEl)
-  for (const panel of document.querySelectorAll<HTMLElement>('.mta-sts-builder-panel')) {
-    panel.classList.toggle('hidden', panel.getAttribute('data-step') !== step)
-  }
-  btnMtaStsBuilderBack.disabled = step === 'domain'
-  btnMtaStsBuilderNext.textContent =
-    step === 'result' ? t('mtaStsBuilder.finish') : t('mtaStsBuilder.next')
+  syncWizardStepDom({
+    stepsEl: mtaStsBuilderStepsEl,
+    panelSelector: '.mta-sts-builder-panel',
+    backBtn: btnMtaStsBuilderBack,
+    nextBtn: btnMtaStsBuilderNext,
+    step,
+    stepIndex: mtaStsStepIndex,
+    finishKey: 'mtaStsBuilder.finish',
+    nextKey: 'mtaStsBuilder.next'
+  })
   const input = readInput()
   mtaStsBuilderFooterHintEl.textContent = input.domain || ''
   if (step === 'domain') renderDomainPreview()
@@ -131,7 +120,7 @@ function validateCurrentStep(): boolean {
 }
 
 function copyButton(value: string, labelKey: MessageKey = 'mtaStsBuilder.result.copy'): string {
-  return `<button type="button" class="btn secondary btn-copy" data-copy="${escapeHtml(value)}" data-label-key="${escapeHtml(labelKey)}">${escapeHtml(t(labelKey))}</button>`
+  return wizardCopyButtonHtml(value, labelKey)
 }
 
 function renderResult(): void {
@@ -306,23 +295,13 @@ async function loadDnsTemplate(): Promise<void> {
 
 function requestDnsTemplate(): Promise<void> {
   const domain = normalizeDomain(mtaStsBuilderDomainEl.value)
-  if (inflight && inflightKey === domain) return inflight
-  inflightKey = domain
-  inflight = loadDnsTemplate().finally(() => {
-    if (inflightKey === domain) inflight = null
-  })
-  return inflight
-}
-
-function suggestInitialDomain(): string {
-  const fromFilter = filterDomainEl.value.trim()
-  return fromFilter ? normalizeDomain(fromFilter) : ''
+  return templateDeduper.run(domain, loadDnsTemplate)
 }
 
 export function openMtaStsBuilder(): void {
   fillForm({ ...DEFAULT_MTA_STS_BUILDER_INPUT })
   mtaStsBuilderRenewIdEl.checked = false
-  const domain = suggestInitialDomain()
+  const domain = suggestInitialWizardDomain()
   if (domain) mtaStsBuilderDomainEl.value = domain
   liveDnsValue = null
   livePolicyText = null
@@ -378,19 +357,9 @@ export function initMtaStsWizardUi(): void {
     if (isValidDomain(domain)) void requestDnsTemplate()
   })
 
-  mtaStsBuilderResultEl.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null
-    const btn = target?.closest?.('.btn-copy') as HTMLButtonElement | null
-    if (!btn) return
-    const value = btn.getAttribute('data-copy') ?? ''
-    void navigator.clipboard.writeText(value).then(() => {
-      const labelKey = (btn.getAttribute('data-label-key') ||
-        'mtaStsBuilder.result.copy') as MessageKey
-      btn.textContent = t('mtaStsBuilder.result.copied')
-      if (copyResetTimer) clearTimeout(copyResetTimer)
-      copyResetTimer = setTimeout(() => {
-        btn.textContent = t(labelKey)
-      }, 1500)
-    })
-  })
+  bindWizardCopyButtons(
+    mtaStsBuilderResultEl,
+    'mtaStsBuilder.result.copy',
+    'mtaStsBuilder.result.copied'
+  )
 }

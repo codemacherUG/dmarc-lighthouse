@@ -38,15 +38,19 @@ import {
   btnBuilderBack,
   btnBuilderLoadDns,
   btnBuilderNext,
-  btnCloseBuilder,
-  filterDomainEl
+  btnCloseBuilder
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
 import { refreshDomainHealth } from './view'
+import {
+  bindWizardCopyButtons,
+  suggestInitialWizardDomain,
+  syncWizardStepDom,
+  wizardCopyButtonHtml
+} from './wizard-common'
 
 let currentStep: DmarcBuilderStep = 'domain'
-let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let liveDnsValue: string | null = null
 
 function readFo(): FailureOption[] {
@@ -96,32 +100,18 @@ function fillForm(input: Partial<DmarcBuilderInput>): void {
   if (input.aspf != null) builderAspfEl.value = input.aspf
 }
 
-function centerActiveStep(list: HTMLElement): void {
-  const active = list.querySelector<HTMLElement>('li.active')
-  if (!active) return
-  const listRect = list.getBoundingClientRect()
-  const activeRect = active.getBoundingClientRect()
-  const left =
-    list.scrollLeft + (activeRect.left - listRect.left) - (list.clientWidth - activeRect.width) / 2
-  list.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-}
-
 function showStep(step: DmarcBuilderStep): void {
   currentStep = step
-  const idx = stepIndex(step)
-  for (const li of builderStepsEl.querySelectorAll('li')) {
-    const s = li.getAttribute('data-step') as DmarcBuilderStep | null
-    if (!s) continue
-    const si = stepIndex(s)
-    li.classList.toggle('active', s === step)
-    li.classList.toggle('done', si >= 0 && si < idx)
-  }
-  centerActiveStep(builderStepsEl)
-  for (const panel of document.querySelectorAll<HTMLElement>('.builder-panel')) {
-    panel.classList.toggle('hidden', panel.getAttribute('data-step') !== step)
-  }
-  btnBuilderBack.disabled = step === 'domain'
-  btnBuilderNext.textContent = step === 'result' ? t('builder.finish') : t('builder.next')
+  syncWizardStepDom({
+    stepsEl: builderStepsEl,
+    panelSelector: '.builder-panel',
+    backBtn: btnBuilderBack,
+    nextBtn: btnBuilderNext,
+    step,
+    stepIndex,
+    finishKey: 'builder.finish',
+    nextKey: 'builder.next'
+  })
   const input = readInput()
   builderFooterHintEl.textContent = input.domain || ''
   if (step === 'result') renderResult()
@@ -143,7 +133,7 @@ function validateCurrentStep(): boolean {
 }
 
 function copyButton(value: string): string {
-  return `<button type="button" class="btn secondary btn-copy" data-copy="${escapeHtml(value)}" data-label-key="builder.result.copy">${escapeHtml(t('builder.result.copy'))}</button>`
+  return wizardCopyButtonHtml(value, 'builder.result.copy')
 }
 
 function renderResult(): void {
@@ -246,14 +236,9 @@ async function loadDnsTemplate(): Promise<void> {
   }
 }
 
-function suggestInitialDomain(): string {
-  const fromFilter = filterDomainEl.value.trim()
-  return fromFilter ? normalizeDomain(fromFilter) : ''
-}
-
 export function openBuilder(): void {
   fillForm({ ...DEFAULT_BUILDER_INPUT })
-  const domain = suggestInitialDomain()
+  const domain = suggestInitialWizardDomain()
   if (domain) {
     builderDomainEl.value = domain
     ensureDefaultMailboxes(domain)
@@ -305,18 +290,5 @@ export function initWizardUi(): void {
     if (domain) ensureDefaultMailboxes(domain)
   })
 
-  builderResultEl.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null
-    const btn = target?.closest?.('.btn-copy') as HTMLButtonElement | null
-    if (!btn) return
-    const value = btn.getAttribute('data-copy') ?? ''
-    void navigator.clipboard.writeText(value).then(() => {
-      const labelKey = (btn.getAttribute('data-label-key') || 'builder.result.copy') as MessageKey
-      btn.textContent = t('builder.result.copied')
-      if (copyResetTimer) clearTimeout(copyResetTimer)
-      copyResetTimer = setTimeout(() => {
-        btn.textContent = t(labelKey)
-      }, 1500)
-    })
-  })
+  bindWizardCopyButtons(builderResultEl, 'builder.result.copy', 'builder.result.copied')
 }

@@ -18,7 +18,6 @@ import {
   btnTlsrptBuilder,
   btnTlsrptBuilderBack,
   btnTlsrptBuilderNext,
-  filterDomainEl,
   tlsrptBuilderDialog,
   tlsrptBuilderDomainEl,
   tlsrptBuilderDomainStatusEl,
@@ -30,14 +29,19 @@ import {
   tlsrptBuilderStepsEl
 } from './dom'
 import { escapeHtml } from './format'
+import {
+  bindWizardCopyButtons,
+  createInflightDeduper,
+  suggestInitialWizardDomain,
+  syncWizardStepDom,
+  wizardCopyButtonHtml
+} from './wizard-common'
 
 let currentStep: TlsRptBuilderStep = 'domain'
-let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let liveDnsValue: string | null = null
 let loadGen = 0
 let appliedKey = ''
-let inflight: Promise<void> | null = null
-let inflightKey = ''
+const templateDeduper = createInflightDeduper()
 
 function readInput(): TlsRptBuilderInput {
   return {
@@ -51,33 +55,18 @@ function fillForm(input: Partial<TlsRptBuilderInput>): void {
   if (input.rua != null) tlsrptBuilderRuaEl.value = input.rua
 }
 
-function centerActiveStep(list: HTMLElement): void {
-  const active = list.querySelector<HTMLElement>('li.active')
-  if (!active) return
-  const listRect = list.getBoundingClientRect()
-  const activeRect = active.getBoundingClientRect()
-  const left =
-    list.scrollLeft + (activeRect.left - listRect.left) - (list.clientWidth - activeRect.width) / 2
-  list.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-}
-
 function showStep(step: TlsRptBuilderStep): void {
   currentStep = step
-  const idx = tlsrptStepIndex(step)
-  for (const li of tlsrptBuilderStepsEl.querySelectorAll('li')) {
-    const s = li.getAttribute('data-step') as TlsRptBuilderStep | null
-    if (!s) continue
-    const si = tlsrptStepIndex(s)
-    li.classList.toggle('active', s === step)
-    li.classList.toggle('done', si >= 0 && si < idx)
-  }
-  centerActiveStep(tlsrptBuilderStepsEl)
-  for (const panel of document.querySelectorAll<HTMLElement>('.tlsrpt-builder-panel')) {
-    panel.classList.toggle('hidden', panel.getAttribute('data-step') !== step)
-  }
-  btnTlsrptBuilderBack.disabled = step === 'domain'
-  btnTlsrptBuilderNext.textContent =
-    step === 'result' ? t('tlsrptBuilder.finish') : t('tlsrptBuilder.next')
+  syncWizardStepDom({
+    stepsEl: tlsrptBuilderStepsEl,
+    panelSelector: '.tlsrpt-builder-panel',
+    backBtn: btnTlsrptBuilderBack,
+    nextBtn: btnTlsrptBuilderNext,
+    step,
+    stepIndex: tlsrptStepIndex,
+    finishKey: 'tlsrptBuilder.finish',
+    nextKey: 'tlsrptBuilder.next'
+  })
   const input = readInput()
   tlsrptBuilderFooterHintEl.textContent = input.domain || ''
   if (step === 'domain') renderDomainPreview()
@@ -102,7 +91,7 @@ function validateCurrentStep(): boolean {
 }
 
 function copyButton(value: string): string {
-  return `<button type="button" class="btn secondary btn-copy" data-copy="${escapeHtml(value)}" data-label-key="tlsrptBuilder.result.copy">${escapeHtml(t('tlsrptBuilder.result.copy'))}</button>`
+  return wizardCopyButtonHtml(value, 'tlsrptBuilder.result.copy')
 }
 
 function renderResult(): void {
@@ -223,22 +212,12 @@ async function loadDnsTemplate(): Promise<void> {
 
 function requestDnsTemplate(): Promise<void> {
   const domain = normalizeDomain(tlsrptBuilderDomainEl.value)
-  if (inflight && inflightKey === domain) return inflight
-  inflightKey = domain
-  inflight = loadDnsTemplate().finally(() => {
-    if (inflightKey === domain) inflight = null
-  })
-  return inflight
-}
-
-function suggestInitialDomain(): string {
-  const fromFilter = filterDomainEl.value.trim()
-  return fromFilter ? normalizeDomain(fromFilter) : ''
+  return templateDeduper.run(domain, loadDnsTemplate)
 }
 
 export function openTlsrptBuilder(): void {
   fillForm({ ...DEFAULT_TLSRPT_BUILDER_INPUT })
-  const domain = suggestInitialDomain()
+  const domain = suggestInitialWizardDomain()
   if (domain) {
     tlsrptBuilderDomainEl.value = domain
     ensureDefaultMailbox(domain)
@@ -296,19 +275,9 @@ export function initTlsrptWizardUi(): void {
     else if (domain) ensureDefaultMailbox(domain)
   })
 
-  tlsrptBuilderResultEl.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null
-    const btn = target?.closest?.('.btn-copy') as HTMLButtonElement | null
-    if (!btn) return
-    const value = btn.getAttribute('data-copy') ?? ''
-    void navigator.clipboard.writeText(value).then(() => {
-      const labelKey = (btn.getAttribute('data-label-key') ||
-        'tlsrptBuilder.result.copy') as MessageKey
-      btn.textContent = t('tlsrptBuilder.result.copied')
-      if (copyResetTimer) clearTimeout(copyResetTimer)
-      copyResetTimer = setTimeout(() => {
-        btn.textContent = t(labelKey)
-      }, 1500)
-    })
-  })
+  bindWizardCopyButtons(
+    tlsrptBuilderResultEl,
+    'tlsrptBuilder.result.copy',
+    'tlsrptBuilder.result.copied'
+  )
 }

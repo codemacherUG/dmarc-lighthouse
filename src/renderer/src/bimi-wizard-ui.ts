@@ -32,23 +32,27 @@ import {
   btnBimiBuilder,
   btnBimiBuilderBack,
   btnBimiBuilderNext,
-  btnCloseBimiBuilder,
-  filterDomainEl
+  btnCloseBimiBuilder
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
 import { refreshDomainHealth } from './view'
+import {
+  bindWizardCopyButtons,
+  createInflightDeduper,
+  suggestInitialWizardDomain,
+  syncWizardStepDom,
+  wizardCopyButtonHtml
+} from './wizard-common'
 
 let currentStep: BimiBuilderStep = 'domain'
-let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let liveDnsValue: string | null = null
 let dmarcHintKey: MessageKey | null = null
 let dmarcHintPolicy = ''
 let dmarcHintPct = ''
 let loadGen = 0
 let appliedKey = ''
-let inflight: Promise<void> | null = null
-let inflightKey = ''
+const templateDeduper = createInflightDeduper()
 
 function readInput(): BimiBuilderInput {
   return {
@@ -66,33 +70,18 @@ function fillForm(input: Partial<BimiBuilderInput>): void {
   if (input.authority != null) bimiBuilderAuthorityEl.value = input.authority
 }
 
-function centerActiveStep(list: HTMLElement): void {
-  const active = list.querySelector<HTMLElement>('li.active')
-  if (!active) return
-  const listRect = list.getBoundingClientRect()
-  const activeRect = active.getBoundingClientRect()
-  const left =
-    list.scrollLeft + (activeRect.left - listRect.left) - (list.clientWidth - activeRect.width) / 2
-  list.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-}
-
 function showStep(step: BimiBuilderStep): void {
   currentStep = step
-  const idx = bimiStepIndex(step)
-  for (const li of bimiBuilderStepsEl.querySelectorAll('li')) {
-    const s = li.getAttribute('data-step') as BimiBuilderStep | null
-    if (!s) continue
-    const si = bimiStepIndex(s)
-    li.classList.toggle('active', s === step)
-    li.classList.toggle('done', si >= 0 && si < idx)
-  }
-  centerActiveStep(bimiBuilderStepsEl)
-  for (const panel of document.querySelectorAll<HTMLElement>('.bimi-builder-panel')) {
-    panel.classList.toggle('hidden', panel.getAttribute('data-step') !== step)
-  }
-  btnBimiBuilderBack.disabled = step === 'domain'
-  btnBimiBuilderNext.textContent =
-    step === 'result' ? t('bimiBuilder.finish') : t('bimiBuilder.next')
+  syncWizardStepDom({
+    stepsEl: bimiBuilderStepsEl,
+    panelSelector: '.bimi-builder-panel',
+    backBtn: btnBimiBuilderBack,
+    nextBtn: btnBimiBuilderNext,
+    step,
+    stepIndex: bimiStepIndex,
+    finishKey: 'bimiBuilder.finish',
+    nextKey: 'bimiBuilder.next'
+  })
   const input = readInput()
   bimiBuilderFooterHintEl.textContent = input.domain || ''
   if (step === 'domain') renderDomainPreview()
@@ -117,7 +106,7 @@ function validateCurrentStep(): boolean {
 }
 
 function copyButton(value: string): string {
-  return `<button type="button" class="btn secondary btn-copy" data-copy="${escapeHtml(value)}" data-label-key="bimiBuilder.result.copy">${escapeHtml(t('bimiBuilder.result.copy'))}</button>`
+  return wizardCopyButtonHtml(value, 'bimiBuilder.result.copy')
 }
 
 function dmarcHintHtml(): string {
@@ -274,22 +263,12 @@ function requestDnsTemplate(): Promise<void> {
   const domain = normalizeDomain(bimiBuilderDomainEl.value)
   const selector = normalizeBimiSelector(bimiBuilderSelectorEl.value || DEFAULT_BIMI_SELECTOR)
   const key = lookupKey(domain, selector)
-  if (inflight && inflightKey === key) return inflight
-  inflightKey = key
-  inflight = loadDnsTemplate().finally(() => {
-    if (inflightKey === key) inflight = null
-  })
-  return inflight
-}
-
-function suggestInitialDomain(): string {
-  const fromFilter = filterDomainEl.value.trim()
-  return fromFilter ? normalizeDomain(fromFilter) : ''
+  return templateDeduper.run(key, loadDnsTemplate)
 }
 
 export function openBimiBuilder(): void {
   fillForm({ ...DEFAULT_BIMI_BUILDER_INPUT })
-  const domain = suggestInitialDomain()
+  const domain = suggestInitialWizardDomain()
   if (domain) bimiBuilderDomainEl.value = domain
   liveDnsValue = null
   appliedKey = ''
@@ -364,19 +343,5 @@ export function initBimiWizardUi(): void {
     }
   })
 
-  bimiBuilderResultEl.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null
-    const btn = target?.closest?.('.btn-copy') as HTMLButtonElement | null
-    if (!btn) return
-    const value = btn.getAttribute('data-copy') ?? ''
-    void navigator.clipboard.writeText(value).then(() => {
-      const labelKey = (btn.getAttribute('data-label-key') ||
-        'bimiBuilder.result.copy') as MessageKey
-      btn.textContent = t('bimiBuilder.result.copied')
-      if (copyResetTimer) clearTimeout(copyResetTimer)
-      copyResetTimer = setTimeout(() => {
-        btn.textContent = t(labelKey)
-      }, 1500)
-    })
-  })
+  bindWizardCopyButtons(bimiBuilderResultEl, 'bimiBuilder.result.copy', 'bimiBuilder.result.copied')
 }

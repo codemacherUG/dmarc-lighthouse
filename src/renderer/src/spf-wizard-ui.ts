@@ -15,14 +15,13 @@ import {
   type SpfBuilderInput,
   type SpfBuilderStep
 } from '../../shared/spf-builder'
-import { t, type MessageKey } from '../../shared/i18n'
+import { t } from '../../shared/i18n'
 import type { SpfExpandResult, SpfLookupTreeNode, SpfOptimizationHint } from '../../shared/types'
 import {
   btnCloseSpfBuilder,
   btnSpfBuilder,
   btnSpfBuilderBack,
   btnSpfBuilderNext,
-  filterDomainEl,
   spfBuilderAllEl,
   spfBuilderDialog,
   spfBuilderDomainEl,
@@ -41,9 +40,14 @@ import {
 import { escapeHtml } from './format'
 import { state } from './state'
 import { refreshDomainHealth } from './view'
+import {
+  bindWizardCopyButtons,
+  suggestInitialWizardDomain,
+  syncWizardStepDom,
+  wizardCopyButtonHtml
+} from './wizard-common'
 
 let currentStep: SpfBuilderStep = 'domain'
-let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let liveDnsValue: string | null = null
 let expandBusy = false
 let dnsBusy = false
@@ -70,32 +74,18 @@ function fillForm(input: Partial<SpfBuilderInput>): void {
   if (input.all != null) spfBuilderAllEl.value = input.all
 }
 
-function centerActiveStep(list: HTMLElement): void {
-  const active = list.querySelector<HTMLElement>('li.active')
-  if (!active) return
-  const listRect = list.getBoundingClientRect()
-  const activeRect = active.getBoundingClientRect()
-  const left =
-    list.scrollLeft + (activeRect.left - listRect.left) - (list.clientWidth - activeRect.width) / 2
-  list.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-}
-
 function showStep(step: SpfBuilderStep): void {
   currentStep = step
-  const idx = spfStepIndex(step)
-  for (const li of spfBuilderStepsEl.querySelectorAll('li')) {
-    const s = li.getAttribute('data-step') as SpfBuilderStep | null
-    if (!s) continue
-    const si = spfStepIndex(s)
-    li.classList.toggle('active', s === step)
-    li.classList.toggle('done', si >= 0 && si < idx)
-  }
-  centerActiveStep(spfBuilderStepsEl)
-  for (const panel of document.querySelectorAll<HTMLElement>('.spf-builder-panel')) {
-    panel.classList.toggle('hidden', panel.getAttribute('data-step') !== step)
-  }
-  btnSpfBuilderBack.disabled = step === 'domain'
-  btnSpfBuilderNext.textContent = step === 'result' ? t('spfBuilder.finish') : t('spfBuilder.next')
+  syncWizardStepDom({
+    stepsEl: spfBuilderStepsEl,
+    panelSelector: '.spf-builder-panel',
+    backBtn: btnSpfBuilderBack,
+    nextBtn: btnSpfBuilderNext,
+    step,
+    stepIndex: spfStepIndex,
+    finishKey: 'spfBuilder.finish',
+    nextKey: 'spfBuilder.next'
+  })
   const input = readInput()
   spfBuilderFooterHintEl.textContent = input.domain || ''
   if (step === 'result') void renderResult()
@@ -125,7 +115,7 @@ function validateCurrentStep(): boolean {
 }
 
 function copyButton(value: string): string {
-  return `<button type="button" class="btn secondary btn-copy" data-copy="${escapeHtml(value)}" data-label-key="spfBuilder.result.copy">${escapeHtml(t('spfBuilder.result.copy'))}</button>`
+  return wizardCopyButtonHtml(value, 'spfBuilder.result.copy')
 }
 
 function formatNodeLookups(count: number): string {
@@ -408,14 +398,9 @@ async function loadDnsTemplate(): Promise<void> {
   }
 }
 
-function suggestInitialDomain(): string {
-  const fromFilter = filterDomainEl.value.trim()
-  return fromFilter ? normalizeDomain(fromFilter) : ''
-}
-
 export function openSpfBuilder(): void {
   fillForm({ ...DEFAULT_SPF_BUILDER_INPUT })
-  const domain = suggestInitialDomain()
+  const domain = suggestInitialWizardDomain()
   if (domain) spfBuilderDomainEl.value = domain
   liveDnsValue = null
   spfBuilderDomainStatusEl.textContent = ''
@@ -464,19 +449,5 @@ export function initSpfWizardUi(): void {
     })()
   })
 
-  spfBuilderResultEl.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null
-    const btn = target?.closest?.('.btn-copy') as HTMLButtonElement | null
-    if (!btn) return
-    const value = btn.getAttribute('data-copy') ?? ''
-    void navigator.clipboard.writeText(value).then(() => {
-      const labelKey = (btn.getAttribute('data-label-key') ||
-        'spfBuilder.result.copy') as MessageKey
-      btn.textContent = t('spfBuilder.result.copied')
-      if (copyResetTimer) clearTimeout(copyResetTimer)
-      copyResetTimer = setTimeout(() => {
-        btn.textContent = t(labelKey)
-      }, 1500)
-    })
-  })
+  bindWizardCopyButtons(spfBuilderResultEl, 'spfBuilder.result.copy', 'spfBuilder.result.copied')
 }

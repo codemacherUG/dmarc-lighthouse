@@ -1,25 +1,14 @@
 import {
   applyDashboardFilter,
   analyzeFromReports,
-  buildDomainStats,
   categorizeFailure,
-  DOMAIN_HEALTH_WINDOW_DAYS,
   groupProblemSources,
   isMailboxIpInfo,
   isMailboxNoiseAuthPattern,
   isScannerNoiseIpInfo,
-  mergeDomainHealth,
   normalizeDispositionFilter,
-  parseSourceIpFilter,
-  reportsForDomainHealth,
-  sendingSourceGroupsWithoutMailboxNoise
+  parseSourceIpFilter
 } from '../../shared/analyze'
-import {
-  assessSourceRecords,
-  summarizeSourceAuthOutcomes,
-  type SourceAuthOutcomeSummary,
-  type SourceIpAssessment
-} from '../../shared/diagnosis'
 import {
   isAuthorizedSender,
   parseAuthorizedSenderPrefixes,
@@ -42,17 +31,18 @@ import {
   DEFAULT_DATE_RANGE,
   type AnalyzeResult,
   type DateRangePreset,
-  type DomainHealth,
   type FailCategory,
   type ForensicReportRow,
   type NamedBucket,
-  type NewSendingSourceGroup,
   type ProblemSourceRow,
-  type ReportRow,
-  type SendingServiceStatus,
-  type SerializedRecord
+  type ReportRow
 } from '../../shared/types'
-import { alertableSendingSources, parseDomainList } from '../../shared/sending-services'
+import {
+  refreshDomainHealth,
+  renderDomainAmpel,
+  setAmpelDomainChangedCallback,
+  syncDomainAmpelSelection
+} from './ampel-view'
 import {
   chartDkim,
   chartDmarc,
@@ -81,7 +71,6 @@ import {
   dnsDomainEl,
   dnsResultEl,
   dnsTransportEl,
-  domainAmpelEl,
   tableProblemSources,
   filterChipsEl,
   filterDomainEl,
@@ -97,7 +86,6 @@ import {
   forensicBody,
   ipDetailBody,
   ipDetailDialog,
-  newSendingSourcesBannerEl,
   reportsBody,
   scannerNoiseHostsEl,
   sectionJumpBarEl,
@@ -108,13 +96,17 @@ import {
 } from './dom'
 import {
   initDomainSettingsModalEvents,
-  openDnsHistory,
   openDomainDkimSettings,
   openDomainSettingsScreenshotDemo,
   setDomainSettingsCallbacks
 } from './domain-settings-modal'
 import { escapeHtml, formatIpCellHtml, formatIpMetaHtml, formatRange } from './format'
 import { invalidateIpMapSize, renderIpMap, setIpMapFilterHandler } from './ip-map'
+import {
+  configureNewSourcesView,
+  refreshNewSourceIpMetadata,
+  renderNewSendingSourcesBanner
+} from './new-sources-view'
 import {
   findSpfPrefixesForDomain,
   problemSourceIgnoreKey,
@@ -137,9 +129,14 @@ import {
 import { initTlsRptDetailEvents, renderTlsRpt } from './tlsrpt-view'
 import { readCollapsedWidgetIds, writeCollapsedWidgetIds } from './widget-state'
 
-export { openDiagnosis, openDomainSettingsScreenshotDemo }
+export {
+  openDiagnosis,
+  openDomainSettingsScreenshotDemo,
+  refreshDomainHealth,
+  renderDomainAmpel,
+  syncDomainAmpelSelection
+}
 
-const NEW_SENDING_SOURCES_WIDGET_ID = 'newSendingSources'
 const collapsedWidgetIds = readCollapsedWidgetIds(window.localStorage)
 const userToggledWidgets = new Set<string>()
 
@@ -968,168 +965,6 @@ export function filterVolumeByDay(date: string): void {
   applyView()
 }
 
-export function syncDomainAmpelSelection(): void {
-  if (!domainAmpelEl) return
-  const selectedDomain = filterDomainEl?.value.trim().toLowerCase() ?? ''
-  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('.ampel-card[data-domain]')) {
-    const domain = (btn.dataset.domain ?? '').trim().toLowerCase()
-    const isSelected = Boolean(selectedDomain) && domain === selectedDomain
-    btn.classList.toggle('is-selected', isSelected)
-    btn.setAttribute('aria-pressed', String(isSelected))
-    btn.closest('.ampel-card-wrap')?.classList.toggle('is-selected', isSelected)
-  }
-}
-
-export function renderDomainAmpel(rows: DomainHealth[]): void {
-  if (!rows.length) {
-    domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(t('health.empty'))}</p>`
-    return
-  }
-  const selectedDomain = filterDomainEl?.value.trim().toLowerCase() ?? ''
-  domainAmpelEl.innerHTML = rows
-    .map((h) => {
-      const statusLabel = t(`health.status.${h.status}` as MessageKey)
-      const policy =
-        h.dmarcPolicy != null ? escapeHtml(t('health.policy', { policy: h.dmarcPolicy })) : '—'
-      const reasons = h.reasons.map((key) => t(key as MessageKey)).join(' · ')
-      const isSelected = Boolean(selectedDomain) && h.domain.trim().toLowerCase() === selectedDomain
-      return `
-      <div class="ampel-card-wrap${isSelected ? ' is-selected' : ''}">
-        <button type="button" class="ampel-card ${h.status}${isSelected ? ' is-selected' : ''}" data-domain="${escapeHtml(h.domain)}" aria-pressed="${isSelected ? 'true' : 'false'}" title="${escapeHtml(statusLabel)}">
-          <div class="ampel-domain">${escapeHtml(h.domain)}</div>
-          <div class="ampel-meta">
-            <span>${escapeHtml(statusLabel)}</span>
-            <span>${escapeHtml(t('health.passRate', { rate: h.passRate.toFixed(1) }))}</span>
-            <span>${escapeHtml(t('health.msgs', { count: String(h.total) }))}</span>
-            <span>${escapeHtml(t('health.window', { days: String(DOMAIN_HEALTH_WINDOW_DAYS) }))}</span>
-            <span>${policy}</span>
-          </div>
-          ${reasons ? `<div class="ampel-reasons">${escapeHtml(reasons)}</div>` : ''}
-        </button>
-        <button type="button" class="ampel-info" data-domain="${escapeHtml(h.domain)}" aria-label="${escapeHtml(t('health.dnsHistory', { domain: h.domain }))}" title="${escapeHtml(t('health.dnsHistory', { domain: h.domain }))}">i</button>
-        <button type="button" class="ampel-settings" data-domain="${escapeHtml(h.domain)}" aria-label="${escapeHtml(t('health.dkimManage', { domain: h.domain }))}" title="${escapeHtml(t('health.dkimManage', { domain: h.domain }))}">⚙</button>
-      </div>`
-    })
-    .join('')
-
-  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('.ampel-card[data-domain]')) {
-    btn.addEventListener('click', () => {
-      const domain = btn.dataset.domain ?? ''
-      if (!domain) return
-      if (filterDomainEl.value.trim().toLowerCase() === domain.trim().toLowerCase()) {
-        filterDomainEl.value = ''
-        if (simulationModeEl.value !== 'off') simulationModeEl.value = 'off'
-      } else {
-        selectDomainFilter(domain)
-      }
-      applyView()
-    })
-  }
-  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>('.ampel-info[data-domain]')) {
-    btn.addEventListener('click', () => {
-      const domain = btn.dataset.domain ?? ''
-      if (domain) void openDnsHistory(domain)
-    })
-  }
-  for (const btn of domainAmpelEl.querySelectorAll<HTMLButtonElement>(
-    '.ampel-settings[data-domain]'
-  )) {
-    btn.addEventListener('click', () => {
-      const domain = btn.dataset.domain ?? ''
-      if (domain) void openDomainDkimSettings(domain)
-    })
-  }
-}
-
-/** Select a domain option case-insensitively (Ampel domains are lowercased). */
-function selectDomainFilter(domain: string): void {
-  const wanted = domain.trim().toLowerCase()
-  const match = [...filterDomainEl.options].find((o) => o.value.toLowerCase() === wanted)
-  if (!match && domain.trim()) {
-    const opt = document.createElement('option')
-    opt.value = domain.trim()
-    opt.textContent = domain.trim()
-    filterDomainEl.appendChild(opt)
-    filterDomainEl.value = opt.value
-    return
-  }
-  filterDomainEl.value = match?.value ?? domain
-}
-
-function domainHealthFallback(reports: ReportRow[]): DomainHealth[] {
-  return buildDomainStats(reportsForDomainHealth(reports)).map((stats) =>
-    mergeDomainHealth(stats, null)
-  )
-}
-
-/** Immediate Ampel numbers from the 14-day window; keep prior DNS/status until batch returns. */
-function domainHealthQuickStats(reports: ReportRow[]): DomainHealth[] {
-  const prevByDomain = new Map(state.domainHealthCache.map((h) => [h.domain, h]))
-  return buildDomainStats(reportsForDomainHealth(reports)).map((stats) => {
-    const prev = prevByDomain.get(stats.domain)
-    return prev ? { ...prev, ...stats } : mergeDomainHealth(stats, null)
-  })
-}
-
-/** Last AnalyzeResult used for Ampel — skip re-fetch when only dashboard filters change. */
-let domainHealthSource: AnalyzeResult | null = null
-
-/**
- * Ampel always uses the full loaded report set, windowed to the last
- * {@link DOMAIN_HEALTH_WINDOW_DAYS} days — not the dashboard date filter.
- */
-export async function refreshDomainHealth(
-  full: AnalyzeResult | null = state.fullResult,
-  options: { force?: boolean } = {}
-): Promise<void> {
-  if (!domainAmpelEl) return
-  if (!options.force && full && full === domainHealthSource) return
-  domainHealthSource = full
-
-  const token = ++state.domainHealthToken
-  const source = full?.reports ?? []
-  if (!source.length) {
-    state.domainHealthCache = []
-    renderDomainAmpel([])
-    return
-  }
-
-  const windowed = reportsForDomainHealth(source)
-  if (!windowed.length) {
-    state.domainHealthCache = []
-    domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(
-      t('health.emptyWindow', { days: String(DOMAIN_HEALTH_WINDOW_DAYS) })
-    )}</p>`
-    return
-  }
-
-  // Update volume/pass-rate immediately (no loading flash when cache exists).
-  if (state.domainHealthCache.length) {
-    const quick = domainHealthQuickStats(source)
-    state.domainHealthCache = quick
-    renderDomainAmpel(quick)
-  } else {
-    domainAmpelEl.innerHTML = `<p class="muted">${escapeHtml(t('health.loading'))}</p>`
-  }
-
-  try {
-    let health: DomainHealth[]
-    if (typeof window.api.healthBatch === 'function') {
-      health = await window.api.healthBatch(buildDomainStats(windowed))
-    } else {
-      // Preload not yet reloaded — still show Ampel from local stats.
-      health = domainHealthFallback(windowed)
-    }
-    if (token !== state.domainHealthToken) return
-    state.domainHealthCache = health
-    renderDomainAmpel(health)
-  } catch {
-    if (token !== state.domainHealthToken) return
-    state.domainHealthCache = domainHealthFallback(windowed)
-    renderDomainAmpel(state.domainHealthCache)
-  }
-}
-
 function renderIpDetailBody(ip: string, rdapSummary?: string | null, rdapError?: string): void {
   const info = state.ipLabelCache.get(ip)
   const provider = info?.provider || info?.asOrg || null
@@ -1655,702 +1490,28 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
   else filterDomainEl.value = ''
 }
 
-/** Names newly observed source IPs by detected network and From domain. */
-function describeNewSourceGroup(group: NewSendingSourceGroup): string {
-  const provider = group.provider ?? t('newSources.unknownProvider')
-  return group.domain
-    ? t('newSources.itemWithDomain', { provider, domain: group.domain })
-    : t('newSources.itemNoDomain', { provider })
-}
-
 /** A single IPv4/IPv6 address as its narrowest CIDR, for prefilling the inventory form. */
 function singleIpCidr(ip: string): string {
   return ip.includes(':') ? `${ip}/128` : `${ip}/32`
 }
 
-/** Opens the domain editor with a sender-service draft from a newly observed source. */
-function openSendingServiceFormFor(
-  group: NewSendingSourceGroup,
-  selectedIps?: string[],
-  status: SendingServiceStatus = 'known'
-): void {
-  const ips = selectedIps ?? group.ips
-  const domain = group.domain || domainsForIp(ips[0] ?? '')[0]
-  if (!domain) {
-    setStatus(t('health.sendingServiceDomainRequired'))
-    return
-  }
-  void openDomainDkimSettings(domain, {
-    senderDraft: {
-      provider: group.provider ?? '',
-      status,
-      note: t('newSources.notePrefillIps', { ips: ips.join(', ') })
-    },
-    onSenderSaved: async (savedService) => {
-      const selected = new Set(ips)
-      const remainingIps = group.ips.filter((ip) => !selected.has(ip))
-      if (savedService.status === 'known') {
-        await window.api.acknowledgePendingSources(ips)
-        group.ips = remainingIps
-      } else if (remainingIps.length === 0) {
-        group.provider = savedService.provider
-        group.status = savedService.status
-      } else {
-        group.ips = remainingIps
-        const groups = state.fullResult?.newSendingSources
-        const groupIndex = groups?.indexOf(group) ?? -1
-        if (groups && groupIndex >= 0) {
-          groups.splice(groupIndex + 1, 0, {
-            ...group,
-            provider: savedService.provider,
-            ips: [...ips],
-            status: savedService.status
-          })
-        }
-      }
-      renderNewSendingSourcesBanner(state.fullResult)
-    }
-  })
-}
+setAmpelDomainChangedCallback(() => applyView())
 
-function removeNewSourceItem(row: HTMLDivElement): void {
-  row.remove()
-  if (!newSendingSourcesBannerEl.querySelector('.new-source-item')) {
-    renderNewSendingSourcesBanner(state.fullResult)
-  }
-}
-
-function reviewIpsLabel(count: number): string {
-  return t(count === 1 ? 'newSources.reviewIp' : 'newSources.reviewIps', { count })
-}
-
-function summarizeNewSourceIp(
-  ip: string,
-  reports: ReportRow[],
-  domain: string | null
-): {
-  passing: number
-  failing: number
-  rejected: number
-  notRejected: number
-  unknown: number
-  assessment: SourceIpAssessment
-  authOutcomes: SourceAuthOutcomeSummary[]
-} | null {
-  let passing = 0
-  let failing = 0
-  let rejected = 0
-  let notRejected = 0
-  let unknown = 0
-  let found = false
-  const sourceRecords: SerializedRecord[] = []
-  const normalizedDomain = domain?.trim().toLowerCase()
-
-  for (const report of reports) {
-    for (const record of report.records) {
-      if (record.sourceIp !== ip) continue
-      if (
-        normalizedDomain &&
-        (record.headerFrom ?? report.domain).trim().toLowerCase() !== normalizedDomain
-      ) {
-        continue
-      }
-      found = true
-      sourceRecords.push(record)
-      const count = record.count || 0
-      if (record.passesDmarc) passing += count
-      else failing += count
-
-      if (record.disposition == null || record.disposition === '') unknown += count
-      else if (record.disposition.toLowerCase() === 'reject') rejected += count
-      else notRejected += count
-    }
-  }
-
-  const assessment = assessSourceRecords(sourceRecords)
-  const authOutcomes = summarizeSourceAuthOutcomes(sourceRecords)
-  return found && assessment
-    ? { passing, failing, rejected, notRejected, unknown, assessment, authOutcomes }
-    : null
-}
-
-function renderNewSourceItem(group: NewSendingSourceGroup, reports: ReportRow[]): HTMLDivElement {
-  const row = document.createElement('div')
-  row.className = 'new-source-item'
-
-  const label = document.createElement('div')
-  label.className = 'new-source-label'
-  const labelText = document.createElement('span')
-  labelText.textContent = describeNewSourceGroup(group)
-  label.appendChild(labelText)
-  const statusBadge = document.createElement('span')
-  statusBadge.className = 'badge new-source-status-badge hidden'
-  label.appendChild(statusBadge)
-  syncNewSourceStatusBadge(statusBadge, group.status)
-  row.appendChild(label)
-
-  const reviewBtn = document.createElement('button')
-  reviewBtn.type = 'button'
-  reviewBtn.className = 'btn secondary new-source-ips'
-  reviewBtn.textContent = reviewIpsLabel(group.ips.length)
-  row.appendChild(reviewBtn)
-
-  const dialog = document.createElement('dialog')
-  dialog.className = 'new-source-ip-dialog'
-  const form = document.createElement('div')
-  form.className = 'settings-form'
-
-  const header = document.createElement('header')
-  header.className = 'dialog-header'
-  const title = document.createElement('h2')
-  title.textContent = describeNewSourceGroup(group)
-  header.appendChild(title)
-  const closeBtn = document.createElement('button')
-  closeBtn.type = 'button'
-  closeBtn.className = 'btn ghost'
-  closeBtn.textContent = '✕'
-  closeBtn.setAttribute('aria-label', t('settings.close'))
-  closeBtn.addEventListener('click', () => dialog.close())
-  header.appendChild(closeBtn)
-  form.appendChild(header)
-
-  const body = document.createElement('div')
-  body.className = 'dialog-body new-source-dialog-body'
-  const hint = document.createElement('p')
-  hint.className = 'hint new-source-dialog-hint'
-  hint.textContent = t('newSources.dialogHint', { count: group.ips.length })
-  body.appendChild(hint)
-
-  const selectionBar = document.createElement('div')
-  selectionBar.className = 'new-source-selection-bar'
-  const selectAllLabel = document.createElement('label')
-  selectAllLabel.className = 'checkbox'
-  const selectAll = document.createElement('input')
-  selectAll.type = 'checkbox'
-  const selectAllText = document.createElement('span')
-  selectAllText.textContent = t('newSources.selectAll')
-  selectAllLabel.append(selectAll, selectAllText)
-  selectionBar.appendChild(selectAllLabel)
-  body.appendChild(selectionBar)
-
-  const ipList = document.createElement('div')
-  ipList.className = 'new-source-ip-list'
-  body.appendChild(ipList)
-  form.appendChild(body)
-
-  const footer = document.createElement('footer')
-  footer.className = 'dialog-footer'
-  const selectedLabel = document.createElement('span')
-  selectedLabel.className = 'hint'
-  selectedLabel.textContent = t('newSources.selectedCount', { count: 0 })
-  footer.appendChild(selectedLabel)
-  const actions = document.createElement('div')
-  actions.className = 'dialog-actions'
-  const selectedStatus = createNewSourceStatusSelect()
-  selectedStatus.classList.add('new-source-selected-status')
-  actions.appendChild(selectedStatus)
-  const cancelBtn = document.createElement('button')
-  cancelBtn.type = 'button'
-  cancelBtn.className = 'btn secondary'
-  cancelBtn.textContent = t('settings.close')
-  cancelBtn.addEventListener('click', () => dialog.close())
-  actions.appendChild(cancelBtn)
-  const createSelectedBtn = document.createElement('button')
-  createSelectedBtn.type = 'button'
-  createSelectedBtn.className = 'btn primary'
-  createSelectedBtn.disabled = true
-  createSelectedBtn.textContent = t('newSources.addSelectedService', { count: 0 })
-  actions.appendChild(createSelectedBtn)
-  footer.appendChild(actions)
-  form.appendChild(footer)
-  dialog.appendChild(form)
-  row.appendChild(dialog)
-
-  const ipCheckboxes: HTMLInputElement[] = []
-  const syncSelection = (): void => {
-    const activeCheckboxes = ipCheckboxes.filter((checkbox) => checkbox.isConnected)
-    const selectedCount = activeCheckboxes.filter((checkbox) => checkbox.checked).length
-    selectAll.checked = activeCheckboxes.length > 0 && selectedCount === activeCheckboxes.length
-    selectAll.indeterminate = selectedCount > 0 && selectedCount < activeCheckboxes.length
-    createSelectedBtn.disabled = selectedCount === 0
-    createSelectedBtn.textContent = t('newSources.addSelectedService', { count: selectedCount })
-    selectedLabel.textContent = t('newSources.selectedCount', { count: selectedCount })
-  }
-
-  const syncGroupCount = (): void => {
-    reviewBtn.textContent = reviewIpsLabel(group.ips.length)
-    hint.textContent = t('newSources.dialogHint', { count: group.ips.length })
-    if (group.ips.length === 0) {
-      dialog.close()
-      removeNewSourceItem(row)
-    }
-  }
-
-  for (const ip of group.ips) {
-    const ipRow = document.createElement('div')
-    ipRow.className = 'new-source-ip-row'
-
-    const selectIp = document.createElement('input')
-    selectIp.type = 'checkbox'
-    selectIp.value = ip
-    selectIp.setAttribute('aria-label', t('newSources.selectIp', { ip }))
-    selectIp.addEventListener('change', syncSelection)
-    ipCheckboxes.push(selectIp)
-    ipRow.appendChild(selectIp)
-
-    const address = document.createElement('span')
-    address.className = 'mono'
-    address.textContent = ip
-    ipRow.appendChild(address)
-
-    const metadata = document.createElement('div')
-    metadata.className = 'new-source-ip-meta'
-    metadata.dataset.sourceIpMeta = ip
-    metadata.dataset.sourceDomain = group.domain ?? ''
-    metadata.innerHTML = formatIpMetaHtml(ip, null, null, { sendingDomain: group.domain })
-
-    const ipStats = document.createElement('div')
-    ipStats.className = 'new-source-ip-stats'
-    const summary = summarizeNewSourceIp(ip, reports, group.domain)
-    if (summary) {
-      const dmarcGroup = document.createElement('div')
-      dmarcGroup.className = 'new-source-ip-stat-group'
-      const dmarcLabel = document.createElement('span')
-      dmarcLabel.className = 'new-source-ip-stat-label'
-      dmarcLabel.textContent = t('newSources.dmarcLabel')
-      dmarcGroup.appendChild(dmarcLabel)
-      const dmarcValues = document.createElement('div')
-      dmarcValues.className = 'new-source-ip-stat-values'
-      const passed = document.createElement('span')
-      passed.className = 'new-source-ip-stat-value pass'
-      passed.textContent = t('newSources.passedCount', { count: summary.passing })
-      dmarcValues.appendChild(passed)
-      const failed = document.createElement('span')
-      failed.className = 'new-source-ip-stat-value fail'
-      failed.textContent = t('newSources.failedCount', { count: summary.failing })
-      dmarcValues.appendChild(failed)
-      dmarcGroup.appendChild(dmarcValues)
-      ipStats.appendChild(dmarcGroup)
-
-      const dispositionGroup = document.createElement('div')
-      dispositionGroup.className = 'new-source-ip-stat-group'
-      const dispositionLabel = document.createElement('span')
-      dispositionLabel.className = 'new-source-ip-stat-label'
-      dispositionLabel.textContent = t('newSources.dispositionLabel')
-      dispositionGroup.appendChild(dispositionLabel)
-      const dispositionValues = document.createElement('div')
-      dispositionValues.className = 'new-source-ip-stat-values'
-      const rejected = document.createElement('span')
-      rejected.className = 'new-source-ip-stat-value fail'
-      rejected.textContent = t('newSources.rejectedCount', { count: summary.rejected })
-      dispositionValues.appendChild(rejected)
-      const notRejected = document.createElement('span')
-      notRejected.className = 'new-source-ip-stat-value'
-      notRejected.textContent = t('newSources.notRejectedCount', { count: summary.notRejected })
-      dispositionValues.appendChild(notRejected)
-      if (summary.unknown > 0) {
-        const unknown = document.createElement('span')
-        unknown.className = 'new-source-ip-stat-value warn'
-        unknown.textContent = t('newSources.unknownDispositionCount', { count: summary.unknown })
-        dispositionValues.appendChild(unknown)
-      }
-      dispositionGroup.appendChild(dispositionValues)
-      ipStats.appendChild(dispositionGroup)
-
-      if (summary.authOutcomes.length > 0) {
-        const authGroup = document.createElement('div')
-        authGroup.className = 'new-source-ip-stat-group'
-        const authLabel = document.createElement('span')
-        authLabel.className = 'new-source-ip-stat-label'
-        authLabel.textContent = t('newSources.authOutcomeLabel')
-        authGroup.appendChild(authLabel)
-        const authValues = document.createElement('div')
-        authValues.className = 'new-source-ip-stat-values'
-        for (const outcome of summary.authOutcomes) {
-          const authValue = document.createElement('span')
-          authValue.className = 'new-source-ip-stat-value'
-          authValue.textContent = t('newSources.authOutcome', {
-            spf: outcome.spf ?? t('newSources.authUnknown'),
-            dkim: outcome.dkim ?? t('newSources.authUnknown'),
-            count: outcome.count
-          })
-          authValues.appendChild(authValue)
-        }
-        authGroup.appendChild(authValues)
-        ipStats.appendChild(authGroup)
-      }
-
-      const assessmentGroup = document.createElement('div')
-      assessmentGroup.className = 'new-source-ip-stat-group'
-      const assessmentLabel = document.createElement('span')
-      assessmentLabel.className = 'new-source-ip-stat-label'
-      assessmentLabel.textContent = t('newSources.assessmentLabel')
-      assessmentGroup.appendChild(assessmentLabel)
-      const assessmentText = document.createElement('span')
-      assessmentText.className = 'new-source-assessment-text'
-      assessmentText.textContent = t(`newSources.assessment.${summary.assessment}`)
-      assessmentGroup.appendChild(assessmentText)
-      ipStats.appendChild(assessmentGroup)
-    } else {
-      ipStats.textContent = t('newSources.ipStatsUnavailable')
-    }
-
-    const ipActions = document.createElement('div')
-    ipActions.className = 'new-source-ip-actions'
-
-    const filterBtn = document.createElement('button')
-    filterBtn.type = 'button'
-    filterBtn.className = 'btn secondary'
-    filterBtn.textContent = t('ipDetail.filter')
-    filterBtn.addEventListener('click', () => {
-      dialog.close()
-      setDrillFilter('sourceIp', ip)
-    })
-    ipActions.appendChild(filterBtn)
-
-    const detailBtn = document.createElement('button')
-    detailBtn.type = 'button'
-    detailBtn.className = 'btn secondary'
-    detailBtn.textContent = t('newSources.ipDetails')
-    detailBtn.addEventListener('click', () => openIpDetail(ip))
-    ipActions.appendChild(detailBtn)
-
-    const noiseBtn = document.createElement('button')
-    noiseBtn.type = 'button'
-    noiseBtn.className = 'btn secondary'
-    noiseBtn.textContent = t('newSources.markNoise')
-    noiseBtn.addEventListener('click', () => {
-      noiseBtn.disabled = true
-      void addIpToScannerNoise(ip).then(async (added) => {
-        if (!added) {
-          noiseBtn.disabled = false
-          return
-        }
-        try {
-          await window.api.acknowledgePendingSources([ip])
-          group.ips = group.ips.filter((candidate) => candidate !== ip)
-          ipRow.remove()
-          syncSelection()
-          syncGroupCount()
-        } catch (err) {
-          noiseBtn.disabled = false
-          setStatus(err instanceof Error ? err.message : String(err), 'error')
-        }
-      })
-    })
-    ipActions.appendChild(noiseBtn)
-
-    const rejectBtn = document.createElement('button')
-    rejectBtn.type = 'button'
-    rejectBtn.className = 'btn secondary'
-    rejectBtn.textContent = t('newSources.noService')
-    rejectBtn.addEventListener('click', () => {
-      rejectBtn.disabled = true
-      void window.api
-        .acknowledgePendingSources([ip])
-        .then(() => {
-          group.ips = group.ips.filter((candidate) => candidate !== ip)
-          ipRow.remove()
-          syncSelection()
-          syncGroupCount()
-          setStatus(t('newSources.ipRemoved'), 'ok')
-        })
-        .catch((err: unknown) => {
-          rejectBtn.disabled = false
-          setStatus(err instanceof Error ? err.message : String(err), 'error')
-        })
-    })
-    ipActions.appendChild(rejectBtn)
-
-    ipRow.appendChild(ipActions)
-    ipRow.appendChild(metadata)
-    ipRow.appendChild(ipStats)
-
-    ipList.appendChild(ipRow)
-  }
-  selectAll.addEventListener('change', () => {
-    for (const checkbox of ipCheckboxes.filter((item) => item.isConnected)) {
-      checkbox.checked = selectAll.checked
-    }
-    syncSelection()
-  })
-  createSelectedBtn.addEventListener('click', () => {
-    const selectedIps = ipCheckboxes
-      .filter((checkbox) => checkbox.isConnected && checkbox.checked)
-      .map((checkbox) => checkbox.value)
-    if (selectedIps.length) {
-      dialog.close()
-      openSendingServiceFormFor(group, selectedIps, selectedStatus.value as SendingServiceStatus)
-    }
-  })
-  reviewBtn.addEventListener('click', () => dialog.showModal())
-
-  const mainActions = document.createElement('div')
-  mainActions.className = 'new-source-main-actions'
-  if (group.provider) {
-    const statusAction = document.createElement('div')
-    statusAction.className = 'new-source-main-action new-source-status-action'
-    const statusSelect = createNewSourceStatusSelect(group.status)
-    statusAction.appendChild(statusSelect)
-    const applyStatusBtn = document.createElement('button')
-    applyStatusBtn.type = 'button'
-    applyStatusBtn.className = 'btn secondary'
-    applyStatusBtn.textContent = t('newSources.applyStatus')
-    const syncStatusAction = (): void => {
-      const isSaved = group.status !== 'unknown' && statusSelect.value === group.status
-      applyStatusBtn.disabled = isSaved
-      applyStatusBtn.textContent = t(isSaved ? 'newSources.statusSaved' : 'newSources.applyStatus')
-    }
-    statusSelect.addEventListener('change', syncStatusAction)
-    applyStatusBtn.addEventListener('click', () => {
-      statusSelect.disabled = true
-      applyStatusBtn.disabled = true
-      void saveSendingSourceStatus(group, row, statusSelect, statusBadge, syncStatusAction)
-    })
-    syncStatusAction()
-    statusAction.appendChild(applyStatusBtn)
-    mainActions.appendChild(statusAction)
-  } else {
-    // No recognized service name to match on — offer a prefilled manual entry instead.
-    const addBtn = document.createElement('button')
-    addBtn.type = 'button'
-    addBtn.className = 'btn secondary new-source-main-action new-source-service-action'
-    addBtn.textContent = t('newSources.addService')
-    addBtn.addEventListener('click', () => openSendingServiceFormFor(group))
-    mainActions.appendChild(addBtn)
-  }
-
-  const groupNoiseBtn = document.createElement('button')
-  groupNoiseBtn.type = 'button'
-  groupNoiseBtn.className = 'btn secondary new-source-group-noise'
-  groupNoiseBtn.textContent = t('newSources.markGroupNoise')
-  groupNoiseBtn.addEventListener('click', () => {
-    groupNoiseBtn.disabled = true
-    const ips = [...group.ips]
-    void addIpsToScannerNoise(ips).then(async (added) => {
-      if (!added) {
-        groupNoiseBtn.disabled = false
-        return
-      }
-      try {
-        await window.api.acknowledgePendingSources(ips)
-        group.ips = []
-        removeNewSourceItem(row)
-      } catch (err) {
-        groupNoiseBtn.disabled = false
-        setStatus(err instanceof Error ? err.message : String(err), 'error')
-      }
-    })
-  })
-  mainActions.appendChild(groupNoiseBtn)
-  row.appendChild(mainActions)
-
-  const deleteBtn = document.createElement('button')
-  deleteBtn.type = 'button'
-  deleteBtn.className = 'btn secondary new-source-delete'
-  deleteBtn.textContent = t('newSources.deleteGroup')
-  deleteBtn.title = t('newSources.deleteGroup')
-  deleteBtn.setAttribute('aria-label', t('newSources.deleteGroup'))
-  deleteBtn.addEventListener('click', () => {
-    deleteBtn.disabled = true
-    void window.api
-      .acknowledgePendingSources(group.ips)
-      .then(() => {
-        group.ips = []
-        removeNewSourceItem(row)
-        setStatus(t('newSources.groupDeleted'), 'ok')
-      })
-      .catch((err: unknown) => {
-        deleteBtn.disabled = false
-        setStatus(err instanceof Error ? err.message : String(err), 'error')
-      })
-  })
-  row.appendChild(deleteBtn)
-
-  return row
-}
-
-function createNewSourceStatusSelect(initial: SendingServiceStatus = 'known'): HTMLSelectElement {
-  const select = document.createElement('select')
-  select.setAttribute('aria-label', t('sendingServices.statusLabel'))
-  select.title = t('sendingServices.statusHint')
-  for (const status of ['known', 'investigate', 'retired'] as const) {
-    const option = document.createElement('option')
-    option.value = status
-    option.textContent = t(`sendingServices.status.${status}`)
-    option.selected = status === initial
-    select.appendChild(option)
-  }
-  return select
-}
-
-function syncNewSourceStatusBadge(badge: HTMLSpanElement, status: SendingServiceStatus): void {
-  badge.classList.remove('hidden', 'warn', 'bad')
-  if (status === 'investigate') {
-    badge.classList.add('warn')
-  } else if (status === 'retired') {
-    badge.classList.add('bad')
-  } else {
-    badge.classList.add('hidden')
-    return
-  }
-  badge.textContent = t(`sendingServices.status.${status}`)
-}
-
-function refreshNewSourceIpMetadata(): void {
-  for (const metadata of newSendingSourcesBannerEl.querySelectorAll<HTMLElement>(
-    '[data-source-ip-meta]'
-  )) {
-    metadata.innerHTML = formatIpMetaHtml(metadata.dataset.sourceIpMeta ?? '', null, null, {
-      sendingDomain: metadata.dataset.sourceDomain || null
-    })
-  }
-}
-
-/** Reuses an existing plain provider+domain entry instead of creating a duplicate row. */
-async function saveSendingSourceStatus(
-  group: NewSendingSourceGroup,
-  row: HTMLDivElement,
-  select: HTMLSelectElement,
-  statusBadge: HTMLSpanElement,
-  syncStatusAction: () => void
-): Promise<void> {
-  try {
-    const status = select.value as SendingServiceStatus
-    const existing = await window.api.listSendingServices()
-    const groupDomain = (group.domain ?? '').trim().toLowerCase()
-    // Only reuse an exact single-domain (or exact wildcard) entry — never a multi-domain
-    // list, since overwriting its `domain` here would silently drop the other domains.
-    const match = existing.find((svc) => {
-      if (svc.provider.toLowerCase() !== (group.provider ?? '').toLowerCase()) return false
-      if (svc.cidr || svc.asn != null) return false
-      const domains = parseDomainList(svc.domain)
-      return groupDomain ? domains.length === 1 && domains[0] === groupDomain : domains.length === 0
-    })
-    await window.api.saveSendingService({
-      id: match?.id,
-      provider: group.provider!,
-      domain: group.domain,
-      cidr: null,
-      asn: null,
-      status,
-      team: match?.team ?? null,
-      note: match?.note ?? null
-    })
-    group.status = status
-    if (status === 'known') {
-      await window.api.acknowledgePendingSources(group.ips)
-      setStatus(t('newSources.marked'), 'ok')
-      group.ips = []
-      removeNewSourceItem(row)
-      return
-    }
-    select.disabled = false
-    syncNewSourceStatusBadge(statusBadge, status)
-    syncStatusAction()
-    setStatus(
-      t(status === 'investigate' ? 'newSources.investigateSaved' : 'newSources.retiredSaved'),
-      status === 'investigate' ? 'ok' : 'error'
-    )
-  } catch (err) {
-    select.disabled = false
-    syncStatusAction()
-    setStatus(err instanceof Error ? err.message : String(err), 'error')
-  }
-}
-
-/** Dashboard banner naming freshly seen (provider, domain) pairs not yet inventoried as known. */
-function renderNewSendingSourcesBanner(result: AnalyzeResult | null): void {
-  if (!result) {
-    newSendingSourcesBannerEl.innerHTML = ''
-    newSendingSourcesBannerEl.classList.add('hidden')
-    return
-  }
-  const noiseFilteredGroups = sendingSourceGroupsWithoutMailboxNoise(
-    result.newSendingSources ?? [],
-    result.reports ?? [],
-    collectScannerNoiseIps(),
-    collectMailboxIps(),
-    enabledMailboxNoiseProviders()
-  )
-  const groups = alertableSendingSources(noiseFilteredGroups)
-  newSendingSourcesBannerEl.innerHTML = ''
-  newSendingSourcesBannerEl.classList.remove('hidden')
-  const collapsed = isWidgetCollapsed(NEW_SENDING_SOURCES_WIDGET_ID)
-
-  const head = document.createElement('div')
-  head.className = 'new-sources-banner-head widget-heading-clickable'
-  const headingText = document.createElement('div')
-  headingText.className = 'new-sources-heading-text widget-heading'
-  const title = document.createElement('h2')
-  title.textContent = t('newSources.title')
-  title.setAttribute('aria-expanded', String(!collapsed))
-  headingText.appendChild(title)
-  const info = document.createElement('span')
-  info.className = 'widget-info'
-  const infoButton = document.createElement('button')
-  infoButton.type = 'button'
-  infoButton.className = 'widget-info-button'
-  infoButton.setAttribute('aria-label', t('widget.info'))
-  infoButton.setAttribute('aria-describedby', 'new-sources-info')
-  infoButton.textContent = 'i'
-  info.appendChild(infoButton)
-  const infoPopover = document.createElement('span')
-  infoPopover.id = 'new-sources-info'
-  infoPopover.className = 'widget-info-popover'
-  infoPopover.setAttribute('role', 'tooltip')
-  infoPopover.textContent = t('newSources.info')
-  info.appendChild(infoPopover)
-  headingText.appendChild(info)
-  const collapsedInfo = document.createElement('span')
-  collapsedInfo.className = 'hint new-sources-collapsed-info'
-  collapsedInfo.textContent = groups.length
-    ? t('newSources.hiddenCount', { count: groups.length })
-    : t('newSources.empty')
-  collapsedInfo.classList.toggle('is-placeholder', !collapsed)
-  collapsedInfo.setAttribute('aria-hidden', String(!collapsed))
-  headingText.appendChild(collapsedInfo)
-  head.appendChild(headingText)
-
-  const toggleBtn = document.createElement('button')
-  toggleBtn.type = 'button'
-  toggleBtn.className = 'btn secondary widget-collapse-toggle'
-  toggleBtn.dataset.widgetCollapseId = NEW_SENDING_SOURCES_WIDGET_ID
-  updateWidgetToggle(toggleBtn, collapsed)
-  const toggleWidget = (): void => {
-    setWidgetCollapsed(NEW_SENDING_SOURCES_WIDGET_ID, !collapsed)
-    renderNewSendingSourcesBanner(result)
-  }
-  toggleBtn.addEventListener('click', toggleWidget)
-  head.addEventListener('click', (event) => {
-    if (!isInteractiveWidgetHeadingTarget(event.target)) toggleWidget()
-  })
-  initWidgetTitleKeyboard(title, toggleWidget)
-  head.appendChild(toggleBtn)
-  newSendingSourcesBannerEl.appendChild(head)
-
-  if (collapsed) return
-
-  if (groups.length === 0) {
-    const empty = document.createElement('p')
-    empty.className = 'hint new-sources-empty'
-    empty.textContent = t('newSources.empty')
-    newSendingSourcesBannerEl.appendChild(empty)
-    return
-  }
-
-  const hint = document.createElement('p')
-  hint.className = 'hint'
-  hint.textContent = t('newSources.hint')
-  newSendingSourcesBannerEl.appendChild(hint)
-
-  const list = document.createElement('div')
-  list.className = 'new-sources-list'
-  for (const group of groups) {
-    list.appendChild(renderNewSourceItem(group, result.reports))
-  }
-  newSendingSourcesBannerEl.appendChild(list)
-}
+configureNewSourcesView({
+  domainsForIp: (ip) => domainsForIp(ip),
+  setDrillFilter,
+  openIpDetail,
+  addIpToScannerNoise: (ip) => addIpToScannerNoise(ip),
+  addIpsToScannerNoise: (ips) => addIpsToScannerNoise(ips),
+  collectScannerNoiseIps,
+  collectMailboxIps,
+  enabledMailboxNoiseProviders,
+  isWidgetCollapsed,
+  setWidgetCollapsed,
+  updateWidgetToggle,
+  isInteractiveWidgetHeadingTarget,
+  initWidgetTitleKeyboard
+})
 
 let lastSyncedFilterDomain: string | null = null
 
