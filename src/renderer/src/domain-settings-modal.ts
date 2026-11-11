@@ -452,13 +452,19 @@ function addDomainDkimSelector(): void {
   renderDomainDkimSelectors()
 }
 
-export function openDomainSettingsScreenshotDemo(): Promise<void> {
+export function openDomainSettingsScreenshotDemo(
+  tab: 'dkim' | 'senders' = 'senders'
+): Promise<void> {
   return openDomainDkimSettings('example.com', {
-    initialTab: 'senders',
+    initialTab: tab,
     demoData: {
+      // One selector per state explained in the DKIM tab legend.
       selectors: [
-        { selector: 'selector1', enabled: true },
-        { selector: 'selector2', enabled: true }
+        { selector: 'newsletter', enabled: true, manual: true },
+        { selector: 'old2023', enabled: false },
+        { selector: 'selector1', enabled: true, verified: true },
+        { selector: 'selector2', enabled: true, verified: true },
+        { selector: 'unknown202507', enabled: true }
       ],
       senderServices: [
         {
@@ -488,6 +494,7 @@ export function openDomainSettingsScreenshotDemo(): Promise<void> {
       ]
     }
   }).then(() => {
+    if (tab !== 'senders') return
     const editButton = domainSendersList.querySelector<HTMLButtonElement>(
       '[data-sender-edit="screenshot-m365"]'
     )

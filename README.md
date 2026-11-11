@@ -133,6 +133,21 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 
 ![Domain settings with DKIM selectors and an expanded sending-service editor](docs/screenshots/en/domain-settings.png)
 
+#### DKIM selectors of a domain
+
+Selectors found in reports are added to the domain settings automatically. Domain health, however, only checks selectors in DNS that provably belong to the domain. Forged mail with made-up selectors therefore no longer triggers the yellow “DKIM selector missing in DNS” warning. The **DKIM** tab shows which selector is missing right on its row.
+
+| State              | Meaning                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Active**         | Provably belongs to the domain: its signature was valid (`pass`) at least once in the health window, or the selector was added by hand. Checked in DNS. |
+| **Unverified**     | Only seen in mail with an invalid signature, so it may be made up. Not checked and does not affect domain health. Add it by hand to check it anyway.    |
+| **Missing in DNS** | Belongs to the domain, but DNS has no key for it. Mail using this selector fails DKIM; domain health turns yellow.                                      |
+| **Disabled**       | Unticked, e.g. an old key after a rotation. Never checked.                                                                                              |
+
+A retired key drops out of the check on its own once it no longer appears with a valid signature in the health window. The same selection applies to the DNS check, policy rollout, PDF report, and the daily background check.
+
+![Domain settings, DKIM tab, with selector states and legend](docs/screenshots/en/domain-dkim.png)
+
 ---
 
 ## Features
@@ -159,7 +174,7 @@ Multiple IMAP accounts, fetch/archive folders, auto-fetch, alerts, enrichment (G
 | **Policy rollout**          | Recommends the next step (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) with thresholds, open items, and a staging plan of ready-to-copy records                                                 |
 | **What-if simulation**      | Dashboard-level simulation for one domain (`p=reject`, strict DKIM, `sp=reject`): KPIs, charts, tables, dispositions, and problem sources are recalculated from simulated local report data                                      |
 | **Source map**              | OpenStreetMap with GeoIP positions of source IPs; marker click drills down by IP                                                                                                                                                 |
-| **Domain health & settings** | Responsive multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status, including RFC 7208 SPF `PermError` detection and aligned-only DKIM selector discovery); click to filter, or use the gear to edit DKIM selectors and domain-specific sending services |
+| **Domain health & settings** | Responsive multi-domain traffic-light (pass rate + DMARC/SPF/DKIM DNS status, including RFC 7208 SPF `PermError` detection; DKIM checks only for selectors with a valid signature or a manual entry); click to filter, or use the gear to edit DKIM selectors and domain-specific sending services |
 | **Filters**                 | Date range (7 / 30 / 90 days / all / custom), domain (aggregate, forensic, and TLS-RPT lists), applied disposition (Reject / Not reject), free-text search (`Ctrl+F` / `/`), plus drill-down by org, source IP, and From domain   |
 | **Mailbox noise filter**    | Optional filter for report-echo from Gmail, Outlook, Yahoo, iCloud (providers togglable in Settings → Noise) **and configurable recipient scanners** (default `cloud-sec-av.com`)                                                |
 | **DNS check**               | Live lookup of DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) via the RFC 9989 tree walk, SPF (with RFC 7208 syntax and multiple-record `PermError` checks), MX + DNSBL, DKIM selectors (key type, bit length, weak/revoked key & `t=y` detection), BIMI (`l` SVG Tiny PS check & `a` VMC certificate check), and optional DNSSEC through a configurable DoH resolver |
@@ -228,7 +243,7 @@ Auto-update works in packaged builds (not in dev mode). Portable EXE and `.deb` 
 2. Optionally set a short **display name** (empty = email domain, e.g. `codemacher.de`). **Test connection** if needed. Under **Fetch & notifications**, configure auto-fetch, alerts, system tray, and autostart. Under **Enrichment**, configure GeoLite2 license key / download, optional online Geo-IP fallback, DNSBL, cloud ranges, and RDAP.
 3. In the main window, **Fetch reports** — or load XML/GZ/ZIP/EML via **Files** / drag & drop. With multiple accounts, switch via the account filter.
 4. Narrow with date range (including custom From/To), domain, **disposition** (Reject / Not reject), domain-health tiles, or by clicking a row in the org / IP / From tables (or a map marker); optionally enable **Hide mailbox noise** to drop Gmail, Outlook, Yahoo and iCloud report-echo hops. The domain filter also applies to forensic and TLS-RPT lists; click a TLS-RPT row to inspect its policy and failure details. Review charts, tables, and the source map; export if needed. Open IP details (ℹ) for Geo/ASN/DNSBL and on-demand RDAP; download individual aggregate reports as ZIP.
-5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, DKIM selectors from reports or manual input; when the field is empty, enabled per-domain selectors are used, falling back to report selectors if no domain preferences exist; BIMI and optional DNSSEC). DNSSEC can be disabled or switched to a custom RFC 8484 DoH URL in **Settings → Fetch & notifications**. Each real check is versioned locally; the result panel shows recent DNS drift and any matching report correlation, e.g. a later fail-rate jump after an SPF change.
+5. Cross-check domains in the **DNS check** (policy `p`, reporting URI `rua`, SPF, DKIM selectors from reports or manual input; when the field is empty, enabled per-domain selectors that are verified or were added by hand are used, falling back to report selectors if no domain preferences exist; BIMI and optional DNSSEC). DNSSEC can be disabled or switched to a custom RFC 8484 DoH URL in **Settings → Fetch & notifications**. Each real check is versioned locally; the result panel shows recent DNS drift and any matching report correlation, e.g. a later fail-rate jump after an SPF change.
 6. Open **Tools → Inspect email** to load an `.eml` or `.msg` (drag onto the dialog) or paste headers. Review the path, TLS vs local hops, and SPF/DKIM/DMARC/ARC. Local delivery with `Authentication-Results: none` is “unknown”, not a spoof.
 7. Plan the next step towards `p=reject` under **Tools → Policy rollout**: recommendation, open items, senders to fix, and a staging plan of ready-to-copy records.
 8. For management reporting, pick **PDF report** in the **Export** dialog — or enable the **monthly report** in the settings: each domain in the finished month gets its own PDF.

@@ -114,6 +114,7 @@ declare global {
       openSettingsDemo: () => void
       closeSettings: () => void
       openDomainSettingsDemo: () => Promise<void>
+      openDomainDkimDemo: () => Promise<void>
       closeDomainSettingsDemo: () => void
       openRolloutDemo: () => void
       closeRollout: () => void

@@ -268,8 +268,16 @@ export function installScreenshotApi(): void {
     openDomainSettingsDemo(): Promise<void> {
       return openDomainSettingsScreenshotDemo()
     },
+    openDomainDkimDemo(): Promise<void> {
+      // Show a "missing in DNS" row without turning the dashboard tile yellow.
+      const health = state.domainHealthCache.find((h) => h.domain === 'example.com')
+      if (health) health.dkimMissingSelectors = ['selector2']
+      return openDomainSettingsScreenshotDemo('dkim')
+    },
     closeDomainSettingsDemo(): void {
       if (domainDkimDialog.open) domainDkimDialog.close()
+      const health = state.domainHealthCache.find((h) => h.domain === 'example.com')
+      if (health) health.dkimMissingSelectors = []
     },
     openDnsDemo(): void {
       fillDnsDemo()

@@ -133,6 +133,21 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 
 ![Domain-Einstellungen mit DKIM-Selectoren und aufgeklappter Sende-Dienst-Bearbeitung](docs/screenshots/de/domain-settings.png)
 
+#### DKIM-Selectoren einer Domain
+
+Selectoren aus Reports werden automatisch in die Domain-Einstellungen übernommen. Die Domain-Ampel prüft aber nur Selectoren im DNS, die nachweislich zur Domain gehören. So lösen gefälschte Mails mit erfundenen Selectoren keine Gelb-Warnung („DKIM-Selektor fehlt im DNS“) mehr aus. Welcher Selector fehlt, zeigt der Tab **DKIM** direkt am Eintrag.
+
+| Zustand          | Bedeutung                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Aktiv**        | Gehört nachweislich zur Domain: Die Signatur war im Ampel-Zeitraum mindestens einmal gültig (`pass`), oder der Selector wurde von Hand eingetragen. Wird im DNS geprüft.  |
+| **Unbestätigt**  | Kam nur in Mails mit ungültiger Signatur vor, kann also erfunden sein. Wird nicht geprüft und beeinflusst die Ampel nicht. Von Hand eintragen, um ihn trotzdem zu prüfen. |
+| **Fehlt im DNS** | Gehört zur Domain, aber im DNS gibt es keinen Schlüssel dazu. Mails mit diesem Selector fallen bei DKIM durch; die Ampel wird gelb.                                       |
+| **Deaktiviert**  | Abgewählt, z. B. ein alter Schlüssel nach einem Wechsel. Wird nie geprüft.                                                                                                |
+
+Ein abgelöster Schlüssel fällt von selbst aus der Prüfung, sobald er im Ampel-Zeitraum nicht mehr mit gültiger Signatur auftaucht. Dieselbe Auswahl gilt für DNS-Check, Policy-Rollout, PDF-Report und den täglichen Hintergrund-Check.
+
+![Domain-Einstellungen, Tab DKIM, mit Selector-Zuständen und Legende](docs/screenshots/de/domain-dkim.png)
+
 ---
 
 ## Funktionen
@@ -159,7 +174,7 @@ Mehrere IMAP-Konten, Abruf-/Archiv-Ordner, Auto-Abruf, Alerts, Anreicherung (Geo
 | **Policy-Rollout**          | Empfehlung für den nächsten Schritt (`none` → `quarantine;t=y` → `quarantine` → `reject;t=y` → `reject`, RFC 9989) mit Grenzwerten, offenen Punkten und Staging-Plan inkl. kopierbarer Records                                |
 | **What-if-Simulation**      | Dashboard-Simulation für eine Domain (`p=reject`, strict DKIM, `sp=reject`): Kennzahlen, Charts, Tabellen, Dispositions und Problemquellen werden aus simulierten lokalen Reportdaten neu berechnet                           |
 | **Quellenkarte**            | OpenStreetMap mit GeoIP-Positionen der Quell-IPs; Marker-Klick filtert nach IP                                                                                                                                                |
-| **Domain-Ampel & Einstellungen** | Responsive Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS inkl. RFC-7208-SPF-`PermError`-Prüfung und aligned DKIM-Selektor-Erkennung); Klick filtert, das Zahnrad öffnet DKIM-Selectoren und domainbezogene Sende-Dienste |
+| **Domain-Ampel & Einstellungen** | Responsive Multi-Domain-Status (Pass-Rate + DMARC/SPF/DKIM-DNS inkl. RFC-7208-SPF-`PermError`-Prüfung; DKIM-Prüfung nur für Selectoren mit gültiger Signatur oder manuellem Eintrag); Klick filtert, das Zahnrad öffnet DKIM-Selectoren und domainbezogene Sende-Dienste |
 | **Filter**                  | Zeitraum (7 / 30 / 90 Tage / Gesamt / benutzerdefiniert), Domain (Aggregate-, Forensik- und TLS-RPT-Listen), angewandte Disposition (Reject / Nicht reject), Volltextsuche (`Ctrl+F` / `/`) sowie Drill-Down nach Org, Quell-IP und From-Domain |
 | **Mailbox-Rauschen**        | Optionaler Filter für Report-Echo von Gmail, Outlook, Yahoo, iCloud (Anbieter in Einstellungen → Rauschen abwählbar) **und konfigurierbare Empfänger-Scanner** (Vorgabe `cloud-sec-av.com`)                                   |
 | **DNS-Check**               | Live-Abfrage von DMARC (`p`, `rua`, `ruf`, `t`, `np`, `psd`) über den RFC-9989-Tree-Walk, SPF (inkl. RFC-7208-Syntax- und Mehrfach-Record-`PermError`-Prüfung), MX + DNSBL, DKIM-Selektoren (Schlüsseltyp, Bitlänge, Widerruf `p=` & `t=y`), BIMI (`l` SVG-Tiny-PS-Prüfung & `a` VMC-Zertifikatscheck) und optional DNSSEC über einen konfigurierbaren DoH-Resolver |
@@ -228,7 +243,7 @@ Auto-Update greift in gepackten Builds (nicht im Dev-Modus). Portable-EXE und `.
 2. Optional eine kurze **Bezeichnung** setzen (leer = Domain der E-Mail-Adresse, z. B. `codemacher.de`). Bei Bedarf **Verbindung testen**. Unter **Abruf & Benachrichtigungen** Auto-Abruf, Alerts, System-Tray und Autostart konfigurieren. Unter **Anreicherung** GeoLite2-Key/Download, optionalen Online-Geo-Fallback, DNSBL, Cloud-Ranges und RDAP einstellen.
 3. Im Hauptfenster **Reports abrufen** — oder XML/GZ/ZIP/EML per **Dateien** / Drag & Drop laden. Bei mehreren Konten über den Konto-Filter umschalten.
 4. Mit Zeitraum (inkl. benutzerdefiniert Von/Bis), Domain, **Disposition** (Reject / Nicht reject), Domain-Ampel oder per Klick auf Org-/IP-/From-Zeilen (oder Kartenmarker) eingrenzen; optional **Mailbox-Rauschen ausblenden**, um Report-Echo-Hops von Gmail, Outlook, Yahoo und iCloud zu entfernen. Der Domainfilter gilt auch für Forensik- und TLS-RPT-Listen; TLS-RPT-Zeilen öffnen per Klick die Policy- und Fehlerdetails. Charts, Tabellen und Quellenkarte prüfen; bei Bedarf exportieren. Über ℹ an einer IP Geo/ASN/DNSBL und RDAP on-demand öffnen; einzelne Aggregate-Reports als ZIP laden.
-5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF, DKIM-Selektoren aus Reports oder manueller Eingabe; ist das Feld leer, gelten die aktivierten Selector-Einstellungen der Domain. Ohne Domaineinstellungen werden die Selector-Einträge der Reports verwendet. Dazu BIMI und optional DNSSEC). DNSSEC lässt sich unter **Einstellungen → Abruf & Benachrichtigungen** abschalten oder auf eine eigene RFC-8484-DoH-URL umstellen. Jeder echte Check wird lokal versioniert; das Ergebnis zeigt aktuelle DNS-Drifts und passende Report-Korrelationen, z. B. einen späteren Fail-Rate-Sprung nach einer SPF-Änderung.
+5. Domains im **DNS-Check** gegenprüfen (Policy `p`, Reporting-URI `rua`, SPF, DKIM-Selektoren aus Reports oder manueller Eingabe; ist das Feld leer, gelten die aktivierten, bestätigten oder von Hand eingetragenen Selector-Einstellungen der Domain. Ohne Domaineinstellungen werden die Selector-Einträge der Reports verwendet. Dazu BIMI und optional DNSSEC). DNSSEC lässt sich unter **Einstellungen → Abruf & Benachrichtigungen** abschalten oder auf eine eigene RFC-8484-DoH-URL umstellen. Jeder echte Check wird lokal versioniert; das Ergebnis zeigt aktuelle DNS-Drifts und passende Report-Korrelationen, z. B. einen späteren Fail-Rate-Sprung nach einer SPF-Änderung.
 6. Unter **Tools → E-Mail prüfen** eine `.eml` oder `.msg` laden (auf den Dialog ziehen) oder Header einfügen. Weg, TLS vs. lokale Stationen sowie SPF/DKIM/DMARC/ARC prüfen. Lokaler Versand mit `Authentication-Results: none` ist „unbekannt“, kein Spoofing.
 7. Unter **Tools → Policy-Rollout** den nächsten Schritt zu `p=reject` planen: Empfehlung, offene Punkte, zu klärende Absender und Staging-Plan mit kopierbaren Records.
 8. Für Berichte an die Leitung im **Export**-Dialog **PDF-Bericht** wählen — oder in den Einstellungen den **Monatsbericht** aktivieren: für jede Domain im abgelaufenen Monat entsteht ein eigenes PDF.
