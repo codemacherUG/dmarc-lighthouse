@@ -54,6 +54,7 @@ import {
   setVolumeDayClickHandler
 } from './charts'
 import { setBusy, setStatus } from './chrome'
+import { readDashboardUiState, writeDashboardUiState } from './dashboard-ui-state'
 import { initDiagnosisModalEvents, openDiagnosis } from './diagnosis-modal'
 import {
   btnCloseIpDetail,
@@ -886,6 +887,11 @@ export function resetFilters(): void {
   if (filterSearchEl) filterSearchEl.value = ''
   rangeBeforeDayFilter = null
   clearDrill()
+  writeDashboardUiState(window.localStorage, {
+    range: DEFAULT_DATE_RANGE,
+    disposition: 'all',
+    domain: ''
+  })
   syncCustomRangeVisibility()
   applyView()
   if (noiseWasOn) void persistHideMailboxNoise()
@@ -1469,7 +1475,7 @@ export function renderReports(result: AnalyzeResult | null): void {
 }
 
 function fillDomainFilter(result: AnalyzeResult | null): void {
-  const current = filterDomainEl.value
+  const current = filterDomainEl.value || readDashboardUiState(window.localStorage).domain
   const domains = [
     ...new Set(
       [
@@ -1486,8 +1492,10 @@ function fillDomainFilter(result: AnalyzeResult | null): void {
   filterDomainEl.innerHTML =
     `<option value="">${escapeHtml(t('filter.allDomains'))}</option>` +
     domains.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')
-  if (domains.includes(current)) filterDomainEl.value = current
-  else filterDomainEl.value = ''
+  const match = current
+    ? domains.find((d) => d.toLowerCase() === current.trim().toLowerCase())
+    : undefined
+  filterDomainEl.value = match ?? ''
 }
 
 /** A single IPv4/IPv6 address as its narrowest CIDR, for prefilling the inventory form. */
@@ -1495,7 +1503,10 @@ function singleIpCidr(ip: string): string {
   return ip.includes(':') ? `${ip}/128` : `${ip}/32`
 }
 
-setAmpelDomainChangedCallback(() => applyView())
+setAmpelDomainChangedCallback(() => {
+  writeDashboardUiState(window.localStorage, { domain: filterDomainEl.value })
+  applyView()
+})
 
 configureNewSourcesView({
   domainsForIp: (ip) => domainsForIp(ip),
@@ -1750,6 +1761,11 @@ function initTables(): void {
 }
 
 export function initView(): void {
+  const savedUi = readDashboardUiState(window.localStorage)
+  filterRangeEl.value = savedUi.range
+  filterDispositionEl.value = savedUi.disposition
+  syncCustomRangeVisibility()
+
   initStickyFilter()
   initTables()
   initCollapsibleWidgets()
@@ -1798,6 +1814,11 @@ export function initView(): void {
 
   filterRangeEl.addEventListener('change', () => {
     rangeBeforeDayFilter = null
+    if (filterRangeEl.value !== 'custom') {
+      writeDashboardUiState(window.localStorage, {
+        range: filterRangeEl.value as DateRangePreset
+      })
+    }
     syncCustomRangeVisibility()
     applyView()
   })
@@ -1805,9 +1826,15 @@ export function initView(): void {
   filterToEl.addEventListener('change', () => applyView())
   filterDomainEl.addEventListener('change', () => {
     if (!filterDomainEl.value && simulationModeEl.value !== 'off') simulationModeEl.value = 'off'
+    writeDashboardUiState(window.localStorage, { domain: filterDomainEl.value })
     applyView()
   })
-  filterDispositionEl.addEventListener('change', () => applyView())
+  filterDispositionEl.addEventListener('change', () => {
+    writeDashboardUiState(window.localStorage, {
+      disposition: normalizeDispositionFilter(filterDispositionEl.value)
+    })
+    applyView()
+  })
   simulationModeEl.addEventListener('change', () => {
     ensureSimulationDomain()
     applyView()

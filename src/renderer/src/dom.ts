@@ -42,6 +42,14 @@ export const dnsDomainEl = document.getElementById('dns-domain') as HTMLInputEle
 export const dnsSelectorsEl = document.getElementById('dns-selectors') as HTMLInputElement
 export const dnsResultEl = document.getElementById('dns-result') as HTMLDivElement
 export const dnsTransportEl = document.getElementById('dns-transport') as HTMLDivElement
+export const domainAmpelToolbarEl = document.getElementById(
+  'domain-ampel-toolbar'
+) as HTMLDivElement | null
+export const ampelSearchEl = document.getElementById('ampel-search') as HTMLInputElement | null
+export const ampelSortEl = document.getElementById('ampel-sort') as HTMLSelectElement | null
+export const ampelCompactToggleEl = document.getElementById(
+  'ampel-compact-toggle'
+) as HTMLButtonElement | null
 export const domainAmpelEl = document.getElementById('domain-ampel') as HTMLDivElement
 export const dnsHistoryDialog = document.getElementById('dns-history-dialog') as HTMLDialogElement
 export const dnsHistoryTitle = document.getElementById('dns-history-title') as HTMLHeadingElement

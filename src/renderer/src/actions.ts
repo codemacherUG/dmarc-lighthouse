@@ -1,4 +1,5 @@
 import { ALL_ACCOUNTS_ID, isAllAccountsId } from '../../shared/account'
+import { buildDomainStats } from '../../shared/analyze'
 import { isRelaxedAligned } from '../../shared/domain'
 import { t } from '../../shared/i18n'
 import { selectorsForDnsCheck } from '../../shared/dkim-selector'
@@ -43,6 +44,7 @@ import {
 import { clearDrill, state } from './state'
 import { runTransportCheck } from './transport-view'
 import { applyView, clearSpfMarks, refreshDomainHealth, showResult } from './view'
+import { bindDomainToolActionButtons, domainToolActionButtonHtml } from './wizard-common'
 
 /** Show an import result and report how much of it was written to the cache. */
 function showImportResult(result: AnalyzeResult): void {
@@ -134,7 +136,14 @@ async function doPdfExport(): Promise<void> {
   btnExportPdf.disabled = true
   try {
     const domain = filterDomainEl.value.trim() || null
-    const res = await window.api.exportPdfReport(state.viewResult, { domain })
+    const domainStats = buildDomainStats(state.viewResult.reports)
+    const slimResult: AnalyzeResult = {
+      ...state.viewResult,
+      reports: [],
+      forensicReports: [],
+      tlsRptReports: []
+    }
+    const res = await window.api.exportPdfReport(slimResult, { domain, domainStats })
     setStatus(res.message, res.ok ? 'ok' : '')
     if (res.ok) exportDialog.close()
   } catch (err) {
@@ -184,6 +193,7 @@ function resolveImportTargetAccountId(): Promise<string | null | false> {
 
 export function initActions(): void {
   setSwitchActiveAccount(switchActiveAccount)
+  bindDomainToolActionButtons(dnsResultEl)
 
   btnCloseImportTarget?.addEventListener('click', () => finishImportTargetChoice(false))
   btnCancelImportTarget?.addEventListener('click', () => finishImportTargetChoice(false))
@@ -308,6 +318,12 @@ export function initActions(): void {
             ruf: result.dmarc.ruf ?? '—'
           })
         : `${t('dns.dmarcMissing')}${result.dmarc.error ? ` (${result.dmarc.error})` : ''}`
+      const dmarcPolicy = result.dmarc.policy?.toLowerCase() ?? ''
+      const dmarcActionHtml = !result.dmarc.found
+        ? ` ${domainToolActionButtonHtml('dmarc', result.domain, 'health.action.dmarcWizard')}`
+        : dmarcPolicy !== 'reject' || result.dmarc.testing
+          ? ` ${domainToolActionButtonHtml('rollout', result.domain, 'health.action.rollout')}`
+          : ''
       const spfLine = result.spf.found
         ? t('dns.spfFound', { record: result.spf.records[0] })
         : `${t('dns.spfMissing')}${result.spf.error ? ` (${result.spf.error})` : ''}`
@@ -318,6 +334,10 @@ export function initActions(): void {
       if (result.spf.syntaxErrors?.length) {
         spfErrorLines.push(t('dns.spfSyntaxError', { tokens: result.spf.syntaxErrors.join(', ') }))
       }
+      const spfActionHtml =
+        !result.spf.found || spfErrorLines.length > 0
+          ? ` ${domainToolActionButtonHtml('spf', result.domain, 'health.action.spfWizard')}`
+          : ''
       const spfErrorHtml = spfErrorLines.length
         ? `<br /><span class="fail">${spfErrorLines.map((l) => escapeHtml(l)).join('<br />')}</span>`
         : ''
@@ -349,26 +369,31 @@ export function initActions(): void {
 
       let dkimHtml = ''
       if (result.dkim.selectors.length > 0) {
-        dkimHtml = result.dkim.selectors
-          .map((s) => {
-            const metaParts: string[] = []
-            if (s.keyType && s.keyBits)
-              metaParts.push(`${s.keyType.toUpperCase()} ${s.keyBits}-bit`)
-            else if (s.keyType && s.found) metaParts.push(s.keyType.toUpperCase())
-            if (s.weakKey) metaParts.push(t('dns.dkimWeakKey'))
-            if (s.testing) metaParts.push('t=y')
-            const metaSuffix = metaParts.length ? ` (${escapeHtml(metaParts.join(', '))})` : ''
-            const stateHtml = s.revoked
-              ? `<span class="fail">${escapeHtml(t('dns.dkimRevoked'))}</span>`
-              : s.found
-                ? `<span class="${s.weakKey ? 'warn' : 'pass'}">${escapeHtml(t('dns.dkimFound'))}${metaSuffix}</span>`
-                : `<span class="fail">${escapeHtml(t('dns.dkimMissing'))}</span>`
-            return t('dns.dkimLine', {
-              selector: `<span class="mono">${escapeHtml(s.selector)}</span>`,
-              state: stateHtml
+        const hasMissingDkim = result.dkim.selectors.some((s) => !s.found)
+        dkimHtml =
+          result.dkim.selectors
+            .map((s) => {
+              const metaParts: string[] = []
+              if (s.keyType && s.keyBits)
+                metaParts.push(`${s.keyType.toUpperCase()} ${s.keyBits}-bit`)
+              else if (s.keyType && s.found) metaParts.push(s.keyType.toUpperCase())
+              if (s.weakKey) metaParts.push(t('dns.dkimWeakKey'))
+              if (s.testing) metaParts.push('t=y')
+              const metaSuffix = metaParts.length ? ` (${escapeHtml(metaParts.join(', '))})` : ''
+              const stateHtml = s.revoked
+                ? `<span class="fail">${escapeHtml(t('dns.dkimRevoked'))}</span>`
+                : s.found
+                  ? `<span class="${s.weakKey ? 'warn' : 'pass'}">${escapeHtml(t('dns.dkimFound'))}${metaSuffix}</span>`
+                  : `<span class="fail">${escapeHtml(t('dns.dkimMissing'))}</span>`
+              return t('dns.dkimLine', {
+                selector: `<span class="mono">${escapeHtml(s.selector)}</span>`,
+                state: stateHtml
+              })
             })
-          })
-          .join('<br />')
+            .join('<br />') +
+          (hasMissingDkim
+            ? ` ${domainToolActionButtonHtml('dkim', result.domain, 'health.action.dkim')}`
+            : '')
       } else {
         dkimHtml = escapeHtml(t('dns.dkimNone'))
       }
@@ -377,7 +402,7 @@ export function initActions(): void {
       let bimiHtml = ''
       if (!bimi || !bimi.found) {
         const detail = bimi?.error ? ` (${bimi.error})` : ''
-        bimiHtml = `<span class="fail">${escapeHtml(t('dns.bimiMissing'))}${escapeHtml(detail)}</span>`
+        bimiHtml = `<span class="fail">${escapeHtml(t('dns.bimiMissing'))}${escapeHtml(detail)}</span> ${domainToolActionButtonHtml('bimi', result.domain, 'health.action.bimiWizard')}`
       } else {
         const svgNote = bimi.svgValidation
           ? bimi.svgValidation.ok
@@ -392,15 +417,19 @@ export function initActions(): void {
         const bimiWarn =
           (bimi.svgValidation && !bimi.svgValidation.ok) ||
           (bimi.authorityValidation && !bimi.authorityValidation.ok)
-        bimiHtml = `<span class="${bimiWarn ? 'warn' : 'pass'}">${escapeHtml(
-          t('dns.bimiFound', {
-            selector: bimi.selector,
-            location: bimi.location || '—',
-            authority: bimi.authority || '—'
-          }) +
-            svgNote +
-            authNote
-        )}</span>`
+        bimiHtml =
+          `<span class="${bimiWarn ? 'warn' : 'pass'}">${escapeHtml(
+            t('dns.bimiFound', {
+              selector: bimi.selector,
+              location: bimi.location || '—',
+              authority: bimi.authority || '—'
+            }) +
+              svgNote +
+              authNote
+          )}</span>` +
+          (bimiWarn
+            ? ` ${domainToolActionButtonHtml('bimi', result.domain, 'health.action.bimiWizard')}`
+            : '')
       }
 
       const resolverLine =
@@ -417,7 +446,7 @@ export function initActions(): void {
             ? `<span class="fail">${escapeHtml(t('dns.dnssecUnsigned', { resolver: result.dnssec.resolver }))}</span>`
             : `<span class="muted">${escapeHtml(t('dns.dnssecError', { message: result.dnssec.error ?? '—' }))}</span>`
         : ''
-      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}<br /><span class="mono">${escapeHtml(spfLine)}</span>${spfErrorHtml}<br /><span class="mono">${escapeHtml(mxLine)}</span>${mxBlacklistLine ? `<br />${escapeHtml(mxBlacklistLine)}` : ''}<br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
+      dnsResultEl.innerHTML = `<strong>${escapeHtml(result.domain)}</strong><br /><span class="muted">${escapeHtml(resolverLine)}</span><br />${escapeHtml(dmarcLine)}${dmarcActionHtml}<br /><span class="mono">${escapeHtml(spfLine)}</span>${spfActionHtml}${spfErrorHtml}<br /><span class="mono">${escapeHtml(mxLine)}</span>${mxBlacklistLine ? `<br />${escapeHtml(mxBlacklistLine)}` : ''}<br />${dkimHtml}<br />${bimiHtml}${dnssecLine ? `<br />${dnssecLine}` : ''}${renderDnsHistory(history)}`
       dnsResultEl.className = 'dns-result ok'
       void refreshDomainHealth(state.fullResult, { force: true })
     } catch (err) {

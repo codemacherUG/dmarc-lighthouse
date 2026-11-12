@@ -3,6 +3,7 @@ import { MIN_MAX_AGE_SECONDS, mxMatchesPattern } from '../../shared/transport'
 import type { TransportReason, TransportSecurityResult } from '../../shared/types'
 import { dnsTransportEl } from './dom'
 import { escapeHtml } from './format'
+import { bindDomainToolActionButtons, domainToolActionButtonHtml } from './wizard-common'
 
 const STATUS_BADGE: Record<TransportSecurityResult['status'], string> = {
   ok: 'badge',
@@ -15,11 +16,16 @@ function tlsRptLine(result: TransportSecurityResult): string {
   const { tlsrpt } = result
   if (!tlsrpt.found) {
     const detail = tlsrpt.error ? ` (${tlsrpt.error})` : ''
-    return `<span class="fail">${escapeHtml(t('transport.tlsrptMissing'))}${escapeHtml(detail)}</span>`
+    const action = domainToolActionButtonHtml('tlsrpt', result.domain, 'health.action.tlsrptWizard')
+    return `<span class="fail">${escapeHtml(t('transport.tlsrptMissing'))}${escapeHtml(detail)}</span> ${action}`
   }
+  const action =
+    tlsrpt.rua.length === 0
+      ? ` ${domainToolActionButtonHtml('tlsrpt', result.domain, 'health.action.tlsrptWizard')}`
+      : ''
   return `<span class="pass">${escapeHtml(
     t('transport.tlsrptFound', { rua: tlsrpt.rua.join(', ') || '—' })
-  )}</span>`
+  )}</span>${action}`
 }
 
 function mark(value: string, level: 'warn' | 'bad' | null): string {
@@ -30,10 +36,15 @@ function mark(value: string, level: 'warn' | 'bad' | null): string {
 
 function mtaStsLines(result: TransportSecurityResult): string[] {
   const { mtaSts, dane } = result
+  const wizardBtn = domainToolActionButtonHtml(
+    'mtaSts',
+    result.domain,
+    'health.action.mtaStsWizard'
+  )
   if (!mtaSts.found) {
     const detail = mtaSts.error ? ` (${mtaSts.error})` : ''
     return [
-      `<span class="fail">${escapeHtml(t('transport.mtaStsMissing'))}${escapeHtml(detail)}</span>`
+      `<span class="fail">${escapeHtml(t('transport.mtaStsMissing'))}${escapeHtml(detail)}</span> ${wizardBtn}`
     ]
   }
   const lines: string[] = []
@@ -42,12 +53,13 @@ function mtaStsLines(result: TransportSecurityResult): string[] {
     const maxAge = mtaSts.policy.maxAgeSeconds
     const modeLevel = mode === 'testing' || mode === 'none' ? 'warn' : null
     const ageLevel = maxAge != null && maxAge < MIN_MAX_AGE_SECONDS ? 'warn' : null
+    const needsAction = modeLevel != null || ageLevel != null
     lines.push(
       t('transport.mtaStsFound', {
         mode: mark(mode ?? '—', modeLevel),
         id: escapeHtml(mtaSts.id ?? '—'),
         maxAge: mark(maxAge == null ? '—' : String(maxAge), ageLevel)
-      })
+      }) + (needsAction ? ` ${wizardBtn}` : '')
     )
     if (mtaSts.policy.mx.length > 0) {
       const hosts = dane.mx.map((m) => m.host)
@@ -62,7 +74,7 @@ function mtaStsLines(result: TransportSecurityResult): string[] {
     lines.push(
       `<span class="fail">${escapeHtml(
         t('transport.mtaStsPolicyError', { message: mtaSts.policyError ?? '—' })
-      )}</span>`
+      )}</span> ${wizardBtn}`
     )
   }
   return lines
@@ -93,6 +105,7 @@ function reasonClass(reason: TransportReason): string {
 }
 
 export function renderTransportSecurity(result: TransportSecurityResult): void {
+  bindDomainToolActionButtons(dnsTransportEl)
   const reasons = result.reasons
     .map(
       (reason) =>

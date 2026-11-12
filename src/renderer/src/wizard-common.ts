@@ -1,10 +1,57 @@
 import { normalizeDomain } from '../../shared/dmarc-builder'
 import { t, type MessageKey } from '../../shared/i18n'
-import { filterDomainEl } from './dom'
+import { type DomainToolAction } from './dashboard-ui-state'
+import { dnsDialog, filterDomainEl } from './dom'
 import { escapeHtml } from './format'
 
-/** Suggest the active dashboard filter domain for any record wizard. */
-export function suggestInitialWizardDomain(): string {
+export type { DomainToolAction }
+
+const toolHandlers = new Map<DomainToolAction, (domain: string) => void>()
+
+export function registerDomainToolAction(
+  action: DomainToolAction,
+  handler: (domain: string) => void
+): void {
+  toolHandlers.set(action, handler)
+}
+
+export function triggerDomainToolAction(action: DomainToolAction, domain: string): void {
+  const handler = toolHandlers.get(action)
+  if (!handler) return
+  if (dnsDialog?.open) dnsDialog.close()
+  handler(domain)
+}
+
+/** Render an inline quick-action button that opens a domain wizard/tool. */
+export function domainToolActionButtonHtml(
+  action: DomainToolAction,
+  domain: string,
+  labelKey: MessageKey,
+  className = 'dns-quick-action'
+): string {
+  return `<button type="button" class="${escapeHtml(className)}" data-domain-tool="${escapeHtml(action)}" data-domain="${escapeHtml(domain)}">${escapeHtml(t(labelKey))}</button>`
+}
+
+/** Delegate clicks on `[data-domain-tool]` buttons within `container`. */
+export function bindDomainToolActionButtons(container: HTMLElement | null): void {
+  if (!container || container.dataset.domainToolBound === 'true') return
+  container.dataset.domainToolBound = 'true'
+  container.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null
+    const btn = target?.closest<HTMLButtonElement>('[data-domain-tool]')
+    if (!btn) return
+    event.preventDefault()
+    event.stopPropagation()
+    const action = btn.dataset.domainTool as DomainToolAction | undefined
+    const domain = btn.dataset.domain?.trim() ?? ''
+    if (action && domain) triggerDomainToolAction(action, domain)
+  })
+}
+
+/** Suggest the active dashboard filter domain (or an explicit override) for any record wizard. */
+export function suggestInitialWizardDomain(explicitDomain?: string): string {
+  const explicit = explicitDomain?.trim()
+  if (explicit) return normalizeDomain(explicit)
   const fromFilter = filterDomainEl.value.trim()
   return fromFilter ? normalizeDomain(fromFilter) : ''
 }

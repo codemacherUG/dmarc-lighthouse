@@ -22,18 +22,20 @@ import {
 import { escapeHtml } from './format'
 import { state } from './state'
 import { refreshDomainHealth } from './view'
+import { registerDomainToolAction } from './wizard-common'
 
 const dnsByDomain = new Map<string, DnsCheckResult>()
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let lastAssessment: RolloutAssessment | null = null
 
-function domainOptions(): string[] {
+function domainOptions(extraDomain?: string): string[] {
   const result = state.fullResult
   const domains = [
     ...(result?.aggregate.domains ?? []),
     ...(result?.forensicReports ?? []).map((r) => r.reportedDomain ?? ''),
     ...(result?.tlsRptReports ?? []).flatMap((r) => r.policies.map((p) => p.policyDomain)),
-    filterDomainEl.value
+    filterDomainEl.value,
+    extraDomain ?? ''
   ]
   return [...new Set(domains.map((d) => normalizeDomain(d)).filter(Boolean))].sort()
 }
@@ -238,9 +240,9 @@ async function evaluate(domain: string, forceDns = false): Promise<void> {
   render(assessRollout({ domain, reports, dns, windowDays: ROLLOUT_WINDOW_DAYS }))
 }
 
-function fillDomains(): string {
-  const domains = domainOptions()
-  const preferred = normalizeDomain(filterDomainEl.value || '') || domains[0] || ''
+function fillDomains(initialDomain?: string): string {
+  const domains = domainOptions(initialDomain)
+  const preferred = normalizeDomain(initialDomain || filterDomainEl.value || '') || domains[0] || ''
   rolloutDomainEl.innerHTML = domains
     .map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
     .join('')
@@ -255,8 +257,8 @@ export function seedRolloutDns(domain: string, dns: DnsCheckResult): void {
   dnsByDomain.set(normalizeDomain(domain), dns)
 }
 
-export function openRollout(): void {
-  const domain = fillDomains()
+export function openRollout(initialDomain?: string): void {
+  const domain = fillDomains(initialDomain)
   rolloutDialog.showModal()
   void evaluate(domain)
 }
@@ -268,6 +270,7 @@ export function refreshRolloutLocale(): void {
 }
 
 export function initRolloutUi(): void {
+  registerDomainToolAction('rollout', (domain) => openRollout(domain))
   btnRollout.addEventListener('click', () => openRollout())
   btnCloseRollout.addEventListener('click', () => rolloutDialog.close())
   rolloutDomainEl.addEventListener('change', () => {

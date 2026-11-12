@@ -616,6 +616,52 @@
             </span>
           </span>
         </div>
+        <div id="domain-ampel-toolbar" class="ampel-toolbar hidden">
+          <div class="ampel-status-pills" role="group" data-i18n-aria="health.title" aria-label="Domain-Ampel">
+            <button type="button" class="ampel-filter-pill is-active" data-ampel-status="all">
+              <span data-i18n="health.filter.all">Alle</span>
+              <span class="ampel-pill-count" data-ampel-count="all">0</span>
+            </button>
+            <button type="button" class="ampel-filter-pill bad" data-ampel-status="bad">
+              <span data-i18n="health.filter.bad">Kritisch</span>
+              <span class="ampel-pill-count" data-ampel-count="bad">0</span>
+            </button>
+            <button type="button" class="ampel-filter-pill warn" data-ampel-status="warn">
+              <span data-i18n="health.filter.warn">Warnung</span>
+              <span class="ampel-pill-count" data-ampel-count="warn">0</span>
+            </button>
+            <button type="button" class="ampel-filter-pill ok" data-ampel-status="ok">
+              <span data-i18n="health.filter.ok">OK</span>
+              <span class="ampel-pill-count" data-ampel-count="ok">0</span>
+            </button>
+          </div>
+          <div class="ampel-toolbar-controls">
+            <input
+              id="ampel-search"
+              type="search"
+              class="ampel-search-input"
+              data-i18n-placeholder="health.searchPlaceholder"
+              placeholder="Domain filtern…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <select id="ampel-sort" class="ampel-sort-select" data-i18n-aria="health.sortLabel" aria-label="Sortierung">
+              <option value="status" data-i18n="health.sort.status">Status</option>
+              <option value="passRateAsc" data-i18n="health.sort.passRateAsc">Pass-Rate ↑</option>
+              <option value="volumeDesc" data-i18n="health.sort.volumeDesc">Volumen ↓</option>
+              <option value="domainAsc" data-i18n="health.sort.domainAsc">Domain A–Z</option>
+            </select>
+            <button
+              type="button"
+              id="ampel-compact-toggle"
+              class="btn secondary ampel-compact-btn"
+              aria-pressed="false"
+              data-i18n="health.compact"
+            >
+              Kompakt
+            </button>
+          </div>
+        </div>
         <div id="domain-ampel" class="domain-ampel">
           <p class="muted" data-i18n="health.empty">Noch keine Domains geladen.</p>
         </div>

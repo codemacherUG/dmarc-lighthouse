@@ -114,7 +114,7 @@ const api = {
     ipcRenderer.invoke('export:reportZip', report),
   exportPdfReport: (
     result: AnalyzeResult,
-    options?: { domain?: string | null }
+    options?: { domain?: string | null; domainStats?: DomainStats[] }
   ): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('report:pdf', result, options ?? {}),
   chooseReportDir: (): Promise<{ ok: boolean; dir: string }> =>

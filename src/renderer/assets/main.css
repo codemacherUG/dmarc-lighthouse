@@ -2719,11 +2719,124 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   }
 }
 
+.ampel-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.ampel-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ampel-filter-pill {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.24rem 0.58rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.ampel-filter-pill:hover {
+  border-color: var(--accent);
+}
+
+.ampel-filter-pill.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-muted));
+  color: var(--accent);
+}
+
+.ampel-filter-pill.bad.is-active {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 14%, var(--bg-muted));
+  color: var(--bad);
+}
+
+.ampel-filter-pill.warn.is-active {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, var(--bg-muted));
+  color: var(--warn);
+}
+
+.ampel-filter-pill.ok.is-active {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, var(--bg-muted));
+  color: var(--ok);
+}
+
+.ampel-pill-count {
+  display: inline-block;
+  min-width: 1.15rem;
+  padding: 0.04rem 0.32rem;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+.ampel-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ampel-search-input {
+  width: 10.5rem;
+  min-height: 1.9rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.ampel-sort-select {
+  min-height: 1.9rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.78rem;
+}
+
+.ampel-compact-btn {
+  min-height: 1.9rem;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.76rem;
+}
+
+.ampel-compact-btn.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-muted));
+  color: var(--accent);
+}
+
 .domain-ampel {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 300px));
   gap: 0.6rem;
   padding-top: 0.25rem;
+}
+
+.domain-ampel.is-compact {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 240px));
+  gap: 0.45rem;
 }
 
 .ampel-card-wrap {
@@ -2749,6 +2862,66 @@ html[data-theme='dark'] .ip-map .leaflet-tile-pane {
   font: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+.ampel-card-wrap.has-actions .ampel-card {
+  padding-bottom: 2.15rem;
+}
+
+.domain-ampel.is-compact .ampel-card {
+  padding: 0.45rem 0.6rem;
+  padding-right: 4.1rem;
+}
+
+.domain-ampel.is-compact .ampel-reasons,
+.domain-ampel.is-compact .ampel-card-actions,
+.domain-ampel.is-compact .ampel-meta-window {
+  display: none;
+}
+
+.ampel-card-actions {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  pointer-events: none;
+}
+
+.ampel-action-chip,
+.dns-quick-action {
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.14rem 0.48rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.69rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.dns-quick-action {
+  margin-left: 0.35rem;
+  vertical-align: baseline;
+}
+
+.ampel-action-chip:hover,
+.dns-quick-action:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-panel));
 }
 
 .ampel-info,

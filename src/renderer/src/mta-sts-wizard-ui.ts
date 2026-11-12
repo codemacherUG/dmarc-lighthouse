@@ -41,6 +41,7 @@ import { escapeHtml } from './format'
 import {
   bindWizardCopyButtons,
   createInflightDeduper,
+  registerDomainToolAction,
   suggestInitialWizardDomain,
   syncWizardStepDom,
   wizardCopyButtonHtml
@@ -298,10 +299,10 @@ function requestDnsTemplate(): Promise<void> {
   return templateDeduper.run(domain, loadDnsTemplate)
 }
 
-export function openMtaStsBuilder(): void {
+export function openMtaStsBuilder(initialDomain?: string): void {
   fillForm({ ...DEFAULT_MTA_STS_BUILDER_INPUT })
   mtaStsBuilderRenewIdEl.checked = false
-  const domain = suggestInitialWizardDomain()
+  const domain = suggestInitialWizardDomain(initialDomain)
   if (domain) mtaStsBuilderDomainEl.value = domain
   liveDnsValue = null
   livePolicyText = null
@@ -324,6 +325,7 @@ export function refreshMtaStsBuilderLocale(): void {
 }
 
 export function initMtaStsWizardUi(): void {
+  registerDomainToolAction('mtaSts', (domain) => openMtaStsBuilder(domain))
   btnMtaStsBuilder.addEventListener('click', () => openMtaStsBuilder())
   btnCloseMtaStsBuilder.addEventListener('click', () => mtaStsBuilderDialog.close())
 

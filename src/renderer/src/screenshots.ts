@@ -14,6 +14,7 @@ import {
   type NewSendingSourceGroup
 } from '../../shared/types'
 import { applyUiLocale } from './chrome'
+import { DEFAULT_DASHBOARD_UI_STATE, writeDashboardUiState } from './dashboard-ui-state'
 import { escapeHtml } from './format'
 import {
   dnsHistoryBody,
@@ -101,7 +102,9 @@ export function installScreenshotApi(): void {
       applyTheme('light')
       state.selectedReportId = null
       clearDrill()
+      writeDashboardUiState(window.localStorage, DEFAULT_DASHBOARD_UI_STATE)
       filterRangeEl.value = DEFAULT_DATE_RANGE
+      filterDomainEl.value = ''
       const demoResult = buildDemoAnalyzeResult()
       // Shows the "new sending sources" banner: one recognized service to accept,
       // one previously retired service reappearing, and one unrecognized provider.

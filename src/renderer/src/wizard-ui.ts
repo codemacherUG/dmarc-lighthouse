@@ -45,6 +45,7 @@ import { state } from './state'
 import { refreshDomainHealth } from './view'
 import {
   bindWizardCopyButtons,
+  registerDomainToolAction,
   suggestInitialWizardDomain,
   syncWizardStepDom,
   wizardCopyButtonHtml
@@ -236,9 +237,9 @@ async function loadDnsTemplate(): Promise<void> {
   }
 }
 
-export function openBuilder(): void {
+export function openBuilder(initialDomain?: string): void {
   fillForm({ ...DEFAULT_BUILDER_INPUT })
-  const domain = suggestInitialWizardDomain()
+  const domain = suggestInitialWizardDomain(initialDomain)
   if (domain) {
     builderDomainEl.value = domain
     ensureDefaultMailboxes(domain)
@@ -258,6 +259,7 @@ export function refreshBuilderLocale(): void {
 }
 
 export function initWizardUi(): void {
+  registerDomainToolAction('dmarc', (domain) => openBuilder(domain))
   btnBuilder.addEventListener('click', () => openBuilder())
   btnCloseBuilder.addEventListener('click', () => builderDialog.close())
 

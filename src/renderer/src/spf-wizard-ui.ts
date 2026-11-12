@@ -42,6 +42,7 @@ import { state } from './state'
 import { refreshDomainHealth } from './view'
 import {
   bindWizardCopyButtons,
+  registerDomainToolAction,
   suggestInitialWizardDomain,
   syncWizardStepDom,
   wizardCopyButtonHtml
@@ -398,9 +399,9 @@ async function loadDnsTemplate(): Promise<void> {
   }
 }
 
-export function openSpfBuilder(): void {
+export function openSpfBuilder(initialDomain?: string): void {
   fillForm({ ...DEFAULT_SPF_BUILDER_INPUT })
-  const domain = suggestInitialWizardDomain()
+  const domain = suggestInitialWizardDomain(initialDomain)
   if (domain) spfBuilderDomainEl.value = domain
   liveDnsValue = null
   spfBuilderDomainStatusEl.textContent = ''
@@ -418,6 +419,7 @@ export function refreshSpfBuilderLocale(): void {
 }
 
 export function initSpfWizardUi(): void {
+  registerDomainToolAction('spf', (domain) => openSpfBuilder(domain))
   btnSpfBuilder.addEventListener('click', () => openSpfBuilder())
   btnCloseSpfBuilder.addEventListener('click', () => spfBuilderDialog.close())
 

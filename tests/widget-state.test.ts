@@ -11,6 +11,15 @@ import {
   readIgnoredProblemSourceKeys,
   writeIgnoredProblemSourceKeys
 } from '../src/renderer/src/problem-source-state'
+import {
+  ampelQuickActionsForReasons,
+  DASHBOARD_UI_STATE_STORAGE_KEY,
+  DEFAULT_DASHBOARD_UI_STATE,
+  filterAndSortDomainHealth,
+  readDashboardUiState,
+  writeDashboardUiState
+} from '../src/renderer/src/dashboard-ui-state'
+import type { DomainHealth } from '../src/shared/types'
 
 describe('widget collapse state', () => {
   it('round-trips collapsed widget ids in stable order', () => {
@@ -101,5 +110,120 @@ describe('problem source ignore state', () => {
         'account-a'
       )
     ).toEqual(new Set())
+  })
+})
+
+describe('dashboard UI state & Domain-Ampel filtering/sorting', () => {
+  it('persists and merges dashboard filter preferences safely', () => {
+    let storedValue: string | null = null
+    const storage = {
+      getItem: (key: string): string | null =>
+        key === DASHBOARD_UI_STATE_STORAGE_KEY ? storedValue : null,
+      setItem: (key: string, value: string): void => {
+        if (key === DASHBOARD_UI_STATE_STORAGE_KEY) storedValue = value
+      }
+    }
+
+    expect(readDashboardUiState(storage)).toEqual(DEFAULT_DASHBOARD_UI_STATE)
+
+    writeDashboardUiState(storage, { range: '90', domain: ' example.com ', ampelCompact: true })
+    writeDashboardUiState(storage, { disposition: 'reject', ampelSort: 'passRateAsc' })
+
+    expect(readDashboardUiState(storage)).toEqual({
+      range: '90',
+      disposition: 'reject',
+      domain: 'example.com',
+      ampelSort: 'passRateAsc',
+      ampelCompact: true
+    })
+
+    // Invalid custom range or malformed values fall back to defaults.
+    storedValue = JSON.stringify({ range: 'custom', disposition: 'invalid', ampelSort: 'bogus' })
+    expect(readDashboardUiState(storage)).toEqual(DEFAULT_DASHBOARD_UI_STATE)
+  })
+
+  it('filters and sorts Domain-Ampel rows by status, query, pass rate, volume, and domain', () => {
+    const sample: DomainHealth[] = [
+      {
+        domain: 'zeta.example',
+        total: 50,
+        passing: 50,
+        failing: 0,
+        passRate: 100,
+        dkimSelectors: [],
+        dkimVerifiedSelectors: [],
+        dmarcPolicy: 'reject',
+        spfOk: true,
+        dkimOk: true,
+        status: 'ok',
+        reasons: ['health.reason.ok']
+      },
+      {
+        domain: 'alpha.example',
+        total: 200,
+        passing: 190,
+        failing: 10,
+        passRate: 95,
+        dkimSelectors: [],
+        dkimVerifiedSelectors: [],
+        dmarcPolicy: 'none',
+        spfOk: true,
+        dkimOk: true,
+        status: 'warn',
+        reasons: ['health.reason.policyNone', 'health.reason.passRateWarn']
+      },
+      {
+        domain: 'beta.example',
+        total: 80,
+        passing: 60,
+        failing: 20,
+        passRate: 75,
+        dkimSelectors: [],
+        dkimVerifiedSelectors: [],
+        dmarcPolicy: null,
+        spfOk: false,
+        dkimOk: false,
+        status: 'bad',
+        reasons: ['health.reason.noDmarc', 'health.reason.spfInvalid']
+      }
+    ]
+
+    expect(filterAndSortDomainHealth(sample, { sort: 'status' }).map((r) => r.domain)).toEqual([
+      'beta.example',
+      'alpha.example',
+      'zeta.example'
+    ])
+    expect(
+      filterAndSortDomainHealth(sample, { statusFilter: 'warn' }).map((r) => r.domain)
+    ).toEqual(['alpha.example'])
+    expect(filterAndSortDomainHealth(sample, { query: 'permerror' }).map((r) => r.domain)).toEqual([
+      'beta.example'
+    ])
+    expect(filterAndSortDomainHealth(sample, { sort: 'passRateAsc' }).map((r) => r.domain)).toEqual(
+      ['beta.example', 'alpha.example', 'zeta.example']
+    )
+    expect(filterAndSortDomainHealth(sample, { sort: 'volumeDesc' }).map((r) => r.domain)).toEqual([
+      'alpha.example',
+      'beta.example',
+      'zeta.example'
+    ])
+    expect(filterAndSortDomainHealth(sample, { sort: 'domainAsc' }).map((r) => r.domain)).toEqual([
+      'alpha.example',
+      'beta.example',
+      'zeta.example'
+    ])
+  })
+
+  it('maps domain-health reasons to deduplicated wizard quick-actions', () => {
+    expect(
+      ampelQuickActionsForReasons([
+        'health.reason.noDmarc',
+        'health.reason.noSpf',
+        'health.reason.spfInvalid',
+        'health.reason.policyNone',
+        'health.reason.dkimMissing'
+      ]).map((a) => a.action)
+    ).toEqual(['dmarc', 'spf', 'rollout', 'dkim'])
+    expect(ampelQuickActionsForReasons(['health.reason.ok'])).toEqual([])
   })
 })

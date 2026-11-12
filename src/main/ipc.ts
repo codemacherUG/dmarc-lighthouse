@@ -12,6 +12,7 @@ import type {
   AppTheme,
   ConfigBackupPayload,
   DomainDkimSelector,
+  DomainStats,
   EmailInspectResult,
   GlobalSettings,
   ReportRetentionCleanupResult,
@@ -640,12 +641,17 @@ export function registerIpc(hooks: RegisterIpcHooks): void {
 
   ipcMain.handle(
     'report:pdf',
-    async (_event, result: AnalyzeResult, options: { domain?: string | null } = {}) => {
+    async (
+      _event,
+      result: AnalyzeResult,
+      options: { domain?: string | null; domainStats?: DomainStats[] } = {}
+    ) => {
       const domain = options.domain?.trim() || null
       const mainWindow = hooks.getMainWindow()
+      const healthSource = options.domainStats ?? result.reports
       const pdf = await buildPdfReport(result, {
         domain,
-        domains: domainHealthFromReports(result.reports, (d) => getDnsHealthCache(d)),
+        domains: domainHealthFromReports(healthSource, (d) => getDnsHealthCache(d)),
         host: mainWindow
       })
       const saveOptions = {

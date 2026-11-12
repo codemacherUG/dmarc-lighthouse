@@ -13,6 +13,7 @@ import type {
   AnalyzeResult,
   DnsCheckResult,
   DomainHealth,
+  DomainStats,
   EmailInspectResult,
   ForensicReportRow,
   ReportRow
@@ -433,13 +434,16 @@ export function groupReportsByDomain(
 }
 
 export function domainHealthFromReports(
-  reports: ReportRow[],
+  reportsOrStats: Array<ReportRow | DomainStats>,
   dnsFor?: (domain: string, selectors: string[]) => DnsCheckResult | null
 ): DomainHealth[] {
-  return buildDomainStats(reports)
-    .map((stats) =>
-      mergeDomainHealth(stats, dnsFor?.(stats.domain, stats.dkimVerifiedSelectors) ?? null)
-    )
+  const first = reportsOrStats[0]
+  const stats: DomainStats[] =
+    first && 'records' in first
+      ? buildDomainStats(reportsOrStats as ReportRow[])
+      : (reportsOrStats as DomainStats[])
+  return stats
+    .map((s) => mergeDomainHealth(s, dnsFor?.(s.domain, s.dkimVerifiedSelectors) ?? null))
     .sort((a, b) => b.total - a.total)
 }
 

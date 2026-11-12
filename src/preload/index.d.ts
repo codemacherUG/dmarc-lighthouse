@@ -83,7 +83,7 @@ export interface DmarcLighthouseApi {
   exportReportZip: (report: ReportRow) => Promise<{ ok: boolean; message: string }>
   exportPdfReport: (
     result: AnalyzeResult,
-    options?: { domain?: string | null }
+    options?: { domain?: string | null; domainStats?: DomainStats[] }
   ) => Promise<{ ok: boolean; message: string }>
   chooseReportDir: () => Promise<{ ok: boolean; dir: string }>
   runMonthlyReport: () => Promise<{ ok: boolean; message: string }>

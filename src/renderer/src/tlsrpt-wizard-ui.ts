@@ -32,6 +32,7 @@ import { escapeHtml } from './format'
 import {
   bindWizardCopyButtons,
   createInflightDeduper,
+  registerDomainToolAction,
   suggestInitialWizardDomain,
   syncWizardStepDom,
   wizardCopyButtonHtml
@@ -215,9 +216,9 @@ function requestDnsTemplate(): Promise<void> {
   return templateDeduper.run(domain, loadDnsTemplate)
 }
 
-export function openTlsrptBuilder(): void {
+export function openTlsrptBuilder(initialDomain?: string): void {
   fillForm({ ...DEFAULT_TLSRPT_BUILDER_INPUT })
-  const domain = suggestInitialWizardDomain()
+  const domain = suggestInitialWizardDomain(initialDomain)
   if (domain) {
     tlsrptBuilderDomainEl.value = domain
     ensureDefaultMailbox(domain)
@@ -241,6 +242,7 @@ export function refreshTlsrptBuilderLocale(): void {
 }
 
 export function initTlsrptWizardUi(): void {
+  registerDomainToolAction('tlsrpt', (domain) => openTlsrptBuilder(domain))
   btnTlsrptBuilder.addEventListener('click', () => openTlsrptBuilder())
   btnCloseTlsrptBuilder.addEventListener('click', () => tlsrptBuilderDialog.close())
 

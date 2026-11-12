@@ -332,12 +332,25 @@ describe('sqlite cache', () => {
     expect(columns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['dkim_raw_result', 'spf_raw_result'])
     )
-    expect(version.value).toBe('15')
+    expect(version.value).toBe('16')
     expect(
       migrated
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tlsrpt_reports'")
         .get()
     ).toBeTruthy()
+    const indexes = (
+      migrated.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all() as Array<{
+        name: string
+      }>
+    ).map((r) => r.name)
+    expect(indexes).toEqual(
+      expect.arrayContaining([
+        'reports_account_date_idx',
+        'reports_domain_date_idx',
+        'forensic_account_date_idx',
+        'tlsrpt_account_date_idx'
+      ])
+    )
     migrated.close()
   })
 

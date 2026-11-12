@@ -39,6 +39,7 @@ import {
 } from './dom'
 import { escapeHtml } from './format'
 import { state } from './state'
+import { registerDomainToolAction } from './wizard-common'
 
 let editingDkimDomain = ''
 let editingDkimSelectors: DomainDkimSelector[] = []
@@ -503,6 +504,7 @@ export function openDomainSettingsScreenshotDemo(
 }
 
 export function initDomainSettingsModalEvents(): void {
+  registerDomainToolAction('dkim', (domain) => void openDomainDkimSettings(domain))
   btnCloseDnsHistory.addEventListener('click', () => dnsHistoryDialog.close())
   btnDnsHistoryClose.addEventListener('click', () => dnsHistoryDialog.close())
   btnDnsHistoryCheck?.addEventListener('click', () => {

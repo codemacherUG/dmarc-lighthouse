@@ -163,6 +163,12 @@ function openDb(): DatabaseSync {
       PRIMARY KEY (account_key, report_id)
     );
 
+    CREATE INDEX IF NOT EXISTS reports_account_date_idx
+      ON reports(account_key, date_end DESC);
+
+    CREATE INDEX IF NOT EXISTS reports_domain_date_idx
+      ON reports(domain, date_end DESC);
+
     CREATE TABLE IF NOT EXISTS report_records (
       account_key TEXT NOT NULL,
       report_id TEXT NOT NULL,
@@ -205,6 +211,9 @@ function openDb(): DatabaseSync {
       PRIMARY KEY (account_key, id)
     );
 
+    CREATE INDEX IF NOT EXISTS forensic_account_date_idx
+      ON forensic_reports(account_key, arrival_date DESC);
+
     CREATE TABLE IF NOT EXISTS tlsrpt_reports (
       account_key TEXT NOT NULL,
       id TEXT NOT NULL,
@@ -217,6 +226,9 @@ function openDb(): DatabaseSync {
       report_json TEXT NOT NULL,
       PRIMARY KEY (account_key, id)
     );
+
+    CREATE INDEX IF NOT EXISTS tlsrpt_account_date_idx
+      ON tlsrpt_reports(account_key, date_end DESC);
 
     CREATE TABLE IF NOT EXISTS ip_enrichment (
       ip TEXT PRIMARY KEY,
@@ -566,6 +578,21 @@ function migrateSchema(database: DatabaseSync): void {
     version = 15
     setSchemaVersion(database, version)
   }
+  // v16: composite indexes on reports, forensic_reports, and tlsrpt_reports for fast date/domain queries.
+  if (version < 16) {
+    database.exec(`
+      CREATE INDEX IF NOT EXISTS reports_account_date_idx
+        ON reports(account_key, date_end DESC);
+      CREATE INDEX IF NOT EXISTS reports_domain_date_idx
+        ON reports(domain, date_end DESC);
+      CREATE INDEX IF NOT EXISTS forensic_account_date_idx
+        ON forensic_reports(account_key, arrival_date DESC);
+      CREATE INDEX IF NOT EXISTS tlsrpt_account_date_idx
+        ON tlsrpt_reports(account_key, date_end DESC);
+    `)
+    version = 16
+    setSchemaVersion(database, version)
+  }
 }
 
 /** One-time import of legacy per-account `*.json` cache files. */
@@ -662,6 +689,16 @@ function emptyMeta(accountKey: string): CacheMeta {
   }
 }
 
+function parseJsonArray<T>(raw: string | null | undefined): T[] {
+  if (!raw || raw === '[]') return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as T[]) : []
+  } catch {
+    return []
+  }
+}
+
 function recordFromRow(rec: {
   source_ip: string
   count: number
@@ -678,7 +715,7 @@ function recordFromRow(rec: {
   selectors_json: string
   pass_selectors_json: string | null
 }): SerializedRecord {
-  return normalizeRecord({
+  return {
     sourceIp: rec.source_ip,
     count: rec.count,
     disposition: rec.disposition,
@@ -690,12 +727,12 @@ function recordFromRow(rec: {
     dkimRawResult: rec.dkim_raw_result,
     spfRawResult: rec.spf_raw_result,
     passesDmarc: Boolean(rec.passes_dmarc),
-    reasons: JSON.parse(rec.reasons_json || '[]'),
-    dkimSelectors: JSON.parse(rec.selectors_json || '[]'),
+    reasons: parseJsonArray(rec.reasons_json),
+    dkimSelectors: parseJsonArray(rec.selectors_json),
     ...(rec.pass_selectors_json != null
-      ? { dkimPassSelectors: JSON.parse(rec.pass_selectors_json) as string[] }
+      ? { dkimPassSelectors: parseJsonArray<string>(rec.pass_selectors_json) }
       : {})
-  })
+  }
 }
 
 function loadReports(database: DatabaseSync, accountKey: string): ReportRow[] {
@@ -1534,65 +1571,45 @@ export function pruneExpiredReports(
   if (!Number.isFinite(days) || days <= 0) {
     return { deletedReports: 0, deletedForensic: 0, deletedTlsRpt: 0 }
   }
-  const cutoffMs = nowMs - days * 86_400_000
+  const cutoffSec = (nowMs - days * 86_400_000) / 1000
   const database = openDb()
 
-  const reportRows = database
-    .prepare('SELECT account_key, report_id, date_begin, date_end FROM reports')
-    .all() as Array<{
-    account_key: string
-    report_id: string
-    date_begin: string
-    date_end: string
-  }>
-  const expiredReports = reportRows.filter((r) => {
-    const ts = new Date(r.date_end || r.date_begin).getTime()
-    return Number.isFinite(ts) && ts < cutoffMs
-  })
-
-  const forensicRows = database
-    .prepare('SELECT account_key, id, arrival_date FROM forensic_reports')
-    .all() as Array<{ account_key: string; id: string; arrival_date: string | null }>
-  const expiredForensic = forensicRows.filter((f) => {
-    if (!f.arrival_date) return false
-    const ts = new Date(f.arrival_date).getTime()
-    return Number.isFinite(ts) && ts < cutoffMs
-  })
-
-  const tlsRptRows = database
-    .prepare('SELECT account_key, id, date_begin, date_end FROM tlsrpt_reports')
-    .all() as Array<{ account_key: string; id: string; date_begin: string; date_end: string }>
-  const expiredTlsRpt = tlsRptRows.filter((t) => {
-    const ts = new Date(t.date_end || t.date_begin).getTime()
-    return Number.isFinite(ts) && ts < cutoffMs
-  })
-
-  if (expiredReports.length === 0 && expiredForensic.length === 0 && expiredTlsRpt.length === 0) {
-    return { deletedReports: 0, deletedForensic: 0, deletedTlsRpt: 0 }
-  }
-
-  const delReport = database.prepare('DELETE FROM reports WHERE account_key = ? AND report_id = ?')
-  const delForensic = database.prepare(
-    'DELETE FROM forensic_reports WHERE account_key = ? AND id = ?'
-  )
-  const delTlsRpt = database.prepare('DELETE FROM tlsrpt_reports WHERE account_key = ? AND id = ?')
+  let deletedReports = 0
+  let deletedForensic = 0
+  let deletedTlsRpt = 0
 
   withTransaction(database, () => {
-    for (const r of expiredReports) {
-      delReport.run(r.account_key, r.report_id)
-    }
-    for (const f of expiredForensic) {
-      delForensic.run(f.account_key, f.id)
-    }
-    for (const t of expiredTlsRpt) {
-      delTlsRpt.run(t.account_key, t.id)
-    }
+    const repRes = database
+      .prepare(
+        `DELETE FROM reports
+         WHERE unixepoch(COALESCE(NULLIF(date_end, ''), NULLIF(date_begin, '')), 'subsec') < ?`
+      )
+      .run(cutoffSec)
+    deletedReports = Number(repRes.changes ?? 0)
+
+    const forRes = database
+      .prepare(
+        `DELETE FROM forensic_reports
+         WHERE arrival_date IS NOT NULL
+           AND arrival_date <> ''
+           AND unixepoch(arrival_date, 'subsec') < ?`
+      )
+      .run(cutoffSec)
+    deletedForensic = Number(forRes.changes ?? 0)
+
+    const tlsRes = database
+      .prepare(
+        `DELETE FROM tlsrpt_reports
+         WHERE unixepoch(COALESCE(NULLIF(date_end, ''), NULLIF(date_begin, '')), 'subsec') < ?`
+      )
+      .run(cutoffSec)
+    deletedTlsRpt = Number(tlsRes.changes ?? 0)
   })
 
   return {
-    deletedReports: expiredReports.length,
-    deletedForensic: expiredForensic.length,
-    deletedTlsRpt: expiredTlsRpt.length
+    deletedReports,
+    deletedForensic,
+    deletedTlsRpt
   }
 }
 

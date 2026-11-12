@@ -40,6 +40,7 @@ import { refreshDomainHealth } from './view'
 import {
   bindWizardCopyButtons,
   createInflightDeduper,
+  registerDomainToolAction,
   suggestInitialWizardDomain,
   syncWizardStepDom,
   wizardCopyButtonHtml
@@ -266,9 +267,9 @@ function requestDnsTemplate(): Promise<void> {
   return templateDeduper.run(key, loadDnsTemplate)
 }
 
-export function openBimiBuilder(): void {
+export function openBimiBuilder(initialDomain?: string): void {
   fillForm({ ...DEFAULT_BIMI_BUILDER_INPUT })
-  const domain = suggestInitialWizardDomain()
+  const domain = suggestInitialWizardDomain(initialDomain)
   if (domain) bimiBuilderDomainEl.value = domain
   liveDnsValue = null
   appliedKey = ''
@@ -290,6 +291,7 @@ export function refreshBimiBuilderLocale(): void {
 }
 
 export function initBimiWizardUi(): void {
+  registerDomainToolAction('bimi', (domain) => openBimiBuilder(domain))
   btnBimiBuilder.addEventListener('click', () => openBimiBuilder())
   btnCloseBimiBuilder.addEventListener('click', () => bimiBuilderDialog.close())
 
