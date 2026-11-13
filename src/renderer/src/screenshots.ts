@@ -233,31 +233,51 @@ export function installScreenshotApi(): void {
           asn: 64496
         })
       }
+      const seedDemoDomainHealth = (): void => {
+        state.domainHealthCache = [
+          {
+            domain: 'contoso.example',
+            total: 42,
+            passing: 40,
+            failing: 2,
+            passRate: 95.2,
+            dkimSelectors: ['selector1'],
+            dkimVerifiedSelectors: ['selector1'],
+            dmarcPolicy: 'none',
+            spfOk: true,
+            dkimOk: true,
+            dkimMissingSelectors: [],
+            status: 'warn',
+            reasons: ['health.reason.policyNone', 'health.reason.passRateWarn']
+          },
+          {
+            domain: 'example.com',
+            total: 100,
+            passing: 98,
+            failing: 2,
+            passRate: 98,
+            dkimSelectors: ['selector1'],
+            dkimVerifiedSelectors: ['selector1'],
+            dmarcPolicy: 'reject',
+            spfOk: true,
+            dkimOk: true,
+            dkimMissingSelectors: [],
+            status: 'ok',
+            reasons: ['health.reason.ok']
+          }
+        ]
+        renderDomainAmpel(state.domainHealthCache)
+      }
       seedDemoIps()
-      state.domainHealthCache = [
-        {
-          domain: 'example.com',
-          total: 100,
-          passing: 98,
-          failing: 2,
-          passRate: 98,
-          dkimSelectors: ['selector1'],
-          dkimVerifiedSelectors: ['selector1'],
-          dmarcPolicy: 'reject',
-          spfOk: true,
-          dkimOk: true,
-          dkimMissingSelectors: [],
-          status: 'ok',
-          reasons: ['health.reason.ok']
-        }
-      ]
-      renderDomainAmpel(state.domainHealthCache)
+      seedDemoDomainHealth()
       applyView()
       settingsDialog.close()
-      // Async IP enrichment can overwrite demo coords — re-seed afterwards.
+      // Async IP enrichment / DNS batch can overwrite demo state — re-seed afterwards.
       await new Promise((r) => setTimeout(r, 900))
       seedDemoIps()
+      seedDemoDomainHealth()
       applyView()
+      renderDomainAmpel(state.domainHealthCache)
       await new Promise((r) => setTimeout(r, 50))
     },
     openSettingsDemo(): void {
