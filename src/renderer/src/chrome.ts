@@ -137,12 +137,13 @@ export function applyUpdateStatus(payload: UpdateStatusPayload): void {
         : t('update.none')
       break
     case 'error':
+      updateCheckStatusEl.textContent = payload.message
+      if (payload.silent) break
       updateBannerText.textContent = t('update.error', { message: payload.message })
       updateBanner.classList.remove('hidden', 'ready')
       updateBanner.classList.add('error')
       btnUpdateDownload.classList.add('hidden')
       btnUpdateInstall.classList.add('hidden')
-      updateCheckStatusEl.textContent = payload.message
       break
   }
 }

@@ -1306,6 +1306,8 @@ export const en = {
   'updater.started': 'Update check started.',
   'updater.verifyFailed': 'Update rejected — signature check failed: {reason}',
   'updater.notVerified': 'Update is not verified and will not be installed.',
+  'updater.networkError':
+    'Update server not reachable ({code}). Please check your network connection and try again later.',
 
   'builder.title': 'Generate DMARC record',
   'builder.close': 'Close',

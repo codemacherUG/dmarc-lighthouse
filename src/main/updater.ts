@@ -4,6 +4,7 @@ import electronUpdater, { type ProgressInfo, type UpdateDownloadedEvent } from '
 import type { UpdateStatusPayload } from '../shared/types'
 import { t } from '../shared/i18n'
 import { verifyDownloadedUpdate } from './update-manifest'
+import { describeUpdateError } from './update-error'
 
 // CommonJS interop — see electron-builder#7976
 const { autoUpdater } = electronUpdater
@@ -14,10 +15,47 @@ let started = false
 let verifiedUpdate: { version: string } | null = null
 /** Prevents overlapping downloadUpdate() calls after the user confirms. */
 let downloadInProgress = false
+/** True while the automatic startup check runs: connectivity errors stay out of the banner. */
+let backgroundCheck = false
+
+/** Delays before the automatic check is repeated after a connectivity error. */
+const BACKGROUND_RETRY_DELAYS_MS = [30_000, 120_000, 600_000]
 
 function send(payload: UpdateStatusPayload): void {
   const win = getMainWindow?.()
   win?.webContents.send('update:status', payload)
+}
+
+/** Readable message without the stack trace / feed dump electron-updater puts into `message`. */
+function errorMessage(err: unknown): string {
+  const info = describeUpdateError(err)
+  return info.transient
+    ? t('updater.networkError', { code: info.code ?? info.detail })
+    : info.detail
+}
+
+function sendError(err: unknown): void {
+  const info = describeUpdateError(err)
+  const message = errorMessage(err)
+  // Offline / network just changed during the automatic check: no red banner, only the status line.
+  send({ status: 'error', message, ...(backgroundCheck && info.transient ? { silent: true } : {}) })
+}
+
+/** Automatic check after startup; retries quietly while the network is not usable yet. */
+function runBackgroundCheck(attempt = 0): void {
+  backgroundCheck = true
+  void autoUpdater
+    .checkForUpdates()
+    .catch((err: unknown) => {
+      // The 'error' event has already reported it (emitted before the promise rejects).
+      const delay = BACKGROUND_RETRY_DELAYS_MS[attempt]
+      if (describeUpdateError(err).transient && delay != null) {
+        setTimeout(() => runBackgroundCheck(attempt + 1), delay)
+      }
+    })
+    .finally(() => {
+      backgroundCheck = false
+    })
 }
 
 function versionOf(info: { version?: string } | null | undefined): string {
@@ -49,6 +87,7 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
       send({ status: 'not-available', version: '' })
       return { ok: false, message: t('updater.devDisabled') }
     }
+    backgroundCheck = false
     try {
       const result = await autoUpdater.checkForUpdates()
       return {
@@ -58,9 +97,8 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
           : t('updater.started')
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      send({ status: 'error', message })
-      return { ok: false, message }
+      sendError(err)
+      return { ok: false, message: errorMessage(err) }
     }
   })
 
@@ -73,9 +111,8 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
       return { ok: true, message: t('updater.downloadStarted') }
     } catch (err) {
       downloadInProgress = false
-      const message = err instanceof Error ? err.message : String(err)
-      send({ status: 'error', message })
-      return { ok: false, message }
+      sendError(err)
+      return { ok: false, message: errorMessage(err) }
     }
   })
 
@@ -140,14 +177,9 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
     verifiedUpdate = null
     downloadInProgress = false
     autoUpdater.autoInstallOnAppQuit = false
-    send({ status: 'error', message: err?.message || String(err) })
+    sendError(err)
   })
 
   // Kurze Verzögerung, damit das Fenster erst laden kann
-  setTimeout(() => {
-    void autoUpdater.checkForUpdates().catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err)
-      send({ status: 'error', message })
-    })
-  }, 4_000)
+  setTimeout(() => runBackgroundCheck(), 4_000)
 }

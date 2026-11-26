@@ -1313,6 +1313,8 @@ export const de = {
   'updater.started': 'Update-Prüfung gestartet.',
   'updater.verifyFailed': 'Update abgelehnt — Signaturprüfung fehlgeschlagen: {reason}',
   'updater.notVerified': 'Update ist nicht verifiziert und wird nicht installiert.',
+  'updater.networkError':
+    'Update-Server nicht erreichbar ({code}). Bitte Netzwerkverbindung prüfen und später erneut versuchen.',
 
   'builder.title': 'DMARC-Record erzeugen',
   'builder.close': 'Schließen',

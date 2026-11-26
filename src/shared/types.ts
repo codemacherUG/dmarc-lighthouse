@@ -42,7 +42,8 @@ export type UpdateStatusPayload =
   | { status: 'downloading'; percent: number; transferred: number; total: number }
   | { status: 'verifying'; version: string }
   | { status: 'downloaded'; version: string }
-  | { status: 'error'; message: string }
+  /** `silent`: transient connectivity problem during the automatic check — status line only, no banner. */
+  | { status: 'error'; message: string; silent?: boolean }
 
 export interface ProviderDefaults {
   host: string
